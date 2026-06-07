@@ -1,12 +1,12 @@
 # How to start the build (orchestrator)
 
-The "orchestra" is a Claude Code chat opened **inside this folder** (`glavnoe`).
+The "orchestra" is a Claude Code chat opened **inside this folder** (`kaizen`).
 Start a new chat and paste the prompt below.
 
 ## Starter prompt — copy/paste
 
 ```
-Ты — оркестратор проекта GLAVNOE. Прочитай CLAUDE.md и AGENTS.md.
+Ты — оркестратор проекта Kaizen. Прочитай CLAUDE.md и AGENTS.md.
 Работаем по MVP build order из AGENTS.md. Начни с шага 1 (backend:
 setup + Prisma schema + миграции). Для изолированных частей запускай
 именованных субагентов: backend, flutter, ai, qa, landing. Двум агентам

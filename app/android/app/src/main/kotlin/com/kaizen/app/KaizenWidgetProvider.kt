@@ -1,4 +1,4 @@
-package com.glavnoe.app
+package com.kaizen.app
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -8,27 +8,27 @@ import android.os.Build
 import android.widget.RemoteViews
 
 /**
- * Домашний виджет GLAVNOE.
+ * Домашний виджет Kaizen.
  *
  * Чистый AppWidgetProvider без сторонних плагинов. Данные пишет нативный
- * MainActivity (по MethodChannel из Flutter) в SharedPreferences "glavnoe_widget";
+ * MainActivity (по MethodChannel из Flutter) в SharedPreferences "kaizen_widget";
  * здесь только читаем и отрисовываем. Тап по виджету открывает приложение.
  */
-class GlavnoeWidgetProvider : AppWidgetProvider() {
+class KaizenWidgetProvider : AppWidgetProvider() {
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
         appWidgetIds: IntArray
     ) {
         val prefs = context.getSharedPreferences(
-            "glavnoe_widget",
+            "kaizen_widget",
             Context.MODE_PRIVATE
         )
         val progress = prefs.getString("main_progress", "No main tasks today")
         val streak = prefs.getString("streak", "0")
 
         for (widgetId in appWidgetIds) {
-            val views = RemoteViews(context.packageName, R.layout.glavnoe_widget)
+            val views = RemoteViews(context.packageName, R.layout.kaizen_widget)
             views.setTextViewText(R.id.widget_progress, progress)
             views.setTextViewText(R.id.widget_streak, "🔥 $streak")
 

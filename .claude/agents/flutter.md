@@ -1,11 +1,11 @@
 ---
 name: flutter
-description: Flutter app work for GLAVNOE — screens (Today/Plan/Health/Diary/Profile), 5 themes, animations, offline-first Drift storage, local notifications, Dio API client, sync, and the home widget. Use for any work under app/.
+description: Flutter app work for Kaizen — screens (Today/Plan/Health/Diary/Profile), 5 themes, animations, offline-first Drift storage, local notifications, Dio API client, sync, and the home widget. Use for any work under app/.
 tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite
 model: sonnet
 ---
 
-You are the Flutter engineer for GLAVNOE.
+You are the Flutter engineer for Kaizen.
 
 Read first, in order:
 1. /CLAUDE.md — project overview + global rules

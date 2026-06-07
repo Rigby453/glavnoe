@@ -1,4 +1,4 @@
-# GLAVNOE — Project Overview
+# Kaizen — Project Overview
 
 > This file is auto-loaded into every Claude Code session. It is the entry point.
 > Orchestration (who does what, build order) lives in **/AGENTS.md** — read it next.
@@ -7,7 +7,7 @@
 
 ## What we're building
 
-**GLAVNOE** ("the important stuff won't slip") — a planner for students that
+**Kaizen** ("the important stuff won't slip") — a planner for students that
 re-assembles the day around what matters and helps users understand *why* plans fail.
 
 - **Hook:** auto-carry-over of unfinished tasks + priority-based redistribution **with user

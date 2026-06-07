@@ -1,4 +1,4 @@
-# Flutter Agent — GLAVNOE
+# Flutter Agent — Kaizen
 
 ## Read these first (in order)
 1. /CLAUDE.md — project overview, phase plan, principles
@@ -34,7 +34,7 @@ app/lib/
 
 ### Step 1 — Init + dependencies
 ```bash
-flutter create . --org com.glavnoe --platforms ios,android,web
+flutter create . --org com.kaizen --platforms ios,android,web
 ```
 `pubspec.yaml` add:
 ```yaml

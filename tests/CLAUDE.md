@@ -1,4 +1,4 @@
-# QA Agent — GLAVNOE
+# QA Agent — Kaizen
 
 ## Read these first
 1. /CLAUDE.md — architecture, offline-first principle

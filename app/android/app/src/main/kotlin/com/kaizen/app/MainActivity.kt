@@ -1,4 +1,4 @@
-package com.glavnoe.app
+package com.kaizen.app
 
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
@@ -8,8 +8,8 @@ import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodChannel
 
 class MainActivity : FlutterActivity() {
-    private val channelName = "glavnoe/widget"
-    private val prefsName = "glavnoe_widget"
+    private val channelName = "kaizen/widget"
+    private val prefsName = "kaizen_widget"
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
@@ -38,9 +38,9 @@ class MainActivity : FlutterActivity() {
 
         val manager = AppWidgetManager.getInstance(this)
         val ids = manager.getAppWidgetIds(
-            ComponentName(this, GlavnoeWidgetProvider::class.java)
+            ComponentName(this, KaizenWidgetProvider::class.java)
         )
-        val intent = Intent(this, GlavnoeWidgetProvider::class.java).apply {
+        val intent = Intent(this, KaizenWidgetProvider::class.java).apply {
             action = AppWidgetManager.ACTION_APPWIDGET_UPDATE
             putExtra(AppWidgetManager.EXTRA_APPWIDGET_IDS, ids)
         }

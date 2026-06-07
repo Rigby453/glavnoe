@@ -9,7 +9,7 @@
 
 ### FL-SETUP-01: Create project + add dependencies
 ```bash
-flutter create . --org com.glavnoe --platforms ios,android,web
+flutter create . --org com.kaizen --platforms ios,android,web
 ```
 Update `pubspec.yaml` — add under `dependencies`:
 ```yaml

@@ -1,16 +1,16 @@
 openapi: 3.0.3
 info:
-  title: GLAVNOE API
+  title: Kaizen API
   version: 0.1.0
   description: >
-    REST API for GLAVNOE. Single source of truth for endpoints and schemas.
+    REST API for Kaizen. Single source of truth for endpoints and schemas.
     Payloads use snake_case. All protected routes require a Bearer JWT.
     MVP scope = auth, items, streaks, sync, rule-based redistribute.
     AI endpoints are Phase 1 (premium) and are tagged accordingly.
 servers:
   - url: http://localhost:3000
     description: Local dev
-  - url: https://api.glavnoe.com
+  - url: https://api.kaizen.com
     description: Production (placeholder)
 
 tags:

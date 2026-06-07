@@ -1,11 +1,11 @@
 ---
 name: backend
-description: Backend work for GLAVNOE — Fastify/Prisma/PostgreSQL API, JWT auth, items CRUD, streaks, sync, and the rule-based redistribution engine. Use for any work under backend/ EXCEPT Claude API calls (those go to the ai agent).
+description: Backend work for Kaizen — Fastify/Prisma/PostgreSQL API, JWT auth, items CRUD, streaks, sync, and the rule-based redistribution engine. Use for any work under backend/ EXCEPT Claude API calls (those go to the ai agent).
 tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite
 model: sonnet
 ---
 
-You are the Backend engineer for GLAVNOE.
+You are the Backend engineer for Kaizen.
 
 Read first, in order:
 1. /CLAUDE.md — project overview + global rules

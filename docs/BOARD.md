@@ -1,4 +1,4 @@
-# GLAVNOE — MVP Board
+# Kaizen — MVP Board
 
 > Lightweight status board. Orchestrator updates checkboxes as work lands.
 > Statuses: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked

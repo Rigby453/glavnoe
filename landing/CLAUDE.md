@@ -1,4 +1,4 @@
-# Landing Agent — GLAVNOE
+# Landing Agent — Kaizen
 
 ## Read these first
 1. /CLAUDE.md — project overview, pricing, tone
@@ -34,7 +34,7 @@ Body font:    Hanken Grotesk (Google Fonts CDN)
 - Phone mockup image or simple screenshot placeholder
 
 ### 2. Problem / Solution (3 cards)
-| Pain | GLAVNOE fix |
+| Pain | Kaizen fix |
 |------|-------------|
 | You plan the day. One thing breaks it. Nothing gets done. | Morning review auto-reschedules around your priorities. |
 | You forget what actually matters vs. what just feels urgent. | Up to 3 "Main" tasks — protected, always first. |
@@ -58,7 +58,7 @@ CTA: **[Start Free]** + **[Go Premium]**
 ### 5. Footer
 - Logo + tagline
 - Links: App Store · Play Store · Web App · Privacy · Terms
-- Email: hello@glavnoe.com (placeholder)
+- Email: hello@kaizen.com (placeholder)
 
 ---
 
@@ -68,11 +68,11 @@ CTA: **[Start Free]** + **[Go Premium]**
 function getDownloadUrl() {
   const ua = navigator.userAgent;
   if (/iPad|iPhone|iPod/.test(ua)) {
-    return 'https://apps.apple.com/app/glavnoe';     // placeholder
+    return 'https://apps.apple.com/app/kaizen';     // placeholder
   } else if (/Android/.test(ua)) {
-    return 'https://play.google.com/store/apps/glavnoe'; // placeholder
+    return 'https://play.google.com/store/apps/kaizen'; // placeholder
   } else {
-    return 'https://app.glavnoe.com';                  // placeholder
+    return 'https://app.kaizen.com';                  // placeholder
   }
 }
 ```

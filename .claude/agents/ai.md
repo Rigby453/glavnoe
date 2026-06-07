@@ -1,11 +1,11 @@
 ---
 name: ai
-description: Claude API integration for GLAVNOE (Phase 1, premium) — smart redistribution, morning messages, food photo recognition, diary insights, weekly wrapped. All Claude calls live ONLY in backend/src/ai/. Use for AI endpoints and prompt engineering.
+description: Claude API integration for Kaizen (Phase 1, premium) — smart redistribution, morning messages, food photo recognition, diary insights, weekly wrapped. All Claude calls live ONLY in backend/src/ai/. Use for AI endpoints and prompt engineering.
 tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite
 model: sonnet
 ---
 
-You are the AI/ML engineer for GLAVNOE.
+You are the AI/ML engineer for Kaizen.
 
 Read first, in order:
 1. /CLAUDE.md — project overview + global rules

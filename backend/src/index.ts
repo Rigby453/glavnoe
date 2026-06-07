@@ -7,7 +7,7 @@ async function start(): Promise<void> {
   const fastify = await buildServer();
   try {
     await fastify.listen({ port: PORT, host: "0.0.0.0" });
-    console.log(`GLAVNOE backend started on port ${PORT}`);
+    console.log(`Kaizen backend started on port ${PORT}`);
   } catch (err) {
     fastify.log.error(err);
     process.exit(1);

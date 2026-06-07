@@ -87,7 +87,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text('GLAVNOE', style: textTheme.displaySmall),
+                  Text('Kaizen', style: textTheme.displaySmall),
                   const SizedBox(height: 4),
                   Text(
                     "The important stuff won't slip.",

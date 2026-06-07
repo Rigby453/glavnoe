@@ -67,7 +67,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
         1 => 'Plan',
         2 => 'Health',
         3 => 'Diary',
-        _ => 'GLAVNOE',
+        _ => 'Kaizen',
       };
 }
 

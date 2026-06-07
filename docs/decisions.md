@@ -1,4 +1,4 @@
-# Architecture Decision Records — GLAVNOE
+# Architecture Decision Records — Kaizen
 
 > Append here whenever you make a significant architectural choice.
 > Format: ## ADR-NNN: Title | Date | Decision | Reason

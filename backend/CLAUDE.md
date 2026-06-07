@@ -1,4 +1,4 @@
-# Backend Agent — GLAVNOE
+# Backend Agent — Kaizen
 
 ## Read these first (in order)
 1. /CLAUDE.md — project overview, principles, phase plan

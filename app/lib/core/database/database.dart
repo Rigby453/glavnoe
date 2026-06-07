@@ -1,4 +1,4 @@
-// Drift-схема базы данных GLAVNOE
+// Drift-схема базы данных Kaizen
 // Офлайн-первый подход: все данные сначала пишутся сюда, синхронизация вторична
 // Версия схемы: 1
 // Источник правды по колонкам: /docs/data-model.md
@@ -158,6 +158,6 @@ class AppDatabase extends _$AppDatabase {
 /// Работает на всех платформах: iOS, Android, Web (IndexedDB)
 LazyDatabase _openConnection() {
   return LazyDatabase(() async {
-    return driftDatabase(name: 'glavnoe');
+    return driftDatabase(name: 'kaizen');
   });
 }

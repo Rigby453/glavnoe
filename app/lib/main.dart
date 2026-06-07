@@ -1,4 +1,4 @@
-// Точка входа приложения GLAVNOE
+// Точка входа приложения Kaizen
 // ProviderScope + MaterialApp.router с темой Focus (по умолчанию)
 // AppLifecycleListener запускает syncNow() при возврате приложения на передний план.
 
@@ -26,21 +26,21 @@ Future<void> main() async {
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
       ],
-      child: const GlavnoeApp(),
+      child: const KaizenApp(),
     ),
   );
 }
 
 /// Корневой виджет приложения.
 /// ConsumerStatefulWidget необходим для AppLifecycleListener (требует dispose).
-class GlavnoeApp extends ConsumerStatefulWidget {
-  const GlavnoeApp({super.key});
+class KaizenApp extends ConsumerStatefulWidget {
+  const KaizenApp({super.key});
 
   @override
-  ConsumerState<GlavnoeApp> createState() => _GlavnoeAppState();
+  ConsumerState<KaizenApp> createState() => _KaizenAppState();
 }
 
-class _GlavnoeAppState extends ConsumerState<GlavnoeApp> {
+class _KaizenAppState extends ConsumerState<KaizenApp> {
   late final AppLifecycleListener _lifecycleListener;
 
   @override
@@ -74,7 +74,7 @@ class _GlavnoeAppState extends ConsumerState<GlavnoeApp> {
         ref.watch(themeNotifierProvider) == AppThemeKey.contrast;
 
     return MaterialApp.router(
-      title: 'GLAVNOE',
+      title: 'Kaizen',
       debugShowCheckedModeBanner: false,
       theme: theme,
       routerConfig: router,

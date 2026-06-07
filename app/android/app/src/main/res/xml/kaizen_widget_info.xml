@@ -5,7 +5,7 @@
     android:targetCellWidth="3"
     android:targetCellHeight="2"
     android:updatePeriodMillis="0"
-    android:initialLayout="@layout/glavnoe_widget"
-    android:previewLayout="@layout/glavnoe_widget"
+    android:initialLayout="@layout/kaizen_widget"
+    android:previewLayout="@layout/kaizen_widget"
     android:resizeMode="horizontal|vertical"
     android:widgetCategory="home_screen" />

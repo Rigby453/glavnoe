@@ -1,7 +1,7 @@
 {
   "name": "backend",
   "version": "1.0.0",
-  "description": "GLAVNOE backend — Fastify + Prisma + PostgreSQL",
+  "description": "Kaizen backend — Fastify + Prisma + PostgreSQL",
   "main": "dist/index.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/index.ts",

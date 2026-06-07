@@ -1,4 +1,4 @@
-# GLAVNOE — Agent Orchestration
+# Kaizen — Agent Orchestration
 
 ## What you are
 You are the **orchestrator**. Read this file + /CLAUDE.md before every session.

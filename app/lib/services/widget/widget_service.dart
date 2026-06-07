@@ -9,7 +9,7 @@ import 'package:flutter/services.dart';
 import '../../core/database/daos/items_dao.dart';
 import '../../core/database/daos/streak_dao.dart';
 
-const _channel = MethodChannel('glavnoe/widget');
+const _channel = MethodChannel('kaizen/widget');
 
 /// Считывает прогресс по main-задачам на сегодня и серию, пишет их в виджет.
 /// Только Android; на web/desktop/iOS — no-op.

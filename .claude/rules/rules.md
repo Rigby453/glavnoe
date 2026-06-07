@@ -1,4 +1,4 @@
-# Claude Code Rules — GLAVNOE
+# Claude Code Rules — Kaizen
 
 ## Always read first
 Before starting any task:

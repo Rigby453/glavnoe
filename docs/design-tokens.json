@@ -1,5 +1,5 @@
 {
-  "$schema-note": "Design tokens for GLAVNOE. Single source of truth for colours, fonts, spacing and animation. Flutter and the landing page must read from here. Exact colours for themes 1-4 come from SPEC.md B2; values marked \"_placeholder\": true are reasonable defaults pending design sign-off (notably ember/semantic colours for calm/white and the whole contrast palette).",
+  "$schema-note": "Design tokens for Kaizen. Single source of truth for colours, fonts, spacing and animation. Flutter and the landing page must read from here. Exact colours for themes 1-4 come from SPEC.md B2; values marked \"_placeholder\": true are reasonable defaults pending design sign-off (notably ember/semantic colours for calm/white and the whole contrast palette).",
   "version": 1,
   "animation": {
     "fast_ms": 120,

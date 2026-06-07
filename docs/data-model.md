@@ -1,4 +1,4 @@
-﻿# GLAVNOE — Data Model
+﻿# Kaizen — Data Model
 
 ## Users
 | Column            | Type     | Notes                                   |
