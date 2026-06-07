@@ -8,6 +8,7 @@ import 'database.dart';
 import 'daos/items_dao.dart';
 import 'daos/streak_dao.dart';
 import 'daos/day_logs_dao.dart';
+import 'daos/water_dao.dart';
 
 /// Единственный экземпляр базы данных
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -33,4 +34,10 @@ final streakDaoProvider = Provider<StreakDao>((ref) {
 final dayLogsDaoProvider = Provider<DayLogsDao>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return DayLogsDao(db);
+});
+
+/// DAO для трекера воды (раздел Health)
+final waterDaoProvider = Provider<WaterDao>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return WaterDao(db);
 });
