@@ -49,7 +49,8 @@
 
 ## AI — Phase 1 (paid; see docs/agents/ai-tasks.md)
 - [x] AI-06 Schedule import from photo (premium): /api/v1/ai/schedule-import + Claude Haiku multimodal in src/ai/ + premium gate + Flutter photo button. Tests mock ai/ (4/4). Live run needs real ANTHROPIC_API_KEY + a premium user.
-- [ ] AI-01 Smart redistribute · AI-02 morning message · AI-03 food photo · AI-04 diary insight · AI-05 weekly wrapped
+- [x] AI-01 smart redistribute (/ai/redistribute, Sonnet, 2-3 plan variants) · AI-02 morning message (/ai/morning-message, Haiku, tone-aware) · AI-04 diary insight (/ai/diary-insight, Sonnet) — premium-gated, src/ai/, tests mock ai/ (41/41). Live run needs ANTHROPIC_API_KEY + premium user.
+- [ ] AI-03 food photo (needs food DB) · AI-05 weekly wrapped
 
 ## MVP Definition of Done
 A free, no-AI app you use daily: accounts + sync, Today/Plan/Diary, rule-based review
