@@ -11,6 +11,7 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/database_providers.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
+import 'diary_insight.dart';
 
 /// Метки тегов "What went wrong?" — ключ (хранится) → подпись (показывается)
 const Map<String, String> _issueLabels = {
@@ -89,6 +90,9 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
       mood: _mood,
       note: combined.isEmpty ? null : combined,
     );
+
+    // Пересчитать бесплатный инсайт с учётом только что сохранённого дня.
+    ref.invalidate(weeklyDiaryInsightProvider);
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -256,7 +260,50 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
               onPressed: () => context.push('/wrapped'),
             ),
           ),
+          const SizedBox(height: 24),
+          const _QuickInsightCard(),
         ],
+      ),
+    );
+  }
+}
+
+/// Бесплатный (rule-based) инсайт за неделю — считается локально из Drift.
+/// Премиум-AI-инсайт глубже и живёт в отдельной кнопке выше.
+class _QuickInsightCard extends ConsumerWidget {
+  const _QuickInsightCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(weeklyDiaryInsightProvider);
+    final insight = async.valueOrNull;
+    if (insight == null || insight.isEmpty) return const SizedBox.shrink();
+
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.insights, color: colorScheme.primary, size: 18),
+                const SizedBox(width: 8),
+                Text('This week', style: textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 8),
+            ...insight.lines.map(
+              (line) => Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: Text('• $line', style: textTheme.bodyMedium),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

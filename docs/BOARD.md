@@ -26,7 +26,7 @@
 - [x] FL-DB-01..02 Drift schema + DAOs
 - [x] FL-TODAY-01..05 Today screen (ring, streak, list, add sheet)
 - [x] FL-PLAN-01..02 Week strip + day timeline
-- [x] FL-DIARY-01 Diary form + morning review carry-over card
+- [x] FL-DIARY-01 Diary form + morning review carry-over card + free rule-based weekly insight (local: % main closed, streak, top blocker, avg mood)
 - [x] FL-API-01 / FL-SYNC-01 Dio client + sync service
 - [x] Auth screen (login/register + offline mode) + router redirect + live sync on login
 - [x] Themes Black + White (+ theme picker in Profile); Focus default. calm/contrast = stubs
