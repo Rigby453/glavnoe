@@ -510,6 +510,15 @@ components:
         last_completed_date: { type: string, format: date, nullable: true }
         freeze_count: { type: integer }
 
+    WaterLog:
+      type: object
+      description: A single water intake event (append-only).
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        amount_ml: { type: integer }
+        logged_at: { type: string, format: date-time }
+
     SyncRequest:
       type: object
       required: [items, last_sync_at]
@@ -517,6 +526,10 @@ components:
         items:
           type: array
           items: { $ref: '#/components/schemas/Item' }
+        water_logs:
+          type: array
+          description: Optional. Water intake events created since last_sync_at.
+          items: { $ref: '#/components/schemas/WaterLog' }
         last_sync_at: { type: string, format: date-time }
 
     SyncResponse:
@@ -525,6 +538,10 @@ components:
         updated_items:
           type: array
           items: { $ref: '#/components/schemas/Item' }
+        updated_water_logs:
+          type: array
+          description: Water logs changed on the server since last_sync_at.
+          items: { $ref: '#/components/schemas/WaterLog' }
 
     RedistributeResponse:
       type: object

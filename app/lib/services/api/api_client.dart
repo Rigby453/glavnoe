@@ -262,16 +262,21 @@ class ApiClient {
   // ---------------------------------------------------------------------------
 
   /// Дельта-синхронизация: отправляем изменённые записи, получаем обновления сервера.
-  /// [items] — список задач в snake_case формате.
+  /// [items] — задачи в snake_case; [waterLogs] — записи воды (append-only).
   /// [lastSyncAt] — ISO 8601 метка последней синхронизации.
   Future<Map<String, dynamic>> sync(
     List<Map<String, dynamic>> items,
+    List<Map<String, dynamic>> waterLogs,
     String lastSyncAt,
   ) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/sync',
-        data: {'items': items, 'last_sync_at': lastSyncAt},
+        data: {
+          'items': items,
+          'water_logs': waterLogs,
+          'last_sync_at': lastSyncAt,
+        },
       );
       return response.data!;
     } on DioException catch (e) {

@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import prisma from "../models/prisma.js";
 import { serializeItem } from "../models/item.js";
+import { serializeWaterLog } from "../models/waterLog.js";
 import { requireAuth } from "./middleware/auth.js";
 import { checkAndUpdateStreak } from "../engine/streaks.js";
 
@@ -24,9 +25,19 @@ const syncItemSchema = z.object({
   updated_at: z.string().datetime({ offset: true }).optional(),
 });
 
+// Zod-схема для одного WaterLog (append-only событие)
+const syncWaterLogSchema = z.object({
+  id: z.string().uuid(),
+  // user_id игнорируется (сервер берёт из JWT)
+  user_id: z.string().optional(),
+  amount_ml: z.number().int(),
+  logged_at: z.string().datetime({ offset: true }),
+});
+
 // Zod-схема для тела sync-запроса
 const syncRequestSchema = z.object({
   items: z.array(syncItemSchema),
+  water_logs: z.array(syncWaterLogSchema).optional(),
   last_sync_at: z.string().datetime({ offset: true }),
 });
 
@@ -43,7 +54,8 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const { items: incomingItems, last_sync_at } = parsed.data;
+      const { items: incomingItems, water_logs: incomingWater, last_sync_at } =
+        parsed.data;
       const userId = request.user.userId;
 
       // Валидируем last_sync_at — уже гарантировано Zod, но Date() может дать NaN
@@ -193,6 +205,26 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
+      // WaterLog — append-only: создаём отсутствующие, существующие не трогаем.
+      if (incomingWater && incomingWater.length > 0) {
+        await prisma.$transaction(async (tx) => {
+          for (const w of incomingWater) {
+            const existing = await tx.waterLog.findUnique({
+              where: { id: w.id },
+            });
+            if (existing) continue; // идемпотентность: запись неизменяема
+            await tx.waterLog.create({
+              data: {
+                id: w.id, // клиентский UUID для идемпотентности
+                userId, // всегда из токена
+                amountMl: w.amount_ml,
+                loggedAt: new Date(w.logged_at),
+              },
+            });
+          }
+        });
+      }
+
       // Возвращаем все items этого пользователя обновлённые после last_sync_at
       const serverUpdated = await prisma.item.findMany({
         where: {
@@ -202,8 +234,18 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         orderBy: { scheduledAt: "asc" },
       });
 
+      // WaterLog созданные после last_sync_at (loggedAt ≈ время создания)
+      const serverUpdatedWater = await prisma.waterLog.findMany({
+        where: {
+          userId,
+          loggedAt: { gt: lastSyncDate },
+        },
+        orderBy: { loggedAt: "asc" },
+      });
+
       return reply.status(200).send({
         updated_items: serverUpdated.map(serializeItem),
+        updated_water_logs: serverUpdatedWater.map(serializeWaterLog),
       });
     }
   );

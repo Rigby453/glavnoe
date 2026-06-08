@@ -18,7 +18,7 @@
 - [x] AUTH-01..04 Register / Login / JWT middleware / Me
 - [x] ITEMS-01..04 CRUD + ownership
 - [x] STREAK-01..02 Get streak + update helper
-- [x] SYNC-01 Sync endpoint (last-write-wins); recomputes streak when a main item transitions to done (regression fix — previously only PATCH /items did)
+- [x] SYNC-01 Sync endpoint (last-write-wins); recomputes streak when a main item transitions to done (regression fix — previously only PATCH /items did); also syncs water logs (append-only, ADR-017)
 - [x] ENGINE-01 Rule redistribution (POST /api/v1/redistribute)
 
 ## Flutter (see docs/agents/flutter-tasks.md)

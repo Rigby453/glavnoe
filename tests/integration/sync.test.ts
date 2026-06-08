@@ -45,13 +45,14 @@ function itemPayload(overrides: Record<string, unknown> = {}): Record<string, un
 async function sync(
   token: string,
   items: Array<Record<string, unknown>>,
-  lastSyncAt: string
+  lastSyncAt: string,
+  waterLogs: Array<Record<string, unknown>> = []
 ) {
   return app.inject({
     method: 'POST',
     url: '/api/v1/sync',
     headers: { Authorization: `Bearer ${token}` },
-    payload: { items, last_sync_at: lastSyncAt },
+    payload: { items, water_logs: waterLogs, last_sync_at: lastSyncAt },
   });
 }
 
@@ -205,6 +206,43 @@ test('non-main item done via sync → streak NOT incremented', async () => {
 
   const streak = await getStreak(user.token);
   expect(streak.current).toBe(0);
+});
+
+// --- Water log sync (append-only) ---
+
+const WATER_DAY = '2026-07-21T09:00:00.000Z';
+
+test('water log synced → created and returned in updated_water_logs', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const id = randomUUID();
+
+  const res = await sync(user.token, [], EPOCH, [
+    { id, amount_ml: 250, logged_at: WATER_DAY },
+  ]);
+  expect(res.statusCode).toBe(200);
+
+  const water = res.json<{
+    updated_water_logs: Array<{ id: string; user_id: string; amount_ml: number }>;
+  }>().updated_water_logs;
+  const found = water.find((w) => w.id === id);
+  expect(found).toBeDefined();
+  expect(found?.amount_ml).toBe(250);
+  expect(found?.user_id).toBe(user.userId); // привязка к токену
+});
+
+test('water log sync is idempotent — no duplicate on second sync', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const id = randomUUID();
+  const payload = [{ id, amount_ml: 500, logged_at: WATER_DAY }];
+
+  await sync(user.token, [], EPOCH, payload);
+  const res = await sync(user.token, [], EPOCH, payload);
+
+  const water = res.json<{ updated_water_logs: Array<{ id: string }> }>()
+    .updated_water_logs;
+  expect(water.filter((w) => w.id === id)).toHaveLength(1);
 });
 
 test('one of two main items done via sync → streak NOT incremented', async () => {

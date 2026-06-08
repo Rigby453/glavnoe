@@ -49,6 +49,11 @@
 
 <!-- Add new ADRs below this line -->
 
+## ADR-017: Water logs sync via the existing /sync endpoint (append-only, no schema change)
+**Date:** 2026-06
+**Decision:** Extend `POST /api/v1/sync` (not a new endpoint) to also carry water logs: `SyncRequest.water_logs` (optional) and `SyncResponse.updated_water_logs`. Water logs are treated as **append-only immutable events**: the server upserts by `id` (creates if absent, owned by the JWT user; never updates an existing row), and returns the user's water logs with `loggedAt > last_sync_at`. The client sends local water logs with `loggedAt > last_sync_at` and merges the response by `id`. No `updatedAt` column and **no Drift/Prisma migration** were needed (client `WaterLogsTable` stays `id/amountMl/loggedAt`; it does not store `userId` — the server assigns it from the token).
+**Reason:** Water/diary data lived only on-device (no backup/cross-device) even for signed-in users. Water logs are immutable single events, so they need no last-write-wins conflict resolution — a create-if-absent upsert keyed by the client UUID is correct and idempotent, and `loggedAt` doubles as the "changed since" marker. Reusing `/sync` keeps one sync path and one round-trip; the new fields are optional so the contract stays backward-compatible. DayLogs are mutable (one per day) and **do** need `updatedAt`-based LWW, so they are handled in a separate change (with a migration), not here.
+
 ## ADR-016: Streak computed on both client (offline-first) and backend (on sync)
 **Date:** 2026-06
 **Decision:** The streak is computed in **two places using identical rules**: (1) client-side `StreakService.recomputeForDay` (`app/lib/services/streak/streak_service.dart`) runs whenever today's main items change and writes the local Drift `StreakTable`; (2) backend `checkAndUpdateStreak` now runs from **both** `PATCH /items` **and** `POST /sync` (for every day where a main item transitions to `done` in the batch). The client treats its local value as authoritative for display and does **not** pull `GET /streaks` into local storage.

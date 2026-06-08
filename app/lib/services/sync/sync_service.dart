@@ -63,12 +63,20 @@ class SyncService {
 
       final outgoing = localItems.map(_itemToSnakeCase).toList();
 
+      // Исходящие записи воды (append-only): добавленные после lastSyncAt
+      final localWater = await (_db.select(_db.waterLogsTable)
+            ..where((t) => t.loggedAt.isBiggerThanValue(lastSyncDate)))
+          .get();
+      final outgoingWater = localWater.map(_waterToSnakeCase).toList();
+
       debugPrint(
-        '[SyncService] Syncing ${outgoing.length} outgoing items, lastSyncAt=$lastSyncAt',
+        '[SyncService] Syncing ${outgoing.length} items, '
+        '${outgoingWater.length} water logs, lastSyncAt=$lastSyncAt',
       );
 
       // Шаг 4: отправляем на сервер
-      final response = await _apiClient.sync(outgoing, lastSyncAt);
+      final response =
+          await _apiClient.sync(outgoing, outgoingWater, lastSyncAt);
 
       // Шаг 5: мержим входящие обновления от сервера в Drift
       final updatedItems =
@@ -85,6 +93,22 @@ class SyncService {
           }
         });
         debugPrint('[SyncService] Merged ${updatedItems.length} server items');
+      }
+
+      // Шаг 5b: мержим записи воды от сервера (upsert по id; append-only)
+      final updatedWater =
+          (response['updated_water_logs'] as List<dynamic>?) ?? <dynamic>[];
+
+      if (updatedWater.isNotEmpty) {
+        await _db.transaction(() async {
+          for (final raw in updatedWater) {
+            if (raw is! Map<String, dynamic>) continue;
+            await _db
+                .into(_db.waterLogsTable)
+                .insertOnConflictUpdate(_waterSnakeCaseToCompanion(raw));
+          }
+        });
+        debugPrint('[SyncService] Merged ${updatedWater.length} water logs');
       }
 
       // Шаг 6: сохраняем метку успешной синхронизации
@@ -142,6 +166,29 @@ class SyncService {
       recurrenceRule: Value(m['recurrence_rule'] as String?),
       createdAt: Value(DateTime.parse(m['created_at'] as String)),
       updatedAt: Value(DateTime.parse(m['updated_at'] as String)),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // WaterLog: Drift ↔ snake_case
+  // ---------------------------------------------------------------------------
+
+  /// Локальная запись воды → snake_case для отправки (user_id ставит сервер).
+  Map<String, dynamic> _waterToSnakeCase(WaterLogsTableData log) {
+    return {
+      'id': log.id,
+      'amount_ml': log.amountMl,
+      'logged_at': log.loggedAt.toUtc().toIso8601String(),
+    };
+  }
+
+  /// Ответ сервера (snake_case) → WaterLogsTableCompanion для upsert.
+  /// Локальная таблица не хранит user_id — поле игнорируем.
+  WaterLogsTableCompanion _waterSnakeCaseToCompanion(Map<String, dynamic> m) {
+    return WaterLogsTableCompanion(
+      id: Value(m['id'] as String),
+      amountMl: Value((m['amount_ml'] as num).toInt()),
+      loggedAt: Value(DateTime.parse(m['logged_at'] as String)),
     );
   }
 }
