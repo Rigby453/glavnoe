@@ -102,18 +102,33 @@ class _ItemCard extends StatelessWidget {
             const SizedBox(width: 12),
             // Заголовок (растягивается)
             Expanded(
-              child: Text(
-                item.title,
-                style: textTheme.bodyMedium?.copyWith(
-                  decoration: item.status == 'done'
-                      ? TextDecoration.lineThrough
-                      : null,
-                  color: item.status == 'done'
-                      ? (themeExt?.textMuted ?? colorScheme.onSurface)
-                      : colorScheme.onSurface,
-                ),
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    item.title,
+                    style: textTheme.bodyMedium?.copyWith(
+                      decoration: item.status == 'done'
+                          ? TextDecoration.lineThrough
+                          : null,
+                      color: item.status == 'done'
+                          ? (themeExt?.textMuted ?? colorScheme.onSurface)
+                          : colorScheme.onSurface,
+                    ),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  // Обратный отсчёт для экзаменов/дедлайнов
+                  if (item.type == 'exam' || item.type == 'deadline')
+                    Text(
+                      _countdownLabel(item.scheduledAt),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: themeExt?.ember ?? colorScheme.secondary,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                ],
               ),
             ),
             const SizedBox(width: 8),
@@ -124,6 +139,18 @@ class _ItemCard extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Текст обратного отсчёта до даты (для экзаменов/дедлайнов).
+String _countdownLabel(DateTime at) {
+  final now = DateTime.now();
+  final d0 = DateTime(now.year, now.month, now.day);
+  final d1 = DateTime(at.year, at.month, at.day);
+  final days = d1.difference(d0).inDays;
+  if (days < 0) return 'overdue';
+  if (days == 0) return 'today';
+  if (days == 1) return 'tomorrow';
+  return 'in $days days';
 }
 
 /// Маленький цветной значок типа задачи.

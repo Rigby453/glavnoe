@@ -28,6 +28,19 @@ class WaterDao extends DatabaseAccessor<AppDatabase> with _$WaterDaoMixin {
     return query.map((row) => row.read(sumExpr) ?? 0).watchSingle();
   }
 
+  /// Сумма выпитого в диапазоне [from, to) — для weekly wrapped.
+  Future<int> totalInRange(DateTime from, DateTime to) async {
+    final sumExpr = waterLogsTable.amountMl.sum();
+    final query = selectOnly(waterLogsTable)
+      ..addColumns([sumExpr])
+      ..where(
+        waterLogsTable.loggedAt.isBiggerOrEqualValue(from) &
+            waterLogsTable.loggedAt.isSmallerThanValue(to),
+      );
+    final row = await query.getSingle();
+    return row.read(sumExpr) ?? 0;
+  }
+
   /// Добавить порцию воды (мл).
   Future<void> addWater(int amountMl) {
     return into(waterLogsTable).insert(

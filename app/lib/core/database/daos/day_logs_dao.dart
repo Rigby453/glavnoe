@@ -34,6 +34,12 @@ class DayLogsDao extends DatabaseAccessor<AppDatabase> with _$DayLogsDaoMixin {
         .getSingleOrNull();
   }
 
+  /// Записи начиная с даты [from] — для weekly wrapped.
+  Future<List<DayLogsTableData>> since(DateTime from) {
+    return (select(dayLogsTable)..where((t) => t.date.isBiggerOrEqualValue(from)))
+        .get();
+  }
+
   // ---------------------------------------------------------------------------
   // Запись (upsert)
   // ---------------------------------------------------------------------------

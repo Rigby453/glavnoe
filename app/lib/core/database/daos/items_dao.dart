@@ -64,6 +64,17 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
         .watch();
   }
 
+  /// Все задачи в диапазоне [from, to) — для weekly wrapped.
+  Future<List<ItemsTableData>> itemsInRange(DateTime from, DateTime to) {
+    return (select(itemsTable)
+          ..where(
+            (t) =>
+                t.scheduledAt.isBiggerOrEqualValue(from) &
+                t.scheduledAt.isSmallerThanValue(to),
+          ))
+        .get();
+  }
+
   // ---------------------------------------------------------------------------
   // CRUD
   // ---------------------------------------------------------------------------

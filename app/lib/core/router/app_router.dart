@@ -17,6 +17,7 @@ import '../../features/health/health_screen.dart';
 import '../../features/diary/diary_screen.dart';
 import '../../features/focus/focus_screen.dart';
 import '../../features/profile/profile_screen.dart';
+import '../../features/wrapped/wrapped_screen.dart';
 import 'scaffold_with_nav_bar.dart';
 
 /// Индексы табов
@@ -131,6 +132,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/focus',
         builder: (context, state) => const FocusScreen(),
+      ),
+
+      // /wrapped — weekly wrapped (из Diary), вне оболочки
+      GoRoute(
+        path: '/wrapped',
+        builder: (context, state) => const WrappedScreen(),
       ),
     ],
   );

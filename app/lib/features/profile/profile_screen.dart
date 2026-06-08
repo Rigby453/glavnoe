@@ -4,10 +4,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/database/database.dart';
+import '../../core/database/database_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
+
+/// Streak пользователя (локально; наполняется через синхронизацию).
+final _streakProvider = StreamProvider.autoDispose<StreakTableData?>((ref) {
+  return ref.watch(streakDaoProvider).watchStreak();
+});
 
 /// Данные текущего пользователя (или null, если офлайн-режим / не вошёл).
 final currentUserProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((ref) async {
@@ -29,6 +36,7 @@ class ProfileScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final userAsync = ref.watch(currentUserProvider);
+    final streak = ref.watch(_streakProvider).valueOrNull;
     final isAuthenticated =
         ref.read(authControllerProvider.notifier).isAuthenticated;
 
@@ -72,6 +80,20 @@ class ProfileScreen extends ConsumerWidget {
                   ],
                 );
               },
+            ),
+            const SizedBox(height: 24),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                  children: [
+                    _StreakStat(label: 'Streak', value: '${streak?.current ?? 0}'),
+                    _StreakStat(label: 'Best', value: '${streak?.longest ?? 0}'),
+                    _StreakStat(label: 'Freezes', value: '${streak?.freezeCount ?? 0}'),
+                  ],
+                ),
+              ),
             ),
             const SizedBox(height: 32),
             Text('Appearance', style: textTheme.titleMedium),
@@ -118,6 +140,26 @@ class _ThemePicker extends ConsumerWidget {
               ref.read(themeNotifierProvider.notifier).setTheme(key),
         );
       }).toList(),
+    );
+  }
+}
+
+/// Одна цифра в карточке streak (значение + подпись).
+class _StreakStat extends StatelessWidget {
+  const _StreakStat({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      children: [
+        Text(value, style: textTheme.headlineSmall),
+        const SizedBox(height: 2),
+        Text(label, style: textTheme.bodySmall),
+      ],
     );
   }
 }

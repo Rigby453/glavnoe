@@ -6,6 +6,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/database/database_providers.dart';
 import '../../services/api/api_client.dart';
@@ -244,6 +245,15 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
                   : const Icon(Icons.auto_awesome, size: 18),
               label: const Text('Get insight (Premium)'),
               onPressed: _insightLoading ? null : _getInsight,
+            ),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              icon: const Icon(Icons.calendar_view_week, size: 18),
+              label: const Text('This week'),
+              onPressed: () => context.push('/wrapped'),
             ),
           ),
         ],
