@@ -80,6 +80,19 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
         .get();
   }
 
+  /// Задачи в диапазоне [from, to) реактивно — для месячного вида Plan.
+  /// Границы передаёт вызывающий (обычно UTC-полночь, как в watchTodayItems).
+  Stream<List<ItemsTableData>> watchItemsInRange(DateTime from, DateTime to) {
+    return (select(itemsTable)
+          ..where(
+            (t) =>
+                t.scheduledAt.isBiggerOrEqualValue(from) &
+                t.scheduledAt.isSmallerThanValue(to),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]))
+        .watch();
+  }
+
   /// Все задачи в диапазоне [from, to) — для weekly wrapped.
   Future<List<ItemsTableData>> itemsInRange(DateTime from, DateTime to) {
     return (select(itemsTable)
