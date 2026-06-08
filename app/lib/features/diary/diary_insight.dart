@@ -72,6 +72,32 @@ List<String> parseIssueKeys(String? note) {
   ];
 }
 
+/// План vs факт за сегодня (SPEC C6).
+class PlanVsFact {
+  const PlanVsFact({
+    required this.planned,
+    required this.done,
+    required this.skipped,
+  });
+  final int planned;
+  final int done;
+  final int skipped;
+
+  bool get isEmpty => planned == 0;
+}
+
+/// Провайдер плана/факта на сегодня (реактивно из Drift).
+final todayPlanVsFactProvider =
+    StreamProvider.autoDispose<PlanVsFact>((ref) {
+  return ref.watch(itemsDaoProvider).watchTodayItems(DateTime.now()).map(
+    (items) => PlanVsFact(
+      planned: items.length,
+      done: items.where((i) => i.status == 'done').length,
+      skipped: items.where((i) => i.status == 'skipped').length,
+    ),
+  );
+});
+
 /// Провайдер: собирает локальные данные за последние 7 дней и строит инсайт.
 final weeklyDiaryInsightProvider =
     FutureProvider.autoDispose<DiaryInsight>((ref) async {

@@ -26,7 +26,7 @@
 - [x] FL-DB-01..02 Drift schema + DAOs
 - [x] FL-TODAY-01..05 Today screen (ring, streak, list, add sheet)
 - [x] FL-PLAN-01..02 Week strip + day timeline + Day/Week/Month view toggle (week agenda; month calendar with task dots, tap day → day view) + "Clone week → next" (copies the week's events to next week, C4 schedule import)
-- [x] FL-DIARY-01 Diary form + morning review carry-over card + free rule-based weekly insight (local: % main closed, streak, top blocker, avg mood)
+- [x] FL-DIARY-01 Diary form + morning review carry-over card + free rule-based weekly insight (local: % main closed, streak, top blocker, avg mood) + "Today: plan vs fact" card (planned/done/skipped)
 - [x] FL-API-01 / FL-SYNC-01 Dio client + sync service
 - [x] Auth screen (login/register + offline mode) + router redirect + live sync on login
 - [x] Themes Black + White (+ theme picker in Profile); Focus default. calm/contrast = stubs

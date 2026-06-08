@@ -258,9 +258,72 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
             ),
           ),
           const SizedBox(height: 24),
+          const _PlanVsFactCard(),
+          const SizedBox(height: 12),
           const _QuickInsightCard(),
         ],
       ),
+    );
+  }
+}
+
+/// «План vs факт» за сегодня: сколько запланировано / сделано / пропущено.
+class _PlanVsFactCard extends ConsumerWidget {
+  const _PlanVsFactCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final pvf = ref.watch(todayPlanVsFactProvider).valueOrNull;
+    if (pvf == null || pvf.isEmpty) return const SizedBox.shrink();
+
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.fact_check_outlined,
+                    color: colorScheme.primary, size: 18),
+                const SizedBox(width: 8),
+                Text('Today: plan vs fact', style: textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
+              children: [
+                _Stat(label: 'Planned', value: pvf.planned),
+                _Stat(label: 'Done', value: pvf.done),
+                _Stat(label: 'Skipped', value: pvf.skipped),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _Stat extends StatelessWidget {
+  const _Stat({required this.label, required this.value});
+
+  final String label;
+  final int value;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return Column(
+      children: [
+        Text('$value', style: textTheme.headlineSmall),
+        const SizedBox(height: 2),
+        Text(label, style: textTheme.bodySmall),
+      ],
     );
   }
 }
