@@ -10,6 +10,8 @@ import 'core/database/database_providers.dart';
 import 'core/router/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
+import 'features/auth/auth_controller.dart';
+import 'services/api/api_client.dart';
 import 'services/sync/sync_service.dart';
 import 'services/widget/widget_service.dart';
 
@@ -46,6 +48,10 @@ class _KaizenAppState extends ConsumerState<KaizenApp> {
   @override
   void initState() {
     super.initState();
+    // На 401 (истёкшая сессия) ApiClient очищает токен и зовёт этот колбэк —
+    // сбрасываем auth-состояние, чтобы роутер увёл пользователя на /auth.
+    ref.read(apiClientProvider).onUnauthorized =
+        () => ref.read(authControllerProvider.notifier).refreshAuthState();
     // Запускаем синхронизацию при возврате приложения на передний план.
     // Ошибки поглощаются внутри syncNow — UI не затрагивается.
     _lifecycleListener = AppLifecycleListener(

@@ -113,8 +113,7 @@ class ProfileScreen extends ConsumerWidget {
   }
 }
 
-/// Выбор темы оформления. Реализованы focus / black / white;
-/// calm и contrast пока недоступны (заглушки).
+/// Выбор темы оформления. Доступны все 5 тем: focus / calm / black / white / contrast.
 class _ThemePicker extends ConsumerWidget {
   const _ThemePicker();
 

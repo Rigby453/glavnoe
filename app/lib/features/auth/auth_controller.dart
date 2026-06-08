@@ -44,6 +44,14 @@ class AuthController extends Notifier<bool> {
     state = true;
   }
 
+  /// Пересчитать состояние входа (например, после 401 — токен уже очищен
+  /// интерсептором ApiClient). Если токена нет и не гость → роутер уводит на /auth.
+  void refreshAuthState() {
+    final api = ref.read(apiClientProvider);
+    final prefs = ref.read(sharedPreferencesProvider);
+    state = api.token != null || (prefs.getBool(_kGuestKey) ?? false);
+  }
+
   /// Выход: чистим токен и офлайн-флаг → возврат на экран входа.
   Future<void> logout() async {
     await ref.read(apiClientProvider).clearToken();

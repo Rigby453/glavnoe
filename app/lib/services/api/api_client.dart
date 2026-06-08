@@ -1,7 +1,8 @@
 // Dio HTTP-клиент для Kaizen
 // Все запросы к бэкенду проходят через этот класс.
 // Базовый URL задаётся через --dart-define=API_BASE_URL при сборке.
-// Токен хранится в SharedPreferences; 401 очищает токен (без редиректа — UI авторизации не готов).
+// Токен хранится в SharedPreferences; 401 очищает токен и зовёт onUnauthorized
+// (его вешает main.dart → сброс auth-состояния → роутер уводит на /auth).
 
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
@@ -66,10 +67,11 @@ class ApiClient {
         },
         onError: (DioException e, handler) async {
           if (e.response?.statusCode == 401) {
-            // Очищаем токен. Редирект на /login будет добавлен после готовности UI.
-            // TODO: redirect to /login when auth UI exists
+            // Токен истёк/невалиден: очищаем его и уведомляем приложение,
+            // чтобы оно сбросило auth-состояние и роутер увёл на /auth.
             await _prefs.remove(_kTokenKey);
             debugPrint('[ApiClient] 401 received — token cleared');
+            onUnauthorized?.call();
           }
           handler.next(e);
         },
@@ -79,6 +81,10 @@ class ApiClient {
 
   final SharedPreferences _prefs;
   late final Dio _dio;
+
+  /// Колбэк на 401 (сессия истекла). Вешается из main.dart, чтобы сбросить
+  /// auth-состояние и увести пользователя на экран входа. null = не задан.
+  void Function()? onUnauthorized;
 
   // ---------------------------------------------------------------------------
   // Хелперы хранилища токена / last_sync_at

@@ -1,6 +1,5 @@
 // Темы приложения Kaizen — источник правды: /docs/design-tokens.json
-// Реализованы: focus (по умолчанию), black (OLED), white (светлая).
-// calm и contrast пока возвращают focus (TODO на следующих этапах).
+// Реализованы все 5 тем: focus (по умолчанию), calm, black (OLED), white, contrast.
 // Тема собирается из палитры единым билдером, чтобы все темы были консистентны.
 
 import 'package:flutter/material.dart';
