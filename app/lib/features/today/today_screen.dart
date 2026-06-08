@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/tone_provider.dart';
 import '../../services/widget/widget_service.dart';
 import 'widgets/add_task_sheet.dart';
 import 'widgets/morning_review_card.dart';
@@ -37,6 +38,9 @@ class TodayScreen extends ConsumerWidget {
     final itemsAsync = ref.watch(todayItemsProvider);
     final mainItems = ref.watch(todayMainItemsProvider).valueOrNull ??
         const <ItemsTableData>[];
+    final tone = ref.watch(toneProvider);
+    final allMainDone = mainItems.isNotEmpty &&
+        mainItems.every((i) => i.status == 'done' || i.status == 'skipped');
 
     // При изменении main-задач обновляем домашний виджет (Android)
     ref.listen(todayMainItemsProvider, (_, _) {
@@ -58,13 +62,31 @@ class TodayScreen extends ConsumerWidget {
           return ListView(
             padding: const EdgeInsets.fromLTRB(16, 8, 16, 96), // место под FAB
             children: [
-              _Header(now: now),
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Expanded(child: _Header(now: now)),
+                  const _ToneToggle(),
+                ],
+              ),
               const SizedBox(height: 16),
               const MorningReviewCard(),
               const SizedBox(height: 8),
               Center(child: ProgressRing(items: mainItems)),
               const SizedBox(height: 24),
               const StreakRow(),
+              if (allMainDone) ...[
+                const SizedBox(height: 16),
+                Center(
+                  child: Text(
+                    ToneCopy.allDone(tone),
+                    textAlign: TextAlign.center,
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                          color: Theme.of(context).colorScheme.primary,
+                        ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               TaskList(items: items, day: now),
             ],
@@ -101,6 +123,22 @@ class _Header extends StatelessWidget {
           style: textTheme.bodyMedium,
         ),
       ],
+    );
+  }
+}
+
+/// Маленький тумблер тона gentle/harsh в шапке Today.
+class _ToneToggle extends ConsumerWidget {
+  const _ToneToggle();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tone = ref.watch(toneProvider);
+    final harsh = tone == AppTone.harsh;
+    return TextButton.icon(
+      onPressed: () => ref.read(toneProvider.notifier).toggle(),
+      icon: Icon(harsh ? Icons.bolt : Icons.spa_outlined, size: 18),
+      label: Text(harsh ? 'Harsh' : 'Gentle'),
     );
   }
 }

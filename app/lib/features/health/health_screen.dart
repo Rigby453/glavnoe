@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/database/database_providers.dart';
 
@@ -92,6 +93,18 @@ class HealthScreen extends ConsumerWidget {
                 ),
               ],
             ),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // --- Фокус-сессии ---
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.timer_outlined, color: colorScheme.primary),
+            title: const Text('Focus session'),
+            subtitle: const Text('25/5 · 50/10 · 67/15 and more'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/focus'),
           ),
         ),
         const SizedBox(height: 24),

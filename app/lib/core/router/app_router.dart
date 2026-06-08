@@ -15,6 +15,7 @@ import '../../features/today/today_screen.dart';
 import '../../features/plan/plan_screen.dart';
 import '../../features/health/health_screen.dart';
 import '../../features/diary/diary_screen.dart';
+import '../../features/focus/focus_screen.dart';
 import '../../features/profile/profile_screen.dart';
 import 'scaffold_with_nav_bar.dart';
 
@@ -124,6 +125,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/profile',
         builder: (context, state) => const ProfileScreen(),
+      ),
+
+      // /focus — фокус-сессии (из Health), вне оболочки
+      GoRoute(
+        path: '/focus',
+        builder: (context, state) => const FocusScreen(),
       ),
     ],
   );

@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
+import '../../../core/settings/tone_provider.dart';
 
 /// Просроченные невыполненные задачи (реактивно)
 final overduePendingProvider =
@@ -49,6 +50,7 @@ class MorningReviewCard extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final count = overdue.length;
+    final tone = ref.watch(toneProvider);
 
     return Card(
       child: Padding(
@@ -65,9 +67,7 @@ class MorningReviewCard extends ConsumerWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              count == 1
-                  ? 'You have 1 unfinished task from before today.'
-                  : 'You have $count unfinished tasks from before today.',
+              ToneCopy.morningReview(tone, count),
               style: textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
