@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/database/database.dart';
+import '../../../core/database/database_providers.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import 'day_timeline.dart' show dayItemsProvider;
 import 'week_strip.dart' show selectedDayProvider;
@@ -20,6 +21,49 @@ class WeekAgenda extends ConsumerWidget {
     return DateTime(date.year, date.month, date.day - daysFromMonday);
   }
 
+  /// Клонировать события недели на следующую (с подтверждением).
+  Future<void> _cloneWeek(
+    BuildContext context,
+    WidgetRef ref,
+    DateTime weekStart,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Clone week'),
+        content: const Text(
+          "Copy this week's classes/events to next week (same days & times)?",
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Copy'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+
+    final weekStartUtc =
+        DateTime.utc(weekStart.year, weekStart.month, weekStart.day);
+    final count =
+        await ref.read(itemsDaoProvider).cloneWeekEvents(weekStartUtc);
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          count == 0
+              ? 'No classes/events this week to copy'
+              : 'Copied $count to next week',
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final selectedDay = ref.watch(selectedDayProvider);
@@ -31,7 +75,17 @@ class WeekAgenda extends ConsumerWidget {
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-      children: [for (final day in days) _DaySection(day: day)],
+      children: [
+        Align(
+          alignment: Alignment.centerRight,
+          child: TextButton.icon(
+            icon: const Icon(Icons.copy_all_outlined, size: 18),
+            label: const Text('Clone week → next'),
+            onPressed: () => _cloneWeek(context, ref, weekStart),
+          ),
+        ),
+        for (final day in days) _DaySection(day: day),
+      ],
     );
   }
 }

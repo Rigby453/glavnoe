@@ -5,6 +5,7 @@
 import 'package:drift/drift.dart';
 
 import '../database.dart';
+import '../../utils/id.dart';
 
 part 'items_dao.g.dart';
 
@@ -139,6 +140,43 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
           updatedAt: Value(DateTime.now()),
         ),
       );
+
+  /// Клонирует события (type='event') недели [weekStartUtc, +7d) на следующую
+  /// неделю (scheduledAt + 7 дней), сбрасывая статус в pending. Возвращает
+  /// число скопированных. Используется «Clone week» (импорт расписания, C4).
+  /// Границы — UTC-полночь, согласованы с watchTodayItems/watchMainItems.
+  Future<int> cloneWeekEvents(DateTime weekStartUtc) async {
+    final weekEnd = weekStartUtc.add(const Duration(days: 7));
+    final events = await (select(itemsTable)
+          ..where(
+            (t) =>
+                t.scheduledAt.isBiggerOrEqualValue(weekStartUtc) &
+                t.scheduledAt.isSmallerThanValue(weekEnd) &
+                t.type.equals('event'),
+          ))
+        .get();
+
+    final now = DateTime.now();
+    for (final e in events) {
+      await into(itemsTable).insert(
+        ItemsTableCompanion(
+          id: Value(uuidV4()),
+          userId: Value(e.userId),
+          title: Value(e.title),
+          type: Value(e.type),
+          priority: Value(e.priority),
+          status: const Value('pending'),
+          scheduledAt: Value(e.scheduledAt.add(const Duration(days: 7))),
+          durationMinutes: Value(e.durationMinutes),
+          isProtected: Value(e.isProtected),
+          recurrenceRule: Value(e.recurrenceRule),
+          createdAt: Value(now),
+          updatedAt: Value(now),
+        ),
+      );
+    }
+    return events.length;
+  }
 
   /// Удалить задачу по UUID; возвращает true, если строка была найдена
   Future<bool> deleteItem(String id) async {
