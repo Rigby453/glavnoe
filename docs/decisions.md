@@ -49,6 +49,11 @@
 
 <!-- Add new ADRs below this line -->
 
+## ADR-019: Delete sync via SyncQueue tombstones + /sync deleted_item_ids
+**Date:** 2026-06
+**Decision:** Deleting an item now (a) removes it from the local Drift `items` table and (b) writes a tombstone row into the existing `sync_queue` table (`operation='delete'`, `table_name='items'`, `record_id=id`). On the next sync, `SyncService` sends those ids as `deleted_item_ids` in the (additive, optional) `/api/v1/sync` request; the server `deleteMany`s them scoped by `userId` (ownership), and the client clears the processed tombstones. Added a Delete action to the edit-task sheet (there was none before). Cross-device *incoming* deletes (device A deletes → device B learns) still aren't handled — that needs server-side tombstones; documented as a known limitation.
+**Reason:** Two bugs: users couldn't delete a task at all (no UI), and the audit flagged that local deletes never reached the server — so a deleted task **reappeared** on the next `/sync` (server still had it and returned it in `updated_items`). Sending `deleted_item_ids` makes the server drop them first, fixing the reappearance. This finally uses the `SyncQueueTable` that was declared in the Drift schema but dead (audit: "мёртвая таблица"). Writing the tombstone via `attachedDatabase` from `ItemsDao` avoids adding the table to its `@DriftAccessor` (no codegen). Contract change is additive/optional → backward compatible. Builds on [[ADR-017]] (water) and [[ADR-004]] (last-write-wins).
+
 ## ADR-018: Dev-only subscription upgrade endpoint (test premium before payments)
 **Date:** 2026-06
 **Decision:** Added `POST /api/v1/subscription/dev-upgrade` (auth required) that sets the current user's `subscriptionTier` to `premium`/`free`. It returns **404 when `NODE_ENV=production`** — usable only in dev/test/staging. The Flutter paywall exposes it only under `kDebugMode` ("Dev: unlock premium"); the real "Subscribe" CTA is a placeholder until payments exist.

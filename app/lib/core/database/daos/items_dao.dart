@@ -178,11 +178,26 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
     return events.length;
   }
 
-  /// Удалить задачу по UUID; возвращает true, если строка была найдена
+  /// Удалить задачу по UUID; возвращает true, если строка была найдена.
+  /// Кладёт «надгробие» (tombstone) в sync_queue, чтобы удаление доехало до
+  /// сервера на следующей синхронизации (иначе удалённая задача вернулась бы
+  /// обратно из ответа /sync). Запись в sync_queue идёт через attachedDatabase,
+  /// поэтому таблица не нужна в @DriftAccessor этого DAO.
   Future<bool> deleteItem(String id) async {
     final rowsAffected = await (delete(itemsTable)
           ..where((t) => t.id.equals(id)))
         .go();
+    if (rowsAffected > 0) {
+      await attachedDatabase.into(attachedDatabase.syncQueueTable).insert(
+            SyncQueueTableCompanion(
+              tableName_: const Value('items'),
+              recordId: Value(id),
+              operation: const Value('delete'),
+              payload: const Value(''),
+              createdAt: Value(DateTime.now()),
+            ),
+          );
+    }
     return rowsAffected > 0;
   }
 

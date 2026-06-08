@@ -276,3 +276,48 @@ test('one of two main items done via sync → streak NOT incremented', async () 
   const streak = await getStreak(user.token);
   expect(streak.current).toBe(0);
 });
+
+// --- Delete sync (tombstones) ---
+
+async function syncWithDeletes(token: string, deletedItemIds: string[]) {
+  return app.inject({
+    method: 'POST',
+    url: '/api/v1/sync',
+    headers: { Authorization: `Bearer ${token}` },
+    payload: { items: [], deleted_item_ids: deletedItemIds, last_sync_at: EPOCH },
+  });
+}
+
+test('deleted_item_ids removes the item server-side (no reappearance)', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const item = await createItem(app, user.token, { title: 'To delete' });
+
+  const res = await syncWithDeletes(user.token, [item.id]);
+  expect(res.statusCode).toBe(200);
+
+  const get = await app.inject({
+    method: 'GET',
+    url: '/api/v1/items',
+    headers: { Authorization: `Bearer ${user.token}` },
+  });
+  expect(get.json<Array<{ id: string }>>().some((i) => i.id === item.id)).toBe(false);
+});
+
+test("deleted_item_ids cannot delete another user's item", async () => {
+  const owner = await registerUser(app);
+  userIds.push(owner.userId);
+  const attacker = await registerUser(app);
+  userIds.push(attacker.userId);
+  const item = await createItem(app, owner.token, { title: 'Owned' });
+
+  const res = await syncWithDeletes(attacker.token, [item.id]);
+  expect(res.statusCode).toBe(200);
+
+  const get = await app.inject({
+    method: 'GET',
+    url: '/api/v1/items',
+    headers: { Authorization: `Bearer ${owner.token}` },
+  });
+  expect(get.json<Array<{ id: string }>>().some((i) => i.id === item.id)).toBe(true);
+});

@@ -200,6 +200,35 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     if (mounted) Navigator.of(context).pop();
   }
 
+  /// Удаление задачи (режим редактирования) с подтверждением.
+  Future<void> _confirmDelete() async {
+    final existing = widget.existing;
+    if (existing == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete task?'),
+        content: Text('"${existing.title}" will be removed.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: const Text('Delete'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(itemsDaoProvider).deleteItem(existing.id);
+    if (mounted) Navigator.of(context).pop();
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -330,6 +359,20 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                 child: Text(_isEditing ? 'Save changes' : 'Add task'),
               ),
             ),
+            if (_isEditing) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                child: TextButton.icon(
+                  icon: const Icon(Icons.delete_outline, size: 18),
+                  label: const Text('Delete task'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Theme.of(context).colorScheme.error,
+                  ),
+                  onPressed: _confirmDelete,
+                ),
+              ),
+            ],
           ],
         ),
       ),

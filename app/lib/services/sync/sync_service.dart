@@ -69,14 +69,35 @@ class SyncService {
           .get();
       final outgoingWater = localWater.map(_waterToSnakeCase).toList();
 
+      // Исходящие удаления (tombstones из sync_queue): items, операция delete
+      final deleteRows = await (_db.select(_db.syncQueueTable)
+            ..where((t) =>
+                t.operation.equals('delete') & t.tableName_.equals('items')))
+          .get();
+      final deletedItemIds =
+          deleteRows.map((r) => r.recordId).toSet().toList();
+
       debugPrint(
         '[SyncService] Syncing ${outgoing.length} items, '
-        '${outgoingWater.length} water logs, lastSyncAt=$lastSyncAt',
+        '${outgoingWater.length} water logs, '
+        '${deletedItemIds.length} deletions, lastSyncAt=$lastSyncAt',
       );
 
       // Шаг 4: отправляем на сервер
-      final response =
-          await _apiClient.sync(outgoing, outgoingWater, lastSyncAt);
+      final response = await _apiClient.sync(
+        outgoing,
+        outgoingWater,
+        lastSyncAt,
+        deletedItemIds: deletedItemIds,
+      );
+
+      // Удаления доставлены — очищаем обработанные tombstones
+      if (deleteRows.isNotEmpty) {
+        final processedIds = deleteRows.map((r) => r.id).toList();
+        await (_db.delete(_db.syncQueueTable)
+              ..where((t) => t.id.isIn(processedIds)))
+            .go();
+      }
 
       // Шаг 5: мержим входящие обновления от сервера в Drift
       final updatedItems =

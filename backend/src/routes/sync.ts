@@ -38,6 +38,8 @@ const syncWaterLogSchema = z.object({
 const syncRequestSchema = z.object({
   items: z.array(syncItemSchema),
   water_logs: z.array(syncWaterLogSchema).optional(),
+  // id задач, удалённых на клиенте (offline-first tombstones) — сервер их удаляет
+  deleted_item_ids: z.array(z.string().uuid()).optional(),
   last_sync_at: z.string().datetime({ offset: true }),
 });
 
@@ -54,8 +56,12 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
-      const { items: incomingItems, water_logs: incomingWater, last_sync_at } =
-        parsed.data;
+      const {
+        items: incomingItems,
+        water_logs: incomingWater,
+        deleted_item_ids: deletedItemIds,
+        last_sync_at,
+      } = parsed.data;
       const userId = request.user.userId;
 
       // Валидируем last_sync_at — уже гарантировано Zod, но Date() может дать NaN
@@ -222,6 +228,13 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
               },
             });
           }
+        });
+      }
+
+      // Удаления с клиента: убираем только свои задачи (ownership через userId).
+      if (deletedItemIds && deletedItemIds.length > 0) {
+        await prisma.item.deleteMany({
+          where: { id: { in: deletedItemIds }, userId },
         });
       }
 

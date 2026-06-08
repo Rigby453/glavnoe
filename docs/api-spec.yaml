@@ -555,6 +555,10 @@ components:
           type: array
           description: Optional. Water intake events created since last_sync_at.
           items: { $ref: '#/components/schemas/WaterLog' }
+        deleted_item_ids:
+          type: array
+          description: Optional. Item ids deleted locally; the server deletes them (owner only).
+          items: { type: string, format: uuid }
         last_sync_at: { type: string, format: date-time }
 
     SyncResponse:

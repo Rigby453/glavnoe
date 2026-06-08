@@ -281,14 +281,16 @@ class ApiClient {
   Future<Map<String, dynamic>> sync(
     List<Map<String, dynamic>> items,
     List<Map<String, dynamic>> waterLogs,
-    String lastSyncAt,
-  ) async {
+    String lastSyncAt, {
+    List<String> deletedItemIds = const [],
+  }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/sync',
         data: {
           'items': items,
           'water_logs': waterLogs,
+          'deleted_item_ids': deletedItemIds,
           'last_sync_at': lastSyncAt,
         },
       );

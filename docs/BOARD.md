@@ -18,7 +18,7 @@
 - [x] AUTH-01..04 Register / Login / JWT middleware / Me
 - [x] ITEMS-01..04 CRUD + ownership
 - [x] STREAK-01..02 Get streak + update helper
-- [x] SYNC-01 Sync endpoint (last-write-wins); recomputes streak when a main item transitions to done (regression fix — previously only PATCH /items did); also syncs water logs (append-only, ADR-017)
+- [x] SYNC-01 Sync endpoint (last-write-wins); recomputes streak when a main item transitions to done (regression fix — previously only PATCH /items did); + water_logs sync + deleted_item_ids (server deletes owned items); also syncs water logs (append-only, ADR-017)
 - [x] ENGINE-01 Rule redistribution (POST /api/v1/redistribute)
 
 ## Flutter (see docs/agents/flutter-tasks.md)
@@ -39,6 +39,7 @@
 - [x] Evening review (SPEC C3): "Plan tomorrow" card (evening, ≥17:00) on Today — carry today's unfinished into tomorrow + rule-based variants (free) + AI smart plan (/ai/redistribute tomorrow, premium). Shared review_engine with morning review.
 - [x] Task duration picker (15m–2h) in add/edit sheet
 - [x] Recent-subjects quick-pick for events/exams in add-task (C4; prefs-backed, no migration; mergeRecent unit-tested)
+- [x] Delete a task: edit-sheet Delete action + offline-first delete-sync (SyncQueue tombstones → /sync deleted_item_ids; fixes "deleted tasks reappear"; activates the dead SyncQueueTable)
 - [x] Profile Settings (C7): default-tone selector + Text size (accessibility, global textScaler, generalizes the Contrast bump); Profile made scrollable
 
 ## QA (see docs/agents/qa-tasks.md)
