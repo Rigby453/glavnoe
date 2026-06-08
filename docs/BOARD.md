@@ -34,6 +34,7 @@
 - [x] Onboarding flow (first-run 3-slide intro → auth)
 - [x] All 5 themes (Focus/Calm/Black/White/Contrast, contrast 1.15 type scale) + picker
 - [x] Home widget (Android) — native AppWidgetProvider + MethodChannel bridge; verified on a real device (shows main progress + streak, tap opens app). iOS widget needs a Mac.
+- [x] Extras: tone toggle gentle/harsh (tone-aware copy) · morning-review rule-based plan variants (free) · focus sessions incl 67/15 · weekly wrapped (rule-based) · exam/deadline countdown · Health water tracker · profile streak/freeze card
 
 ## QA (see docs/agents/qa-tasks.md)
 - [x] QA-01 Auth flow
