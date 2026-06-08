@@ -3,6 +3,7 @@ import { z } from "zod";
 import prisma from "../models/prisma.js";
 import { serializeItem } from "../models/item.js";
 import { requireAuth } from "./middleware/auth.js";
+import { checkAndUpdateStreak } from "../engine/streaks.js";
 
 // Zod-схема для одного Item в теле sync-запроса
 // Принимаем полную форму Item (все поля опциональны кроме id)
@@ -50,6 +51,10 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
       if (isNaN(lastSyncDate.getTime())) {
         return reply.status(400).send({ error: "Invalid last_sync_at" });
       }
+
+      // Дни (по дате scheduledAt), в которые main-задача перешла в 'done' в этом
+      // sync. После коммита по ним пересчитаем серию (rule-based, как в PATCH).
+      const completedMainDays: Date[] = [];
 
       // Обрабатываем каждый incoming item в транзакции
       await prisma.$transaction(async (tx) => {
@@ -106,6 +111,21 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
                       : {}),
                   },
                 });
+
+                // Переход main-задачи в 'done' → запоминаем день для пересчёта серии.
+                // Эффективные значения: если поле не пришло — берём серверное.
+                const effPriority = incoming.priority ?? existing.priority;
+                if (
+                  incoming.status === "done" &&
+                  existing.status !== "done" &&
+                  effPriority === "main"
+                ) {
+                  completedMainDays.push(
+                    incoming.scheduled_at !== undefined
+                      ? new Date(incoming.scheduled_at)
+                      : existing.scheduledAt
+                  );
+                }
               }
               // Иначе: серверная версия новее или равна → ничего не делаем
             }
@@ -136,11 +156,42 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
                   recurrenceRule: incoming.recurrence_rule ?? null,
                 },
               });
+
+              // Новая main-задача, созданная сразу как 'done' → день для пересчёта серии.
+              if (incoming.status === "done" && incoming.priority === "main") {
+                completedMainDays.push(new Date(incoming.scheduled_at));
+              }
             }
             // Если нет обязательных полей — пропускаем некорректный item
           }
         }
       });
+
+      // После коммита пересчитываем серию по затронутым дням (rule-based, без AI).
+      // Дедуплицируем по UTC-дню и идём по возрастанию, чтобы backlog (вчера→сегодня)
+      // считался в правильном порядке. Ошибка пересчёта не должна ронять sync.
+      if (completedMainDays.length > 0) {
+        const uniqueDays = new Map<string, Date>();
+        for (const d of completedMainDays) {
+          if (isNaN(d.getTime())) continue;
+          const key = d.toISOString().slice(0, 10);
+          if (!uniqueDays.has(key)) uniqueDays.set(key, d);
+        }
+        const sortedDays = [...uniqueDays.values()].sort(
+          (a, b) => a.getTime() - b.getTime()
+        );
+        for (const day of sortedDays) {
+          try {
+            await checkAndUpdateStreak(userId, day);
+          } catch (err: unknown) {
+            request.log.error(
+              { err },
+              "checkAndUpdateStreak (sync) failed for userId=%s",
+              userId
+            );
+          }
+        }
+      }
 
       // Возвращаем все items этого пользователя обновлённые после last_sync_at
       const serverUpdated = await prisma.item.findMany({

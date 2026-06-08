@@ -49,6 +49,11 @@
 
 <!-- Add new ADRs below this line -->
 
+## ADR-016: Streak computed on both client (offline-first) and backend (on sync)
+**Date:** 2026-06
+**Decision:** The streak is computed in **two places using identical rules**: (1) client-side `StreakService.recomputeForDay` (`app/lib/services/streak/streak_service.dart`) runs whenever today's main items change and writes the local Drift `StreakTable`; (2) backend `checkAndUpdateStreak` now runs from **both** `PATCH /items` **and** `POST /sync` (for every day where a main item transitions to `done` in the batch). The client treats its local value as authoritative for display and does **not** pull `GET /streaks` into local storage.
+**Reason:** The streak ("everything important closed N days in a row") is a flagship product hook, but it was effectively dead: the client only ever *read* the local `StreakTable` (nothing wrote it), and the backend only recomputed on `PATCH /items` — which the offline-first client never calls (it persists via Drift and ships changes through `/sync`). So the streak showed `0` for everyone. Offline-first + no-account mode means the streak must be computable with no network, hence client-side computation is the primary, user-visible fix. The backend recompute on `/sync` keeps the server value correct for backup/cross-device and future features. Both use the same rules (all `main` items `done`; strict `done`, `skipped` does not count; yesterday→+1, freeze consumes a miss, else reset to 1; idempotent per day) so the two sources converge to the same number from the same item data. Avoided pulling `GET /streaks` into the client to prevent a second conflicting write path; revisit when true multi-device sync of streak/water/day-logs lands.
+
 ## ADR-015: New AI endpoint /api/v1/ai/schedule-import (Phase 1, premium)
 **Date:** 2026-06
 **Decision:** Added `POST /api/v1/ai/schedule-import` to `api-spec.yaml`: a premium (Phase 1) multimodal endpoint that takes `{ image_base64, media_type, target_date }`, has Claude (Haiku, multimodal) read a timetable photo, and returns `{ items: [{ title, scheduled_at }] }`. Nothing is saved server-side — the client confirms and creates items via `POST /items`.

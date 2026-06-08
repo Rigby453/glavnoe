@@ -55,6 +55,15 @@ async function sync(
   });
 }
 
+async function getStreak(token: string) {
+  const res = await app.inject({
+    method: 'GET',
+    url: '/api/v1/streaks',
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  return res.json<{ current: number; longest: number; last_completed_date: string | null }>();
+}
+
 test('local item newer than server → server item updated to local version', async () => {
   const user = await registerUser(app);
   userIds.push(user.userId);
@@ -136,4 +145,96 @@ test('last_sync_at in the future → no server changes returned', async () => {
   const res = await sync(user.token, [], '2030-01-01T00:00:00.000Z');
   expect(res.statusCode).toBe(200);
   expect(res.json<{ updated_items: unknown[] }>().updated_items).toEqual([]);
+});
+
+// --- Streak via sync (регрессия: серия не росла, т.к. /sync не вызывал движок) ---
+
+const STREAK_DAY = '2026-07-20T10:00:00.000Z';
+
+test('main item marked done via sync → streak increments to 1', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const item = await createItem(app, user.token, {
+    title: 'Finish thesis',
+    priority: 'main',
+    scheduled_at: STREAK_DAY,
+  });
+
+  const res = await sync(
+    user.token,
+    [
+      {
+        id: item.id,
+        priority: 'main',
+        status: 'done',
+        scheduled_at: STREAK_DAY,
+        updated_at: '2030-01-01T00:00:00.000Z',
+      },
+    ],
+    EPOCH
+  );
+  expect(res.statusCode).toBe(200);
+
+  const streak = await getStreak(user.token);
+  expect(streak.current).toBe(1);
+  expect(streak.last_completed_date).toBe('2026-07-20');
+});
+
+test('non-main item done via sync → streak NOT incremented', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const item = await createItem(app, user.token, {
+    title: 'Low prio chore',
+    priority: 'low',
+    scheduled_at: STREAK_DAY,
+  });
+
+  await sync(
+    user.token,
+    [
+      {
+        id: item.id,
+        priority: 'low',
+        status: 'done',
+        scheduled_at: STREAK_DAY,
+        updated_at: '2030-01-01T00:00:00.000Z',
+      },
+    ],
+    EPOCH
+  );
+
+  const streak = await getStreak(user.token);
+  expect(streak.current).toBe(0);
+});
+
+test('one of two main items done via sync → streak NOT incremented', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const a = await createItem(app, user.token, {
+    title: 'Main A',
+    priority: 'main',
+    scheduled_at: STREAK_DAY,
+  });
+  await createItem(app, user.token, {
+    title: 'Main B (stays pending)',
+    priority: 'main',
+    scheduled_at: STREAK_DAY,
+  });
+
+  await sync(
+    user.token,
+    [
+      {
+        id: a.id,
+        priority: 'main',
+        status: 'done',
+        scheduled_at: STREAK_DAY,
+        updated_at: '2030-01-01T00:00:00.000Z',
+      },
+    ],
+    EPOCH
+  );
+
+  const streak = await getStreak(user.token);
+  expect(streak.current).toBe(0);
 });

@@ -64,6 +64,22 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
         .watch();
   }
 
+  /// MAIN-задачи на день (Future-вариант watchMainItems).
+  /// Используется StreakService для пересчёта серии после завершения задач.
+  Future<List<ItemsTableData>> mainItemsForDay(DateTime date) {
+    final dayStart = DateTime.utc(date.year, date.month, date.day);
+    final dayEnd = dayStart.add(const Duration(days: 1));
+
+    return (select(itemsTable)
+          ..where(
+            (t) =>
+                t.scheduledAt.isBiggerOrEqualValue(dayStart) &
+                t.scheduledAt.isSmallerThanValue(dayEnd) &
+                t.priority.equals('main'),
+          ))
+        .get();
+  }
+
   /// Все задачи в диапазоне [from, to) — для weekly wrapped.
   Future<List<ItemsTableData>> itemsInRange(DateTime from, DateTime to) {
     return (select(itemsTable)

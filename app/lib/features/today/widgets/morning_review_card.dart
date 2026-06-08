@@ -1,8 +1,13 @@
 // FL-TODAY (morning review): карточка утреннего разбора — ядро продукта.
 // Если есть просроченные невыполненные задачи (с прошлых дней), показываем
 // карточку и лист, где пользователь ПОДТВЕРЖДАЕТ перенос несделанного на сегодня
-// или отмечает пропуск. Полностью локально (Drift); умное AI-перераспределение
-// через бэкенд подключится на шаге 8 (API + sync).
+// или отмечает пропуск.
+//
+// Два уровня:
+// - Free (rule-based, локально): варианты раскладки + перенос (Drift).
+// - Premium (AI, через бэкенд): tone-aware утреннее сообщение (/ai/morning-message)
+//   и умные варианты плана (/ai/redistribute). Числа/время — из ответа сервера,
+//   применение — локально через тот же Drift-путь, что и у free-вариантов.
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -12,6 +17,8 @@ import 'package:intl/intl.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/settings/tone_provider.dart';
+import '../../../services/api/api_client.dart';
+import '../../auth/auth_controller.dart';
 
 /// Просроченные невыполненные задачи (реактивно)
 final overduePendingProvider =
@@ -115,11 +122,64 @@ Future<void> _moveToToday(WidgetRef ref, ItemsTableData item) async {
       );
 }
 
-class MorningReviewCard extends ConsumerWidget {
+/// Применить вариант: переносим задачи на назначенное время (локально, Drift).
+Future<void> _applyVariant(WidgetRef ref, _Variant variant) async {
+  final dao = ref.read(itemsDaoProvider);
+  final now = DateTime.now();
+  for (final entry in variant.assign.entries) {
+    await dao.updateItem(
+      entry.key,
+      ItemsTableCompanion(
+        scheduledAt: Value(entry.value),
+        updatedAt: Value(now),
+      ),
+    );
+  }
+}
+
+class MorningReviewCard extends ConsumerStatefulWidget {
   const MorningReviewCard({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MorningReviewCard> createState() => _MorningReviewCardState();
+}
+
+class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
+  // AI tone-aware утреннее сообщение (premium). null = ещё не запрашивали.
+  String? _aiMessage;
+  bool _messageLoading = false;
+
+  /// Запрашивает у бэкенда tone-aware сообщение (premium). Показывает inline.
+  Future<void> _getAiMessage(int pendingCount) async {
+    final premium = await ref.read(isPremiumProvider.future);
+    if (!mounted) return;
+    if (!premium) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Premium feature — upgrade for AI nudges')),
+      );
+      return;
+    }
+    setState(() => _messageLoading = true);
+    try {
+      final tone = ref.read(toneProvider) == AppTone.harsh ? 'harsh' : 'gentle';
+      final message = await ref.read(apiClientProvider).aiMorningMessage(
+            pendingCount: pendingCount,
+            tone: tone,
+          );
+      if (!mounted) return;
+      setState(() => _aiMessage = message.isEmpty ? null : message);
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _messageLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final overdue = ref.watch(overduePendingProvider).valueOrNull ??
         const <ItemsTableData>[];
     if (overdue.isEmpty) return const SizedBox.shrink();
@@ -140,11 +200,27 @@ class MorningReviewCard extends ConsumerWidget {
                 Icon(Icons.wb_twilight, color: colorScheme.secondary),
                 const SizedBox(width: 8),
                 Text('Morning review', style: textTheme.titleMedium),
+                const Spacer(),
+                // Кнопка AI-сообщения (premium). Спиннер на время запроса.
+                IconButton(
+                  tooltip: 'AI nudge (Premium)',
+                  visualDensity: VisualDensity.compact,
+                  icon: _messageLoading
+                      ? const SizedBox(
+                          height: 16,
+                          width: 16,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.auto_awesome, size: 18),
+                  onPressed:
+                      _messageLoading ? null : () => _getAiMessage(count),
+                ),
               ],
             ),
             const SizedBox(height: 8),
             Text(
-              ToneCopy.morningReview(tone, count),
+              // Показываем AI-сообщение, если получили; иначе rule-based строку.
+              _aiMessage ?? ToneCopy.morningReview(tone, count),
               style: textTheme.bodyMedium,
             ),
             const SizedBox(height: 12),
@@ -170,18 +246,95 @@ Future<void> _showMorningReviewSheet(BuildContext context) {
   );
 }
 
-class _MorningReviewSheet extends ConsumerWidget {
+class _MorningReviewSheet extends ConsumerStatefulWidget {
   const _MorningReviewSheet();
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_MorningReviewSheet> createState() =>
+      _MorningReviewSheetState();
+}
+
+class _MorningReviewSheetState extends ConsumerState<_MorningReviewSheet> {
+  // AI-варианты плана (premium). null = ещё не запрашивали.
+  List<_Variant>? _aiPlans;
+  bool _aiLoading = false;
+
+  /// Запрашивает умные варианты у бэкенда (/ai/redistribute, premium).
+  Future<void> _getAiPlans() async {
+    final premium = await ref.read(isPremiumProvider.future);
+    if (!mounted) return;
+    if (!premium) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Premium feature — upgrade for AI plans')),
+      );
+      return;
+    }
+    setState(() => _aiLoading = true);
+    try {
+      final targetDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final raw = await ref.read(apiClientProvider).aiRedistribute(targetDate);
+      final mapped = _mapAiPlans(raw);
+      if (!mounted) return;
+      setState(() => _aiPlans = mapped);
+      if (mapped.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('AI had nothing to reschedule')),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _aiLoading = false);
+    }
+  }
+
+  /// Парсит ответ /ai/redistribute (plans:[{label, reason, items:[{id, scheduled_at}]}])
+  /// в локальные _Variant. scheduled_at — ISO 8601, приводим к локальному времени.
+  List<_Variant> _mapAiPlans(List<dynamic> raw) {
+    final result = <_Variant>[];
+    for (final p in raw) {
+      if (p is! Map) continue;
+      final assign = <String, DateTime>{};
+      final items = p['items'];
+      if (items is List) {
+        for (final it in items) {
+          if (it is! Map) continue;
+          final id = it['id'] as String?;
+          final at = it['scheduled_at'] as String?;
+          if (id == null || at == null) continue;
+          final dt = DateTime.tryParse(at);
+          if (dt != null) assign[id] = dt.toLocal();
+        }
+      }
+      if (assign.isEmpty) continue;
+      result.add(_Variant(
+        (p['label'] as String?) ?? 'AI plan',
+        (p['reason'] as String?) ?? '',
+        assign,
+      ));
+    }
+    return result;
+  }
+
+  Future<void> _apply(_Variant variant) async {
+    await _applyVariant(ref, variant);
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final overdue = ref.watch(overduePendingProvider).valueOrNull ??
         const <ItemsTableData>[];
     final today = ref.watch(_todayItemsForReviewProvider).valueOrNull ??
         const <ItemsTableData>[];
-    final variants =
-        overdue.isEmpty ? <_Variant>[] : _buildVariants(overdue, today, DateTime.now());
+    final variants = overdue.isEmpty
+        ? <_Variant>[]
+        : _buildVariants(overdue, today, DateTime.now());
     final textTheme = Theme.of(context).textTheme;
+    final aiPlans = _aiPlans;
 
     return SafeArea(
       child: Padding(
@@ -210,31 +363,32 @@ class _MorningReviewSheet extends ConsumerWidget {
               Text('Smart plans (free)', style: textTheme.titleSmall),
               const SizedBox(height: 8),
               ...variants.map(
-                (v) => Card(
-                  margin: const EdgeInsets.only(bottom: 8),
-                  child: ListTile(
-                    title: Text(v.label),
-                    subtitle: Text(v.reason),
-                    trailing: TextButton(
-                      onPressed: () async {
-                        final dao = ref.read(itemsDaoProvider);
-                        final now = DateTime.now();
-                        for (final entry in v.assign.entries) {
-                          await dao.updateItem(
-                            entry.key,
-                            ItemsTableCompanion(
-                              scheduledAt: Value(entry.value),
-                              updatedAt: Value(now),
-                            ),
-                          );
-                        }
-                        if (context.mounted) Navigator.of(context).pop();
-                      },
-                      child: const Text('Apply'),
-                    ),
-                  ),
-                ),
+                (v) => _VariantCard(variant: v, onApply: () => _apply(v)),
               ),
+              const SizedBox(height: 8),
+              // AI-вариант (premium): кнопка запроса + результаты.
+              if (aiPlans == null)
+                SizedBox(
+                  width: double.infinity,
+                  child: OutlinedButton.icon(
+                    icon: _aiLoading
+                        ? const SizedBox(
+                            height: 16,
+                            width: 16,
+                            child: CircularProgressIndicator(strokeWidth: 2),
+                          )
+                        : const Icon(Icons.auto_awesome, size: 18),
+                    label: const Text('Smarter plan with AI (Premium)'),
+                    onPressed: _aiLoading ? null : _getAiPlans,
+                  ),
+                )
+              else ...[
+                Text('AI plans', style: textTheme.titleSmall),
+                const SizedBox(height: 8),
+                ...aiPlans.map(
+                  (v) => _VariantCard(variant: v, onApply: () => _apply(v)),
+                ),
+              ],
               const Divider(height: 24),
             ],
             if (overdue.isEmpty)
@@ -259,6 +413,29 @@ class _MorningReviewSheet extends ConsumerWidget {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Карточка одного варианта раскладки (free или AI) с кнопкой Apply.
+class _VariantCard extends StatelessWidget {
+  const _VariantCard({required this.variant, required this.onApply});
+
+  final _Variant variant;
+  final VoidCallback onApply;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        title: Text(variant.label),
+        subtitle: variant.reason.isEmpty ? null : Text(variant.reason),
+        trailing: TextButton(
+          onPressed: onApply,
+          child: const Text('Apply'),
         ),
       ),
     );

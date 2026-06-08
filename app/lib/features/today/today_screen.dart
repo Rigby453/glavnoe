@@ -10,6 +10,7 @@ import 'package:intl/intl.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/settings/tone_provider.dart';
+import '../../services/streak/streak_service.dart';
 import '../../services/widget/widget_service.dart';
 import 'widgets/add_task_sheet.dart';
 import 'widgets/morning_review_card.dart';
@@ -42,9 +43,12 @@ class TodayScreen extends ConsumerWidget {
     final allMainDone = mainItems.isNotEmpty &&
         mainItems.every((i) => i.status == 'done' || i.status == 'skipped');
 
-    // При изменении main-задач обновляем домашний виджет (Android)
-    ref.listen(todayMainItemsProvider, (_, _) {
-      refreshHomeWidget(
+    // При изменении main-задач: пересчитываем серию (offline-first, идемпотентно)
+    // и обновляем домашний виджет (Android).
+    ref.listen(todayMainItemsProvider, (_, _) async {
+      // Сначала серия — чтобы виджет подхватил свежее значение.
+      await ref.read(streakServiceProvider).recomputeForDay(DateTime.now());
+      await refreshHomeWidget(
         itemsDao: ref.read(itemsDaoProvider),
         streakDao: ref.read(streakDaoProvider),
       );

@@ -18,7 +18,7 @@
 - [x] AUTH-01..04 Register / Login / JWT middleware / Me
 - [x] ITEMS-01..04 CRUD + ownership
 - [x] STREAK-01..02 Get streak + update helper
-- [x] SYNC-01 Sync endpoint (last-write-wins)
+- [x] SYNC-01 Sync endpoint (last-write-wins); recomputes streak when a main item transitions to done (regression fix — previously only PATCH /items did)
 - [x] ENGINE-01 Rule redistribution (POST /api/v1/redistribute)
 
 ## Flutter (see docs/agents/flutter-tasks.md)
@@ -35,6 +35,7 @@
 - [x] All 5 themes (Focus/Calm/Black/White/Contrast, contrast 1.15 type scale) + picker
 - [x] Home widget (Android) — native AppWidgetProvider + MethodChannel bridge; verified on a real device (shows main progress + streak, tap opens app). iOS widget needs a Mac.
 - [x] Extras: tone toggle gentle/harsh (tone-aware copy) · morning-review rule-based plan variants (free) · focus sessions incl 67/15 · weekly wrapped (rule-based) · exam/deadline countdown · Health water tracker · profile streak/freeze card
+- [x] Streak now actually works: offline-first client computation (StreakService, idempotent, mirrors backend rules) writes local StreakTable on main-task completion → Today/Profile show real streak (was always 0)
 
 ## QA (see docs/agents/qa-tasks.md)
 - [x] QA-01 Auth flow
@@ -50,7 +51,8 @@
 
 ## AI — Phase 1 (paid; see docs/agents/ai-tasks.md)
 - [x] AI-06 Schedule import from photo (premium): /api/v1/ai/schedule-import + Claude Haiku multimodal in src/ai/ + premium gate + Flutter photo button. Tests mock ai/ (4/4). Live run needs real ANTHROPIC_API_KEY + a premium user.
-- [x] AI-01 smart redistribute (/ai/redistribute, Sonnet, 2-3 plan variants) · AI-02 morning message (/ai/morning-message, Haiku, tone-aware) · AI-04 diary insight (/ai/diary-insight, Sonnet) — premium-gated, src/ai/, tests mock ai/ (41/41). Live run needs ANTHROPIC_API_KEY + premium user.
+- [x] AI-01 smart redistribute (/ai/redistribute, Sonnet, 2-3 plan variants) · AI-02 morning message (/ai/morning-message, Haiku, tone-aware) · AI-04 diary insight (/ai/diary-insight, Sonnet) — premium-gated, src/ai/, tests mock ai/ (44/44). Live run needs ANTHROPIC_API_KEY + premium user.
+- [x] AI wired into Today UI: morning-review card now has "Smarter plan with AI (Premium)" (→ /ai/redistribute, applies variants locally) + "AI nudge" message button (→ /ai/morning-message). Premium-gated via isPremiumProvider; graceful snackbar for free/errors. (diary insight + photo import were already wired.)
 - [ ] AI-03 food photo (needs food DB) · AI-05 weekly wrapped
 
 ## MVP Definition of Done
