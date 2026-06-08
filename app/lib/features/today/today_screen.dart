@@ -13,6 +13,7 @@ import '../../core/settings/tone_provider.dart';
 import '../../services/streak/streak_service.dart';
 import '../../services/widget/widget_service.dart';
 import 'widgets/add_task_sheet.dart';
+import 'widgets/celebration_overlay.dart';
 import 'widgets/morning_review_card.dart';
 import 'widgets/progress_ring.dart';
 import 'widgets/streak_row.dart';
@@ -54,6 +55,23 @@ class TodayScreen extends ConsumerWidget {
       );
     });
 
+    return Stack(
+      children: [
+        _buildScaffold(context, now, itemsAsync, mainItems, tone, allMainDone),
+        // Слой празднования (конфетти) поверх всего; тапы не перехватывает.
+        const Positioned.fill(child: CelebrationOverlay()),
+      ],
+    );
+  }
+
+  Widget _buildScaffold(
+    BuildContext context,
+    DateTime now,
+    AsyncValue<List<ItemsTableData>> itemsAsync,
+    List<ItemsTableData> mainItems,
+    AppTone tone,
+    bool allMainDone,
+  ) {
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () => showAddTaskSheet(context, day: now),
