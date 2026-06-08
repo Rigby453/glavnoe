@@ -17,7 +17,16 @@ import '../../../core/utils/id.dart';
 
 const List<String> _types = ['task', 'event', 'exam', 'deadline'];
 const List<String> _priorities = ['low', 'medium', 'high', 'main'];
+const List<int> _durations = [15, 30, 45, 60, 90, 120];
 const int _maxMainPerDay = 3;
+
+/// Человекочитаемая длительность: 45 → "45m", 90 → "1h 30m".
+String _durationLabel(int minutes) {
+  if (minutes < 60) return '${minutes}m';
+  final h = minutes ~/ 60;
+  final m = minutes % 60;
+  return m == 0 ? '${h}h' : '${h}h ${m}m';
+}
 
 /// Открывает модальный лист добавления (existing == null) или
 /// редактирования (existing != null) задачи на день [day].
@@ -61,6 +70,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   late String _type;
   late String _priority;
   late DateTime _scheduledAt;
+  late int _durationMinutes;
 
   bool get _isEditing => widget.existing != null;
 
@@ -72,6 +82,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     _type = existing?.type ?? 'task';
     _priority = existing?.priority ?? 'medium';
     _scheduledAt = existing?.scheduledAt ?? _defaultScheduledAt();
+    _durationMinutes = existing?.durationMinutes ?? 30;
   }
 
   /// Сегодня, следующий круглый час
@@ -157,6 +168,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           type: Value(_type),
           priority: Value(_priority),
           scheduledAt: Value(_scheduledAt),
+          durationMinutes: Value(_durationMinutes),
           isProtected: Value(isProtected),
           updatedAt: Value(now),
         ),
@@ -171,7 +183,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           priority: Value(_priority),
           status: const Value('pending'),
           scheduledAt: Value(_scheduledAt),
-          durationMinutes: const Value(30),
+          durationMinutes: Value(_durationMinutes),
           isProtected: Value(isProtected),
           createdAt: Value(now),
           updatedAt: Value(now),
@@ -234,6 +246,21 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                         label: Text(p),
                         selected: _priority == p,
                         onSelected: (_) => _onPriorityTap(p),
+                      ))
+                  .toList(),
+            ),
+            const SizedBox(height: 16),
+
+            // Длительность
+            Text('Duration', style: textTheme.labelMedium),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 8,
+              children: _durations
+                  .map((d) => ChoiceChip(
+                        label: Text(_durationLabel(d)),
+                        selected: _durationMinutes == d,
+                        onSelected: (_) => setState(() => _durationMinutes = d),
                       ))
                   .toList(),
             ),
