@@ -49,6 +49,11 @@
 
 <!-- Add new ADRs below this line -->
 
+## ADR-021: Cross-device delete propagation via Tombstone table
+**Date:** 2026-06
+**Decision:** Added a `Tombstone` model (`userId`, `itemId`, `deletedAt`, unique `(userId,itemId)`, index `(userId,deletedAt)`; Neon migration `add_tombstone`). Deleting an item — via `POST /sync deleted_item_ids` **or** `DELETE /items/:id` — now records a tombstone. `/sync` returns `deleted_item_ids` = tombstones with `deletedAt > last_sync_at`, **excluding ids the caller sent in the same request** (so a device isn't told to delete what it just deleted). The client applies these by removing the local rows directly (not via `ItemsDao.deleteItem`, so no new tombstone/loop).
+**Reason:** Closes the known limitation from [[ADR-019]]: outgoing deletes reached the server, but other devices never learned of them (the item lingered on device B). A dedicated tombstone table keeps existing item queries (GET/redistribute/streak) untouched — a soft-delete column on Item would have forced `deletedAt IS NULL` filters everywhere and risked leaks. Mirrors the additive, optional sync-contract style of water/day-logs. Tombstones grow unbounded; acceptable for now (few deletes), revisit with periodic pruning (e.g. >90 days) if needed. Completes the sync story: items (LWW), water (append), day logs (LWW-by-date), deletes (tombstones), streak recompute.
+
 ## ADR-020: Diary (DayLog) sync — keyed by date, last-write-wins via updatedAt
 **Date:** 2026-06
 **Decision:** Added `updatedAt DateTime @default(now()) @updatedAt` to `DayLog` (Prisma migration `add_daylog_updated_at` on Neon; data-model updated) and a matching column to the client Drift `day_logs` table (schemaVersion 1→2 migration). `/sync` gained optional `day_logs` (request) and `updated_day_logs` (response). The server upserts each incoming day log **by `(userId, date)`** (the existing `@@unique`), applying it only if `incoming.updated_at > existing.updatedAt` (LWW, same `@updatedAt` model as Items), and creating it otherwise. The client sends day logs changed since `last_sync_at` and merges server rows **by date** (not id), since each device mints its own uuid for the same date.

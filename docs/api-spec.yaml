@@ -592,6 +592,10 @@ components:
           type: array
           description: Diary entries changed on the server since last_sync_at.
           items: { $ref: '#/components/schemas/DayLog' }
+        deleted_item_ids:
+          type: array
+          description: Item ids deleted on other devices since last_sync_at (apply locally).
+          items: { type: string, format: uuid }
 
     RedistributeResponse:
       type: object

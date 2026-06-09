@@ -127,4 +127,13 @@ model WaterLog {
   amountMl Int
   loggedAt DateTime @default(now())
 }
+model Tombstone {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  itemId    String
+  deletedAt DateTime @default(now())
+  @@unique([userId, itemId])
+  @@index([userId, deletedAt])
+}
 ```

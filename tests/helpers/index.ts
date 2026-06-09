@@ -95,6 +95,7 @@ export async function cleanupUser(userId: string): Promise<void> {
     await prisma.item.deleteMany({ where: { userId } });
     await prisma.waterLog.deleteMany({ where: { userId } });
     await prisma.dayLog.deleteMany({ where: { userId } });
+    await prisma.tombstone.deleteMany({ where: { userId } });
     await prisma.streak.deleteMany({ where: { userId } });
     await prisma.user.delete({ where: { id: userId } });
   } catch {

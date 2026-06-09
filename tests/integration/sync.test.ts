@@ -453,3 +453,45 @@ test('combined sync: item-done + water + day_log + delete + streak together', as
   const streak = await getStreak(user.token);
   expect(streak.current).toBe(1);
 });
+
+// --- Cross-device delete propagation (tombstones) ---
+
+test('deletion propagates to another device via deleted_item_ids', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const item = await createItem(app, user.token, { title: 'Cross-device delete' });
+
+  // Device A deletes via sync — its own delete is NOT echoed back to itself.
+  const aRes = await syncWithDeletes(user.token, [item.id]);
+  expect(aRes.json<{ deleted_item_ids: string[] }>().deleted_item_ids).not.toContain(item.id);
+
+  // Device B (still at EPOCH) syncs → learns about the deletion.
+  const bRes = await app.inject({
+    method: 'POST',
+    url: '/api/v1/sync',
+    headers: { Authorization: `Bearer ${user.token}` },
+    payload: { items: [], last_sync_at: EPOCH },
+  });
+  expect(bRes.json<{ deleted_item_ids: string[] }>().deleted_item_ids).toContain(item.id);
+});
+
+test('DELETE /items/:id creates a tombstone returned by sync', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const item = await createItem(app, user.token, { title: 'REST delete' });
+
+  const del = await app.inject({
+    method: 'DELETE',
+    url: `/api/v1/items/${item.id}`,
+    headers: { Authorization: `Bearer ${user.token}` },
+  });
+  expect(del.statusCode).toBe(204);
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/sync',
+    headers: { Authorization: `Bearer ${user.token}` },
+    payload: { items: [], last_sync_at: EPOCH },
+  });
+  expect(res.json<{ deleted_item_ids: string[] }>().deleted_item_ids).toContain(item.id);
+});

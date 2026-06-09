@@ -278,10 +278,15 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      // Удаления с клиента: убираем только свои задачи (ownership через userId).
+      // Удаления с клиента: убираем только свои задачи (ownership через userId)
+      // и пишем надгробия, чтобы удаление доехало до других устройств.
       if (deletedItemIds && deletedItemIds.length > 0) {
         await prisma.item.deleteMany({
           where: { id: { in: deletedItemIds }, userId },
+        });
+        await prisma.tombstone.createMany({
+          data: deletedItemIds.map((itemId) => ({ userId, itemId })),
+          skipDuplicates: true,
         });
       }
 
@@ -312,10 +317,23 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         orderBy: { date: "asc" },
       });
 
+      // Удаления, пришедшие с ДРУГИХ устройств после last_sync_at (надгробия).
+      // Исключаем те, что прислал сам этот клиент в этом запросе.
+      const incomingDeleteSet = new Set(deletedItemIds ?? []);
+      const tombstones = await prisma.tombstone.findMany({
+        where: { userId, deletedAt: { gt: lastSyncDate } },
+        orderBy: { deletedAt: "asc" },
+        select: { itemId: true },
+      });
+      const deletedToReturn = tombstones
+        .map((t) => t.itemId)
+        .filter((id) => !incomingDeleteSet.has(id));
+
       return reply.status(200).send({
         updated_items: serverUpdated.map(serializeItem),
         updated_water_logs: serverUpdatedWater.map(serializeWaterLog),
         updated_day_logs: serverUpdatedDayLogs.map(serializeDayLog),
+        deleted_item_ids: deletedToReturn,
       });
     }
   );

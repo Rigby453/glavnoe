@@ -166,6 +166,21 @@ class SyncService {
         debugPrint('[SyncService] Merged ${updatedDayLogs.length} day logs');
       }
 
+      // Шаг 5d: применяем удаления с других устройств (без создания нового
+      // надгробия — удаляем напрямую, минуя ItemsDao.deleteItem).
+      final serverDeletedIds =
+          (response['deleted_item_ids'] as List<dynamic>?) ?? <dynamic>[];
+      if (serverDeletedIds.isNotEmpty) {
+        for (final raw in serverDeletedIds) {
+          if (raw is! String) continue;
+          await (_db.delete(_db.itemsTable)..where((t) => t.id.equals(raw)))
+              .go();
+        }
+        debugPrint(
+          '[SyncService] Applied ${serverDeletedIds.length} remote deletions',
+        );
+      }
+
       // Шаг 6: сохраняем метку успешной синхронизации
       final nowUtc = DateTime.now().toUtc().toIso8601String();
       await _apiClient.saveLastSyncAt(nowUtc);

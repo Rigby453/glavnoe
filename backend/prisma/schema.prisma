@@ -21,6 +21,7 @@ model User {
   streak           Streak?
   dayLogs          DayLog[]
   waterLogs        WaterLog[]
+  tombstones       Tombstone[]
 }
 
 model Item {
@@ -69,4 +70,17 @@ model WaterLog {
   user     User     @relation(fields: [userId], references: [id])
   amountMl Int
   loggedAt DateTime @default(now())
+}
+
+// Надгробие удалённой задачи — чтобы удаление доезжало до других устройств.
+// /sync возвращает deleted_item_ids по записям с deletedAt > last_sync_at.
+model Tombstone {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  itemId    String
+  deletedAt DateTime @default(now())
+
+  @@unique([userId, itemId])
+  @@index([userId, deletedAt])
 }

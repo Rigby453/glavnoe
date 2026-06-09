@@ -203,6 +203,13 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
 
       await prisma.item.delete({ where: { id } });
 
+      // Надгробие — чтобы удаление доехало до других устройств через /sync.
+      await prisma.tombstone.upsert({
+        where: { userId_itemId: { userId, itemId: id } },
+        create: { userId, itemId: id },
+        update: {},
+      });
+
       // 204 No Content — без тела
       return reply.status(204).send();
     }
