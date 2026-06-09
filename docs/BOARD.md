@@ -1,8 +1,30 @@
-# Kaizen — MVP Board
+# Kaizen («Главное») — Board
 
-> Lightweight status board. Orchestrator updates checkboxes as work lands.
+> Lightweight status board. Orchestrator updates this after every block of work.
 > Statuses: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 > Full task detail lives in `/docs/agents/*-tasks.md`.
+
+## Текущая фаза: MVP (добивка) — блоки 1–6
+
+## В работе
+- [x] Миссия 0: аудит и наведение порядка в доках (2026-06-10) — см. «Решения» ниже
+- [ ] Блок 1 — AI оживает: нужен GEMINI_API_KEY (пустой в backend/.env) → тест 4 AI-эндпоинтов
+- [ ] Блок 2 — сеть на телефоне: скрипт запуска flutter с LAN IP + докум-я
+- [ ] Блок 3 — анимации по /docs/ANIMATIONS.md (метка MVP) + core/animations/constants.dart
+- [ ] Блок 4 — food_logs sync (backend append-стратегия + Drift sync_queue + тест)
+- [ ] Блок 5 — онбординг: слайды → настройка (интересы/импорт/время разбора/тон/тема/нормы) + Google/Apple заглушки
+- [ ] Блок 6 — тесты: виджет-тесты Today/Plan/Diary, food sync, AI (моки)
+
+## Блокеры
+- GEMINI_API_KEY пуст в backend/.env → Блок 1 ждёт ключ от пользователя
+
+## Решения (мини-ADR, полные — в /docs/decisions.md)
+- 2026-06-10: Миссия 0 — animations_tz.md → ANIMATIONS.md (источник истины по моушену);
+  тайминги в design-tokens.json приведены к ANIMATIONS.md (ADR-023); доки про AI приведены
+  к ADR-022 (Gemini default); ITEMS-03 403→404 (по ADR-014); data-model.md дополнен Tombstone;
+  START.md переписан в актуальный указатель.
+
+---
 
 ## Foundations (do first — everyone depends on these)
 - [x] Product spec — `docs/SPEC.md`

@@ -10,6 +10,9 @@
 **Kaizen** ("the important stuff won't slip") — a planner for students that
 re-assembles the day around what matters and helps users understand *why* plans fail.
 
+> Naming: the product is **«Главное»** (RU working title, see /docs/SPEC.md); **Kaizen** is the
+> codename used in code, packages (com.kaizen) and repo docs. Same product — don't rename code.
+
 - **Hook:** auto-carry-over of unfinished tasks + priority-based redistribution **with user
   confirmation**. Rule-based (free) → AI-smarter (paid).
 - **Audience:** students and young adults. Commercial product.
@@ -18,8 +21,10 @@ re-assembles the day around what matters and helps users understand *why* plans 
   `[Download]` button.
 - **Monetization:** subscription **$10/mo** (funds AI). Ads only on the free tier, never on paid.
   AI is **never** funded by ads — AI is a paid-only feature.
-- **AI:** **Claude API**, backend-only. `claude-haiku-4-5` for bulk/fast, `claude-sonnet-4-6`
-  for complex reasoning. Prompt caching + Batch to cut cost. Nutrition numbers come from the
+- **AI:** backend-only, via the provider abstraction `backend/src/ai/provider.ts` (ADR-022):
+  **Gemini** if `GEMINI_API_KEY` is set (current default), else **Claude API**
+  (`claude-haiku-4-5` for bulk/fast, `claude-sonnet-4-6` for complex reasoning; prompt caching +
+  Batch to cut cost). Provider swap = `.env` change only. Nutrition numbers come from the
   food DB, never from the model.
 
 Full product spec: **/docs/SPEC.md**.
@@ -40,7 +45,8 @@ Full product spec: **/docs/SPEC.md**.
 | Product spec | `/docs/SPEC.md` |
 | API endpoints (OpenAPI 3.0) | `/docs/api-spec.yaml` |
 | DB schema (+ Prisma) | `/docs/data-model.md` |
-| Colors / fonts / spacing / animation | `/docs/design-tokens.json` |
+| Colors / fonts / spacing | `/docs/design-tokens.json` |
+| Animations (durations / curves / per-element spec) | `/docs/ANIMATIONS.md` |
 | Architecture decisions (ADR) | `/docs/decisions.md` |
 | MVP status board | `/docs/BOARD.md` |
 
@@ -61,8 +67,8 @@ Full product spec: **/docs/SPEC.md**.
 
 ## Global rules (apply to ALL agents)
 
-- `ANTHROPIC_API_KEY` / `JWT_SECRET` / `DATABASE_URL` live in `.env` **only** — never in code, never in the Flutter client.
-- The Claude API is called **only** from `backend/src/ai/` — never from routes, the engine, or the client.
+- `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` / `JWT_SECRET` / `DATABASE_URL` live in `.env` **only** — never in code, never in the Flutter client.
+- The AI provider (Claude or Gemini, ADR-022) is called **only** from `backend/src/ai/` — never from routes, the engine, or the client.
 - All API responses must match `/docs/api-spec.yaml` exactly. API payloads use **snake_case**.
 - All DB columns must match `/docs/data-model.md` exactly.
 - Code, file names, and variable names in **English**; comments may be Russian.

@@ -2,8 +2,9 @@
 
 ## Read these first (in order)
 1. /CLAUDE.md — project overview, phase plan, principles
-2. /docs/design-tokens.json — colours, fonts, spacing, animation timing per theme
-3. /docs/api-spec.yaml — endpoints to call (implement Dio client matching exactly)
+2. /docs/design-tokens.json — colours, fonts, spacing per theme
+3. /docs/ANIMATIONS.md — animation spec (durations, curves, per-element behaviour) — THE source of truth for motion
+4. /docs/api-spec.yaml — endpoints to call (implement Dio client matching exactly)
 
 ---
 
@@ -141,5 +142,5 @@ Tap [+] → AddEventSheet with type selector (task/event/exam/deadline).
 | Themes | All 5 themes switchable; default = focus; load from SharedPreferences |
 | Navigation | Profile is AppBar leading button, NOT a 5th tab |
 | Main limit | Max 3 items with priority=main per day — enforce in AddTaskBottomSheet |
-| Animations | Use durations from design-tokens: fast=120ms, normal=200ms, slow=300ms |
+| Animations | Follow /docs/ANIMATIONS.md exactly (snap=120, fast=180, normal=280, slow=400; constants in core/animations/constants.dart); all disableable via MediaQuery.disableAnimations |
 | Tone | gentle/harsh stored in prefs, affects display strings ONLY (not logic) |

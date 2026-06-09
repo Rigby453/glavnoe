@@ -28,7 +28,9 @@ tests/
 ---
 
 ## Setup
-- Use a separate test DB: `DATABASE_URL_TEST` in `.env.test`
+- Env: `backend/jest.setup.ts` loads `backend/.env`, sets `NODE_ENV=test`, and switches to
+  `DATABASE_URL_TEST` if it is set there (otherwise the main `DATABASE_URL` is used —
+  tests clean up after themselves)
 - Each test file creates its own user (via register endpoint) — tests are independent
 - Mock `backend/src/ai/` entirely — no real Claude API calls in tests
 - Run with: `npx jest --runInBand` (serial for DB tests)

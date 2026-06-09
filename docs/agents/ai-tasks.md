@@ -1,8 +1,11 @@
 # AI Tasks — Phase 1 and beyond
 
-> All Claude API calls live in `backend/src/ai/` ONLY.
-> Claude API key is backend-only. Never expose to client.
-> Models: claude-haiku-4-5 (bulk/fast) · claude-sonnet-4-6 (complex/reasoning)
+> All AI calls live in `backend/src/ai/` ONLY. API keys are backend-only, never exposed to client.
+> **Since ADR-022 the provider is abstracted:** `src/ai/provider.ts` picks **Gemini** when
+> `GEMINI_API_KEY` is set (current default), else **Anthropic**. The prompts/endpoints below are
+> still the spec; the Anthropic-specific `client.ts` pattern at the bottom is superseded by
+> `generateText()` from provider.ts.
+> Models (Anthropic path): claude-haiku-4-5 (bulk/fast) · claude-sonnet-4-6 (complex/reasoning)
 
 ---
 

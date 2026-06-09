@@ -1,13 +1,17 @@
 {
-  "$schema-note": "Design tokens for Kaizen. Single source of truth for colours, fonts, spacing and animation. Flutter and the landing page must read from here. Exact colours for themes 1-4 come from SPEC.md B2; values marked \"_placeholder\": true are reasonable defaults pending design sign-off (notably ember/semantic colours for calm/white and the whole contrast palette).",
-  "version": 1,
+  "$schema-note": "Design tokens for Kaizen. Single source of truth for colours, fonts, spacing. Flutter and the landing page must read from here. Animation durations/curves live in /docs/ANIMATIONS.md (the animation source of truth) — the values below mirror its section 0 constants. Exact colours for themes 1-4 come from SPEC.md B2; values marked \"_placeholder\": true are reasonable defaults pending design sign-off (notably ember/semantic colours for calm/white and the whole contrast palette).",
+  "version": 2,
   "animation": {
-    "fast_ms": 120,
-    "normal_ms": 200,
-    "slow_ms": 300,
-    "curve": "easeOut",
-    "modal_curve": "spring",
-    "note": "Per-tab character lives in motion specs, not tokens: Today=lift+spring, Plan=lateral, Health=fluid, Diary=calm/slower. All animations must be disableable in accessibility settings."
+    "source_of_truth": "/docs/ANIMATIONS.md",
+    "snap_ms": 120,
+    "fast_ms": 180,
+    "normal_ms": 280,
+    "slow_ms": 400,
+    "curve_snap": "easeOut",
+    "curve_spring": "elasticOut",
+    "curve_lift": "easeOutCubic",
+    "curve_slide": "easeInOutCubic",
+    "note": "Mirrors ANIMATIONS.md section 0 — if they ever differ, ANIMATIONS.md wins. Per-tab character: Today=lift+spring, Plan=lateral, Health=fluid, Diary=calm/slower. All animations must be disableable (MediaQuery.disableAnimations)."
   },
   "spacing": { "xs": 4, "sm": 8, "md": 16, "lg": 24, "xl": 32, "xxl": 48 },
   "radius": { "sm": 8, "md": 16, "lg": 24, "pill": 999 },

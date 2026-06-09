@@ -35,7 +35,7 @@ Coordinate their output. Never let agents step on each other's files.
 ### AI Agent
 **Works in:** `backend/src/ai/`
 **Reads first:** /CLAUDE.md · /docs/agents/ai-tasks.md
-**Stack:** Claude API (claude-haiku-4-5 bulk · claude-sonnet-4-6 complex) · prompt caching · Batch
+**Stack:** provider abstraction `src/ai/provider.ts` (ADR-022): Gemini (default, GEMINI_API_KEY) or Claude API (claude-haiku-4-5 bulk · claude-sonnet-4-6 complex · prompt caching · Batch)
 **Owns:** redistribution prompts · AI endpoints · tone-aware copy · food vision
 
 ### QA Agent
@@ -84,8 +84,8 @@ Coordinate their output. Never let agents step on each other's files.
 
 ## Rules for ALL agents
 
-- `ANTHROPIC_API_KEY` lives in `.env` only — **never** in Flutter/client code
-- Claude API is called **only** from `backend/src/ai/` — never from routes or client
+- `ANTHROPIC_API_KEY` / `GEMINI_API_KEY` live in `.env` only — **never** in Flutter/client code
+- The AI provider (Claude or Gemini, ADR-022) is called **only** from `backend/src/ai/` — never from routes or client
 - All API responses must match schemas in `/docs/api-spec.yaml` exactly
 - All DB columns must match `/docs/data-model.md` exactly
 - Code and variable names in **English**; comments can be Russian

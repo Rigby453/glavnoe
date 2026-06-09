@@ -59,6 +59,14 @@
 | amount_ml  | integer  |             |
 | logged_at  | timestamp|             |
 
+## Tombstones
+| Column     | Type     | Notes                                   |
+|------------|----------|------------------------------------------|
+| id         | uuid PK  |                                          |
+| user_id    | uuid FK  | -> users.id                              |
+| item_id    | uuid     | удалённый Item (ADR-021, delete sync)    |
+| deleted_at | timestamp| unique (user_id, item_id)                |
+
 ## Prisma schema
 
 ```prisma
@@ -83,6 +91,7 @@ model User {
   streak           Streak?
   dayLogs          DayLog[]
   waterLogs        WaterLog[]
+  tombstones       Tombstone[]
 }
 model Item {
   id              String   @id @default(uuid())

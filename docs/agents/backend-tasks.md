@@ -85,7 +85,7 @@ Verify all tables created in psql.
 `PATCH /api/v1/items/:id`
 - Protected
 - Fetch item → 404 if not found
-- Verify `item.userId === req.user.userId` → 403 if not
+- Verify `item.userId === req.user.userId` → **404** if not (not 403 — see ADR-014; api-spec.yaml wins)
 - Partial update: only fields present in body
 - Return updated Item
 
