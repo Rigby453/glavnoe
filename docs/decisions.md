@@ -49,6 +49,11 @@
 
 <!-- Add new ADRs below this line -->
 
+## ADR-022: AI provider abstraction — Gemini now, Anthropic swappable by env
+**Date:** 2026-06
+**Decision:** Introduced `backend/src/ai/provider.ts` exposing `generateText({ system, user, maxTokens, tier, json, image })`. It picks the provider by env: **Gemini** if `GEMINI_API_KEY` is set (REST, global `fetch`, no SDK; model from `GEMINI_MODEL`, default cheap `gemini-2.0-flash-lite`), otherwise **Anthropic** (existing SDK; `tier` fast→`claude-haiku-4-5`, smart→`claude-sonnet-4-6`, overridable via env). The four AI features (morning message, diary insight, smart redistribute, schedule-import incl. image) were refactored to call `generateText` instead of newing the Anthropic SDK directly. Structured outputs (smart-redistribute, schedule-import) now ask for strict JSON (`responseMimeType` on Gemini) and validate with the existing zod schemas after `stripJsonFences` + `JSON.parse`, instead of Anthropic's `messages.parse`/`zodOutputFormat`.
+**Reason:** The user has a Gemini key, not Anthropic, and wants the cheapest model — but may switch to Anthropic later "without much architecture change." A thin provider seam makes the swap an `.env` change (drop in `GEMINI_API_KEY` or `ANTHROPIC_API_KEY`); feature logic and the premium gate are untouched. REST-for-Gemini avoids a new dependency and its version churn. Provider-agnostic JSON-via-prompt (not vendor structured-output helpers) keeps both paths identical. Tests still mock the feature modules, so they pass unchanged. Numbers/data still come from code/DB, never the model (unchanged). Supersedes the Claude-only assumption in [[ADR-006]] (key still backend-only, still only called from `src/ai/`).
+
 ## ADR-021: Cross-device delete propagation via Tombstone table
 **Date:** 2026-06
 **Decision:** Added a `Tombstone` model (`userId`, `itemId`, `deletedAt`, unique `(userId,itemId)`, index `(userId,deletedAt)`; Neon migration `add_tombstone`). Deleting an item — via `POST /sync deleted_item_ids` **or** `DELETE /items/:id` — now records a tombstone. `/sync` returns `deleted_item_ids` = tombstones with `deletedAt > last_sync_at`, **excluding ids the caller sent in the same request** (so a device isn't told to delete what it just deleted). The client applies these by removing the local rows directly (not via `ItemsDao.deleteItem`, so no new tombstone/loop).

@@ -1,21 +1,12 @@
 /**
- * AI-01: Умное перераспределение (premium, Sonnet).
- * Claude предлагает 2-3 варианта плана дня для просроченных задач.
- * Claude вызывается ТОЛЬКО здесь. Дата собирается в коде (детерминировано).
+ * AI-01: Умное перераспределение (premium).
+ * Предлагает 2-3 варианта плана дня для просроченных задач через провайдер
+ * (Gemini/Claude). Дата собирается в коде (детерминированно). Модель только
+ * раскладывает по времени. Вызов модели — только через provider.ts.
  */
 
-import Anthropic from "@anthropic-ai/sdk";
-import { zodOutputFormat } from "@anthropic-ai/sdk/helpers/zod";
 import { z } from "zod";
-
-let _client: Anthropic | null = null;
-function getClient(): Anthropic {
-  if (_client) return _client;
-  const apiKey = process.env["ANTHROPIC_API_KEY"];
-  if (!apiKey) throw new Error("ANTHROPIC_API_KEY is not set.");
-  _client = new Anthropic({ apiKey });
-  return _client;
-}
+import { generateText, stripJsonFences } from "./provider.js";
 
 export interface PlanInputItem {
   id: string;
@@ -63,16 +54,18 @@ export async function generateSmartPlans(params: {
   if (pendingItems.length === 0) return { plans: [] };
 
   const validIds = new Set(pendingItems.map((i) => i.id));
-  const client = getClient();
 
   const system =
     "You are a study-planner assistant. Given unfinished tasks, propose 2-3 " +
     "DISTINCT day plans (e.g. front-loaded mornings, balanced, light start). " +
     "Schedule between 08:00 and 22:00 in 30-minute granularity, avoid the " +
     "occupied times, do not double-book, keep higher-priority tasks earlier. " +
-    "Use ONLY the provided task ids. Return strict JSON.";
+    "Use ONLY the provided task ids. " +
+    'Return STRICT JSON only (no prose, no markdown fences): a JSON array of ' +
+    'objects {"label": string, "reason": string, "items": [{"id": string, ' +
+    '"time": "HH:MM"}]}.';
 
-  const userText = JSON.stringify({
+  const user = JSON.stringify({
     target_date: targetDate,
     occupied_times: occupiedTimes,
     tasks: pendingItems.map((i) => ({
@@ -83,22 +76,26 @@ export async function generateSmartPlans(params: {
     })),
   });
 
-  const message = await client.messages.parse({
-    model: "claude-sonnet-4-6",
-    max_tokens: 1500,
-    system: [
-      { type: "text", text: system, cache_control: { type: "ephemeral" } },
-    ],
-    messages: [{ role: "user", content: userText }],
-    output_config: { format: zodOutputFormat(RawPlanSchema) },
+  const text = await generateText({
+    system,
+    user,
+    maxTokens: 1500,
+    tier: "smart",
+    json: true,
   });
 
-  const raw = message.parsed_output;
-  if (!Array.isArray(raw)) {
-    throw new Error("Claude returned an unparseable smart-redistribute response.");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripJsonFences(text));
+  } catch {
+    throw new Error("AI returned unparseable JSON for smart-redistribute.");
+  }
+  const result = RawPlanSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error("AI returned an unexpected smart-redistribute shape.");
   }
 
-  const plans: SmartPlan[] = raw.slice(0, 3).map((plan) => ({
+  const plans: SmartPlan[] = result.data.slice(0, 3).map((plan) => ({
     label: plan.label,
     reason: plan.reason,
     items: plan.items
