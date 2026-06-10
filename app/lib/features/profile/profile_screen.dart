@@ -1,9 +1,11 @@
 // Экран профиля (не таб). Показывает статус аккаунта и кнопку выхода/входа.
 // При выходе routerProvider уводит на /auth.
 
+import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
@@ -65,6 +67,8 @@ class ProfileScreen extends ConsumerWidget {
               },
               child: Text(isAuthenticated ? 'Sign out' : 'Sign in / Sign up'),
             ),
+            const SizedBox(height: 8),
+            const _AppVersionLabel(),
           ],
         ),
       ),
@@ -290,6 +294,30 @@ class _TextSizeSetting extends ConsumerWidget {
           }).toList(),
         ),
       ],
+    );
+  }
+}
+
+/// Версия приложения внизу профиля (просьба с ревью MVP: видеть, какая
+/// сборка стоит на устройстве). В debug-сборке помечается «debug».
+class _AppVersionLabel extends StatelessWidget {
+  const _AppVersionLabel();
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        if (info == null) return const SizedBox(height: 16);
+        final debugSuffix = kDebugMode ? ' · debug' : '';
+        return Text(
+          'Version ${info.version} (${info.buildNumber})$debugSuffix',
+          textAlign: TextAlign.center,
+          style: textTheme.bodySmall,
+        );
+      },
     );
   }
 }

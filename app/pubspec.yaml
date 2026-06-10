@@ -2,7 +2,7 @@ name: app
 description: "Kaizen — planner for students. The important stuff won't slip."
 publish_to: 'none'
 
-version: 1.0.0+1
+version: 1.0.0+2
 
 environment:
   sdk: ^3.12.1
@@ -30,6 +30,9 @@ dependencies:
 
   # Persistence / prefs
   shared_preferences: ^2.2.0
+
+  # Версия приложения (показывается в профиле)
+  package_info_plus: ^8.0.0
 
   # Fonts
   google_fonts: ^6.2.0

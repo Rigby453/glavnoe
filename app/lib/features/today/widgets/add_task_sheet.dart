@@ -266,7 +266,9 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     final textTheme = Theme.of(context).textTheme;
 
     return SafeArea(
-      child: Padding(
+      // Скролл вместо Padding: с открытой клавиатурой контент не помещается
+      // и Column переполнялся («BOTTOM OVERFLOWED BY 112 PIXELS», ревью MVP).
+      child: SingleChildScrollView(
         padding: const EdgeInsets.all(16), // spacing.md
         child: Column(
           mainAxisSize: MainAxisSize.min,

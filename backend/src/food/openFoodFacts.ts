@@ -5,6 +5,9 @@
  */
 
 const OFF_BASE = "https://world.openfoodfacts.org";
+// Полнотекстовый поиск переехал на search-a-licious: легаси cgi/search.pl
+// стабильно отдаёт 503 (обнаружено на ревью MVP 2026-06-10).
+const OFF_SEARCH_BASE = "https://search.openfoodfacts.org";
 const USER_AGENT = "Kaizen/1.0 (student planner; contact: support@kaizen.app)";
 
 /** Нормализованный продукт (значения — на 100 г, null если неизвестно). */
@@ -34,7 +37,8 @@ interface OffNutriments {
 interface OffProduct {
   code?: string;
   product_name?: string;
-  brands?: string;
+  // search-a-licious отдаёт массив, api/v2 — строку через запятую
+  brands?: string | string[];
   nutriments?: OffNutriments;
 }
 interface OffProductResponse {
@@ -42,7 +46,7 @@ interface OffProductResponse {
   product?: OffProduct;
 }
 interface OffSearchResponse {
-  products?: OffProduct[];
+  hits?: OffProduct[];
 }
 
 function num(v: number | string | undefined): number | null {
@@ -55,10 +59,11 @@ function normalize(p: OffProduct, fallbackCode: string): FoodProduct | null {
   const name = (p.product_name ?? "").trim();
   if (!name) return null; // продукт без названия бесполезен
   const n = p.nutriments ?? {};
+  const rawBrand = Array.isArray(p.brands) ? p.brands[0] : p.brands?.split(",")[0];
   return {
     code: (p.code ?? fallbackCode).trim(),
     name,
-    brand: p.brands?.split(",")[0]?.trim() || null,
+    brand: rawBrand?.trim() || null,
     per100g: {
       calories: num(n["energy-kcal_100g"]),
       protein: num(n.proteins_100g),
@@ -91,12 +96,12 @@ export async function searchProducts(
   limit = 20
 ): Promise<FoodProduct[]> {
   const url =
-    `${OFF_BASE}/cgi/search.pl?search_terms=${encodeURIComponent(query)}` +
-    `&search_simple=1&action=process&json=1&page_size=${limit}&fields=${FIELDS}`;
+    `${OFF_SEARCH_BASE}/search?q=${encodeURIComponent(query)}` +
+    `&page_size=${limit}&fields=${FIELDS}`;
   const res = await fetch(url, { headers: { "User-Agent": USER_AGENT } });
   if (!res.ok) throw new Error(`Open Food Facts error ${res.status}`);
   const data = (await res.json()) as OffSearchResponse;
-  const products = data.products ?? [];
+  const products = data.hits ?? [];
   const out: FoodProduct[] = [];
   for (const p of products) {
     const normalized = normalize(p, "");

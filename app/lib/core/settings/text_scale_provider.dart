@@ -21,7 +21,8 @@ extension TextSizePrefX on TextSizePref {
         TextSizePref.small => 'Small',
         TextSizePref.normal => 'Default',
         TextSizePref.large => 'Large',
-        TextSizePref.larger => 'Larger',
+        // «Larger» звучало невнятно (ревью MVP) — это максимальный размер.
+        TextSizePref.larger => 'Extra large',
       };
 }
 
