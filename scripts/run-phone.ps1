@@ -46,6 +46,11 @@ try {
 }
 
 # --- 3. flutter run с нужным dart-define ---
+# Если устройство не указано — берём Android (иначе flutter падает,
+# когда подключено несколько устройств: Windows/Chrome/Edge + телефон).
+if (-not ($FlutterArgs -contains '-d')) {
+    $FlutterArgs = @('-d', 'android') + $FlutterArgs
+}
 Push-Location $appDir
 try {
     flutter run --dart-define=API_BASE_URL=$apiUrl @FlutterArgs
