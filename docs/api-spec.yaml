@@ -618,6 +618,28 @@ components:
             sugar: { type: number, nullable: true }
             fiber: { type: number, nullable: true }
 
+    FoodLog:
+      type: object
+      description: >
+        A logged food portion (append-only, like WaterLog). Nutrition values are
+        absolute for the portion, precomputed by the client from the food DB
+        (never by the model). Synced create-if-absent by id; createdAt is the
+        "changed since" marker.
+      properties:
+        id: { type: string, format: uuid }
+        user_id: { type: string, format: uuid }
+        date: { type: string, format: date }
+        meal: { type: string, enum: [breakfast, lunch, dinner, snack] }
+        name: { type: string }
+        grams: { type: number }
+        calories: { type: number, nullable: true }
+        protein: { type: number, nullable: true }
+        fat: { type: number, nullable: true }
+        carbs: { type: number, nullable: true }
+        sugar: { type: number, nullable: true }
+        fiber: { type: number, nullable: true }
+        created_at: { type: string, format: date-time }
+
     SyncRequest:
       type: object
       required: [items, last_sync_at]
@@ -629,6 +651,10 @@ components:
           type: array
           description: Optional. Water intake events created since last_sync_at.
           items: { $ref: '#/components/schemas/WaterLog' }
+        food_logs:
+          type: array
+          description: Optional. Food logs created since last_sync_at (append-only).
+          items: { $ref: '#/components/schemas/FoodLog' }
         day_logs:
           type: array
           description: Optional. Diary entries changed since last_sync_at (LWW by updated_at; keyed by date).
@@ -649,6 +675,10 @@ components:
           type: array
           description: Water logs changed on the server since last_sync_at.
           items: { $ref: '#/components/schemas/WaterLog' }
+        updated_food_logs:
+          type: array
+          description: Food logs created on the server since last_sync_at.
+          items: { $ref: '#/components/schemas/FoodLog' }
         updated_day_logs:
           type: array
           description: Diary entries changed on the server since last_sync_at.

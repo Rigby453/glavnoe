@@ -70,6 +70,12 @@ class SyncService {
           .get();
       final outgoingWater = localWater.map(_waterToSnakeCase).toList();
 
+      // Исходящие записи еды (append-only, ADR-024): созданные после lastSyncAt
+      final localFood = await (_db.select(_db.foodLogsTable)
+            ..where((t) => t.createdAt.isBiggerThanValue(lastSyncDate)))
+          .get();
+      final outgoingFood = localFood.map(_foodToSnakeCase).toList();
+
       // Исходящие удаления (tombstones из sync_queue): items, операция delete
       final deleteRows = await (_db.select(_db.syncQueueTable)
             ..where((t) =>
@@ -86,6 +92,7 @@ class SyncService {
       debugPrint(
         '[SyncService] Syncing ${outgoing.length} items, '
         '${outgoingWater.length} water logs, '
+        '${outgoingFood.length} food logs, '
         '${outgoingDayLogs.length} day logs, '
         '${deletedItemIds.length} deletions, lastSyncAt=$lastSyncAt',
       );
@@ -97,6 +104,7 @@ class SyncService {
         lastSyncAt,
         deletedItemIds: deletedItemIds,
         dayLogs: outgoingDayLogs,
+        foodLogs: outgoingFood,
       );
 
       // Удаления доставлены — очищаем обработанные tombstones
@@ -138,6 +146,21 @@ class SyncService {
           }
         });
         debugPrint('[SyncService] Merged ${updatedWater.length} water logs');
+      }
+
+      // Шаг 5b': мержим записи еды от сервера (upsert по id; append-only)
+      final updatedFood =
+          (response['updated_food_logs'] as List<dynamic>?) ?? <dynamic>[];
+      if (updatedFood.isNotEmpty) {
+        await _db.transaction(() async {
+          for (final raw in updatedFood) {
+            if (raw is! Map<String, dynamic>) continue;
+            final companion = _foodSnakeCaseToCompanion(raw);
+            if (companion == null) continue;
+            await _db.into(_db.foodLogsTable).insertOnConflictUpdate(companion);
+          }
+        });
+        debugPrint('[SyncService] Merged ${updatedFood.length} food logs');
       }
 
       // Шаг 5c: мержим записи дневника от сервера (ключ — дата; LWW)
@@ -259,6 +282,59 @@ class SyncService {
       id: Value(m['id'] as String),
       amountMl: Value((m['amount_ml'] as num).toInt()),
       loggedAt: Value(DateTime.parse(m['logged_at'] as String)),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // FoodLog: Drift ↔ snake_case (append-only, ADR-024)
+  // ---------------------------------------------------------------------------
+
+  /// Локальная запись еды → snake_case для отправки (user_id ставит сервер).
+  Map<String, dynamic> _foodToSnakeCase(FoodLogsTableData f) {
+    final u = f.date.toUtc();
+    final dateStr = '${u.year.toString().padLeft(4, '0')}-'
+        '${u.month.toString().padLeft(2, '0')}-'
+        '${u.day.toString().padLeft(2, '0')}';
+    return {
+      'id': f.id,
+      'date': dateStr,
+      'meal': f.meal,
+      'name': f.name,
+      'grams': f.grams,
+      'calories': f.calories,
+      'protein': f.protein,
+      'fat': f.fat,
+      'carbs': f.carbs,
+      'sugar': f.sugar,
+      'fiber': f.fiber,
+      'created_at': f.createdAt.toUtc().toIso8601String(),
+    };
+  }
+
+  /// Ответ сервера (snake_case) → FoodLogsTableCompanion для upsert.
+  /// null при битой записи (нет обязательных полей).
+  FoodLogsTableCompanion? _foodSnakeCaseToCompanion(Map<String, dynamic> m) {
+    final id = m['id'] as String?;
+    final dateStr = m['date'] as String?;
+    final name = m['name'] as String?;
+    if (id == null || dateStr == null || name == null) return null;
+    final date = DateTime.tryParse('${dateStr}T00:00:00.000Z');
+    final createdAt =
+        DateTime.tryParse(m['created_at'] as String? ?? '') ?? DateTime.now();
+    if (date == null) return null;
+    return FoodLogsTableCompanion(
+      id: Value(id),
+      date: Value(date),
+      meal: Value((m['meal'] as String?) ?? 'snack'),
+      name: Value(name),
+      grams: Value((m['grams'] as num?)?.toDouble() ?? 100),
+      calories: Value((m['calories'] as num?)?.toDouble()),
+      protein: Value((m['protein'] as num?)?.toDouble()),
+      fat: Value((m['fat'] as num?)?.toDouble()),
+      carbs: Value((m['carbs'] as num?)?.toDouble()),
+      sugar: Value((m['sugar'] as num?)?.toDouble()),
+      fiber: Value((m['fiber'] as num?)?.toDouble()),
+      createdAt: Value(createdAt),
     );
   }
 

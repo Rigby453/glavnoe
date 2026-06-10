@@ -246,6 +246,107 @@ test('water log sync is idempotent — no duplicate on second sync', async () =>
   expect(water.filter((w) => w.id === id)).toHaveLength(1);
 });
 
+// --- Food log sync (append-only, ADR-024) ---
+
+function foodPayload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    id: randomUUID(),
+    date: '2026-07-22',
+    meal: 'lunch',
+    name: 'Greek salad',
+    grams: 250,
+    calories: 320.5,
+    protein: 9.1,
+    fat: 24.0,
+    carbs: 14.2,
+    sugar: 6.3,
+    fiber: 4.8,
+    created_at: new Date().toISOString(),
+    ...overrides,
+  };
+}
+
+async function syncFood(
+  token: string,
+  foodLogs: Array<Record<string, unknown>>,
+  lastSyncAt: string
+) {
+  return app.inject({
+    method: 'POST',
+    url: '/api/v1/sync',
+    headers: { Authorization: `Bearer ${token}` },
+    payload: { items: [], food_logs: foodLogs, last_sync_at: lastSyncAt },
+  });
+}
+
+test('food log synced → created and returned in updated_food_logs', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const id = randomUUID();
+
+  const res = await syncFood(user.token, [foodPayload({ id })], EPOCH);
+  expect(res.statusCode).toBe(200);
+
+  const food = res.json<{
+    updated_food_logs: Array<{
+      id: string;
+      user_id: string;
+      date: string;
+      meal: string;
+      name: string;
+      grams: number;
+      calories: number | null;
+      fiber: number | null;
+    }>;
+  }>().updated_food_logs;
+  const found = food.find((f) => f.id === id);
+  expect(found).toBeDefined();
+  expect(found?.user_id).toBe(user.userId); // привязка к токену
+  expect(found?.date).toBe('2026-07-22');
+  expect(found?.meal).toBe('lunch');
+  expect(found?.name).toBe('Greek salad');
+  expect(found?.grams).toBe(250);
+  expect(found?.calories).toBeCloseTo(320.5);
+  expect(found?.fiber).toBeCloseTo(4.8);
+});
+
+test('food log sync is idempotent — no duplicate or overwrite on second sync', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const id = randomUUID();
+
+  await syncFood(user.token, [foodPayload({ id, grams: 100 })], EPOCH);
+  // Второй раз с другими граммами: append-only — существующая запись не меняется
+  const res = await syncFood(user.token, [foodPayload({ id, grams: 999 })], EPOCH);
+
+  const food = res.json<{ updated_food_logs: Array<{ id: string; grams: number }> }>()
+    .updated_food_logs;
+  const matching = food.filter((f) => f.id === id);
+  expect(matching).toHaveLength(1);
+  expect(matching[0]?.grams).toBe(100); // первая версия сохранена
+});
+
+test('food log with invalid meal → 400', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+
+  const res = await syncFood(user.token, [foodPayload({ meal: 'brunch' })], EPOCH);
+  expect(res.statusCode).toBe(400);
+});
+
+test('food logs older than last_sync_at are not returned', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+  const id = randomUUID();
+
+  await syncFood(user.token, [foodPayload({ id })], EPOCH);
+  // last_sync_at в будущем → дельта пуста
+  const res = await syncFood(user.token, [], '2100-01-01T00:00:00.000Z');
+  const food = res.json<{ updated_food_logs: Array<{ id: string }> }>()
+    .updated_food_logs;
+  expect(food.some((f) => f.id === id)).toBe(false);
+});
+
 test('one of two main items done via sync → streak NOT incremented', async () => {
   const user = await registerUser(app);
   userIds.push(user.userId);

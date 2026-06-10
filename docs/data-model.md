@@ -59,6 +59,23 @@
 | amount_ml  | integer  |             |
 | logged_at  | timestamp|             |
 
+## FoodLogs
+| Column     | Type     | Notes                                          |
+|------------|----------|------------------------------------------------|
+| id         | uuid PK  | клиентский UUID (идемпотентность синка)        |
+| user_id    | uuid FK  | -> users.id                                    |
+| date       | date     | день (UTC-полночь)                             |
+| meal       | string   | breakfast / lunch / dinner / snack             |
+| name       | string   | название блюда/продукта                        |
+| grams      | float    | default 100                                    |
+| calories   | float    | nullable; абсолют на порцию (из food DB)       |
+| protein    | float    | nullable                                       |
+| fat        | float    | nullable                                       |
+| carbs      | float    | nullable                                       |
+| sugar      | float    | nullable                                       |
+| fiber      | float    | nullable                                       |
+| created_at | timestamp| маркер «changed since» (append-only, ADR-024)  |
+
 ## Tombstones
 | Column     | Type     | Notes                                   |
 |------------|----------|------------------------------------------|
@@ -91,6 +108,7 @@ model User {
   streak           Streak?
   dayLogs          DayLog[]
   waterLogs        WaterLog[]
+  foodLogs         FoodLog[]
   tombstones       Tombstone[]
 }
 model Item {
@@ -135,6 +153,24 @@ model WaterLog {
   user     User     @relation(fields: [userId], references: [id])
   amountMl Int
   loggedAt DateTime @default(now())
+}
+model FoodLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @db.Date
+  meal      String   @default("snack")
+  name      String
+  grams     Float    @default(100)
+  calories  Float?
+  protein   Float?
+  fat       Float?
+  carbs     Float?
+  sugar     Float?
+  fiber     Float?
+  createdAt DateTime @default(now())
+  @@index([userId, date])
+  @@index([userId, createdAt])
 }
 model Tombstone {
   id        String   @id @default(uuid())

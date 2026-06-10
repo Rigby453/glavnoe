@@ -284,6 +284,7 @@ class ApiClient {
     String lastSyncAt, {
     List<String> deletedItemIds = const [],
     List<Map<String, dynamic>> dayLogs = const [],
+    List<Map<String, dynamic>> foodLogs = const [],
   }) async {
     try {
       final response = await _dio.post<Map<String, dynamic>>(
@@ -291,6 +292,7 @@ class ApiClient {
         data: {
           'items': items,
           'water_logs': waterLogs,
+          'food_logs': foodLogs,
           'day_logs': dayLogs,
           'deleted_item_ids': deletedItemIds,
           'last_sync_at': lastSyncAt,

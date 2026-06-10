@@ -21,6 +21,7 @@ model User {
   streak           Streak?
   dayLogs          DayLog[]
   waterLogs        WaterLog[]
+  foodLogs         FoodLog[]
   tombstones       Tombstone[]
 }
 
@@ -70,6 +71,29 @@ model WaterLog {
   user     User     @relation(fields: [userId], references: [id])
   amountMl Int
   loggedAt DateTime @default(now())
+}
+
+// Запись о съеденной порции (Food, Phase 1). Append-only событие (ADR-024):
+// числа КБЖУ — абсолют на порцию, посчитан клиентом из food DB (не моделью).
+// createdAt — маркер «changed since» для синка (как loggedAt у WaterLog).
+model FoodLog {
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  date      DateTime @db.Date
+  meal      String   @default("snack")
+  name      String
+  grams     Float    @default(100)
+  calories  Float?
+  protein   Float?
+  fat       Float?
+  carbs     Float?
+  sugar     Float?
+  fiber     Float?
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+  @@index([userId, createdAt])
 }
 
 // Надгробие удалённой задачи — чтобы удаление доезжало до других устройств.

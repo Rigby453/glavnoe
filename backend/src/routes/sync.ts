@@ -3,6 +3,7 @@ import { z } from "zod";
 import prisma from "../models/prisma.js";
 import { serializeItem } from "../models/item.js";
 import { serializeWaterLog } from "../models/waterLog.js";
+import { serializeFoodLog } from "../models/foodLog.js";
 import { serializeDayLog } from "../models/dayLog.js";
 import { requireAuth } from "./middleware/auth.js";
 import { checkAndUpdateStreak } from "../engine/streaks.js";
@@ -37,6 +38,24 @@ const syncWaterLogSchema = z.object({
 
 // Zod-схема для одного DayLog (запись дневника; ключ — userId+date)
 const dateOnly = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "must be YYYY-MM-DD");
+
+// Zod-схема для одного FoodLog (append-only событие, ADR-024)
+const syncFoodLogSchema = z.object({
+  id: z.string().uuid(),
+  // user_id игнорируется (сервер берёт из JWT)
+  user_id: z.string().optional(),
+  date: dateOnly,
+  meal: z.enum(["breakfast", "lunch", "dinner", "snack"]),
+  name: z.string().min(1),
+  grams: z.number(),
+  calories: z.number().nullable().optional(),
+  protein: z.number().nullable().optional(),
+  fat: z.number().nullable().optional(),
+  carbs: z.number().nullable().optional(),
+  sugar: z.number().nullable().optional(),
+  fiber: z.number().nullable().optional(),
+  created_at: z.string().datetime({ offset: true }),
+});
 const syncDayLogSchema = z.object({
   id: z.string().uuid().optional(),
   user_id: z.string().optional(),
@@ -50,6 +69,7 @@ const syncDayLogSchema = z.object({
 const syncRequestSchema = z.object({
   items: z.array(syncItemSchema),
   water_logs: z.array(syncWaterLogSchema).optional(),
+  food_logs: z.array(syncFoodLogSchema).optional(),
   day_logs: z.array(syncDayLogSchema).optional(),
   // id задач, удалённых на клиенте (offline-first tombstones) — сервер их удаляет
   deleted_item_ids: z.array(z.string().uuid()).optional(),
@@ -72,6 +92,7 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
       const {
         items: incomingItems,
         water_logs: incomingWater,
+        food_logs: incomingFood,
         day_logs: incomingDayLogs,
         deleted_item_ids: deletedItemIds,
         last_sync_at,
@@ -245,6 +266,36 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         });
       }
 
+      // FoodLog — append-only (ADR-024): создаём отсутствующие, существующие
+      // не трогаем (идемпотентность по клиентскому UUID, как water).
+      if (incomingFood && incomingFood.length > 0) {
+        await prisma.$transaction(async (tx) => {
+          for (const f of incomingFood) {
+            const existing = await tx.foodLog.findUnique({
+              where: { id: f.id },
+            });
+            if (existing) continue; // запись неизменяема
+            await tx.foodLog.create({
+              data: {
+                id: f.id, // клиентский UUID для идемпотентности
+                userId, // всегда из токена
+                date: new Date(`${f.date}T00:00:00.000Z`),
+                meal: f.meal,
+                name: f.name,
+                grams: f.grams,
+                calories: f.calories ?? null,
+                protein: f.protein ?? null,
+                fat: f.fat ?? null,
+                carbs: f.carbs ?? null,
+                sugar: f.sugar ?? null,
+                fiber: f.fiber ?? null,
+                createdAt: new Date(f.created_at),
+              },
+            });
+          }
+        });
+      }
+
       // DayLog — одна запись на (userId, date); last-write-wins по updated_at.
       if (incomingDayLogs && incomingDayLogs.length > 0) {
         for (const d of incomingDayLogs) {
@@ -308,6 +359,15 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         orderBy: { loggedAt: "asc" },
       });
 
+      // FoodLog, созданные после last_sync_at (createdAt — маркер изменений)
+      const serverUpdatedFood = await prisma.foodLog.findMany({
+        where: {
+          userId,
+          createdAt: { gt: lastSyncDate },
+        },
+        orderBy: { createdAt: "asc" },
+      });
+
       // DayLog, изменённые после last_sync_at
       const serverUpdatedDayLogs = await prisma.dayLog.findMany({
         where: {
@@ -332,6 +392,7 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
       return reply.status(200).send({
         updated_items: serverUpdated.map(serializeItem),
         updated_water_logs: serverUpdatedWater.map(serializeWaterLog),
+        updated_food_logs: serverUpdatedFood.map(serializeFoodLog),
         updated_day_logs: serverUpdatedDayLogs.map(serializeDayLog),
         deleted_item_ids: deletedToReturn,
       });

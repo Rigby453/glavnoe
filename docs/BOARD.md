@@ -11,12 +11,13 @@
 - [!] Блок 1 — AI оживает: GEMINI_API_KEY всё ещё ПУСТ в backend/.env (пользователь считает что добавил — проверить); живые AI-тесты отложены по команде пользователя
 - [x] Блок 2 — сеть на телефоне: scripts/run-phone.ps1 (LAN IP → --dart-define=API_BASE_URL) + START.md; IP-детект и health-check проверены, телефон 2311DRK48G виден flutter (2026-06-10)
 - [x] Блок 3 — анимации MVP по /docs/ANIMATIONS.md (2026-06-10): §0 constants.dart · §1.1/1.2 Pressable (scale/lift карточек) · §2.3 AnimatedCheck (path-галочка + strikethrough fade; фикс: единая обёртка Dismissible чтобы переход ловился) · §3 тосты ×3 (done/deadline/removed+Undo; Undo вставляет копию с новым id из-за tombstone ADR-021; deadline-вариант готов, триггер придёт с пер-дедлайн уведомлениями) · §4.1 кольцо 400ms+пружина · §8.1 кроссфейд вкладок 150ms · §8.2 showAppSheet 320/220ms (кривые шита не задаются через AnimationStyle — отмечено в коде) · §10 reduce motion везде. Примечание: 2 субагента упёрлись в лимит сессии — хвосты доделаны оркестратором
-- [ ] Блок 4 — food_logs sync (backend append-стратегия + Drift sync_queue + тест)
+- [~] Блок 4 — food_logs sync (2026-06-10): контракты (api-spec FoodLog + SyncRequest/Response, data-model, ADR-024) · Prisma FoodLog + миграция 20260610034639_add_food_log (создана, НЕ применена — нужно `cd backend && npx prisma migrate deploy`, классификатор требует авторизацию пользователя на общую Neon-БД) · sync.ts append-логика + serializeFoodLog · клиент: ApiClient.sync(foodLogs) + SyncService отправка/мёрж · 4 jest-теста написаны (запуск после миграции). tsc и flutter analyze чистые
 - [ ] Блок 5 — онбординг: слайды → настройка (интересы/импорт/время разбора/тон/тема/нормы) + Google/Apple заглушки
 - [ ] Блок 6 — тесты: виджет-тесты Today/Plan/Diary, food sync, AI (моки)
 
 ## Блокеры
 - GEMINI_API_KEY пуст в backend/.env → Блок 1 ждёт ключ от пользователя
+- Миграция add_food_log не применена к Neon → `cd backend && npx prisma migrate deploy` (SQL чисто аддитивный, проверен) → затем `npx jest --runInBand`
 
 ## Решения (мини-ADR, полные — в /docs/decisions.md)
 - 2026-06-10: Миссия 0 — animations_tz.md → ANIMATIONS.md (источник истины по моушену);
