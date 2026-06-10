@@ -8,6 +8,7 @@ import { generateSmartPlans } from "../ai/smartRedistribute.js";
 import { generateDiaryInsight } from "../ai/diaryInsight.js";
 import { recognizeFood } from "../ai/foodRecognize.js";
 import { generateWrappedSummary } from "../ai/wrappedSummary.js";
+import { buildMenu } from "../ai/menuBuild.js";
 import { searchProducts } from "../food/openFoodFacts.js";
 import type { FoodProduct } from "../food/openFoodFacts.js";
 
@@ -31,6 +32,29 @@ const diaryInsightSchema = z.object({ tone: toneSchema });
 const foodRecognizeSchema = z.object({
   image_base64: z.string().min(1),
   media_type: z.enum(["image/jpeg", "image/png"]),
+});
+// Числа на 100 г — от клиента (его food DB/рецепты); модель чисел не выдаёт.
+const menuCandidateSchema = z.object({
+  name: z.string().min(1),
+  per_100g: z.object({
+    calories: z.number().nullable(),
+    protein: z.number().nullable(),
+    fat: z.number().nullable(),
+    carbs: z.number().nullable(),
+    sugar: z.number().nullable(),
+    fiber: z.number().nullable(),
+  }),
+});
+const menuBuildSchema = z.object({
+  candidates: z.array(menuCandidateSchema).min(5).max(40),
+  calorie_goal: z.number().min(800).max(6000),
+  protein_goal_g: z.number().min(10).max(400),
+  meals: z
+    .array(z.string().min(1))
+    .min(1)
+    .max(6)
+    .default(["breakfast", "lunch", "dinner"]),
+  tone: toneSchema.default("gentle"),
 });
 const wrappedSummarySchema = z.object({
   period_days: z.number().int().min(1).max(366),
@@ -224,6 +248,41 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         return reply.status(200).send({ summary });
       } catch (err) {
         return aiError(fastify, reply, err, "wrapped-summary");
+      }
+    }
+  );
+
+  // AI-07: «Собрать ИИ» — дневное меню из продуктов/рецептов клиента (premium).
+  // Модель выбирает позиции и граммы; КБЖУ пересчитает клиент (код). Ничего не сохраняет.
+  fastify.post(
+    "/api/v1/ai/menu-build",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const parsed = menuBuildSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: parsed.error.issues[0]?.message ?? "Validation error",
+        });
+      }
+      if (!(await ensurePremium(request, reply))) return reply;
+
+      try {
+        const result = await buildMenu({
+          candidates: parsed.data.candidates.map((c) => ({
+            name: c.name,
+            per100g: c.per_100g,
+          })),
+          calorieGoal: parsed.data.calorie_goal,
+          proteinGoalG: parsed.data.protein_goal_g,
+          meals: parsed.data.meals,
+          tone: parsed.data.tone,
+        });
+        return reply.status(200).send({
+          meals: result.meals,
+          note: result.note,
+        });
+      } catch (err) {
+        return aiError(fastify, reply, err, "menu-build");
       }
     }
   );

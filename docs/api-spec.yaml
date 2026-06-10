@@ -363,6 +363,77 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /api/v1/ai/menu-build:
+    post:
+      tags: [AI (Phase 1)]
+      summary: Compose a one-day menu from the user's own foods (premium)
+      description: >
+        AI-07, SPEC C5 "[Собрать ИИ]". The client sends its own candidate foods
+        and recipes (names + per-100g numbers from the food DB) plus goals; the
+        model only picks items and grams — it never outputs nutrition numbers.
+        The client recomputes all totals locally (code, never the model).
+        Nothing is saved server-side.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [candidates, calorie_goal, protein_goal_g]
+              properties:
+                candidates:
+                  type: array
+                  minItems: 5
+                  maxItems: 40
+                  items:
+                    type: object
+                    required: [name, per_100g]
+                    properties:
+                      name: { type: string }
+                      per_100g:
+                        type: object
+                        properties:
+                          calories: { type: number, nullable: true }
+                          protein: { type: number, nullable: true }
+                          fat: { type: number, nullable: true }
+                          carbs: { type: number, nullable: true }
+                          sugar: { type: number, nullable: true }
+                          fiber: { type: number, nullable: true }
+                calorie_goal: { type: number, minimum: 800, maximum: 6000 }
+                protein_goal_g: { type: number, minimum: 10, maximum: 400 }
+                meals:
+                  type: array
+                  minItems: 1
+                  maxItems: 6
+                  items: { type: string }
+                  default: [breakfast, lunch, dinner]
+                tone: { $ref: '#/components/schemas/Tone' }
+      responses:
+        '200':
+          description: Proposed menu (names + grams only) and a one-sentence note
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  meals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        meal: { type: string }
+                        items:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name: { type: string }
+                              grams: { type: number }
+                  note: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /api/v1/ai/diary-insight:
     post:
       tags: [AI (Phase 1)]

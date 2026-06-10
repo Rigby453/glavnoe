@@ -33,6 +33,12 @@ jest.mock('../../backend/src/ai/wrappedSummary', () => ({
     .fn()
     .mockResolvedValue({ summary: 'A strong week: 12 of 15 tasks done.' }),
 }));
+jest.mock('../../backend/src/ai/menuBuild', () => ({
+  buildMenu: jest.fn().mockResolvedValue({
+    meals: [{ meal: 'breakfast', items: [{ name: 'Oatmeal', grams: 60 }] }],
+    note: 'Solid day.',
+  }),
+}));
 jest.mock('../../backend/src/ai/foodRecognize', () => ({
   recognizeFood: jest.fn().mockResolvedValue({
     dish: 'greek salad',
@@ -161,6 +167,51 @@ test('wrapped-summary: 403 free / 200 premium with paragraph', async () => {
     },
     (b) => expect(typeof b['summary']).toBe('string')
   );
+});
+
+// 8 кандидатов для menu-build (минимум по схеме — 5)
+const _menuCandidates = Array.from({ length: 8 }, (_, i) => ({
+  name: i === 0 ? 'Oatmeal' : `Food ${i}`,
+  per_100g: { calories: 100 + i, protein: 5, fat: 3, carbs: 12, sugar: 2, fiber: 1.5 },
+}));
+
+test('menu-build: 403 free / 200 premium with meals shape', async () => {
+  await expectGated(
+    '/api/v1/ai/menu-build',
+    {
+      candidates: _menuCandidates,
+      calorie_goal: 2000,
+      protein_goal_g: 60,
+      meals: ['breakfast', 'lunch', 'dinner'],
+      tone: 'gentle',
+    },
+    (b) => {
+      const meals = b['meals'] as Array<Record<string, unknown>>;
+      expect(meals).toHaveLength(1);
+      expect(meals[0]?.['meal']).toBe('breakfast');
+      const items = meals[0]?.['items'] as Array<Record<string, unknown>>;
+      expect(typeof items[0]?.['grams']).toBe('number'); // только name+grams, числа КБЖУ считает клиент
+      expect(typeof b['note']).toBe('string');
+    }
+  );
+});
+
+test('menu-build: fewer than 5 candidates → 400', async () => {
+  const prem = await registerUser(app);
+  userIds.push(prem.userId);
+  await makePremium(prem.userId);
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/ai/menu-build',
+    headers: { Authorization: `Bearer ${prem.token}` },
+    payload: {
+      candidates: _menuCandidates.slice(0, 3),
+      calorie_goal: 2000,
+      protein_goal_g: 60,
+    },
+  });
+  expect(res.statusCode).toBe(400);
 });
 
 test('food-recognize: 4th call same day → 429 (limit 3/day)', async () => {
