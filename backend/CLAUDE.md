@@ -101,7 +101,7 @@ On item status change to "done":
 ```
 DATABASE_URL=postgresql://...
 # AI provider is chosen by whichever key is set (see src/ai/provider.ts):
-#   GEMINI_API_KEY present → Gemini (GEMINI_MODEL, default gemini-2.0-flash-lite)
+#   GEMINI_API_KEY present → Gemini (GEMINI_MODEL, default gemini-2.5-flash-lite)
 #   else ANTHROPIC_API_KEY → Claude (haiku/sonnet)
 GEMINI_API_KEY=AIza...
 GEMINI_MODEL=gemini-2.0-flash-lite

@@ -78,7 +78,9 @@ async function geminiGenerate({
   const apiKey = process.env["GEMINI_API_KEY"];
   if (!apiKey) throw new Error("GEMINI_API_KEY is not set.");
   // Самая дешёвая модель по умолчанию; меняется через .env без правки кода.
-  const model = process.env["GEMINI_MODEL"] ?? "gemini-2.0-flash-lite";
+  // 2.0-flash-lite отдаёт 429 quota=0 для новых ключей (модель выведена) —
+  // дефолт обновлён на 2.5 (проверено живым вызовом 2026-06-10).
+  const model = process.env["GEMINI_MODEL"] ?? "gemini-2.5-flash-lite";
 
   const parts: Array<Record<string, unknown>> = [{ text: user }];
   if (image) {

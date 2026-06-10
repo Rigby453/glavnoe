@@ -49,7 +49,10 @@
 
 <!-- Add new ADRs below this line -->
 
-## ADR-024: Food logs sync — append-only via /sync, mirroring water logs
+## ADR-025: Gemini default model bumped to gemini-2.5-flash-lite
+**Date:** 2026-06-10
+**Decision:** The Gemini-path default in `backend/src/ai/provider.ts` (and the `GEMINI_MODEL` value in `backend/.env`) changes from `gemini-2.0-flash-lite` to **`gemini-2.5-flash-lite`**.
+**Reason:** Live verification with the user's new API key returned `429 quota exceeded` with limit 0 for `gemini-2.0-flash-lite` — the 2.0 line is retired for new keys — while `gemini-2.5-flash-lite`, `gemini-flash-lite-latest` and `gemini-2.5-flash` all answered 200 (probed directly). 2.5-flash-lite is the cheapest working tier, same role as before. All four AI endpoints were then verified live end-to-end (morning-message, redistribute 3 variants, diary-insight, schedule-import reading a generated timetable PNG). Builds on [[ADR-022]].
 **Date:** 2026-06-10
 **Decision:** Food logs sync through the existing `POST /api/v1/sync` exactly like water logs (ADR-017): optional `SyncRequest.food_logs` + `SyncResponse.updated_food_logs`; the server creates-if-absent by client UUID (never updates an existing row) and returns rows with `createdAt > last_sync_at`. New Prisma model `FoodLog` mirrors the client Drift `food_logs` table (id, date @db.Date, meal, name, grams, nullable calories/protein/fat/carbs/sugar/fiber, createdAt); nutrition numbers are absolute per portion, precomputed by the client from the food DB. Local deletion of a food log is NOT propagated cross-device yet (no tombstones for food) — documented limitation, same as water.
 **Reason:** Food logs were local-only (no backup/cross-device). They are effectively immutable single events (a logged portion), so the proven append-only contract from [[ADR-017]] applies unchanged — no `updatedAt`, no LWW, idempotent by client UUID, `createdAt` doubles as the delta marker. Reusing `/sync` keeps one sync path; the new fields are optional so the contract stays backward compatible. Deleting a log only affects the local day view; cross-device delete propagation can reuse the tombstone pattern ([[ADR-021]]) later if users notice.
