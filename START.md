@@ -11,7 +11,13 @@ Current status and phase: `/docs/BOARD.md`.
 ## Running locally
 
 - **Backend:** `cd backend && npm run dev` (Fastify on `PORT` from `backend/.env`, default 3000; DB = Neon PostgreSQL via `DATABASE_URL`).
-- **App:** `cd app && flutter run` (pass the backend URL via `--dart-define` — see app/CLAUDE.md; on a real phone use the laptop's LAN IP, not localhost).
+- **App (desktop/web):** `cd app && flutter run` (backend URL defaults to `http://localhost:3000`).
+- **App on a real phone (USB):** `powershell -ExecutionPolicy Bypass -File scripts\run-phone.ps1`
+  — detects the laptop's LAN IP and runs flutter with `--dart-define=API_BASE_URL=http://<LAN_IP>:3000`.
+  Extra args go to flutter run: `... run-phone.ps1 -- -d <device-id>`.
+  Phone and laptop must be on the same Wi-Fi; backend listens on 0.0.0.0 already.
+  If the phone can't reach the backend, allow inbound TCP 3000 in Windows Firewall once:
+  `New-NetFirewallRule -DisplayName "Kaizen backend 3000" -Direction Inbound -Protocol TCP -LocalPort 3000 -Action Allow` (admin PowerShell).
 - **Backend tests:** `cd backend && npx jest --runInBand`.
 - **App analyze/tests:** `cd app && flutter analyze && flutter test`.
 

@@ -8,8 +8,8 @@
 
 ## В работе
 - [x] Миссия 0: аудит и наведение порядка в доках (2026-06-10) — см. «Решения» ниже
-- [ ] Блок 1 — AI оживает: нужен GEMINI_API_KEY (пустой в backend/.env) → тест 4 AI-эндпоинтов
-- [ ] Блок 2 — сеть на телефоне: скрипт запуска flutter с LAN IP + докум-я
+- [!] Блок 1 — AI оживает: GEMINI_API_KEY всё ещё ПУСТ в backend/.env (пользователь считает что добавил — проверить); живые AI-тесты отложены по команде пользователя
+- [x] Блок 2 — сеть на телефоне: scripts/run-phone.ps1 (LAN IP → --dart-define=API_BASE_URL) + START.md; IP-детект и health-check проверены, телефон 2311DRK48G виден flutter (2026-06-10)
 - [ ] Блок 3 — анимации по /docs/ANIMATIONS.md (метка MVP) + core/animations/constants.dart
 - [ ] Блок 4 — food_logs sync (backend append-стратегия + Drift sync_queue + тест)
 - [ ] Блок 5 — онбординг: слайды → настройка (интересы/импорт/время разбора/тон/тема/нормы) + Google/Apple заглушки
