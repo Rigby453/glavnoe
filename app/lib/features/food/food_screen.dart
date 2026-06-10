@@ -11,6 +11,7 @@ import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/settings/nutrition_goals_provider.dart';
 import '../../services/api/api_client.dart';
+import 'barcode_scanner_screen.dart';
 import 'food_balance.dart';
 import 'food_nutrition.dart';
 
@@ -312,9 +313,19 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
               onSubmitted: (_) => _search(),
               decoration: InputDecoration(
                 hintText: 'Search a product…',
-                suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
-                  onPressed: _search,
+                suffixIcon: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    IconButton(
+                      tooltip: 'Scan barcode',
+                      icon: const Icon(Icons.qr_code_scanner),
+                      onPressed: _scanBarcode,
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.search),
+                      onPressed: _search,
+                    ),
+                  ],
                 ),
               ),
             ),
@@ -353,6 +364,33 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
         ),
       ),
     );
+  }
+
+  /// Скан штрихкода → /food/barcode → тот же диалог порции, что и поиск.
+  Future<void> _scanBarcode() async {
+    final code = await Navigator.of(context).push<String>(
+      MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
+    );
+    if (code == null || !mounted) return;
+
+    setState(() {
+      _loading = true;
+      _error = null;
+    });
+    try {
+      final product = await ref.read(apiClientProvider).foodBarcode(code);
+      if (!mounted) return;
+      if (product == null) {
+        setState(() => _error = 'Product not found for barcode $code');
+      } else {
+        setState(() => _results = [product]);
+        await _addProduct(product);
+      }
+    } on ApiException catch (e) {
+      if (mounted) setState(() => _error = e.message);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   Future<void> _addProduct(Map<String, dynamic> product) async {
