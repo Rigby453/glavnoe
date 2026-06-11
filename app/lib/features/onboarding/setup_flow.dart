@@ -4,6 +4,7 @@
 // Флаг 'setup_done' держит пользователя на /setup через redirect роутера.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -49,16 +50,41 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   int _eveningHour = kEveningHour; // 20
   int _waterGoal = kDefaultWaterGoalMl;
 
+  // Антропометрия — шаг «нормы»
+  final _weightController = TextEditingController();
+  final _heightController = TextEditingController();
+  String _activity = 'medium'; // 'low' | 'medium' | 'high'
+
   @override
   void initState() {
     super.initState();
     _waterGoal = ref.read(waterGoalProvider);
+    // Слушаем изменения полей — пересчитываем рекомендацию на лету.
+    _weightController.addListener(_recalcWater);
+    _heightController.addListener(_recalcWater);
   }
 
   @override
   void dispose() {
+    _weightController.removeListener(_recalcWater);
+    _heightController.removeListener(_recalcWater);
+    _weightController.dispose();
+    _heightController.dispose();
     _pageController.dispose();
     super.dispose();
+  }
+
+  /// Пересчитывает рекомендацию воды при изменении веса или активности.
+  /// Если поле веса пустое или невалидное — ничего не делаем.
+  void _recalcWater() {
+    final weightText = _weightController.text.trim();
+    final weight = double.tryParse(weightText);
+    if (weight == null || weight <= 0) return;
+    final recommended = recommendedWaterMl(
+      weightKg: weight,
+      activity: _activity,
+    );
+    setState(() => _waterGoal = recommended);
   }
 
   Future<void> _finish() async {
@@ -67,6 +93,17 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     await prefs.setInt(reviewMorningHourKey, _morningHour);
     await prefs.setInt(reviewEveningHourKey, _eveningHour);
     await ref.read(waterGoalProvider.notifier).set(_waterGoal);
+
+    // Сохраняем антропометрию для будущей аналитики.
+    final weight = double.tryParse(_weightController.text.trim());
+    final height = int.tryParse(_heightController.text.trim());
+    if (weight != null && weight > 0) {
+      await prefs.setDouble(kUserWeightKgKey, weight);
+    }
+    if (height != null && height > 0) {
+      await prefs.setInt(kUserHeightCmKey, height);
+    }
+    await prefs.setString(kUserActivityKey, _activity);
 
     // Если напоминания уже включены — перепланируем под выбранные часы.
     if (ref.read(notificationsEnabledProvider)) {
@@ -95,16 +132,29 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     }
   }
 
+  /// Возвращается на предыдущий шаг (вызывается с кнопки Back).
+  /// На первом шаге кнопка не показывается.
+  void _back() {
+    if (_page > 0) {
+      _pageController.previousPage(
+        duration: kDurationFast,
+        curve: kCurveSnap,
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final isLast = _page == _pageCount - 1;
+    final isFirst = _page == 0;
 
     return Scaffold(
       body: SafeArea(
         child: Column(
           children: [
+            // Верхняя строка: прогресс + «Skip all»
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
               child: Row(
@@ -135,14 +185,29 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                 ],
               ),
             ),
+            // Нижняя строка с Back (шаги 2..N) и Next/Start
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 24),
-              child: SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: _next,
-                  child: Text(isLast ? 'Start' : 'Continue'),
-                ),
+              child: Row(
+                children: [
+                  // Кнопка «Back» — только не на первом шаге
+                  if (!isFirst)
+                    IconButton(
+                      tooltip: 'Back',
+                      icon: const Icon(Icons.arrow_back_rounded),
+                      onPressed: _back,
+                    )
+                  else
+                    // Заполнитель, чтобы Next не прыгал по ширине
+                    const SizedBox(width: 48),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: FilledButton(
+                      onPressed: _next,
+                      child: Text(isLast ? 'Start' : 'Continue'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
@@ -342,21 +407,130 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   }
 
   // --- Шаг 6: нормы ---
+  // Поля вес и рост → расчёт нормы воды + слайдер для ручной корректировки.
+  // Рост собирается для будущей аналитики, в формуле воды НЕ участвует.
   Widget _normsStep(TextTheme textTheme) {
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Показываем рекомендацию, только если вес заполнен корректно
+    final weightText = _weightController.text.trim();
+    final weightVal = double.tryParse(weightText);
+    final hasValidWeight = weightVal != null && weightVal > 0;
+
+    final recommended = hasValidWeight
+        ? recommendedWaterMl(weightKg: weightVal, activity: _activity)
+        : null;
+
     return _step(
       title: 'Daily water goal',
-      subtitle: 'A gentle baseline — adjust it to your day.',
+      subtitle: 'Enter your stats and we\'ll suggest a starting point — '
+          'you can always adjust.',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // --- Поля антропометрии ---
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _weightController,
+                  keyboardType:
+                      const TextInputType.numberWithOptions(decimal: true),
+                  inputFormatters: [
+                    // Разрешаем цифры и одну точку/запятую
+                    FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'Weight (kg)',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                  ),
+                  textInputAction: TextInputAction.next,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: TextField(
+                  controller: _heightController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: const InputDecoration(
+                    labelText: 'Height (cm)',
+                    border: OutlineInputBorder(),
+                    contentPadding:
+                        EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    // Рост для будущей аналитики, подсказка для пользователя
+                    helperText: 'For analytics',
+                  ),
+                  textInputAction: TextInputAction.done,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // --- Уровень активности ---
+          Text('Activity level', style: textTheme.labelMedium),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            children: [
+              ('Low', 'low'),
+              ('Medium', 'medium'),
+              ('High', 'high'),
+            ].map((pair) {
+              final label = pair.$1;
+              final value = pair.$2;
+              return ChoiceChip(
+                label: Text(label),
+                selected: _activity == value,
+                onSelected: (_) {
+                  setState(() => _activity = value);
+                  _recalcWater();
+                },
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 20),
+
+          // --- Рекомендация (живая) ---
+          if (recommended != null) ...[
+            Row(
+              children: [
+                Icon(
+                  Icons.water_drop_outlined,
+                  size: 18,
+                  color: colorScheme.primary,
+                ),
+                const SizedBox(width: 6),
+                Text(
+                  'Recommended: $recommended ml',
+                  style: textTheme.bodyMedium?.copyWith(
+                    color: colorScheme.primary,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+          ],
+
+          // --- Текущее значение + слайдер (можно поправить вручную) ---
           Text('$_waterGoal ml', style: textTheme.headlineSmall),
           Slider(
             value: _waterGoal.toDouble(),
             min: 1000,
             max: 4000,
-            divisions: 12, // шаг 250 мл
+            divisions: 30, // шаг 100 мл
             label: '$_waterGoal ml',
             onChanged: (v) => setState(() => _waterGoal = v.round()),
+          ),
+          Text(
+            'Drag to adjust manually.',
+            style: textTheme.bodySmall,
           ),
         ],
       ),
