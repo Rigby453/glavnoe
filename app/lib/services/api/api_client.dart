@@ -406,6 +406,33 @@ class ApiClient {
     }
   }
 
+  /// «Собрать ИИ» (premium): дневное меню из кандидатов клиента.
+  /// [candidates] — [{ name, per_100g: {...} }]; модель возвращает только
+  /// name+grams, числа КБЖУ пересчитывает клиент (код).
+  Future<Map<String, dynamic>> aiMenuBuild({
+    required List<Map<String, dynamic>> candidates,
+    required int calorieGoal,
+    required int proteinGoalG,
+    List<String> meals = const ['breakfast', 'lunch', 'dinner'],
+    required String tone,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/ai/menu-build',
+        data: {
+          'candidates': candidates,
+          'calorie_goal': calorieGoal,
+          'protein_goal_g': proteinGoalG,
+          'meals': meals,
+          'tone': tone,
+        },
+      );
+      return response.data!;
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
   /// Распознать расписание с фото (premium). Возвращает список { title, scheduled_at }.
   /// [mediaType] — 'image/jpeg' или 'image/png'; [targetDate] — 'YYYY-MM-DD'.
   Future<List<dynamic>> scheduleImportFromPhoto({

@@ -18,6 +18,7 @@ import '../../core/database/database_providers.dart';
 import '../../core/settings/nutrition_goals_provider.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
+import 'ai_menu_sheet.dart';
 import 'barcode_scanner_screen.dart';
 import 'food_balance.dart';
 import 'food_nutrition.dart';
@@ -80,6 +81,17 @@ class FoodScreen extends ConsumerWidget {
             _BalanceCard(totals: totals),
             const SizedBox(height: 16),
           ],
+          // «Собрать ИИ» (SPEC C5, premium): меню дня из рецептов и недавних
+          // продуктов; числа пересчитывает код, пользователь подтверждает.
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              icon: const Icon(Icons.auto_awesome, size: 18),
+              label: const Text('Build my day with AI (Premium)'),
+              onPressed: () => showAiMenuSheet(context, ref),
+            ),
+          ),
+          const SizedBox(height: 8),
           if (logs.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 48),

@@ -64,4 +64,16 @@ class FoodLogsDao extends DatabaseAccessor<AppDatabase>
   Future<void> deleteLog(String id) async {
     await (delete(foodLogsTable)..where((t) => t.id.equals(id))).go();
   }
+
+  /// Записи за последние [days] дней, свежие первыми.
+  /// Используется как источник «недавних продуктов» для AI-сборки меню.
+  Future<List<FoodLogsTableData>> recentLogs(int days) {
+    final now = DateTime.now();
+    final cutoff = DateTime.utc(now.year, now.month, now.day)
+        .subtract(Duration(days: days));
+    return (select(foodLogsTable)
+          ..where((t) => t.date.isBiggerOrEqualValue(cutoff))
+          ..orderBy([(t) => OrderingTerm.desc(t.createdAt)]))
+        .get();
+  }
 }
