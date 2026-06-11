@@ -353,6 +353,30 @@ class ApiClient {
   }
 
   // ---------------------------------------------------------------------------
+  // Share (Ф3, ADR-030)
+  // ---------------------------------------------------------------------------
+
+  /// Создать view-only веб-ссылку на план в диапазоне [from, to).
+  /// Возвращает публичный URL (живёт 7 дней).
+  Future<String> createShareLink({
+    required DateTime from,
+    required DateTime to,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/share',
+        data: {
+          'from': from.toUtc().toIso8601String(),
+          'to': to.toUtc().toIso8601String(),
+        },
+      );
+      return (response.data?['url'] as String?) ?? '';
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
   // AI (Phase 1, premium)
   // ---------------------------------------------------------------------------
 

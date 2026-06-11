@@ -3,6 +3,7 @@
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -135,6 +136,8 @@ class ProfileScreen extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
             const _PremiumCard(),
+            const SizedBox(height: 16),
+            const _ShareWeekCard(),
             const SizedBox(height: 24),
             Text('Appearance', style: textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -207,6 +210,75 @@ class _ThemePicker extends ConsumerWidget {
               ref.read(themeNotifierProvider.notifier).setTheme(key),
         );
       }).toList(),
+    );
+  }
+}
+
+/// «Поделиться неделей»: view-only веб-ссылка (Ф3, ADR-030).
+/// Ссылка живёт 7 дней; друг открывает её в браузере без приложения.
+class _ShareWeekCard extends ConsumerStatefulWidget {
+  const _ShareWeekCard();
+
+  @override
+  ConsumerState<_ShareWeekCard> createState() => _ShareWeekCardState();
+}
+
+class _ShareWeekCardState extends ConsumerState<_ShareWeekCard> {
+  bool _working = false;
+
+  Future<void> _share() async {
+    final api = ref.read(apiClientProvider);
+    if (api.token == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Sign in to share your plan')),
+      );
+      return;
+    }
+
+    setState(() => _working = true);
+    try {
+      // Текущая неделя: с сегодняшнего дня на 7 дней вперёд.
+      final now = DateTime.now();
+      final from = DateTime(now.year, now.month, now.day);
+      final url = await api.createShareLink(
+        from: from,
+        to: from.add(const Duration(days: 7)),
+      );
+      await Clipboard.setData(ClipboardData(text: url));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Link copied — valid for 7 days, view-only'),
+          ),
+        );
+      }
+    } on ApiException catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
+      }
+    } finally {
+      if (mounted) setState(() => _working = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Card(
+      child: ListTile(
+        leading: _working
+            ? const SizedBox(
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : Icon(Icons.ios_share, color: colorScheme.primary),
+        title: const Text('Share my week'),
+        subtitle: const Text('View-only web link · friends need no app'),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: _working ? null : _share,
+      ),
     );
   }
 }

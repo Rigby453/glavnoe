@@ -153,7 +153,9 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 5));
     await dao.finishSession(s1);
 
-    await Future<void>.delayed(const Duration(milliseconds: 5));
+    // Drift хранит DateTime с точностью до секунды — чтобы порядок был
+    // детерминированным, вторая сессия должна стартовать в другую секунду.
+    await Future<void>.delayed(const Duration(milliseconds: 1100));
 
     final s2 = await dao.startSession(wid, 'Push');
     await Future<void>.delayed(const Duration(milliseconds: 5));
