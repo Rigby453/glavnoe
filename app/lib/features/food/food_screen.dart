@@ -54,6 +54,11 @@ class FoodScreen extends ConsumerWidget {
         title: const Text('Food'),
         actions: [
           IconButton(
+            tooltip: 'My recipes',
+            icon: const Icon(Icons.menu_book_outlined),
+            onPressed: () => context.push('/recipes'),
+          ),
+          IconButton(
             tooltip: 'Shopping list',
             icon: const Icon(Icons.shopping_cart_outlined),
             onPressed: () => context.push('/shopping'),

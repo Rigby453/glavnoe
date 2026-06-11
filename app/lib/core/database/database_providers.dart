@@ -11,6 +11,7 @@ import 'daos/day_logs_dao.dart';
 import 'daos/water_dao.dart';
 import 'daos/food_logs_dao.dart';
 import 'daos/shopping_dao.dart';
+import 'daos/recipes_dao.dart';
 
 /// Единственный экземпляр базы данных
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -54,4 +55,10 @@ final foodLogsDaoProvider = Provider<FoodLogsDao>((ref) {
 final shoppingDaoProvider = Provider<ShoppingDao>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return ShoppingDao(db);
+});
+
+/// DAO для рецептов (SPEC C5, Phase 1)
+final recipesDaoProvider = Provider<RecipesDao>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return RecipesDao(db);
 });

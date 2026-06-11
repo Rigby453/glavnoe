@@ -177,6 +177,60 @@ class ShoppingItemsTable extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Пользовательские рецепты (SPEC C5, Phase 1). Локальные, без синхронизации.
+/// Добавлено в schemaVersion 5.
+class RecipesTable extends Table {
+  @override
+  String get tableName => 'recipes';
+
+  // UUID, генерируется клиентом
+  TextColumn get id => text()();
+
+  // Название рецепта
+  TextColumn get name => text()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  // Время последнего изменения (для сортировки)
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Ингредиенты рецепта. Числа КБЖУ — «на 100 г», копируются из продукта при добавлении.
+/// Добавлено в schemaVersion 5.
+class RecipeIngredientsTable extends Table {
+  @override
+  String get tableName => 'recipe_ingredients';
+
+  // UUID, генерируется клиентом
+  TextColumn get id => text()();
+
+  // Ссылка на рецепт (родительский)
+  TextColumn get recipeId => text()();
+
+  // Название ингредиента (свободная строка)
+  TextColumn get name => text()();
+
+  // Граммы этого ингредиента в рецепте
+  RealColumn get grams => real().withDefault(const Constant(100))();
+
+  // Значения питательности «на 100 г» (null если неизвестно)
+  RealColumn get calories => real().nullable()();
+  RealColumn get protein => real().nullable()();
+  RealColumn get fat => real().nullable()();
+  RealColumn get carbs => real().nullable()();
+  RealColumn get sugar => real().nullable()();
+  RealColumn get fiber => real().nullable()();
+
+  // Порядок отображения в редакторе
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Очередь синхронизации: записи, ожидающие отправки на сервер
 /// id — autoincrement int (локальный, не синхронизируется)
 class SyncQueueTable extends Table {
@@ -213,6 +267,8 @@ class SyncQueueTable extends Table {
     FoodLogsTable,
     SyncQueueTable,
     ShoppingItemsTable,
+    RecipesTable,
+    RecipeIngredientsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -222,7 +278,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 4;
+  int get schemaVersion => 5;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -239,6 +295,11 @@ class AppDatabase extends _$AppDatabase {
           // v4: добавлена таблица shopping_items (список покупок, SPEC C5).
           if (from < 4) {
             await m.createTable(shoppingItemsTable);
+          }
+          // v5: добавлены таблицы recipes и recipe_ingredients (рецепты, SPEC C5).
+          if (from < 5) {
+            await m.createTable(recipesTable);
+            await m.createTable(recipeIngredientsTable);
           }
         },
       );
