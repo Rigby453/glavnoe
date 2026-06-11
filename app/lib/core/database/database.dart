@@ -274,6 +274,31 @@ class WorkoutsTable extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Сессии тренировок (фактические выполнения шаблона). Добавлено в schemaVersion 8.
+/// finishedAt = null означает незавершённую сессию (тренировка прервана или в процессе).
+class WorkoutSessionsTable extends Table {
+  @override
+  String get tableName => 'workout_sessions';
+
+  // UUID, генерируется клиентом
+  TextColumn get id => text()();
+
+  // Ссылка на шаблон тренировки (может быть удалён — снапшот имени хранится отдельно)
+  TextColumn get workoutId => text()();
+
+  // Снапшот имени тренировки на момент старта (шаблон может быть удалён позже)
+  TextColumn get workoutName => text()();
+
+  // Время начала сессии
+  DateTimeColumn get startedAt => dateTime()();
+
+  // Время завершения; null = сессия ещё идёт или прервана
+  DateTimeColumn get finishedAt => dateTime().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Упражнения в шаблоне тренировки. Добавлено в schemaVersion 7.
 class WorkoutExercisesTable extends Table {
   @override
@@ -351,6 +376,7 @@ class SyncQueueTable extends Table {
     SleepLogsTable,
     WorkoutsTable,
     WorkoutExercisesTable,
+    WorkoutSessionsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -360,7 +386,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 7;
+  int get schemaVersion => 8;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -391,6 +417,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 7) {
             await m.createTable(workoutsTable);
             await m.createTable(workoutExercisesTable);
+          }
+          // v8: добавлена таблица workout_sessions (сессии тренировок, Phase 2).
+          if (from < 8) {
+            await m.createTable(workoutSessionsTable);
           }
         },
       );

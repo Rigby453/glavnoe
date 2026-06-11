@@ -116,4 +116,53 @@ void main() {
     final result = await dao.watchWorkout(id).first;
     expect(result, isNull);
   });
+
+  // ---------------------------------------------------------------------------
+  // Тесты сессий тренировок
+  // ---------------------------------------------------------------------------
+
+  test('startSession → finishSession → watchRecentSessions видит сессию', () async {
+    final wid = await dao.createWorkout('Upper Body');
+    final sid = await dao.startSession(wid, 'Upper Body');
+
+    // До завершения — незавершённая сессия не попадает в watchRecentSessions
+    final before = await dao.watchRecentSessions(30).first;
+    expect(before, isEmpty);
+
+    await dao.finishSession(sid);
+
+    final after = await dao.watchRecentSessions(30).first;
+    expect(after, hasLength(1));
+    expect(after.single.id, sid);
+    expect(after.single.workoutName, 'Upper Body');
+    expect(after.single.finishedAt, isNotNull);
+  });
+
+  test('незавершённые сессии не попадают в watchRecentSessions', () async {
+    final wid = await dao.createWorkout('Legs');
+    // Начата, но не завершена (пользователь прервал тренировку)
+    await dao.startSession(wid, 'Legs');
+    final sessions = await dao.watchRecentSessions(30).first;
+    expect(sessions, isEmpty);
+  });
+
+  test('watchRecentSessions возвращает сессии в порядке убывания даты', () async {
+    final wid = await dao.createWorkout('Push');
+
+    final s1 = await dao.startSession(wid, 'Push');
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await dao.finishSession(s1);
+
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+
+    final s2 = await dao.startSession(wid, 'Push');
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+    await dao.finishSession(s2);
+
+    final sessions = await dao.watchRecentSessions(30).first;
+    expect(sessions, hasLength(2));
+    // Свежие первыми: s2 должна быть раньше s1 в списке
+    expect(sessions[0].id, s2);
+    expect(sessions[1].id, s1);
+  });
 }

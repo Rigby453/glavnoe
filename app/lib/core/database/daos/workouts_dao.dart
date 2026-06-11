@@ -8,7 +8,7 @@ import '../../utils/id.dart';
 
 part 'workouts_dao.g.dart';
 
-@DriftAccessor(tables: [WorkoutsTable, WorkoutExercisesTable])
+@DriftAccessor(tables: [WorkoutsTable, WorkoutExercisesTable, WorkoutSessionsTable])
 class WorkoutsDao extends DatabaseAccessor<AppDatabase>
     with _$WorkoutsDaoMixin {
   WorkoutsDao(super.db);
@@ -171,5 +171,47 @@ class WorkoutsDao extends DatabaseAccessor<AppDatabase>
             ..where((t) => t.id.equals(row.workoutId)))
           .write(WorkoutsTableCompanion(updatedAt: Value(DateTime.now())));
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Сессии тренировок
+  // ---------------------------------------------------------------------------
+
+  /// Начать новую сессию; возвращает id созданной записи.
+  /// finishedAt остаётся null до явного вызова finishSession.
+  Future<String> startSession(String workoutId, String workoutName) async {
+    final id = uuidV4();
+    await into(workoutSessionsTable).insert(
+      WorkoutSessionsTableCompanion(
+        id: Value(id),
+        workoutId: Value(workoutId),
+        workoutName: Value(workoutName),
+        startedAt: Value(DateTime.now()),
+      ),
+    );
+    return id;
+  }
+
+  /// Завершить сессию: выставляет finishedAt = now.
+  Future<void> finishSession(String id) async {
+    await (update(workoutSessionsTable)..where((t) => t.id.equals(id))).write(
+      WorkoutSessionsTableCompanion(
+        finishedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Реактивный список завершённых сессий за последние [days] дней,
+  /// свежие первыми. Незавершённые (finishedAt = null) не включаются.
+  Stream<List<WorkoutSessionsTableData>> watchRecentSessions(int days) {
+    final since = DateTime.now().subtract(Duration(days: days));
+    return (select(workoutSessionsTable)
+          ..where(
+            (t) =>
+                t.finishedAt.isNotNull() &
+                t.startedAt.isBiggerOrEqualValue(since),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.startedAt)]))
+        .watch();
   }
 }

@@ -1,11 +1,12 @@
 // Редактор шаблона тренировки (Phase 2).
 // Список упражнений: name, sets×reps, вес, отдых.
 // Тап → диалог редактирования; свайп → удалить.
-// Кнопка «Start workout» не реализована (под-блок 2).
+// «Start workout» → /workouts/:id/train (режим «тренер», под-блок 2).
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
@@ -141,13 +142,26 @@ class WorkoutEditorScreen extends ConsumerWidget {
             top: false,
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-              child: SizedBox(
-                width: double.infinity,
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.add, size: 18),
-                  label: const Text('Add exercise'),
-                  onPressed: () => _addExercise(context, ref),
-                ),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.add, size: 18),
+                      label: const Text('Add exercise'),
+                      onPressed: () => _addExercise(context, ref),
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: FilledButton.icon(
+                      icon: const Icon(Icons.play_arrow, size: 18),
+                      label: const Text('Start workout'),
+                      onPressed: exercises.isEmpty
+                          ? null
+                          : () => context.push('/workouts/$workoutId/train'),
+                    ),
+                  ),
+                ],
               ),
             ),
           ),

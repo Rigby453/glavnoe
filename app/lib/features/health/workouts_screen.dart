@@ -31,6 +31,12 @@ final workoutProvider = StreamProvider.autoDispose
   return ref.watch(workoutsDaoProvider).watchWorkout(id);
 });
 
+/// Завершённые сессии за последние 30 дней (история, свежие сверху).
+final recentSessionsProvider =
+    StreamProvider.autoDispose<List<WorkoutSessionsTableData>>((ref) {
+  return ref.watch(workoutsDaoProvider).watchRecentSessions(30);
+});
+
 // ---------------------------------------------------------------------------
 // Экран списка
 // ---------------------------------------------------------------------------
@@ -85,18 +91,76 @@ class WorkoutsScreen extends ConsumerWidget {
       ),
       body: workouts.isEmpty
           ? const _EmptyState()
-          : ListView.builder(
+          : ListView(
               padding: const EdgeInsets.only(bottom: 88),
-              itemCount: workouts.length,
-              itemBuilder: (context, i) {
-                final w = workouts[i];
-                return _WorkoutTile(
-                  key: ValueKey(w.id),
-                  workout: w,
-                  onDelete: () => _deleteWorkout(context, ref, w),
-                );
-              },
+              children: [
+                ...workouts.map(
+                  (w) => _WorkoutTile(
+                    key: ValueKey(w.id),
+                    workout: w,
+                    onDelete: () => _deleteWorkout(context, ref, w),
+                  ),
+                ),
+                const _HistorySection(),
+              ],
             ),
+    );
+  }
+}
+
+/// История: последние завершённые сессии («Сделал по плану»).
+class _HistorySection extends ConsumerWidget {
+  const _HistorySection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final sessions =
+        ref.watch(recentSessionsProvider).valueOrNull ?? const [];
+    if (sessions.isEmpty) return const SizedBox.shrink();
+
+    final textTheme = Theme.of(context).textTheme;
+    final muted = Theme.of(context).colorScheme.onSurface.withAlpha(140);
+
+    String line(WorkoutSessionsTableData s) {
+      const months = [
+        'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+        'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+      ];
+      const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+      final d = s.startedAt;
+      final mins = s.finishedAt == null
+          ? 0
+          : s.finishedAt!.difference(s.startedAt).inMinutes;
+      return '${s.workoutName} · ${weekdays[d.weekday - 1]}, '
+          '${months[d.month - 1]} ${d.day} · $mins min';
+    }
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('History', style: textTheme.titleMedium),
+          const SizedBox(height: 8),
+          ...sessions.take(10).map(
+                (s) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle_outline, size: 16, color: muted),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          line(s),
+                          style: textTheme.bodyMedium?.copyWith(color: muted),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+        ],
+      ),
     );
   }
 }
