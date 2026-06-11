@@ -26,6 +26,7 @@ import '../../features/wrapped/wrapped_screen.dart';
 import '../../features/food/shopping_list_screen.dart';
 import '../../features/food/recipes_screen.dart';
 import '../../features/food/recipe_editor_screen.dart';
+import '../../features/health/breathing_screen.dart';
 import 'scaffold_with_nav_bar.dart';
 
 /// Индексы табов
@@ -218,6 +219,12 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => RecipeEditorScreen(
           recipeId: state.pathParameters['id']!,
         ),
+      ),
+
+      // /breathing — дыхательные сессии (SPEC C5, Ф2), вне оболочки
+      GoRoute(
+        path: '/breathing',
+        builder: (context, state) => const BreathingScreen(),
       ),
     ],
   );
