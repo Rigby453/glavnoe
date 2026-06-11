@@ -1,4 +1,4 @@
-// AI-анимации §7.3: fade-in появления AI-контента.
+﻿// AI-анимации §7.3: fade-in появления AI-контента.
 // opacity 0→1 + translateY +8→0, 400 мс easeOutCubic, задержка [delay] мс.
 // Анимирует один раз при монтировании. При reduce motion — сразу видимый child.
 
@@ -11,7 +11,7 @@ import 'constants.dart';
 /// При монтировании ждёт [delay], затем анимирует:
 ///   - opacity: 0 → 1
 ///   - translateY: +8px → 0
-///   - duration: 400 мс (kDurationSlow), curve: kCurveLift (easeOutCubic)
+///   - duration: 300 мс (kDurationSlow), curve: kCurveLift (easeOutCubic)
 ///
 /// При reduce motion — немедленно показывает [child] без анимации.
 class AiInsightReveal extends StatefulWidget {
@@ -41,7 +41,7 @@ class _AiInsightRevealState extends State<AiInsightReveal>
     super.initState();
     _controller = AnimationController(
       vsync: this,
-      // kDurationSlow = 400 мс (§7.3)
+      // kDurationSlow = 300 мс (§7.3)
       duration: kDurationSlow,
     );
 

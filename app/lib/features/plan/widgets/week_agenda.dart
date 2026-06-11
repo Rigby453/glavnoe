@@ -32,7 +32,8 @@ class WeekAgenda extends ConsumerWidget {
       builder: (ctx) => AlertDialog(
         title: const Text('Clone week'),
         content: const Text(
-          "Copy this week's classes/events to next week (same days & times)?",
+          'Copy everything scheduled this week to next week '
+          '(same days & times)?',
         ),
         actions: [
           TextButton(

@@ -141,9 +141,11 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
         ),
       );
 
-  /// Клонирует события (type='event') недели [weekStartUtc, +7d) на следующую
+  /// Клонирует ВСЁ запланированное в неделе [weekStartUtc, +7d) на следующую
   /// неделю (scheduledAt + 7 дней), сбрасывая статус в pending. Возвращает
   /// число скопированных. Используется «Clone week» (импорт расписания, C4).
+  /// Ревью 2026-06-11: раньше фильтровали по type='event' — пользователь
+  /// ожидает копию всей недели, обычные задачи пропускались (баг).
   /// Границы — UTC-полночь, согласованы с watchTodayItems/watchMainItems.
   Future<int> cloneWeekEvents(DateTime weekStartUtc) async {
     final weekEnd = weekStartUtc.add(const Duration(days: 7));
@@ -151,8 +153,7 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
           ..where(
             (t) =>
                 t.scheduledAt.isBiggerOrEqualValue(weekStartUtc) &
-                t.scheduledAt.isSmallerThanValue(weekEnd) &
-                t.type.equals('event'),
+                t.scheduledAt.isSmallerThanValue(weekEnd),
           ))
         .get();
 

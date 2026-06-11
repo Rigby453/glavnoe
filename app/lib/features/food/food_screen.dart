@@ -336,8 +336,16 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
       );
       return;
     }
+    // Привязка к системному языку устройства (ревью: без этого распознавание
+    // мешало русский и английский одновременно).
+    final systemLocale = await _speech.systemLocale();
+    if (!mounted) return;
+
     setState(() => _listening = true);
     await _speech.listen(
+      listenOptions: stt.SpeechListenOptions(
+        localeId: systemLocale?.localeId,
+      ),
       onResult: (result) {
         if (!mounted) return;
         _controller.text = result.recognizedWords;

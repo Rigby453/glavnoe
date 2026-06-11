@@ -210,9 +210,8 @@ class _AnimatedWaterBarState extends State<_AnimatedWaterBar> {
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // 500 мс — точное значение §4.2 (между kDurationSlow и kDurationNormal)
-    final duration =
-        effectiveDuration(context, const Duration(milliseconds: 500));
+    // Ревью 2026-06-11: 500 → 300 мс (UI-переходы не дольше 300, §0)
+    final duration = effectiveDuration(context, kDurationSlow);
 
     return TweenAnimationBuilder<double>(
       tween: Tween(begin: _prev, end: widget.progress),

@@ -1,7 +1,7 @@
-// FL-TODAY-02: Кольцо прогресса для MAIN-задач
+﻿// FL-TODAY-02: Кольцо прогресса для MAIN-задач
 // CustomPainter рисует дугу 0→2π×(done/total)
 // Источник истины по анимациям: /docs/ANIMATIONS.md §4.1
-// Дуга: kDurationSlow (400ms) + kCurveLift (easeOutCubic)
+// Дуга: kDurationSlow (300ms) + kCurveLift (easeOutCubic)
 // При 100%: пружина scale 1.0→1.05→1.0, 300ms, kCurveSpring (elasticOut)
 // Если total=0 — серое полное кольцо без анимации
 
@@ -28,7 +28,7 @@ class ProgressRing extends StatefulWidget {
 
 class _ProgressRingState extends State<ProgressRing>
     with TickerProviderStateMixin {
-  // Контроллер дуги: kDurationSlow (400ms) — /docs/ANIMATIONS.md §4.1
+  // Контроллер дуги: kDurationSlow (300ms) — /docs/ANIMATIONS.md §4.1
   late AnimationController _arcController;
   late Animation<double> _progressAnimation;
 

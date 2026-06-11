@@ -14,8 +14,10 @@ const kDurationFast = Duration(milliseconds: 180);
 /// Карточки, модалки, тосты
 const kDurationNormal = Duration(milliseconds: 280);
 
-/// Экраны, прогресс (кольцо, бары)
-const kDurationSlow = Duration(milliseconds: 400);
+/// Экраны, прогресс (кольцо, бары).
+/// Ревью 2026-06-11: 400 → 300 мс — UI-переходы не дольше 300 мс
+/// (деко-эффекты вроде конфетти/пульса — отдельно, см. ANIMATIONS.md §0).
+const kDurationSlow = Duration(milliseconds: 300);
 
 // --- Кривые (ANIMATIONS.md §0) ---
 

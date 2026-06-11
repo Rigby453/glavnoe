@@ -2,6 +2,8 @@
 // Возвращает считанный код через Navigator.pop(code) — дальше food_screen
 // сам ходит в /api/v1/food/barcode и открывает диалог порции.
 
+import 'dart:async' show unawaited;
+
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
@@ -13,12 +15,20 @@ class BarcodeScannerScreen extends StatefulWidget {
 }
 
 class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
+  // mobile_scanner 6+: внешний контроллер виджет НЕ стартует сам —
+  // без start() камера падала ("Attempt to invoke virtual method").
   final _controller = MobileScannerController(
     formats: [BarcodeFormat.ean13, BarcodeFormat.ean8, BarcodeFormat.upcA],
   );
 
   // Камера может детектить один и тот же код много раз — закрываемся один раз.
   bool _handled = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_controller.start());
+  }
 
   @override
   void dispose() {
@@ -47,10 +57,25 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
-          IconButton(
-            tooltip: 'Torch',
-            icon: const Icon(Icons.flashlight_on_outlined),
-            onPressed: () => _controller.toggleTorch(),
+          // Фонарик: иконка следит за состоянием контроллера; до запуска
+          // камеры toggle не зовём (иначе нативный краш на части устройств).
+          ValueListenableBuilder<MobileScannerState>(
+            valueListenable: _controller,
+            builder: (context, state, _) {
+              final on = state.torchState == TorchState.on;
+              return IconButton(
+                tooltip: on ? 'Torch off' : 'Torch on',
+                icon: Icon(
+                  on
+                      ? Icons.flashlight_on
+                      : Icons.flashlight_on_outlined,
+                  color: on ? Colors.amber : null,
+                ),
+                onPressed: state.isRunning
+                    ? () => _controller.toggleTorch()
+                    : null,
+              );
+            },
           ),
         ],
       ),

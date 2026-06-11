@@ -113,32 +113,33 @@ class _CelebrationOverlayState extends ConsumerState<CelebrationOverlay>
       CurvedAnimation(parent: _enter, curve: iv(0, 300)),
     );
 
-    // Галочка: scale 0 → 1 с пружиной elasticOut
+    // Ревью 2026-06-11: интервалы ужаты — каждый UI-переход ≤300 мс.
+    // Галочка: scale 0 → 1 с пружиной elasticOut (300 мс)
     _checkScale = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _enter, curve: iv(200, 600, kCurveSpring)),
+      CurvedAnimation(parent: _enter, curve: iv(200, 500, kCurveSpring)),
     );
 
     // Галочка: path draw 0 → 1 (линейно внутри интервала, easeOut)
     _checkPath = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _enter, curve: iv(200, 600, Curves.easeOut)),
+      CurvedAnimation(parent: _enter, curve: iv(200, 500, Curves.easeOut)),
     );
 
-    // Заголовок: opacity 0 → 1
+    // Заголовок: opacity 0 → 1 (280 мс)
     _titleOpacity = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _enter, curve: iv(400, 680, kCurveLift)),
+      CurvedAnimation(parent: _enter, curve: iv(350, 630, kCurveLift)),
     );
 
     // Заголовок: slide — прогресс 0 → 1 (смещение вычисляется в build: 16*(1-val))
     _titleSlide = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _enter, curve: iv(400, 680, kCurveLift)),
+      CurvedAnimation(parent: _enter, curve: iv(350, 630, kCurveLift)),
     );
 
-    // Стрик bounce: TweenSequence scale 1→1.3→1
+    // Стрик bounce: TweenSequence scale 1→1.3→1 (300 мс)
     _streakBounce = TweenSequence<double>([
       TweenSequenceItem(tween: Tween(begin: 1.0, end: 1.3), weight: 40),
       TweenSequenceItem(tween: Tween(begin: 1.3, end: 1.0), weight: 60),
     ]).animate(
-      CurvedAnimation(parent: _enter, curve: iv(600, 900)),
+      CurvedAnimation(parent: _enter, curve: iv(500, 800)),
     );
 
     // Закрытие: opacity 1 → 0

@@ -1,4 +1,4 @@
-# «Главное» — ТЗ на анимации (v1)
+﻿# «Главное» — ТЗ на анимации (v1)
 
 > Flutter-реализация. Каждый блок: триггер → что происходит → длительность → кривая → Flutter-реализация.
 > Принцип: анимация только там где она передаёт информацию. Нет декора ради декора.
@@ -12,7 +12,7 @@
 const kDurationSnap     = Duration(milliseconds: 120); // мгновенный отклик
 const kDurationFast     = Duration(milliseconds: 180); // переходы
 const kDurationNormal   = Duration(milliseconds: 280); // карточки, модалки
-const kDurationSlow     = Duration(milliseconds: 400); // экраны, прогресс
+const kDurationSlow     = Duration(milliseconds: 300); // экраны, прогресс (максимум!)
 
 // curves
 const kCurveSnap        = Curves.easeOut;
@@ -20,6 +20,11 @@ const kCurveSpring      = Curves.elasticOut;  // spring-физика
 const kCurveLift        = Curves.easeOutCubic;
 const kCurveSlide       = Curves.easeInOutCubic;
 ```
+
+> **Правило таймингов (ревью 2026-06-11):** любой UI-переход — 120–300 мс,
+> НИГДЕ не дольше. Исключение — деко-эффекты, которые не блокируют интерфейс:
+> физика конфетти (§5), бесконечные циклы пульса/шиммера (§7.1/§7.2) —
+> это не переходы, а фоновые петли/частицы. Было slow=400, ушито до 300.
 
 ---
 
@@ -217,7 +222,7 @@ Dismissible(
 | Триггер | каждый чек задачи из «Главного» |
 | Анимация | дуга плавно удлиняется до нового % |
 | При 100% | пружина — кольцо чуть «перескакивает» на 105% и возвращается |
-| Duration дуги | 400 мс |
+| Duration дуги | 300 мс |
 | Duration пружины | 300 мс |
 | Curve дуги | `easeOutCubic` |
 | Curve пружины | `elasticOut` (amplitude 0.5) |
@@ -238,7 +243,7 @@ TweenSequence([
 |---|---|
 | Триггер | тап на стакан (+ объём воды) |
 | Анимация | полоса плавно растёт до нового % |
-| Duration | 500 мс |
+| Duration | 300 мс |
 | Curve | `easeOutCubic` |
 | При 100% | задержка 600 мс → появляется тост «Норма воды выполнена 💧» |
 | Flutter | `AnimatedFractionallySizedBox` или `TweenAnimationBuilder` |
@@ -264,10 +269,10 @@ TweenAnimationBuilder<double>(
 | Слой | Анимация | Задержка | Duration |
 |---|---|---|---|
 | Фон | fade in зелёный оверлей `#1D9E75 @ 95%` | 0 мс | 300 мс |
-| Галочка | path draw (рисуется) + scale `0 → 1` с пружиной | 200 мс | 400 мс |
-| Заголовок | fade up снизу | 400 мс | 280 мс |
-| Конфетти | burst из центра, физика (гравитация вниз) | 300 мс | 2000 мс |
-| Стрик +1 | счётчик подпрыгивает (scale 1 → 1.3 → 1) | 600 мс | 300 мс |
+| Галочка | path draw (рисуется) + scale `0 → 1` с пружиной | 200 мс | 300 мс |
+| Заголовок | fade up снизу | 350 мс | 280 мс |
+| Конфетти | burst из центра, физика (гравитация вниз) — деко, не переход | 300 мс | 2000 мс |
+| Стрик +1 | счётчик подпрыгивает (scale 1 → 1.3 → 1) | 500 мс | 300 мс |
 | Закрытие | тап или 4 сек → fade out | — | 300 мс |
 
 Flutter: пакет `confetti` для конфетти. Оверлей через `OverlayEntry`.
@@ -291,7 +296,7 @@ TweenSequence([
 | Появление | падает сверху с пружиной |
 | Начало | `translateY(-120px)`, `opacity: 0` |
 | Конец | `translateY(0)`, `opacity: 1` |
-| Duration | 500 мс |
+| Duration | 300 мс |
 | Curve | `elasticOut` (имитация пружины) |
 | Позиция | верх экрана, под status bar, по центру |
 | Висит | 3 секунды |
@@ -364,7 +369,7 @@ RepaintBoundary(
 |---|---|
 | Триггер | ИИ-текст получен |
 | Анимация | `opacity: 0 → 1` + `translateY(+8px → 0)` |
-| Duration | 400 мс |
+| Duration | 300 мс |
 | Curve | `easeOutCubic` |
 | Задержка | 100 мс после появления контейнера |
 
@@ -379,7 +384,7 @@ RepaintBoundary(
 
 ### 8.2 Модалки (bottom sheets)
 - Spring снизу: `translateY(100% → 0)`
-- Duration: 320 мс
+- Duration: 300 мс
 - Curve: `Curves.easeOutCubic`
 - Backdrop: fade in `0 → 0.5 opacity`
 - Закрытие: `translateY(0 → 100%)`, 220 мс, `easeInCubic`

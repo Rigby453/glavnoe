@@ -6,7 +6,7 @@
     "snap_ms": 120,
     "fast_ms": 180,
     "normal_ms": 280,
-    "slow_ms": 400,
+    "slow_ms": 300,
     "curve_snap": "easeOut",
     "curve_spring": "elasticOut",
     "curve_lift": "easeOutCubic",
