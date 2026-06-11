@@ -36,10 +36,7 @@ final recentNightsProvider =
 class HealthScreen extends ConsumerWidget {
   const HealthScreen({super.key});
 
-  // Sleep, Breathing и Posture убраны из «скоро» — теперь живые разделы ниже
-  static const _comingSoon = [
-    (Icons.fitness_center, 'Workouts'),
-  ];
+  // Все Phase-2 модули теперь реализованы — секция «скоро» убрана
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -138,6 +135,18 @@ class HealthScreen extends ConsumerWidget {
         ),
         const SizedBox(height: 16),
 
+        // --- Тренировки (Ф2) ---
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.fitness_center, color: colorScheme.primary),
+            title: const Text('Workouts'),
+            subtitle: const Text('Your workout plans'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/workouts'),
+          ),
+        ),
+        const SizedBox(height: 16),
+
         // --- Дыхание (Ф2) ---
         Card(
           child: ListTile(
@@ -160,25 +169,6 @@ class HealthScreen extends ConsumerWidget {
             onTap: () => context.push('/posture'),
           ),
         ),
-        const SizedBox(height: 24),
-
-        // --- Скоро ---
-        Text('More coming soon', style: textTheme.titleMedium),
-        const SizedBox(height: 8),
-        ..._comingSoon.map((e) {
-          final (icon, label) = e;
-          return Card(
-            child: ListTile(
-              leading: Icon(
-                icon,
-                color: colorScheme.onSurface.withValues(alpha: 0.5),
-              ),
-              title: Text(label),
-              trailing: Text('soon', style: textTheme.bodySmall),
-              enabled: false,
-            ),
-          );
-        }),
       ],
     );
   }

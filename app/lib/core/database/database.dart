@@ -253,6 +253,63 @@ class RecipeIngredientsTable extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Шаблоны тренировок (Phase 2). Локальные, без синхронизации.
+/// Добавлено в schemaVersion 7.
+class WorkoutsTable extends Table {
+  @override
+  String get tableName => 'workouts';
+
+  // UUID, генерируется клиентом
+  TextColumn get id => text()();
+
+  // Название шаблона тренировки
+  TextColumn get name => text()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  // Время последнего изменения (для сортировки)
+  DateTimeColumn get updatedAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Упражнения в шаблоне тренировки. Добавлено в schemaVersion 7.
+class WorkoutExercisesTable extends Table {
+  @override
+  String get tableName => 'workout_exercises';
+
+  // UUID, генерируется клиентом
+  TextColumn get id => text()();
+
+  // Ссылка на шаблон тренировки
+  TextColumn get workoutId => text()();
+
+  // Название упражнения
+  TextColumn get name => text()();
+
+  // Количество подходов
+  IntColumn get sets => integer().withDefault(const Constant(3))();
+
+  // Количество повторений
+  IntColumn get reps => integer().withDefault(const Constant(10))();
+
+  // Вес в кг (опционально)
+  RealColumn get weightKg => real().nullable()();
+
+  // Отдых между подходами в секундах
+  IntColumn get restSeconds => integer().withDefault(const Constant(60))();
+
+  // Короткая текстовая подсказка по технике (опционально)
+  TextColumn get technique => text().nullable()();
+
+  // Порядок отображения в редакторе
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Очередь синхронизации: записи, ожидающие отправки на сервер
 /// id — autoincrement int (локальный, не синхронизируется)
 class SyncQueueTable extends Table {
@@ -292,6 +349,8 @@ class SyncQueueTable extends Table {
     RecipesTable,
     RecipeIngredientsTable,
     SleepLogsTable,
+    WorkoutsTable,
+    WorkoutExercisesTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -301,7 +360,7 @@ class AppDatabase extends _$AppDatabase {
   AppDatabase.forTesting(super.e);
 
   @override
-  int get schemaVersion => 6;
+  int get schemaVersion => 7;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -327,6 +386,11 @@ class AppDatabase extends _$AppDatabase {
           // v6: добавлена таблица sleep_logs (трекер сна, Phase 2).
           if (from < 6) {
             await m.createTable(sleepLogsTable);
+          }
+          // v7: добавлены таблицы workouts и workout_exercises (тренировки, Phase 2).
+          if (from < 7) {
+            await m.createTable(workoutsTable);
+            await m.createTable(workoutExercisesTable);
           }
         },
       );

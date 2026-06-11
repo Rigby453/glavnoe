@@ -13,6 +13,7 @@ import 'daos/food_logs_dao.dart';
 import 'daos/shopping_dao.dart';
 import 'daos/recipes_dao.dart';
 import 'daos/sleep_dao.dart';
+import 'daos/workouts_dao.dart';
 
 /// Единственный экземпляр базы данных
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -68,4 +69,10 @@ final recipesDaoProvider = Provider<RecipesDao>((ref) {
 final sleepDaoProvider = Provider<SleepDao>((ref) {
   final db = ref.watch(appDatabaseProvider);
   return SleepDao(db);
+});
+
+/// DAO для шаблонов тренировок (Phase 2)
+final workoutsDaoProvider = Provider<WorkoutsDao>((ref) {
+  final db = ref.watch(appDatabaseProvider);
+  return WorkoutsDao(db);
 });

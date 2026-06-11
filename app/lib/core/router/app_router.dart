@@ -28,6 +28,8 @@ import '../../features/food/recipes_screen.dart';
 import '../../features/food/recipe_editor_screen.dart';
 import '../../features/health/breathing_screen.dart';
 import '../../features/health/posture_screen.dart';
+import '../../features/health/workouts_screen.dart';
+import '../../features/health/workout_editor_screen.dart';
 import 'scaffold_with_nav_bar.dart';
 
 /// Индексы табов
@@ -232,6 +234,18 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/posture',
         builder: (context, state) => const PostureScreen(),
+      ),
+
+      // /workouts — список шаблонов тренировок (Phase 2), вне оболочки
+      GoRoute(
+        path: '/workouts',
+        builder: (context, state) => const WorkoutsScreen(),
+      ),
+      GoRoute(
+        path: '/workouts/:id',
+        builder: (context, state) => WorkoutEditorScreen(
+          workoutId: state.pathParameters['id']!,
+        ),
       ),
     ],
   );
