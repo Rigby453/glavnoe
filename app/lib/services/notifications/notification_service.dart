@@ -121,6 +121,53 @@ class NotificationService {
     await _plugin.cancel(id: _kMorningId);
     await _plugin.cancel(id: _kEveningId);
   }
+
+  // ---------------------------------------------------------------------------
+  // Напоминания об осанке (SPEC C5 Ф2)
+  // ---------------------------------------------------------------------------
+
+  // ID для напоминаний «выпрямись» — каждые 2 часа с 10 до 18 (5 слотов).
+  static const _kPostureIds = [301, 302, 303, 304, 305];
+  static const _kPostureHours = [10, 12, 14, 16, 18];
+
+  static const _postureDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'kaizen_posture',
+      'Posture reminders',
+      channelDescription: 'Sit-up-straight check-ins every 2 hours',
+      importance: Importance.low,
+      priority: Priority.low,
+    ),
+    iOS: DarwinNotificationDetails(),
+  );
+
+  /// Планирует 5 ежедневных напоминаний об осанке (10, 12, 14, 16, 18).
+  /// Сначала отменяет старые posture-уведомления.
+  Future<void> schedulePostureReminders() async {
+    if (kIsWeb) return;
+    await init();
+    await cancelPostureReminders();
+    for (var i = 0; i < _kPostureHours.length; i++) {
+      await _plugin.zonedSchedule(
+        id: _kPostureIds[i],
+        title: 'Sit up straight',
+        body: 'Quick check: shoulders relaxed, back tall.',
+        scheduledDate: _nextInstanceOf(_kPostureHours[i]),
+        notificationDetails: _postureDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: DateTimeComponents.time,
+      );
+    }
+  }
+
+  /// Отменяет все posture-уведомления (не трогает утро/вечер).
+  Future<void> cancelPostureReminders() async {
+    if (kIsWeb) return;
+    await init();
+    for (final id in _kPostureIds) {
+      await _plugin.cancel(id: id);
+    }
+  }
 }
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {

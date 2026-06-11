@@ -36,10 +36,9 @@ final recentNightsProvider =
 class HealthScreen extends ConsumerWidget {
   const HealthScreen({super.key});
 
-  // Sleep и Breathing убраны из «скоро» — теперь живые разделы ниже
+  // Sleep, Breathing и Posture убраны из «скоро» — теперь живые разделы ниже
   static const _comingSoon = [
     (Icons.fitness_center, 'Workouts'),
-    (Icons.self_improvement, 'Posture'),
   ];
 
   @override
@@ -147,6 +146,18 @@ class HealthScreen extends ConsumerWidget {
             subtitle: const Text('Box 4-4-4-4 · Calm 4-7-8 · Simple 5-5'),
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.push('/breathing'),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // --- Осанка (Ф2) ---
+        Card(
+          child: ListTile(
+            leading: Icon(Icons.self_improvement, color: colorScheme.primary),
+            title: const Text('Posture'),
+            subtitle: const Text('Exercises · stand-tall reminders'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => context.push('/posture'),
           ),
         ),
         const SizedBox(height: 24),

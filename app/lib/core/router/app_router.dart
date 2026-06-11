@@ -27,6 +27,7 @@ import '../../features/food/shopping_list_screen.dart';
 import '../../features/food/recipes_screen.dart';
 import '../../features/food/recipe_editor_screen.dart';
 import '../../features/health/breathing_screen.dart';
+import '../../features/health/posture_screen.dart';
 import 'scaffold_with_nav_bar.dart';
 
 /// Индексы табов
@@ -225,6 +226,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/breathing',
         builder: (context, state) => const BreathingScreen(),
+      ),
+
+      // /posture — упражнения + напоминания об осанке (SPEC C5, Ф2), вне оболочки
+      GoRoute(
+        path: '/posture',
+        builder: (context, state) => const PostureScreen(),
       ),
     ],
   );
