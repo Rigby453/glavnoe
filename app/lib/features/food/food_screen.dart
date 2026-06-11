@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../core/animations/ai_insight_reveal.dart';
 import '../../core/animations/ai_pulse_dot.dart';
@@ -298,10 +299,54 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
   // Подпись от ИИ-фото: «AI: greek salad (86%)» — показывается над результатами
   String? _aiNote;
 
+  // Голосовой ввод (SPEC C5): локальное распознавание речи → строка поиска.
+  final stt.SpeechToText _speech = stt.SpeechToText();
+  bool _listening = false;
+
   @override
   void dispose() {
+    if (_listening) _speech.stop();
     _controller.dispose();
     super.dispose();
+  }
+
+  Future<void> _voiceSearch() async {
+    if (_listening) {
+      await _speech.stop();
+      if (mounted) setState(() => _listening = false);
+      return;
+    }
+    final available = await _speech.initialize(
+      onStatus: (status) {
+        // Распознавание закончилось само (пауза/таймаут) — гасим индикатор.
+        if (status == 'done' || status == 'notListening') {
+          if (mounted) setState(() => _listening = false);
+        }
+      },
+      onError: (_) {
+        if (mounted) setState(() => _listening = false);
+      },
+    );
+    if (!mounted) return;
+    if (!available) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Speech recognition is not available on this device'),
+        ),
+      );
+      return;
+    }
+    setState(() => _listening = true);
+    await _speech.listen(
+      onResult: (result) {
+        if (!mounted) return;
+        _controller.text = result.recognizedWords;
+        if (result.finalResult) {
+          setState(() => _listening = false);
+          _search();
+        }
+      },
+    );
   }
 
   Future<void> _search() async {
@@ -352,6 +397,16 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    IconButton(
+                      tooltip: _listening ? 'Stop listening' : 'Voice input',
+                      icon: Icon(
+                        _listening ? Icons.mic : Icons.mic_none,
+                        color: _listening
+                            ? Theme.of(context).colorScheme.error
+                            : null,
+                      ),
+                      onPressed: _voiceSearch,
+                    ),
                     IconButton(
                       tooltip: 'Scan barcode',
                       icon: const Icon(Icons.qr_code_scanner),

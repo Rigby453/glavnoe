@@ -6,6 +6,10 @@
 	<string>Scan product barcodes and snap food photos to log meals.</string>
 	<key>NSPhotoLibraryUsageDescription</key>
 	<string>Pick a timetable screenshot or food photo to import.</string>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>Dictate food names to log meals by voice.</string>
+	<key>NSSpeechRecognitionUsageDescription</key>
+	<string>Convert your voice to text to search foods.</string>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>
