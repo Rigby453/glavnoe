@@ -28,6 +28,15 @@ Before starting any task:
 - Лимит сессий агентов может закончиться (видно по мгновенному failed) — тогда
   оркестратор делает блок сам, инлайн.
 
+## Git / GitHub
+- After finishing and verifying a block of work: `git commit` to `main`, then
+  `git push origin main`. Remote = https://github.com/Rigby453/glavnoe (private).
+  Standing authorization — commit AND push every block without asking (added 2026-06-13).
+- One logical task = one commit. Conventional messages: `feat(app):`, `fix(...)`, `docs:`.
+- If a push fails (auth/offline/conflict), tell the user once, keep working locally,
+  don't loop on retries.
+- NEVER commit secrets — `backend/.env` stays gitignored.
+
 ## Code rules
 - Language: English for all code, variable names, file names, comments
 - Never put secrets (API keys, JWT secret) in code — use process.env / .env only
