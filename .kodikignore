@@ -1,0 +1,31 @@
+# Tells the Kodik AI chat which paths to skip when scanning/indexing the workspace.
+# These are generated/dependency dirs — scanning them freezes the extension host.
+# Gitignore-style syntax.
+
+# Node dependencies (13k+ files — the main cause of the activation freeze)
+node_modules/
+**/node_modules/
+
+# Flutter / Dart generated
+.dart_tool/
+**/.dart_tool/
+app/build/
+**/build/
+app/.flutter-plugins
+app/.flutter-plugins-dependencies
+
+# Build output
+dist/
+**/dist/
+backend/dist/
+
+# Native build caches
+app/android/.gradle/
+app/ios/Pods/
+app/ios/.symlinks/
+
+# Misc
+.git/
+coverage/
+**/*.log
+backend/prisma/generated/
