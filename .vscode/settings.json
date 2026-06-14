@@ -9,6 +9,17 @@
   "[prisma]": { "editor.defaultFormatter": "Prisma.prisma" },
   "files.exclude": { "**/node_modules": true, "**/.dart_tool": true, "**/build": true },
   "search.exclude": { "**/node_modules": true, "**/build": true },
+  "files.watcherExclude": {
+    "**/node_modules/**": true,
+    "**/backend/node_modules/**": true,
+    "**/landing/node_modules/**": true,
+    "**/.dart_tool/**": true,
+    "**/app/build/**": true,
+    "**/build/**": true,
+    "**/dist/**": true,
+    "**/.git/objects/**": true,
+    "**/coverage/**": true
+  },
   "yaml.schemas": {
     "https://raw.githubusercontent.com/OAI/OpenAPI-Specification/main/schemas/v3.0/schema.json": "docs/api-spec.yaml"
   },
