@@ -21,11 +21,9 @@ import '../../core/database/daos/day_logs_dao.dart';
 import '../api/api_client.dart';
 
 class SyncService {
-  SyncService({
-    required ApiClient apiClient,
-    required AppDatabase db,
-  })  : _apiClient = apiClient,
-        _db = db;
+  SyncService({required ApiClient apiClient, required AppDatabase db})
+    : _apiClient = apiClient,
+      _db = db;
 
   final ApiClient _apiClient;
   final AppDatabase _db;
@@ -58,31 +56,32 @@ class SyncService {
       final lastSyncDate = DateTime.parse(lastSyncAt);
 
       // Шаг 3: локальные записи, обновлённые ПОСЛЕ lastSyncAt (исходящие изменения)
-      final localItems = await (_db.select(_db.itemsTable)
-            ..where((t) => t.updatedAt.isBiggerThanValue(lastSyncDate)))
-          .get();
+      final localItems = await (_db.select(
+        _db.itemsTable,
+      )..where((t) => t.updatedAt.isBiggerThanValue(lastSyncDate))).get();
 
       final outgoing = localItems.map(_itemToSnakeCase).toList();
 
       // Исходящие записи воды (append-only): добавленные после lastSyncAt
-      final localWater = await (_db.select(_db.waterLogsTable)
-            ..where((t) => t.loggedAt.isBiggerThanValue(lastSyncDate)))
-          .get();
+      final localWater = await (_db.select(
+        _db.waterLogsTable,
+      )..where((t) => t.loggedAt.isBiggerThanValue(lastSyncDate))).get();
       final outgoingWater = localWater.map(_waterToSnakeCase).toList();
 
       // Исходящие записи еды (append-only, ADR-024): созданные после lastSyncAt
-      final localFood = await (_db.select(_db.foodLogsTable)
-            ..where((t) => t.createdAt.isBiggerThanValue(lastSyncDate)))
-          .get();
+      final localFood = await (_db.select(
+        _db.foodLogsTable,
+      )..where((t) => t.createdAt.isBiggerThanValue(lastSyncDate))).get();
       final outgoingFood = localFood.map(_foodToSnakeCase).toList();
 
       // Исходящие удаления (tombstones из sync_queue): items, операция delete
-      final deleteRows = await (_db.select(_db.syncQueueTable)
-            ..where((t) =>
-                t.operation.equals('delete') & t.tableName_.equals('items')))
-          .get();
-      final deletedItemIds =
-          deleteRows.map((r) => r.recordId).toSet().toList();
+      final deleteRows =
+          await (_db.select(_db.syncQueueTable)..where(
+                (t) =>
+                    t.operation.equals('delete') & t.tableName_.equals('items'),
+              ))
+              .get();
+      final deletedItemIds = deleteRows.map((r) => r.recordId).toSet().toList();
 
       // Исходящие записи дневника (изменённые после lastSyncAt)
       final dayLogsDao = DayLogsDao(_db);
@@ -110,9 +109,9 @@ class SyncService {
       // Удаления доставлены — очищаем обработанные tombstones
       if (deleteRows.isNotEmpty) {
         final processedIds = deleteRows.map((r) => r.id).toList();
-        await (_db.delete(_db.syncQueueTable)
-              ..where((t) => t.id.isIn(processedIds)))
-            .go();
+        await (_db.delete(
+          _db.syncQueueTable,
+        )..where((t) => t.id.isIn(processedIds))).go();
       }
 
       // Шаг 5: мержим входящие обновления от сервера в Drift
@@ -124,9 +123,7 @@ class SyncService {
           for (final raw in updatedItems) {
             if (raw is! Map<String, dynamic>) continue;
             final companion = _snakeCaseToCompanion(raw);
-            await _db
-                .into(_db.itemsTable)
-                .insertOnConflictUpdate(companion);
+            await _db.into(_db.itemsTable).insertOnConflictUpdate(companion);
           }
         });
         debugPrint('[SyncService] Merged ${updatedItems.length} server items');
@@ -180,10 +177,10 @@ class SyncService {
             insight: raw['insight'] as String?,
             createdAt:
                 DateTime.tryParse(raw['created_at'] as String? ?? '') ??
-                    DateTime.now(),
+                DateTime.now(),
             updatedAt:
                 DateTime.tryParse(raw['updated_at'] as String? ?? '') ??
-                    DateTime.now(),
+                DateTime.now(),
           );
         }
         debugPrint('[SyncService] Merged ${updatedDayLogs.length} day logs');
@@ -196,8 +193,9 @@ class SyncService {
       if (serverDeletedIds.isNotEmpty) {
         for (final raw in serverDeletedIds) {
           if (raw is! String) continue;
-          await (_db.delete(_db.itemsTable)..where((t) => t.id.equals(raw)))
-              .go();
+          await (_db.delete(
+            _db.itemsTable,
+          )..where((t) => t.id.equals(raw))).go();
         }
         debugPrint(
           '[SyncService] Applied ${serverDeletedIds.length} remote deletions',
@@ -292,7 +290,8 @@ class SyncService {
   /// Локальная запись еды → snake_case для отправки (user_id ставит сервер).
   Map<String, dynamic> _foodToSnakeCase(FoodLogsTableData f) {
     final u = f.date.toUtc();
-    final dateStr = '${u.year.toString().padLeft(4, '0')}-'
+    final dateStr =
+        '${u.year.toString().padLeft(4, '0')}-'
         '${u.month.toString().padLeft(2, '0')}-'
         '${u.day.toString().padLeft(2, '0')}';
     return {
@@ -344,7 +343,8 @@ class SyncService {
 
   Map<String, dynamic> _dayLogToSnakeCase(DayLogsTableData d) {
     final u = d.date.toUtc();
-    final dateStr = '${u.year.toString().padLeft(4, '0')}-'
+    final dateStr =
+        '${u.year.toString().padLeft(4, '0')}-'
         '${u.month.toString().padLeft(2, '0')}-'
         '${u.day.toString().padLeft(2, '0')}';
     return {
