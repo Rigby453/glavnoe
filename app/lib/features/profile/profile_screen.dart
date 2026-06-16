@@ -130,12 +130,39 @@ class ProfileScreen extends ConsumerWidget {
             Card(
               child: Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceAround,
+                child: Column(
                   children: [
-                    _StreakStat(label: 'Streak', value: '${streak?.current ?? 0}'),
-                    _StreakStat(label: 'Best', value: '${streak?.longest ?? 0}'),
-                    _StreakStat(label: 'Freezes', value: '${streak?.freezeCount ?? 0}'),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _StreakStat(label: 'Streak', value: '${streak?.current ?? 0}'),
+                        _StreakStat(label: 'Best', value: '${streak?.longest ?? 0}'),
+                        Tooltip(
+                          message: 'Freeze protects your streak\nif you miss a day.',
+                          child: _StreakStat(
+                            label: 'Freezes ❄️',
+                            value: '${streak?.freezeCount ?? 0}',
+                          ),
+                        ),
+                      ],
+                    ),
+                    if ((streak?.freezeCount ?? 0) > 0) ...[
+                      const SizedBox(height: 12),
+                      const Divider(height: 1),
+                      const SizedBox(height: 12),
+                      Row(
+                        children: [
+                          const Text('😌', style: TextStyle(fontSize: 20)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Give yourself a day off — a freeze will protect your streak automatically if you miss today.',
+                              style: Theme.of(context).textTheme.bodySmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
                 ),
               ),
@@ -186,6 +213,31 @@ class ProfileScreen extends ConsumerWidget {
             const _TextSizeSetting(),
             const SizedBox(height: 8),
             const _NotificationsSetting(),
+            const SizedBox(height: 16),
+            Text('Support', style: textTheme.titleMedium),
+            const SizedBox(height: 8),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.star_border),
+              title: const Text('Rate the app'),
+              onTap: () {
+                // TODO: открыть Store страницу — подставить реальный URL при публикации
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Coming soon — we\'re not in the store yet 😊')),
+                );
+              },
+            ),
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.feedback_outlined),
+              title: const Text('Send feedback'),
+              subtitle: const Text('Report a bug or suggest a feature'),
+              onTap: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Email us: support@kaizen.app')),
+                );
+              },
+            ),
           ],
         );
   }
