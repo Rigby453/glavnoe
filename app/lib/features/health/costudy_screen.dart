@@ -4,6 +4,7 @@
 
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../services/api/api_client.dart';
 
@@ -24,6 +25,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
   bool _loadingFriends = true;
   Timer? _timer;
   int _elapsed = 0; // секунды с начала сессии
+  String? _sessionCode;
 
   @override
   void initState() {
@@ -57,6 +59,20 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
           _friends = friends;
           _leaderboard = board;
         });
+        final studying = friends.where((f) => f['in_session'] == true).toList();
+        if (studying.isNotEmpty && mounted && ref.read(_activeSessionProvider) == null) {
+          final names = studying.map((f) => (f['email'] as String).split('@').first).join(', ');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('$names ${studying.length == 1 ? 'is' : 'are'} studying now! 📚'),
+              action: SnackBarAction(
+                label: 'Start too',
+                onPressed: _startSession,
+              ),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
       }
     } catch (_) {}
     if (mounted) setState(() => _loadingFriends = false);
@@ -104,8 +120,64 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
       final data = await ref.read(apiClientProvider).startSession();
       ref.read(_activeSessionProvider.notifier).state = data['id'] as String;
       ref.read(_sessionStartProvider.notifier).state = DateTime.now();
-      setState(() => _elapsed = 0);
+      setState(() {
+        _elapsed = 0;
+        _sessionCode = data['code'] as String?;
+      });
     } catch (_) {}
+  }
+
+  Future<void> _joinByCode() async {
+    final ctrl = TextEditingController();
+    final code = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Join a session'),
+        content: TextField(
+          controller: ctrl,
+          decoration: const InputDecoration(
+            labelText: 'Session code (8 characters)',
+            hintText: 'e.g. a1b2c3d4',
+          ),
+          autofocus: true,
+          maxLength: 8,
+          textCapitalization: TextCapitalization.none,
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Join'),
+          ),
+        ],
+      ),
+    );
+    if (code == null || code.isEmpty || !mounted) return;
+    try {
+      final info = await ref.read(apiClientProvider).getSessionByCode(code);
+      // Show info and let user start their own synchronized session
+      if (!mounted) return;
+      final confirmed = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Study together'),
+          content: Text(
+            '${info['user_email']} has been studying for ${info['elapsed_minutes']} min.\nJoin their session?',
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Start')),
+          ],
+        ),
+      );
+      if (confirmed == true) await _startSession();
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Session not found or has ended')),
+        );
+      }
+    }
   }
 
   Future<void> _endSession() async {
@@ -116,7 +188,10 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
       await ref.read(apiClientProvider).endSession(sessionId, minutes);
       ref.read(_activeSessionProvider.notifier).state = null;
       ref.read(_sessionStartProvider.notifier).state = null;
-      setState(() => _elapsed = 0);
+      setState(() {
+        _elapsed = 0;
+        _sessionCode = null;
+      });
       _load(); // обновляем таблицу лидеров
     } catch (_) {}
   }
@@ -169,6 +244,32 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
                       Text(_formatElapsed(), style: textTheme.displaySmall),
                       const SizedBox(height: 4),
                       Text('Session in progress', style: textTheme.bodySmall),
+                      if (_sessionCode != null) ...[
+                        const SizedBox(height: 8),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              'Code: $_sessionCode',
+                              style: textTheme.titleLarge?.copyWith(
+                                letterSpacing: 4,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            IconButton(
+                              icon: const Icon(Icons.copy_outlined, size: 18),
+                              onPressed: () {
+                                Clipboard.setData(ClipboardData(text: _sessionCode!));
+                                ScaffoldMessenger.of(context).showSnackBar(
+                                  const SnackBar(content: Text('Code copied!')),
+                                );
+                              },
+                            ),
+                          ],
+                        ),
+                        Text('Share this code with a friend', style: textTheme.bodySmall),
+                      ],
                       const SizedBox(height: 16),
                       FilledButton.tonal(
                         onPressed: _endSession,
@@ -186,6 +287,10 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
                       FilledButton(
                         onPressed: _startSession,
                         child: const Text('Start session'),
+                      ),
+                      TextButton(
+                        onPressed: _joinByCode,
+                        child: const Text('Join a session by code'),
                       ),
                     ],
                   ],

@@ -97,7 +97,32 @@ export const coStudyRoutes: FastifyPluginAsync = async (app) => {
       const session = await prisma.coStudySession.create({ data: { userId } });
       return reply.code(201).send({
         id: session.id,
+        code: session.id.substring(0, 8),
         started_at: session.startedAt.toISOString(),
+      });
+    },
+  });
+
+  // GET /api/v1/study-sessions/join/:code — найти активную сессию по короткому коду
+  app.get<{ Params: { code: string } }>('/api/v1/study-sessions/join/:code', {
+    preHandler: requireAuth,
+    handler: async (req, reply) => {
+      const code = req.params.code.toLowerCase();
+      // Find active session where id starts with code
+      const sessions = await prisma.coStudySession.findMany({
+        where: { endedAt: null },
+        include: { user: { select: { id: true, email: true } } },
+      });
+      const session = sessions.find((s) => s.id.toLowerCase().startsWith(code));
+      if (!session) return reply.code(404).send({ error: 'Session not found or ended' });
+      const elapsed = Math.floor((Date.now() - new Date(session.startedAt).getTime()) / 60000);
+      return reply.send({
+        id: session.id,
+        code: session.id.substring(0, 8),
+        user_email: session.user.email,
+        user_id: session.user.id,
+        started_at: session.startedAt.toISOString(),
+        elapsed_minutes: elapsed,
       });
     },
   });

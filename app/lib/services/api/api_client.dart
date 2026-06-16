@@ -628,6 +628,16 @@ class ApiClient {
     }
   }
 
+  /// Найти активную сессию по 8-символьному коду.
+  Future<Map<String, dynamic>> getSessionByCode(String code) async {
+    try {
+      final r = await _dio.get('/api/v1/study-sessions/join/$code');
+      return Map<String, dynamic>.from(r.data);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
   /// Недельная таблица лидеров (rank, email, minutes, is_me).
   Future<List<Map<String, dynamic>>> getLeaderboard() async {
     try {
