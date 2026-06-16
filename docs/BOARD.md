@@ -96,7 +96,7 @@
 - [x] Выбор даты тапом через календарь (2026-06-16): DatePicker в Water/Sleep/Diary-history
 - [x] Просмотр задач/записей за прошлые даты (2026-06-16, 342ca3c)
 - [x] Лимит времени в сторонних приложениях (2026-06-16, b4cc9d3): ScreenTimeScreen — лимиты по категориям (SharedPreferences), слайдер в боттом-шите; реальный UsageStats — позже (нужны платформ-разрешения)
-- [~] **Импорт из популярных планнеров (2026-06-17):** ICS-файл (Google Calendar / Apple Calendar / Outlook) + Todoist CSV → события/задачи в Plan; кнопка в ImportSheet
+- [x] **Импорт из популярных планнеров (2026-06-17):** ICS-файл (Google Calendar / Apple Calendar / Outlook) + Todoist CSV → события/задачи в Plan; кнопка в ImportSheet (feat: ICS + Todoist CSV import in ImportSheet)
 - [ ] **[Ф4]** Умные часы: Wear OS tile + watchOS complication — кольцо задач, стрик, старт/стоп фокус-сессии, вибро-напоминание воды (SPEC C9). Требует: Apple Developer Account + физические часы.
 - Отложено пользователем: OAuth Google/Apple · Health Connect (устройств нет)
 

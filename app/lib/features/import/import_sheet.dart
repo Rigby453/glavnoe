@@ -2,10 +2,12 @@
 // Пользователь вставляет строки вида "HH:MM Заголовок" (по одной на строку),
 // выбирает день — задачи создаются локально в Drift.
 // Фото/голос-импорт требуют AI и относятся к Phase 1.
+// ICS + Todoist CSV — файловый импорт без AI (2026-06-17).
 
 import 'dart:convert';
 
 import 'package:drift/drift.dart' show Value;
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
@@ -17,6 +19,8 @@ import '../../core/database/database_providers.dart';
 import '../../core/utils/id.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
+import 'ics_parser.dart';
+import 'todoist_csv_parser.dart';
 
 /// Строка расписания: "9:00 Math lecture" или "09:30 Gym"
 final _lineRegex = RegExp(r'^\s*(\d{1,2}):(\d{2})\s+(.+?)\s*$');
@@ -60,6 +64,8 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
   final _controller = TextEditingController();
   late DateTime _day;
   bool _recognizing = false;
+  bool _importingIcs = false;
+  bool _importingTodoist = false;
 
   @override
   void initState() {
@@ -190,6 +196,168 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     }
   }
 
+  /// Импорт из ICS-файла (Google Calendar / Apple Calendar / Outlook).
+  /// Читает файл, парсит события, фильтрует по дате _day,
+  /// подставляет строки "HH:MM Title" в текстовое поле для проверки.
+  Future<void> _importFromIcs() async {
+    setState(() => _importingIcs = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      final bytes = file.bytes;
+      final path = file.path;
+
+      String content;
+      if (bytes != null) {
+        content = utf8.decode(bytes, allowMalformed: true);
+      } else if (path != null) {
+        // На десктопе/мобайле path доступен
+        final data = await FilePicker.platform.pickFiles(
+          type: FileType.any,
+          withData: true,
+        );
+        if (data == null || data.files.isEmpty || data.files.first.bytes == null) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              const SnackBar(content: Text('Could not read file')),
+            );
+          }
+          return;
+        }
+        content = utf8.decode(data.files.first.bytes!, allowMalformed: true);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not read file')),
+          );
+        }
+        return;
+      }
+
+      final events = IcsParser.parse(content);
+
+      // Фильтруем по дате _day
+      final dayEvents = events.where((e) {
+        final dt = e.dtStart;
+        if (dt == null) return false;
+        return dt.year == _day.year &&
+            dt.month == _day.month &&
+            dt.day == _day.day;
+      }).toList();
+
+      if (!mounted) return;
+
+      if (dayEvents.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'No events found for ${DateFormat.yMMMd().format(_day)} in this file',
+            ),
+          ),
+        );
+        return;
+      }
+
+      // Формируем строки "HH:MM Title"
+      final lines = dayEvents.map((e) {
+        final dt = e.dtStart!;
+        final hh = dt.hour.toString().padLeft(2, '0');
+        final mm = dt.minute.toString().padLeft(2, '0');
+        return '$hh:$mm ${e.summary}';
+      }).join('\n');
+
+      _controller.text =
+          _controller.text.trim().isEmpty ? lines : '${_controller.text}\n$lines';
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Found ${dayEvents.length} events on ${DateFormat.yMMMd().format(_day)} — review & Import',
+          ),
+        ),
+      );
+    } finally {
+      if (mounted) setState(() => _importingIcs = false);
+    }
+  }
+
+  /// Импорт из Todoist CSV.
+  /// Задачи создаются напрямую в Drift (без текстового поля),
+  /// приоритет маппится из Todoist → Kaizen, дата из CSV или _day 09:00.
+  Future<void> _importFromTodoist() async {
+    setState(() => _importingTodoist = true);
+    try {
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.any,
+        withData: true,
+      );
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      if (file.bytes == null) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not read file')),
+          );
+        }
+        return;
+      }
+
+      final content = utf8.decode(file.bytes!, allowMalformed: true);
+      final tasks = TodoistCsvParser.parse(content);
+
+      if (tasks.isEmpty) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No tasks found in Todoist CSV')),
+          );
+        }
+        return;
+      }
+
+      final dao = ref.read(itemsDaoProvider);
+      final now = DateTime.now();
+
+      for (final task in tasks) {
+        // Парсим дату из задачи или используем _day
+        final parsedDate = TodoistCsvParser.parseDate(task.date);
+        final scheduled = parsedDate ??
+            DateTime(_day.year, _day.month, _day.day, 9, 0);
+
+        final priority = TodoistCsvParser.mapPriority(task.priority);
+
+        await dao.insertItem(
+          ItemsTableCompanion(
+            id: Value(uuidV4()),
+            userId: const Value('local'),
+            title: Value(task.content),
+            type: const Value('task'),
+            priority: Value(priority),
+            status: const Value('pending'),
+            scheduledAt: Value(scheduled),
+            durationMinutes: const Value(60),
+            isProtected: const Value(false),
+            createdAt: Value(now),
+            updatedAt: Value(now),
+          ),
+        );
+      }
+
+      if (mounted) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Imported ${tasks.length} tasks from Todoist')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _importingTodoist = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -233,6 +401,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               ],
             ),
             const SizedBox(height: 8),
+            // Кнопка импорта из фото (AI, Premium)
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(
@@ -245,6 +414,38 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
                     : const Icon(Icons.photo_camera_outlined, size: 18),
                 label: const Text('From photo (Premium)'),
                 onPressed: _recognizing ? null : _importFromPhoto,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Кнопка импорта из ICS-файла (Google / Apple / Outlook)
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: _importingIcs
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.calendar_month_outlined, size: 18),
+                label: const Text('From ICS file (Google / Apple / Outlook)'),
+                onPressed: _importingIcs ? null : _importFromIcs,
+              ),
+            ),
+            const SizedBox(height: 8),
+            // Кнопка импорта из Todoist CSV
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton.icon(
+                icon: _importingTodoist
+                    ? const SizedBox(
+                        height: 16,
+                        width: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.check_circle_outline, size: 18),
+                label: const Text('From Todoist CSV'),
+                onPressed: _importingTodoist ? null : _importFromTodoist,
               ),
             ),
             const SizedBox(height: 8),
