@@ -2,15 +2,22 @@
 // - Поле заголовка (autofocus), чипы типа и приоритета, выбор даты и времени.
 // - Лимит: максимум 3 main-задачи в день (enforced при выборе приоритета main).
 // - Сохранение пишет в Drift через ItemsDao (офлайн-первый подход).
+// - Секция вложений: фото/видео, хранятся локально (schemaVersion 11).
 //
 // Локальное состояние формы (контроллер, выбранные чипы) — эфемерное,
 // поэтому здесь используется StatefulWidget; бизнес-состояние идёт через Riverpod.
+
+import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+import 'package:video_player/video_player.dart';
 
 import '../../../core/animations/app_sheet.dart';
 import '../../../core/animations/app_toast.dart';
@@ -103,6 +110,11 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   // Кэшированное число main-задач на текущий день — загружается при initState.
   int _mainCount = 0;
 
+  // Вложения (фото/видео) — загружаются из Drift при открытии в режиме редактирования.
+  List<ItemAttachmentsTableData> _attachments = [];
+
+  final _imagePicker = ImagePicker();
+
   @override
   void initState() {
     super.initState();
@@ -120,6 +132,16 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     );
     // Загружаем число main-задач для отображения подсказки лимита.
     _loadMainCount();
+    // Загружаем вложения (только в режиме редактирования — у новой задачи нет id).
+    if (_isEditing) _loadAttachments();
+  }
+
+  Future<void> _loadAttachments() async {
+    if (widget.existing == null) return;
+    final dao = ref.read(itemAttachmentsDaoProvider);
+    final list =
+        await dao.watchAttachments(widget.existing!.id).first;
+    if (mounted) setState(() => _attachments = list);
   }
 
   Future<void> _loadMainCount() async {
@@ -231,6 +253,125 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     if (parsed != null && parsed > 0) {
       setState(() => _durationMinutes = parsed);
     }
+  }
+
+  Future<void> _pickAttachment(ImageSource source, {bool isVideo = false}) async {
+    XFile? file;
+    if (isVideo) {
+      file = await _imagePicker.pickVideo(source: source);
+    } else {
+      file = await _imagePicker.pickImage(source: source, imageQuality: 85);
+    }
+    if (file == null || !mounted) return;
+
+    // Копируем в директорию приложения для надёжного хранения
+    final dir = await getApplicationDocumentsDirectory();
+    final ext = p.extension(file.path).isEmpty
+        ? (isVideo ? '.mp4' : '.jpg')
+        : p.extension(file.path);
+    final fileName = '${DateTime.now().millisecondsSinceEpoch}$ext';
+    final dest = File(p.join(dir.path, 'attachments', fileName));
+    await dest.parent.create(recursive: true);
+    await File(file.path).copy(dest.path);
+
+    final dao = ref.read(itemAttachmentsDaoProvider);
+    // Для новых задач временно используем пустой itemId — обновим после сохранения.
+    // Для редактирования — сразу привязываем к существующему id.
+    final itemId = widget.existing?.id ?? '__pending__';
+    await dao.addAttachment(ItemAttachmentsTableCompanion(
+      id: Value(uuidV4()),
+      itemId: Value(itemId),
+      localPath: Value(dest.path),
+      type: Value(isVideo ? 'video' : 'photo'),
+    ));
+    if (mounted) _loadAttachments();
+  }
+
+  void _showPickerMenu() {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: const Icon(Icons.camera_alt_outlined),
+              title: const Text('Photo from camera'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAttachment(ImageSource.camera);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.photo_library_outlined),
+              title: const Text('Photo from gallery'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAttachment(ImageSource.gallery);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.video_library_outlined),
+              title: const Text('Video from gallery'),
+              onTap: () {
+                Navigator.pop(ctx);
+                _pickAttachment(ImageSource.gallery, isVideo: true);
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _viewAttachment(ItemAttachmentsTableData a) {
+    if (a.type == 'photo') {
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => Dialog(
+          backgroundColor: Colors.black,
+          child: Stack(
+            children: [
+              Image.file(File(a.localPath), fit: BoxFit.contain),
+              Positioned(
+                top: 8,
+                right: 8,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.pop(ctx),
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    } else {
+      final ctrl = VideoPlayerController.file(File(a.localPath));
+      showDialog<void>(
+        context: context,
+        builder: (ctx) => _VideoDialog(controller: ctrl),
+      );
+    }
+  }
+
+  Future<void> _deleteAttachment(ItemAttachmentsTableData a) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Remove attachment?'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Cancel')),
+          FilledButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('Remove')),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(itemAttachmentsDaoProvider).deleteAttachment(a.id);
+    if (mounted) _loadAttachments();
   }
 
   Future<void> _save() async {
@@ -578,6 +719,74 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                 ),
               ],
             ),
+            const SizedBox(height: 16),
+
+            // Вложения (фото / видео)
+            Row(
+              children: [
+                Text('Attachments', style: textTheme.labelMedium),
+                const Spacer(),
+                TextButton.icon(
+                  icon: const Icon(Icons.add_photo_alternate_outlined, size: 16),
+                  label: const Text('Add'),
+                  onPressed: _showPickerMenu,
+                ),
+              ],
+            ),
+            if (_attachments.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              SizedBox(
+                height: 88,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  itemCount: _attachments.length,
+                  separatorBuilder: (context2, index2) => const SizedBox(width: 8),
+                  itemBuilder: (ctx, i) {
+                    final a = _attachments[i];
+                    return GestureDetector(
+                      onTap: () => _viewAttachment(a),
+                      onLongPress: () => _deleteAttachment(a),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: SizedBox(
+                          width: 80,
+                          height: 88,
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              a.type == 'photo'
+                                  ? Image.file(File(a.localPath),
+                                      fit: BoxFit.cover)
+                                  : Container(
+                                      color: colorScheme.surfaceContainerHighest,
+                                      child: Icon(Icons.play_circle_outline,
+                                          size: 36,
+                                          color: colorScheme.onSurface),
+                                    ),
+                              Positioned(
+                                top: 4,
+                                right: 4,
+                                child: GestureDetector(
+                                  onTap: () => _deleteAttachment(a),
+                                  child: Container(
+                                    decoration: BoxDecoration(
+                                      color: Colors.black54,
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: const Icon(Icons.close,
+                                        size: 16, color: Colors.white),
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ],
             const SizedBox(height: 24),
 
             // Сохранить
@@ -604,6 +813,78 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Видеоплеер в диалоге.
+// ---------------------------------------------------------------------------
+
+class _VideoDialog extends StatefulWidget {
+  const _VideoDialog({required this.controller});
+  final VideoPlayerController controller;
+
+  @override
+  State<_VideoDialog> createState() => _VideoDialogState();
+}
+
+class _VideoDialogState extends State<_VideoDialog> {
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.initialize().then((_) {
+      if (mounted) setState(() {});
+      widget.controller.play();
+    });
+  }
+
+  @override
+  void dispose() {
+    widget.controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: Colors.black,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (widget.controller.value.isInitialized)
+            AspectRatio(
+              aspectRatio: widget.controller.value.aspectRatio,
+              child: VideoPlayer(widget.controller),
+            )
+          else
+            const SizedBox(height: 120, child: Center(child: CircularProgressIndicator())),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              IconButton(
+                icon: Icon(
+                  widget.controller.value.isPlaying
+                      ? Icons.pause
+                      : Icons.play_arrow,
+                  color: Colors.white,
+                ),
+                onPressed: () {
+                  setState(() {
+                    widget.controller.value.isPlaying
+                        ? widget.controller.pause()
+                        : widget.controller.play();
+                  });
+                },
+              ),
+              IconButton(
+                icon: const Icon(Icons.close, color: Colors.white),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }
@@ -640,7 +921,7 @@ class _TemplatesRow extends StatelessWidget {
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         itemCount: _templates.length,
-        separatorBuilder: (_, _) => const SizedBox(width: 8),
+        separatorBuilder: (context2, index2) => const SizedBox(width: 8),
         itemBuilder: (context, i) {
           final t = _templates[i];
           return GestureDetector(

@@ -409,6 +409,30 @@ class WorkoutExercisesTable extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Вложения к задачам (фото/видео). Локальные, без синхронизации.
+/// Добавлено в schemaVersion 11.
+class ItemAttachmentsTable extends Table {
+  @override
+  String get tableName => 'item_attachments';
+
+  // UUID, генерируется клиентом
+  TextColumn get id => text()();
+
+  // Ссылка на задачу
+  TextColumn get itemId => text()();
+
+  // Абсолютный путь к файлу на устройстве
+  TextColumn get localPath => text()();
+
+  // Тип: 'photo' | 'video'
+  TextColumn get type => text()();
+
+  DateTimeColumn get createdAt => dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Очередь синхронизации: записи, ожидающие отправки на сервер
 /// id — autoincrement int (локальный, не синхронизируется)
 class SyncQueueTable extends Table {
@@ -455,6 +479,7 @@ class SyncQueueTable extends Table {
     GoalStepsTable,
     HabitsTable,
     HabitLogsTable,
+    ItemAttachmentsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -467,7 +492,7 @@ class AppDatabase extends _$AppDatabase {
   HabitsDao get habitsDao => HabitsDao(this);
 
   @override
-  int get schemaVersion => 10;
+  int get schemaVersion => 11;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -512,6 +537,10 @@ class AppDatabase extends _$AppDatabase {
           if (from < 10) {
             await m.createTable(habitsTable);
             await m.createTable(habitLogsTable);
+          }
+          // v11: добавлена таблица item_attachments (фото/видео к задачам, локально).
+          if (from < 11) {
+            await m.createTable(itemAttachmentsTable);
           }
         },
       );
