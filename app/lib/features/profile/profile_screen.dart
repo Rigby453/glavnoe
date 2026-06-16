@@ -244,6 +244,51 @@ class ProfileScreen extends ConsumerWidget {
               title: const Text('Terms & Privacy'),
               onTap: () => context.push('/terms'),
             ),
+            const SizedBox(height: 8),
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Text('🎁', style: TextStyle(fontSize: 24)),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'Invite a friend',
+                                style: Theme.of(context).textTheme.titleSmall,
+                              ),
+                              Text(
+                                'Get 1 week free Premium for each friend who joins',
+                                style: Theme.of(context).textTheme.bodySmall,
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      icon: const Icon(Icons.share, size: 16),
+                      label: const Text('Share Kaizen'),
+                      onPressed: () {
+                        // TODO: реальная реферальная ссылка после публикации в стор
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text('Referral links coming after App Store launch 🚀'),
+                          ),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ],
         );
   }

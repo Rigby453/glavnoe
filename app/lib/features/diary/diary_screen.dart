@@ -10,8 +10,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/animations/ai_pulse_dot.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/water_goal_provider.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
+import '../health/health_screen.dart';
 import '../paywall/paywall_screen.dart';
 import 'diary_insight.dart';
 
@@ -268,6 +270,8 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
           const _PlanVsFactCard(),
           const SizedBox(height: 12),
           const _QuickInsightCard(),
+          const SizedBox(height: 12),
+          const _LifeInsightsCard(),
         ],
       ),
     );
@@ -367,6 +371,89 @@ class _QuickInsightCard extends ConsumerWidget {
               (line) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
                 child: Text('• $line', style: textTheme.bodyMedium),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// Аналитика образа жизни — rule-based наблюдения по сну и воде за последние 7 дней.
+class _LifeInsightsCard extends ConsumerWidget {
+  const _LifeInsightsCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Берём данные за последние 7 дней
+    final nights = ref.watch(recentNightsProvider).valueOrNull ?? [];
+    final waterTotals = ref.watch(weekWaterProvider).valueOrNull ?? [];
+    final waterGoal = ref.watch(waterGoalProvider);
+
+    final insights = <String>[];
+
+    // Анализ сна
+    if (nights.isNotEmpty) {
+      final completedNights =
+          nights.where((n) => n.endAt != null).toList();
+      if (completedNights.isNotEmpty) {
+        final avgSleep = completedNights
+                .map((n) => n.endAt!.difference(n.startAt).inMinutes / 60.0)
+                .fold(0.0, (a, b) => a + b) /
+            completedNights.length;
+        if (avgSleep < 6) {
+          insights.add(
+            '😴 You averaged ${avgSleep.toStringAsFixed(1)}h sleep — try going to bed 30 min earlier.',
+          );
+        } else if (avgSleep >= 7.5) {
+          insights.add(
+            '✅ Great sleep this week — ${avgSleep.toStringAsFixed(1)}h avg!',
+          );
+        }
+      }
+    }
+
+    // Анализ воды
+    if (waterTotals.length == 7 && waterGoal > 0) {
+      final metGoal = waterTotals.where((t) => t >= waterGoal).length;
+      if (metGoal == 7) {
+        insights.add('💧 Perfect hydration week — goal met every day!');
+      } else if (metGoal < 3) {
+        insights.add(
+          '💧 Only $metGoal/7 days met your water goal this week. Try keeping a bottle nearby.',
+        );
+      }
+    }
+
+    // Дефолтное сообщение если нет данных
+    if (insights.isEmpty) {
+      insights.add(
+        '📊 Track sleep and water consistently to see personal insights here.',
+      );
+    }
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.insights, color: colorScheme.primary, size: 20),
+                const SizedBox(width: 8),
+                Text('Life insights', style: textTheme.titleMedium),
+              ],
+            ),
+            const SizedBox(height: 12),
+            ...insights.map(
+              (insight) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: Text(insight, style: textTheme.bodyMedium),
               ),
             ),
           ],
