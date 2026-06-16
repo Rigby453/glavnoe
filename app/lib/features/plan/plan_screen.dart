@@ -54,29 +54,31 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
 
   @override
   Widget build(BuildContext context) {
+    // ref.watch — ВНЕ LayoutBuilder: callbacks LayoutBuilder не регистрируют
+    // подписки Riverpod для пересборки (вызываются в layout-фазе, не в build-фазе).
     final selectedDay = ref.watch(selectedDayProvider);
+    final view = ref.watch(planViewProvider);
+    final searchVisible = ref.watch(planSearchVisibleProvider);
 
+    final isTablet = MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
     return Scaffold(
       floatingActionButton: FloatingActionButton(
         onPressed: () => showAddTaskSheet(context, day: selectedDay),
         child: const Icon(Icons.add),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          if (constraints.maxWidth >= Breakpoints.tablet) {
-            return _buildTabletLayout(context);
-          }
-          return _buildMobileLayout(context);
-        },
-      ),
+      body: isTablet
+          ? _buildTabletLayout(context, selectedDay, view, searchVisible)
+          : _buildMobileLayout(context, selectedDay, view, searchVisible),
     );
   }
 
   /// Mobile single-column layout (< 600px).
-  Widget _buildMobileLayout(BuildContext context) {
-    final selectedDay = ref.watch(selectedDayProvider);
-    final view = ref.watch(planViewProvider);
-    final searchVisible = ref.watch(planSearchVisibleProvider);
+  Widget _buildMobileLayout(
+    BuildContext context,
+    DateTime selectedDay,
+    PlanView view,
+    bool searchVisible,
+  ) {
 
     return Column(
       children: [
@@ -100,11 +102,12 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   /// Tablet 2-column layout (≥ 600px).
   /// Left column (flex 1): week strip + view toggle buttons.
   /// Right column (flex 2): day timeline / month calendar / week agenda.
-  Widget _buildTabletLayout(BuildContext context) {
-    final selectedDay = ref.watch(selectedDayProvider);
-    final view = ref.watch(planViewProvider);
-    final searchVisible = ref.watch(planSearchVisibleProvider);
-
+  Widget _buildTabletLayout(
+    BuildContext context,
+    DateTime selectedDay,
+    PlanView view,
+    bool searchVisible,
+  ) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [

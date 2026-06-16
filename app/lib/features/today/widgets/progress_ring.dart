@@ -8,7 +8,6 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 
 import '../../../core/animations/constants.dart';
 import '../../../core/database/database.dart';
@@ -197,9 +196,7 @@ class _ProgressRingState extends State<ProgressRing>
                   children: [
                     Text(
                       total == 0 ? '—' : '$done/$total',
-                      style: GoogleFonts.fraunces(
-                        fontSize: 28,
-                        fontWeight: FontWeight.w600,
+                      style: Theme.of(context).textTheme.headlineLarge?.copyWith(
                         color: colorScheme.onSurface,
                       ),
                     ),

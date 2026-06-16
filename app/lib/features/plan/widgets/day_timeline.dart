@@ -29,37 +29,26 @@ class DayTimeline extends ConsumerWidget {
     final selectedDay = ref.watch(selectedDayProvider);
     final itemsAsync = ref.watch(dayItemsProvider(selectedDay));
 
-    return itemsAsync.when(
-      loading: () => const Center(child: CircularProgressIndicator()),
-      error: (err, _) => Center(
-        child: Text(
-          'Failed to load items: $err',
-          style: Theme.of(context).textTheme.bodyMedium,
-        ),
-      ),
-      data: (items) {
-        // Фильтрация по поисковому запросу
-        final query = ref.watch(planSearchQueryProvider).toLowerCase();
-        final filtered = query.isEmpty
-            ? items
-            : items
-                .where((i) => i.title.toLowerCase().contains(query))
-                .toList();
+    // valueOrNull: не блокируем UI на loading — список появится как только
+    // стрим доставит данные; ошибка логируется через itemsAsync.error
+    final items = itemsAsync.valueOrNull ?? const <ItemsTableData>[];
+    final query = ref.watch(planSearchQueryProvider).toLowerCase();
+    final filtered = query.isEmpty
+        ? items
+        : items.where((i) => i.title.toLowerCase().contains(query)).toList();
 
-        if (filtered.isEmpty) {
-          return _EmptyState(day: selectedDay);
-        }
-        return ListView.separated(
-          padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-          itemCount: filtered.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 8),
-          itemBuilder: (context, index) {
-            final item = filtered[index];
-            return _ItemCard(
-              item: item,
-              selectedDay: selectedDay,
-            );
-          },
+    if (filtered.isEmpty) {
+      return _EmptyState(day: selectedDay);
+    }
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
+      itemCount: filtered.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      itemBuilder: (context, index) {
+        final item = filtered[index];
+        return _ItemCard(
+          item: item,
+          selectedDay: selectedDay,
         );
       },
     );

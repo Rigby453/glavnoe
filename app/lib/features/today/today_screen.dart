@@ -38,7 +38,8 @@ class TodayScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    // Регистрируем listener здесь, на уровне build, так как ref доступен
+    // ref.watch/listen — ВНЕ LayoutBuilder: callbacks LayoutBuilder не регистрируют
+    // подписки Riverpod для пересборки (вызываются в layout-фазе, не в build-фазе).
     ref.listen(todayMainItemsProvider, (_, _) async {
       await ref.read(streakServiceProvider).recomputeForDay(DateTime.now());
       await refreshHomeWidget(
@@ -47,18 +48,6 @@ class TodayScreen extends ConsumerWidget {
       );
     });
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth >= Breakpoints.tablet) {
-          return _buildTabletLayout(context, ref);
-        }
-        return _buildMobileLayout(context, ref);
-      },
-    );
-  }
-
-  /// Мобильный макет — одна колонка, оригинальный вид.
-  Widget _buildMobileLayout(BuildContext context, WidgetRef ref) {
     final now = DateTime.now();
     final itemsAsync = ref.watch(todayItemsProvider);
     final mainItems = ref.watch(todayMainItemsProvider).valueOrNull ??
@@ -66,6 +55,25 @@ class TodayScreen extends ConsumerWidget {
     final tone = ref.watch(toneProvider);
     final allMainDone = mainItems.isNotEmpty &&
         mainItems.every((i) => i.status == 'done' || i.status == 'skipped');
+
+    final isTablet = MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
+    if (isTablet) {
+      return _buildTabletLayout(
+          context, itemsAsync, mainItems, tone, allMainDone, now);
+    }
+    return _buildMobileLayout(
+        context, itemsAsync, mainItems, tone, allMainDone, now);
+  }
+
+  /// Мобильный макет — одна колонка, оригинальный вид.
+  Widget _buildMobileLayout(
+    BuildContext context,
+    AsyncValue<List<ItemsTableData>> itemsAsync,
+    List<ItemsTableData> mainItems,
+    AppTone tone,
+    bool allMainDone,
+    DateTime now,
+  ) {
 
     return Stack(
       children: [
@@ -122,14 +130,15 @@ class TodayScreen extends ConsumerWidget {
   /// Планшетный макет ≥600px — две колонки равной ширины.
   /// Левая: шапка + ProgressRing + StreakRow + карточки обзора.
   /// Правая: список задач.
-  Widget _buildTabletLayout(BuildContext context, WidgetRef ref) {
-    final now = DateTime.now();
-    final itemsAsync = ref.watch(todayItemsProvider);
-    final mainItems = ref.watch(todayMainItemsProvider).valueOrNull ??
-        const <ItemsTableData>[];
-    final tone = ref.watch(toneProvider);
-    final allMainDone = mainItems.isNotEmpty &&
-        mainItems.every((i) => i.status == 'done' || i.status == 'skipped');
+  Widget _buildTabletLayout(
+    BuildContext context,
+    AsyncValue<List<ItemsTableData>> itemsAsync,
+    List<ItemsTableData> mainItems,
+    AppTone tone,
+    bool allMainDone,
+    DateTime now,
+  ) {
+    final items = itemsAsync.valueOrNull ?? const <ItemsTableData>[];
 
     return Stack(
       children: [
@@ -138,67 +147,61 @@ class TodayScreen extends ConsumerWidget {
             onPressed: () => showAddTaskSheet(context, day: now),
             child: const Icon(Icons.add),
           ),
-          body: itemsAsync.when(
-            loading: () => const Center(child: CircularProgressIndicator()),
-            error: (err, _) => Center(child: Text('Failed to load tasks: $err')),
-            data: (items) {
-              return Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // --- Левая колонка: шапка, кольцо, серия, карточки обзора ---
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Expanded(child: _Header(now: now)),
-                              const _ToneToggle(),
-                            ],
-                          ),
-                          const SizedBox(height: 16),
-                          Center(child: ProgressRing(items: mainItems)),
-                          const SizedBox(height: 24),
-                          const StreakRow(),
-                          if (allMainDone) ...[
-                            const SizedBox(height: 16),
-                            Center(
-                              child: Text(
-                                ToneCopy.allDone(tone),
-                                textAlign: TextAlign.center,
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .titleMedium
-                                    ?.copyWith(
-                                      color: Theme.of(context)
-                                          .colorScheme
-                                          .primary,
-                                    ),
-                              ),
-                            ),
+          body: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // --- Левая колонка: шапка, кольцо, серия, карточки обзора ---
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(child: _Header(now: now)),
+                            const _ToneToggle(),
                           ],
+                        ),
+                        const SizedBox(height: 16),
+                        Center(child: ProgressRing(items: mainItems)),
+                        const SizedBox(height: 24),
+                        const StreakRow(),
+                        if (allMainDone) ...[
                           const SizedBox(height: 16),
-                          const MorningReviewCard(),
-                          const EveningReviewCard(),
+                          Center(
+                            child: Text(
+                              ToneCopy.allDone(tone),
+                              textAlign: TextAlign.center,
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .titleMedium
+                                  ?.copyWith(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .primary,
+                                  ),
+                            ),
+                          ),
                         ],
-                      ),
+                        const SizedBox(height: 16),
+                        const MorningReviewCard(),
+                        const EveningReviewCard(),
+                      ],
                     ),
                   ),
-                  const VerticalDivider(width: 1),
-                  // --- Правая колонка: список задач ---
-                  Expanded(
-                    child: SingleChildScrollView(
-                      padding: const EdgeInsets.all(24),
-                      child: TaskList(items: items, day: now),
-                    ),
+                ),
+                const VerticalDivider(width: 1),
+                // --- Правая колонка: список задач ---
+                Expanded(
+                  child: SingleChildScrollView(
+                    padding: const EdgeInsets.all(24),
+                    child: TaskList(items: items, day: now),
                   ),
-                ],
-              );
-            },
-          ),
+                ),
+              ],
+            ),
         ),
         const Positioned.fill(child: CelebrationOverlay()),
       ],
