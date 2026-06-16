@@ -56,6 +56,26 @@ class _WeekStripState extends ConsumerState<WeekStrip> {
         weekStart.day + offset,
       );
 
+  /// Переключает strip на неделю, содержащую [date], и выбирает [date].
+  void _jumpToDate(DateTime date) {
+    final today = DateTime.now();
+    final todayNorm = DateTime(today.year, today.month, today.day);
+    final baseWeekStart = _weekStart(todayNorm);
+    final targetWeekStart = _weekStart(date);
+
+    // Количество недель от базовой (текущей) до целевой
+    final weekDiff =
+        targetWeekStart.difference(baseWeekStart).inDays ~/ 7;
+    final targetPage = _initialPage + weekDiff;
+
+    _pageController.animateToPage(
+      targetPage,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOut,
+    );
+    ref.read(selectedDayProvider.notifier).state = date;
+  }
+
   @override
   Widget build(BuildContext context) {
     final selectedDay = ref.watch(selectedDayProvider);
@@ -83,6 +103,17 @@ class _WeekStripState extends ConsumerState<WeekStrip> {
             onDayTap: (day) {
               ref.read(selectedDayProvider.notifier).state = day;
             },
+            onDayLongPress: (day) async {
+              final picked = await showDatePicker(
+                context: context,
+                initialDate: day,
+                firstDate: DateTime(2020),
+                lastDate: DateTime(2030),
+              );
+              if (picked != null) {
+                _jumpToDate(picked);
+              }
+            },
           );
         },
       ),
@@ -97,12 +128,14 @@ class _WeekRow extends StatelessWidget {
     required this.selectedDay,
     required this.today,
     required this.onDayTap,
+    required this.onDayLongPress,
   });
 
   final DateTime weekStart;
   final DateTime selectedDay;
   final DateTime today;
   final ValueChanged<DateTime> onDayTap;
+  final ValueChanged<DateTime> onDayLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -119,6 +152,7 @@ class _WeekRow extends StatelessWidget {
             isSelected: day == selectedDay,
             isToday: day == today,
             onTap: () => onDayTap(day),
+            onLongPress: () => onDayLongPress(day),
           ),
         );
       }),
@@ -133,12 +167,14 @@ class _DayCell extends StatelessWidget {
     required this.isSelected,
     required this.isToday,
     required this.onTap,
+    required this.onLongPress,
   });
 
   final DateTime day;
   final bool isSelected;
   final bool isToday;
   final VoidCallback onTap;
+  final VoidCallback onLongPress;
 
   @override
   Widget build(BuildContext context) {
@@ -155,6 +191,7 @@ class _DayCell extends StatelessWidget {
 
     return GestureDetector(
       onTap: onTap,
+      onLongPress: onLongPress,
       child: AnimatedContainer(
         // normal=200ms из design-tokens
         duration: const Duration(milliseconds: 200),

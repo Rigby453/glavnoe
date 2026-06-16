@@ -9,7 +9,6 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../../core/animations/app_toast.dart';
-import '../../core/animations/constants.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/settings/water_goal_provider.dart';
@@ -146,7 +145,33 @@ class HealthScreen extends ConsumerWidget {
                   ],
                 ),
                 const SizedBox(height: 12),
-                _AnimatedWaterBar(progress: progress),
+                Row(
+                  children: [
+                    _AnimatedWaterGlass(progress: progress),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '$total ml',
+                            style: textTheme.headlineSmall,
+                          ),
+                          Text(
+                            'of $waterGoalMl ml goal',
+                            style: textTheme.bodySmall,
+                          ),
+                          const SizedBox(height: 4),
+                          LinearProgressIndicator(
+                            value: progress,
+                            minHeight: 4,
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
                 const SizedBox(height: 16),
                 Row(
                   children: [
@@ -295,59 +320,141 @@ class HealthScreen extends ConsumerWidget {
   }
 }
 
-/// Прогресс-бар воды — ANIMATIONS.md §4.2: полоса плавно растёт до нового %
-/// за 500 мс (easeOutCubic); при достижении 100% через 600 мс — тост.
-class _AnimatedWaterBar extends StatefulWidget {
-  const _AnimatedWaterBar({required this.progress});
-
+/// Анимированный стакан с водой — заменяет плоский прогресс-бар.
+/// §4.2: при достижении 100% через 600 мс — тост.
+class _AnimatedWaterGlass extends StatefulWidget {
+  const _AnimatedWaterGlass({required this.progress});
   final double progress;
 
   @override
-  State<_AnimatedWaterBar> createState() => _AnimatedWaterBarState();
+  State<_AnimatedWaterGlass> createState() => _AnimatedWaterGlassState();
 }
 
-class _AnimatedWaterBarState extends State<_AnimatedWaterBar> {
-  double _prev = 0;
+class _AnimatedWaterGlassState extends State<_AnimatedWaterGlass>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _ctrl;
+  late Animation<double> _anim;
 
   @override
-  void didUpdateWidget(_AnimatedWaterBar old) {
+  void initState() {
+    super.initState();
+    _ctrl = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _anim = Tween<double>(begin: 0, end: widget.progress).animate(
+      CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+    );
+    _ctrl.forward();
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedWaterGlass old) {
     super.didUpdateWidget(old);
-    if (old.progress == widget.progress) return;
-    _prev = old.progress;
-    // §4.2: норма достигнута → задержка 600 мс → тост
-    if (old.progress < 1.0 && widget.progress >= 1.0) {
-      Future.delayed(const Duration(milliseconds: 600), () {
-        if (mounted) {
-          showAppToast(
-            context,
-            variant: AppToastVariant.done,
-            message: 'Water goal reached 💧',
-          );
-        }
-      });
+    if (old.progress != widget.progress) {
+      // §4.2: норма достигнута → задержка 600 мс → тост
+      if (old.progress < 1.0 && widget.progress >= 1.0) {
+        Future.delayed(const Duration(milliseconds: 600), () {
+          if (mounted) {
+            showAppToast(
+              context,
+              variant: AppToastVariant.done,
+              message: 'Water goal reached 💧',
+            );
+          }
+        });
+      }
+      _anim = Tween<double>(begin: _anim.value, end: widget.progress).animate(
+        CurvedAnimation(parent: _ctrl, curve: Curves.easeOut),
+      );
+      _ctrl
+        ..reset()
+        ..forward();
     }
   }
 
   @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    // Ревью 2026-06-11: 500 → 300 мс (UI-переходы не дольше 300, §0)
-    final duration = effectiveDuration(context, kDurationSlow);
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
 
-    return TweenAnimationBuilder<double>(
-      tween: Tween(begin: _prev, end: widget.progress),
-      duration: duration,
-      curve: kCurveLift,
-      builder: (context, value, _) => ClipRRect(
-        borderRadius: BorderRadius.circular(999),
-        child: LinearProgressIndicator(
-          value: value,
-          minHeight: 10,
-          backgroundColor: colorScheme.onSurface.withValues(alpha: 0.12),
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return Tooltip(
+      message: 'Water goal reached 💧',
+      triggerMode: widget.progress >= 1.0
+          ? TooltipTriggerMode.tap
+          : TooltipTriggerMode.manual,
+      child: AnimatedBuilder(
+        animation: _anim,
+        builder: (ctx, _) => CustomPaint(
+          size: const Size(56, 72),
+          painter: _GlassPainter(fill: _anim.value, color: color),
         ),
       ),
     );
   }
+}
+
+class _GlassPainter extends CustomPainter {
+  const _GlassPainter({required this.fill, required this.color});
+  final double fill;
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final w = size.width;
+    final h = size.height;
+
+    // Контур стакана (трапеция: снизу уже)
+    final glassPath = Path()
+      ..moveTo(w * 0.1, 0)
+      ..lineTo(w * 0.9, 0)
+      ..lineTo(w * 0.78, h)
+      ..lineTo(w * 0.22, h)
+      ..close();
+
+    // Заливка воды (клипируется формой стакана)
+    final waterTop = h * (1 - fill.clamp(0.0, 1.0));
+    final waterPath = Path()
+      ..moveTo(w * 0.1 + (w * 0.12) * (waterTop / h), waterTop)
+      ..lineTo(w * 0.9 - (w * 0.12) * (waterTop / h), waterTop)
+      ..lineTo(w * 0.78, h)
+      ..lineTo(w * 0.22, h)
+      ..close();
+
+    // Рисуем воду
+    canvas.drawPath(
+      waterPath,
+      Paint()..color = color.withValues(alpha: 0.35),
+    );
+
+    // Рисуем контур стакана
+    canvas.drawPath(
+      glassPath,
+      Paint()
+        ..color = color.withValues(alpha: 0.6)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2,
+    );
+
+    // Линия на поверхности воды
+    if (fill > 0.02) {
+      canvas.drawLine(
+        Offset(w * 0.1 + (w * 0.12) * (waterTop / h) + 2, waterTop),
+        Offset(w * 0.9 - (w * 0.12) * (waterTop / h) - 2, waterTop),
+        Paint()
+          ..color = color.withValues(alpha: 0.7)
+          ..strokeWidth = 1.5,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_GlassPainter old) =>
+      old.fill != fill || old.color != color;
 }
 
 /// Мини-график воды за последние 7 дней (высота столбца — доля от нормы).

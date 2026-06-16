@@ -53,6 +53,22 @@ class PlanScreen extends ConsumerWidget {
                 Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Кнопка «Today» — видна только когда выбран не сегодня
+                    Builder(builder: (context) {
+                      final now = DateTime.now();
+                      final today =
+                          DateTime(now.year, now.month, now.day);
+                      if (selectedDay != today) {
+                        return TextButton(
+                          onPressed: () {
+                            ref.read(selectedDayProvider.notifier).state =
+                                today;
+                          },
+                          child: const Text('Today'),
+                        );
+                      }
+                      return const SizedBox.shrink();
+                    }),
                     // Иконка поиска (только в режиме Day)
                     if (view == PlanView.day)
                       IconButton(
