@@ -1,6 +1,6 @@
 // Оболочка с BottomNavigationBar и AppBar с кнопкой профиля
 // Profile открывается из leading кнопки AppBar, а НЕ из нижней навигации
-// На широких экранах (≥900px) — NavigationRail вместо BottomNavigationBar.
+// На широких экранах (≥600px) — NavigationRail вместо BottomNavigationBar.
 
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
@@ -19,7 +19,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= Breakpoints.desktop) {
+        if (constraints.maxWidth >= Breakpoints.tablet) {
           return _buildWideLayout(context);
         }
         return _buildMobileLayout(context);
@@ -27,7 +27,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
     );
   }
 
-  /// Wide layout (≥900px): NavigationRail + no AppBar bottom bar.
+  /// Wide layout (≥600px): NavigationRail + no AppBar bottom bar.
   Widget _buildWideLayout(BuildContext context) {
     return Scaffold(
       body: Row(
@@ -70,7 +70,7 @@ class ScaffoldWithNavBar extends StatelessWidget {
     );
   }
 
-  /// Mobile/tablet layout (<900px): AppBar + BottomNavigationBar.
+  /// Mobile layout (<600px): AppBar + BottomNavigationBar.
   Widget _buildMobileLayout(BuildContext context) {
     return Scaffold(
       appBar: AppBar(

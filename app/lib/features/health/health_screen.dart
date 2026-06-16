@@ -13,6 +13,7 @@ import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../core/utils/breakpoints.dart';
 import 'sleep_stats.dart';
 
 /// Сумма выпитого за сегодня (реактивно).
@@ -111,10 +112,21 @@ class HealthScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth >= Breakpoints.tablet) {
+          return _buildTabletLayout(context, ref);
+        }
+        return _buildMobileLayout(context, ref);
+      },
+    );
+  }
+
+  /// Mobile single-column layout (< 600px).
+  Widget _buildMobileLayout(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final total = ref.watch(todayWaterProvider).valueOrNull ?? 0;
-    // Норма из настроек (онбординг-шаг «нормы»; по умолчанию 2000 мл)
     final waterGoalMl = ref.watch(waterGoalProvider);
     final progress = (total / waterGoalMl).clamp(0.0, 1.0);
     final dao = ref.read(waterDaoProvider);
@@ -124,205 +136,255 @@ class HealthScreen extends ConsumerWidget {
       children: [
         Text('Health', style: textTheme.headlineMedium),
         const SizedBox(height: 16),
-
-        // --- Трекер воды ---
-        Card(
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Row(
-                  children: [
-                    Icon(Icons.water_drop, color: colorScheme.primary),
-                    const SizedBox(width: 8),
-                    Text('Water', style: textTheme.titleMedium),
-                    const Spacer(),
-                    Text(
-                      '$total / $waterGoalMl ml',
-                      style: textTheme.titleMedium,
-                    ),
-                    const SizedBox(width: 4),
-                    IconButton(
-                      icon: const Icon(Icons.open_in_new, size: 18),
-                      tooltip: 'Full view',
-                      onPressed: () => context.push('/water'),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    _AnimatedWaterGlass(progress: progress),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '$total ml',
-                            style: textTheme.headlineSmall,
-                          ),
-                          Text(
-                            'of $waterGoalMl ml goal',
-                            style: textTheme.bodySmall,
-                          ),
-                          const SizedBox(height: 4),
-                          LinearProgressIndicator(
-                            value: progress,
-                            minHeight: 4,
-                            borderRadius: BorderRadius.circular(2),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                Row(
-                  children: [
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.local_drink, size: 18),
-                        label: const Text('+250 ml'),
-                        onPressed: () => dao.addWater(250),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Expanded(
-                      child: OutlinedButton.icon(
-                        icon: const Icon(Icons.sports_bar, size: 18),
-                        label: const Text('+500 ml'),
-                        onPressed: () => dao.addWater(500),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    IconButton(
-                      tooltip: 'Undo',
-                      icon: const Icon(Icons.undo),
-                      onPressed: () => dao.undoLast(DateTime.now()),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    const Icon(Icons.notifications_outlined, size: 16),
-                    const SizedBox(width: 8),
-                    const Expanded(
-                        child: Text('Drink reminders (every 2 h)')),
-                    Switch.adaptive(
-                      value: ref.watch(waterReminderProvider),
-                      onChanged: (v) =>
-                          ref.read(waterReminderProvider.notifier).toggle(v),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                // График: последние 7 дней относительно нормы
-                _WeekWaterChart(goalMl: waterGoalMl),
-                const SizedBox(height: 12),
-                TextButton.icon(
-                  icon: const Icon(Icons.arrow_forward),
-                  label: const Text('View Report'),
-                  onPressed: () => context.push('/water-report'),
-                ),
-              ],
-            ),
-          ),
-        ),
+        _buildWaterCard(context, ref, colorScheme, textTheme, total,
+            waterGoalMl, progress, dao),
         const SizedBox(height: 16),
-
-        // --- Трекер сна ---
         const _SleepCard(),
         const SizedBox(height: 16),
-        // --- Еда ---
-        Card(
-          child: ListTile(
-            leading: Icon(
-              Icons.restaurant_outlined,
-              color: colorScheme.primary,
-            ),
-            title: const Text('Food'),
-            subtitle: const Text('Log meals · KБЖУ from Open Food Facts'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/food'),
+        ..._buildNavTileCards(context, colorScheme),
+      ],
+    );
+  }
+
+  /// Tablet 2-column layout (≥ 600px).
+  /// Top row: Water card | Sleep card (each 50%).
+  /// Below: GridView crossAxisCount=2 for navigation tiles.
+  Widget _buildTabletLayout(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final total = ref.watch(todayWaterProvider).valueOrNull ?? 0;
+    final waterGoalMl = ref.watch(waterGoalProvider);
+    final progress = (total / waterGoalMl).clamp(0.0, 1.0);
+    final dao = ref.read(waterDaoProvider);
+    final navTiles = _buildNavTileCards(context, colorScheme);
+
+    return ListView(
+      padding: const EdgeInsets.all(24),
+      children: [
+        Text('Health', style: textTheme.headlineMedium),
+        const SizedBox(height: 16),
+        // Water + Sleep side by side
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildWaterCard(context, ref, colorScheme, textTheme,
+                    total, waterGoalMl, progress, dao),
+              ),
+              const SizedBox(width: 16),
+              const Expanded(child: _SleepCard()),
+            ],
           ),
         ),
         const SizedBox(height: 16),
-
-        // --- Фокус-сессии ---
-        Card(
-          child: ListTile(
-            leading: Icon(Icons.timer_outlined, color: colorScheme.primary),
-            title: const Text('Focus session'),
-            subtitle: const Text('25/5 · 50/10 · 67/15 and more'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/focus'),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // --- Тренировки (Ф2) ---
-        Card(
-          child: ListTile(
-            leading: Icon(Icons.fitness_center, color: colorScheme.primary),
-            title: const Text('Workouts'),
-            subtitle: const Text('Your workout plans'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/workouts'),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // --- Дыхание (Ф2) ---
-        Card(
-          child: ListTile(
-            leading: Icon(Icons.air, color: colorScheme.primary),
-            title: const Text('Breathing'),
-            subtitle: const Text('Box 4-4-4-4 · Calm 4-7-8 · Simple 5-5'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/breathing'),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // --- Осанка (Ф2) ---
-        Card(
-          child: ListTile(
-            leading: Icon(Icons.self_improvement, color: colorScheme.primary),
-            title: const Text('Posture'),
-            subtitle: const Text('Exercises · stand-tall reminders'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/posture'),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // --- Трекер привычек ---
-        Card(
-          child: ListTile(
-            leading: Icon(Icons.track_changes, color: colorScheme.primary),
-            title: const Text('Habits'),
-            subtitle: const Text('Build good habits · break bad ones'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/habits'),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // --- Совместная учёба ---
-        Card(
-          child: ListTile(
-            leading: const Icon(Icons.people_outline),
-            title: const Text('Co-study'),
-            subtitle: const Text('Study with friends · leaderboard'),
-            trailing: const Icon(Icons.chevron_right),
-            onTap: () => context.push('/costudy'),
-          ),
+        // Navigation tiles in a 2-column grid
+        GridView.count(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          crossAxisCount: 2,
+          childAspectRatio: 3.5,
+          mainAxisSpacing: 12,
+          crossAxisSpacing: 12,
+          children: navTiles,
         ),
       ],
     );
+  }
+
+  /// Карточка трекера воды.
+  Widget _buildWaterCard(
+    BuildContext context,
+    WidgetRef ref,
+    ColorScheme colorScheme,
+    TextTheme textTheme,
+    int total,
+    int waterGoalMl,
+    double progress,
+    dynamic dao,
+  ) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.water_drop, color: colorScheme.primary),
+                const SizedBox(width: 8),
+                Text('Water', style: textTheme.titleMedium),
+                const Spacer(),
+                Text(
+                  '$total / $waterGoalMl ml',
+                  style: textTheme.titleMedium,
+                ),
+                const SizedBox(width: 4),
+                IconButton(
+                  icon: const Icon(Icons.open_in_new, size: 18),
+                  tooltip: 'Full view',
+                  onPressed: () => context.push('/water'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                _AnimatedWaterGlass(progress: progress),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '$total ml',
+                        style: textTheme.headlineSmall,
+                      ),
+                      Text(
+                        'of $waterGoalMl ml goal',
+                        style: textTheme.bodySmall,
+                      ),
+                      const SizedBox(height: 4),
+                      LinearProgressIndicator(
+                        value: progress,
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Row(
+              children: [
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.local_drink, size: 18),
+                    label: const Text('+250 ml'),
+                    onPressed: () => dao.addWater(250),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.sports_bar, size: 18),
+                    label: const Text('+500 ml'),
+                    onPressed: () => dao.addWater(500),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                IconButton(
+                  tooltip: 'Undo',
+                  icon: const Icon(Icons.undo),
+                  onPressed: () => dao.undoLast(DateTime.now()),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.notifications_outlined, size: 16),
+                const SizedBox(width: 8),
+                const Expanded(child: Text('Drink reminders (every 2 h)')),
+                Switch.adaptive(
+                  value: ref.watch(waterReminderProvider),
+                  onChanged: (v) =>
+                      ref.read(waterReminderProvider.notifier).toggle(v),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // График: последние 7 дней относительно нормы
+            _WeekWaterChart(goalMl: waterGoalMl),
+            const SizedBox(height: 12),
+            TextButton.icon(
+              icon: const Icon(Icons.arrow_forward),
+              label: const Text('View Report'),
+              onPressed: () => context.push('/water-report'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Навигационные карточки-плитки (Food, Focus, Workouts, Breathing, Posture,
+  /// Habits, Co-study) — используются и в mobile (список), и в tablet (грид).
+  List<Widget> _buildNavTileCards(
+      BuildContext context, ColorScheme colorScheme) {
+    return [
+      // --- Еда ---
+      Card(
+        child: ListTile(
+          leading: Icon(Icons.restaurant_outlined, color: colorScheme.primary),
+          title: const Text('Food'),
+          subtitle: const Text('Log meals · KБЖУ from Open Food Facts'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/food'),
+        ),
+      ),
+      // --- Фокус-сессии ---
+      Card(
+        child: ListTile(
+          leading: Icon(Icons.timer_outlined, color: colorScheme.primary),
+          title: const Text('Focus session'),
+          subtitle: const Text('25/5 · 50/10 · 67/15 and more'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/focus'),
+        ),
+      ),
+      // --- Тренировки (Ф2) ---
+      Card(
+        child: ListTile(
+          leading: Icon(Icons.fitness_center, color: colorScheme.primary),
+          title: const Text('Workouts'),
+          subtitle: const Text('Your workout plans'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/workouts'),
+        ),
+      ),
+      // --- Дыхание (Ф2) ---
+      Card(
+        child: ListTile(
+          leading: Icon(Icons.air, color: colorScheme.primary),
+          title: const Text('Breathing'),
+          subtitle: const Text('Box 4-4-4-4 · Calm 4-7-8 · Simple 5-5'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/breathing'),
+        ),
+      ),
+      // --- Осанка (Ф2) ---
+      Card(
+        child: ListTile(
+          leading: Icon(Icons.self_improvement, color: colorScheme.primary),
+          title: const Text('Posture'),
+          subtitle: const Text('Exercises · stand-tall reminders'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/posture'),
+        ),
+      ),
+      // --- Трекер привычек ---
+      Card(
+        child: ListTile(
+          leading: Icon(Icons.track_changes, color: colorScheme.primary),
+          title: const Text('Habits'),
+          subtitle: const Text('Build good habits · break bad ones'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/habits'),
+        ),
+      ),
+      // --- Совместная учёба ---
+      Card(
+        child: ListTile(
+          leading: const Icon(Icons.people_outline),
+          title: const Text('Co-study'),
+          subtitle: const Text('Study with friends · leaderboard'),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.push('/costudy'),
+        ),
+      ),
+    ];
   }
 }
 
