@@ -92,12 +92,26 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
                             borderRadius: BorderRadius.circular(8),
                             border: Border.all(color: colorScheme.outline),
                           ),
-                          child: Text(
-                            _formatDateFull(_selectedDate),
-                            textAlign: TextAlign.center,
-                            style: textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w600,
-                            ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Flexible(
+                                child: Text(
+                                  _formatDateFull(_selectedDate),
+                                  textAlign: TextAlign.center,
+                                  style: textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 6),
+                              Icon(
+                                Icons.calendar_today,
+                                size: 14,
+                                color: colorScheme.outline,
+                              ),
+                            ],
                           ),
                         ),
                       ),

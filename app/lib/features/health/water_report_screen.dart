@@ -173,14 +173,48 @@ class WaterReportScreen extends ConsumerWidget {
       margin: const EdgeInsets.all(16),
       child: Row(
         children: [
-          Text(
-            _formatFullDate(selectedDate),
-            style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+          GestureDetector(
+            onTap: () => _selectDate(context, ref),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _formatFullDate(selectedDate),
+                  style: textTheme.bodyLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(width: 6),
+                Icon(
+                  Icons.calendar_today,
+                  size: 14,
+                  color: Theme.of(context).colorScheme.outline,
+                ),
+              ],
+            ),
           ),
           const Spacer(),
           IconButton(
-            icon: const Icon(Icons.calendar_today),
-            onPressed: () => _selectDate(context, ref),
+            icon: const Icon(Icons.chevron_left),
+            onPressed: () {
+              ref.read(waterSelectedDateProvider.notifier).state =
+                  selectedDate.subtract(const Duration(days: 1));
+            },
+          ),
+          IconButton(
+            icon: const Icon(Icons.chevron_right),
+            onPressed: selectedDate.isBefore(
+                  DateTime(
+                    DateTime.now().year,
+                    DateTime.now().month,
+                    DateTime.now().day,
+                  ),
+                )
+                ? () {
+                    ref.read(waterSelectedDateProvider.notifier).state =
+                        selectedDate.add(const Duration(days: 1));
+                  }
+                : null,
           ),
         ],
       ),

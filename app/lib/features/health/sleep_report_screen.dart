@@ -121,21 +121,27 @@ class SleepReportScreen extends ConsumerWidget {
                 const SizedBox(height: 24),
 
                 // Выбранная дата
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Text(
-                      _formatSelectedDate(selectedDate),
-                      style: textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.bold,
+                GestureDetector(
+                  onTap: () => _selectDate(context, ref),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _formatSelectedDate(selectedDate),
+                        style: textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.bold,
+                          color: colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(width: 4),
+                      Icon(
+                        Icons.calendar_today,
+                        size: 14,
                         color: colorScheme.primary,
                       ),
-                    ),
-                    IconButton(
-                      icon: const Icon(Icons.edit_calendar, size: 20),
-                      onPressed: () => _selectDate(context, ref),
-                    ),
-                  ],
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 16),
 
