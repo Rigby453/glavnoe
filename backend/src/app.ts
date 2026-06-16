@@ -14,6 +14,7 @@ import aiRoutes from "./routes/ai.js";
 import subscriptionRoutes from "./routes/subscription.js";
 import foodRoutes from "./routes/food.js";
 import shareRoutes from "./routes/share.js";
+import authResetRoutes from "./routes/auth-reset.js";
 
 /**
  * Собирает и конфигурирует экземпляр Fastify (без вызова listen).
@@ -86,6 +87,9 @@ export async function buildServer(): Promise<FastifyInstance> {
 
   // Регистрируем маршруты Share (Ф3: веб-шеринг плана, ADR-030)
   await fastify.register(shareRoutes);
+
+  // Регистрируем маршруты сброса пароля (AUTH-05..06)
+  await fastify.register(authResetRoutes);
 
   return fastify;
 }
