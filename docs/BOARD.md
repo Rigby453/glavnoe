@@ -1,10 +1,11 @@
-﻿# Kaizen («Главное») — Board
+﻿﻿# Kaizen («Главное») — Board
 
 > Lightweight status board. Orchestrator updates this after every block of work.
 > Statuses: `[ ]` todo · `[~]` in progress · `[x]` done · `[!]` blocked
 > Full task detail lives in `/docs/agents/*-tasks.md`.
 
 ## Текущая фаза: Ф1 (платный контур) — ЗАКРЫТА 2026-06-11 (кроме OAuth)
+
 Весь порядок выполнен: Water → Баланс → штрихкод → AI-03 фото → Wrapped (+AI-05) →
 список покупок → анимации §5/§7 → RevenueCat-срез (ADR-028) → рецепты →
 «Собрать ИИ» (AI-07) → голос. Ресторан-меню → Ф3 (ADR-029).
@@ -13,6 +14,7 @@
 отложенный им бэклог (онбординг, тайминги анимаций).
 
 ## В работе
+
 - [x] Аудит всего проекта (2026-06-10): полный отчёт — **docs/AUDIT.md** (реализовано/в процессе/не начато/баги/техдолг)
 - [x] Ф1 — Water: анимированный стакан §4.2 + график 7 дней + настраиваемая норма (2026-06-10)
 - [x] Ф1 — Food: баланс рациона (rule-based, unit-тесты) + сканер штрихкода + поиск OFF (2026-06-10)
@@ -44,6 +46,7 @@
 - [x] Блок 6 — тесты (2026-06-10): виджет-тесты Today×2/Plan/Diary с in-memory Drift (AppDatabase.forTesting; уроки: реальные await к Drift в testWidgets — только через tester.runAsync, иначе дедлок fakeAsync; в конце теста размонтировать дерево, чтобы zero-таймеры drift не висели) · food sync — 4 jest-теста (Блок 4) · AI с моками — было (44 кейса). Итог: flutter test 26/26, jest 67/67, analyze 0
 
 ## Блокеры
+
 - нет. (add_food_log применена 2026-06-10, /sync живой)
 
 ## MVP-добивка (блоки 1–6): ЗАВЕРШЕНА 2026-06-10 — фаза ждёт ревью пользователя
@@ -51,11 +54,13 @@
 ## Ревью 2026-06-11 (утро) — фидбек пользователя после ночной сессии
 
 ### Отложенный бэклог (делаем сейчас)
+
 - [x] Онбординг: норма воды по весу/росту (+активность) с возможностью править вручную (2026-06-11)
 - [x] Онбординг: кнопка «Назад» на каждом шаге (2026-06-11)
 - [x] Тайминги: UI-переходы ≤300мс, slow 400→300, вода 500→300, шит 320→300, ANIMATIONS.md/токены обновлены (b882992)
 
 ### Баги
+
 - [x] add_task_sheet: артефакты при клавиатуре — сплошной фон+clip на всех темах (06e79ad)
 - [x] Duration: ручной ввод минут + выбор времени окончания (06e79ad)
 - [x] Щит: tooltip + подпись «Protected: replanning never moves it» (06e79ad)
@@ -69,6 +74,8 @@
 - [ ] Восстановление пароля
 
 ### Новые функции (бэклог, по приоритету после багов)
+
+- [ ] Просмотр истории за прошлые даты: Дневник (настроения/оценки) и Календарь (задачи/события) — аналогично Water/Sleep отчётам с выбором даты (DO NOT START)
 - [ ] Co-study (спека пользователя): друзья по username/ссылке · статус «в сессии/X мин» · совместная сессия по коду · общий таймер · недельный лидерборд часов фокуса · уведомление «X начал сессию» · моя статистика vs друзья
 - [ ] Полноэкранный Water — большой анимированный стакан; напитки из Food (кофе/чай) идут в воду; напоминания о питье
 - [ ] Медитации: аудио/видеогид + добавить свою
@@ -91,7 +98,9 @@
 - Отложено пользователем: OAuth Google/Apple · Health Connect (устройств нет)
 
 ## Ревью MVP (2026-06-10) — фидбек пользователя
+
 Починено сразу:
+
 - [x] add_task_sheet: «BOTTOM OVERFLOWED BY 112 PIXELS» с клавиатурой → SingleChildScrollView
 - [x] Размер текста: «Larger» → «Extra large»
 - [x] Поиск еды не находил ничего: легаси OFF cgi/search.pl стабильно 503 → переехали на search.openfoodfacts.org (search-a-licious; hits[], brands массивом)
@@ -99,10 +108,12 @@
 - [x] run-phone.ps1: UTF-8 BOM (PS 5.1 ломал кириллицу без BOM)
 
 Бэклог по указанию пользователя (НЕ делать до закрытия остального ТЗ):
+
 - [x] Онбординг-настройка «поработать в начале»: норма воды из параметров пользователя (не вручную), стрелка «назад» между шагами (2026-06-11)
 - [ ] Анимации: конфетти слишком быстрое; пройтись по таймингам/лагам на реальном устройстве — «после всего ТЗ»
 
 ## Решения (мини-ADR, полные — в /docs/decisions.md)
+
 - 2026-06-10: Миссия 0 — animations_tz.md → ANIMATIONS.md (источник истины по моушену);
   тайминги в design-tokens.json приведены к ANIMATIONS.md (ADR-023); доки про AI приведены
   к ADR-022 (Gemini default); ITEMS-03 403→404 (по ADR-014); data-model.md дополнен Tombstone;
@@ -111,6 +122,7 @@
 ---
 
 ## Foundations (do first — everyone depends on these)
+
 - [x] Product spec — `docs/SPEC.md`
 - [x] Data model + Prisma — `docs/data-model.md`
 - [x] API contract — `docs/api-spec.yaml`
@@ -118,6 +130,7 @@
 - [x] Orchestration + agent guides — `AGENTS.md`, `*/CLAUDE.md`
 
 ## Backend (see docs/agents/backend-tasks.md)
+
 - [x] SETUP-01 Project scaffolding (Fastify + TS)
 - [x] SETUP-02 Prisma schema + migration
 - [x] SETUP-03 Fastify server + health check
@@ -128,6 +141,7 @@
 - [x] ENGINE-01 Rule redistribution (POST /api/v1/redistribute)
 
 ## Flutter (see docs/agents/flutter-tasks.md)
+
 - [x] FL-SETUP-01..03 Project + Focus theme + 4-tab nav (profile = AppBar leading)
 - [x] FL-DB-01..02 Drift schema + DAOs
 - [x] FL-TODAY-01..05 Today screen (ring, streak, list, add sheet)
@@ -151,6 +165,7 @@
 - [x] Profile Settings (C7): default-tone selector + Text size (accessibility, global textScaler, generalizes the Contrast bump); Profile made scrollable
 
 ## QA (see docs/agents/qa-tasks.md)
+
 - [x] QA-01 Auth flow
 - [x] QA-02 Items CRUD
 - [x] QA-03 Streaks
@@ -160,10 +175,12 @@
 - [x] First Flutter unit tests: review_engine (slots, AI-plan mapping) + diary_insight (weekly insight, issue parsing) — 12 tests via flutter_test
 
 ## Landing (see landing/CLAUDE.md)
+
 - [x] index.html — hero, problem/solution, features, pricing, footer
 - [x] Smart [Download] button (platform detection)
 
 ## AI — Phase 1 (paid; see docs/agents/ai-tasks.md)
+
 - [x] AI-06 Schedule import from photo (premium): /api/v1/ai/schedule-import + Claude Haiku multimodal in src/ai/ + premium gate + Flutter photo button. Tests mock ai/ (4/4). Live run needs real ANTHROPIC_API_KEY + a premium user.
 - [x] AI-01 smart redistribute (/ai/redistribute, Sonnet, 2-3 plan variants) · AI-02 morning message (/ai/morning-message, Haiku, tone-aware) · AI-04 diary insight (/ai/diary-insight, Sonnet) — premium-gated, src/ai/, tests mock ai/ (44/44). Live run needs ANTHROPIC_API_KEY + premium user.
 - [x] AI wired into Today UI: morning-review card now has "Smarter plan with AI (Premium)" (→ /ai/redistribute, applies variants locally) + "AI nudge" message button (→ /ai/morning-message). Premium-gated via isPremiumProvider; graceful snackbar for free/errors. (diary insight + photo import were already wired.)
@@ -174,6 +191,7 @@
 - [x] Paywall UI (C7): /paywall screen ($10/mo, benefits) + Profile premium card + AI upsell snackbars link to it. Real payments = Phase 1; dev-only POST /subscription/dev-upgrade (404 in prod, kDebugMode button) flips tier so AI is testable. 50/50 backend tests.
 
 ## MVP Definition of Done
+
 A free, no-AI app you use daily: accounts + sync, Today/Plan/Diary, rule-based review
 (morning + evening + variants), schedule import, streaks + freeze, onboarding,
 themes Focus/Black/White, home widget. All QA suites green.

@@ -24,10 +24,11 @@ class SleepDao extends DatabaseAccessor<AppDatabase> with _$SleepDaoMixin {
   /// Начать ночь: вставить запись startAt = now.
   /// Если уже есть открытая ночь — ничего не делать (идемпотентно).
   Future<void> startNight() async {
-    final open = await (select(sleepLogsTable)
-          ..where((t) => t.endAt.isNull())
-          ..limit(1))
-        .getSingleOrNull();
+    final open =
+        await (select(sleepLogsTable)
+              ..where((t) => t.endAt.isNull())
+              ..limit(1))
+            .getSingleOrNull();
     if (open != null) return;
 
     await into(sleepLogsTable).insert(
@@ -40,11 +41,12 @@ class SleepDao extends DatabaseAccessor<AppDatabase> with _$SleepDaoMixin {
 
   /// Завершить открытую ночь: записать endAt = now.
   Future<void> endNight() async {
-    final open = await (select(sleepLogsTable)
-          ..where((t) => t.endAt.isNull())
-          ..orderBy([(t) => OrderingTerm.desc(t.startAt)])
-          ..limit(1))
-        .getSingleOrNull();
+    final open =
+        await (select(sleepLogsTable)
+              ..where((t) => t.endAt.isNull())
+              ..orderBy([(t) => OrderingTerm.desc(t.startAt)])
+              ..limit(1))
+            .getSingleOrNull();
     if (open == null) return;
 
     await (update(sleepLogsTable)..where((t) => t.id.equals(open.id))).write(
@@ -58,11 +60,35 @@ class SleepDao extends DatabaseAccessor<AppDatabase> with _$SleepDaoMixin {
     final cutoff = DateTime.now().subtract(Duration(days: days));
     return (select(sleepLogsTable)
           ..where(
-            (t) =>
-                t.endAt.isNotNull() &
-                t.endAt.isBiggerOrEqualValue(cutoff),
+            (t) => t.endAt.isNotNull() & t.endAt.isBiggerOrEqualValue(cutoff),
           )
           ..orderBy([(t) => OrderingTerm.desc(t.endAt)]))
+        .watch();
+  }
+
+  /// Все завершённые ночи (endAt != null), свежие первыми. Для полного отчёта.
+  Stream<List<SleepLogsTableData>> watchAllNights() {
+    return (select(sleepLogsTable)
+          ..where((t) => t.endAt.isNotNull())
+          ..orderBy([(t) => OrderingTerm.desc(t.endAt)]))
+        .watch();
+  }
+
+  /// Ночи, где startAt или endAt попадают в диапазон [from, to)
+  Stream<List<SleepLogsTableData>> watchNightsByDateRange(
+    DateTime from,
+    DateTime to,
+  ) {
+    return (select(sleepLogsTable)
+          ..where(
+            (t) =>
+                (t.startAt.isBiggerOrEqualValue(from) &
+                    t.startAt.isSmallerThanValue(to)) |
+                (t.endAt.isNotNull() &
+                    t.endAt.isBiggerOrEqualValue(from) &
+                    t.endAt.isSmallerThanValue(to)),
+          )
+          ..orderBy([(t) => OrderingTerm.desc(t.startAt)]))
         .watch();
   }
 }

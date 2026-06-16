@@ -23,15 +23,17 @@ final weekWaterProvider = StreamProvider.autoDispose<List<int>>((ref) {
 });
 
 /// Открытая ночь (endAt == null), реактивно.
-final openNightProvider = StreamProvider.autoDispose<SleepLogsTableData?>((ref) {
+final openNightProvider = StreamProvider.autoDispose<SleepLogsTableData?>((
+  ref,
+) {
   return ref.watch(sleepDaoProvider).watchOpenNight();
 });
 
 /// Завершённые ночи за последние 7 дней, реактивно.
 final recentNightsProvider =
     StreamProvider.autoDispose<List<SleepLogsTableData>>((ref) {
-  return ref.watch(sleepDaoProvider).watchRecentNights(7);
-});
+      return ref.watch(sleepDaoProvider).watchRecentNights(7);
+    });
 
 class HealthScreen extends ConsumerWidget {
   const HealthScreen({super.key});
@@ -67,7 +69,10 @@ class HealthScreen extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Text('Water', style: textTheme.titleMedium),
                     const Spacer(),
-                    Text('$total / $waterGoalMl ml', style: textTheme.titleMedium),
+                    Text(
+                      '$total / $waterGoalMl ml',
+                      style: textTheme.titleMedium,
+                    ),
                   ],
                 ),
                 const SizedBox(height: 12),
@@ -101,6 +106,12 @@ class HealthScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
                 // График: последние 7 дней относительно нормы
                 _WeekWaterChart(goalMl: waterGoalMl),
+                const SizedBox(height: 12),
+                TextButton.icon(
+                  icon: const Icon(Icons.arrow_forward),
+                  label: const Text('View Report'),
+                  onPressed: () => context.push('/water-report'),
+                ),
               ],
             ),
           ),
@@ -110,11 +121,13 @@ class HealthScreen extends ConsumerWidget {
         // --- Трекер сна ---
         const _SleepCard(),
         const SizedBox(height: 16),
-
         // --- Еда ---
         Card(
           child: ListTile(
-            leading: Icon(Icons.restaurant_outlined, color: colorScheme.primary),
+            leading: Icon(
+              Icons.restaurant_outlined,
+              color: colorScheme.primary,
+            ),
             title: const Text('Food'),
             subtitle: const Text('Log meals · KБЖУ from Open Food Facts'),
             trailing: const Icon(Icons.chevron_right),
@@ -251,8 +264,7 @@ class _WeekWaterChart extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: List.generate(7, (i) {
         final day = today.subtract(Duration(days: 6 - i));
-        final frac =
-            goalMl <= 0 ? 0.0 : (totals[i] / goalMl).clamp(0.0, 1.0);
+        final frac = goalMl <= 0 ? 0.0 : (totals[i] / goalMl).clamp(0.0, 1.0);
         final isToday = i == 6;
         final reached = totals[i] >= goalMl && goalMl > 0;
 
@@ -330,8 +342,9 @@ class _SleepCard extends ConsumerWidget {
               data: (open) {
                 if (open != null) {
                   // Ночь идёт — показываем время начала и кнопку «проснулся»
-                  final timeStr =
-                      TimeOfDay.fromDateTime(open.startAt).format(context);
+                  final timeStr = TimeOfDay.fromDateTime(
+                    open.startAt,
+                  ).format(context);
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -346,8 +359,7 @@ class _SleepCard extends ConsumerWidget {
                         onPressed: () async {
                           await dao.endNight();
                           // Считаем длительность для снэкбара
-                          final dur =
-                              DateTime.now().difference(open.startAt);
+                          final dur = DateTime.now().difference(open.startAt);
                           final h = dur.inHours;
                           final m = dur.inMinutes % 60;
                           if (context.mounted) {
@@ -375,6 +387,12 @@ class _SleepCard extends ConsumerWidget {
                     ),
                     const SizedBox(height: 16),
                     _WeekSleepChart(goalHours: 7),
+                    const SizedBox(height: 12),
+                    TextButton.icon(
+                      icon: const Icon(Icons.arrow_forward),
+                      label: const Text('View Report'),
+                      onPressed: () => context.push('/sleep-report'),
+                    ),
                   ],
                 );
               },
@@ -420,8 +438,9 @@ class _WeekSleepChart extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.end,
       children: List.generate(7, (i) {
         final slot = slots[i];
-        final frac =
-            goalHours <= 0 ? 0.0 : (slot.hours / goalHours).clamp(0.0, 1.0);
+        final frac = goalHours <= 0
+            ? 0.0
+            : (slot.hours / goalHours).clamp(0.0, 1.0);
         final isToday = i == 6;
         final reached = slot.hours >= goalHours && goalHours > 0;
 

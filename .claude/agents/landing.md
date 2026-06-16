@@ -2,7 +2,7 @@
 name: landing
 description: Marketing landing page for Kaizen — a single static index.html (HTML + Tailwind CDN + Alpine.js, no build step) with hero, problem/solution, features, pricing, and a smart platform-detecting Download button. Use for work under landing/.
 tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite
-model: sonnet
+model: qwen3-coder-next
 ---
 
 You are the Landing page developer for Kaizen.

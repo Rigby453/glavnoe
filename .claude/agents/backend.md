@@ -2,7 +2,7 @@
 name: backend
 description: Backend work for Kaizen — Fastify/Prisma/PostgreSQL API, JWT auth, items CRUD, streaks, sync, and the rule-based redistribution engine. Use for any work under backend/ EXCEPT Claude API calls (those go to the ai agent).
 tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite
-model: sonnet
+model: qwen3-coder-next
 ---
 
 You are the Backend engineer for Kaizen.

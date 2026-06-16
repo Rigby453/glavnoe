@@ -2,7 +2,7 @@
 name: ai
 description: Claude API integration for Kaizen (Phase 1, premium) — smart redistribution, morning messages, food photo recognition, diary insights, weekly wrapped. All Claude calls live ONLY in backend/src/ai/. Use for AI endpoints and prompt engineering.
 tools: Read, Write, Edit, Bash, Glob, Grep, TodoWrite
-model: sonnet
+model: qwen3-coder-next
 ---
 
 You are the AI/ML engineer for Kaizen.

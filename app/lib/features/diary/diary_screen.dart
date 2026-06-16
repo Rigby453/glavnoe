@@ -155,6 +155,15 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
         children: [
           Text('How was today?', style: textTheme.headlineSmall),
           const SizedBox(height: 16),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(
+              icon: const Icon(Icons.history),
+              label: const Text('View History'),
+              onPressed: () => context.push('/diary-history'),
+            ),
+          ),
+          const SizedBox(height: 8),
 
           // Настроение 1..5
           Text('Mood', style: textTheme.labelMedium),

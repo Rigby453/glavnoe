@@ -31,6 +31,9 @@ import '../../features/health/posture_screen.dart';
 import '../../features/health/workouts_screen.dart';
 import '../../features/health/workout_editor_screen.dart';
 import '../../features/health/workout_trainer_screen.dart';
+import '../../features/health/sleep_report_screen.dart';
+import '../../features/health/water_report_screen.dart';
+import '../../features/diary/diary_history_screen.dart';
 import '../../features/plan/goals_screen.dart';
 import 'scaffold_with_nav_bar.dart';
 
@@ -51,10 +54,7 @@ final routerProvider = Provider<GoRouter>((ref) {
   // Мост между Riverpod-состоянием и go_router (Listenable для refresh).
   final refresh = ValueNotifier<bool>(ref.read(authControllerProvider));
   ref.onDispose(refresh.dispose);
-  ref.listen<bool>(
-    authControllerProvider,
-    (_, next) => refresh.value = next,
-  );
+  ref.listen<bool>(authControllerProvider, (_, next) => refresh.value = next);
 
   final prefs = ref.read(sharedPreferencesProvider);
 
@@ -96,10 +96,7 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // Экран входа / регистрации (вне оболочки)
-      GoRoute(
-        path: '/auth',
-        builder: (context, state) => const AuthScreen(),
-      ),
+      GoRoute(path: '/auth', builder: (context, state) => const AuthScreen()),
 
       // Настройка после входа: интересы → импорт → время разборов → тон →
       // тема → нормы (SPEC C1, единый поток)
@@ -185,16 +182,10 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
 
       // /focus — фокус-сессии (из Health), вне оболочки
-      GoRoute(
-        path: '/focus',
-        builder: (context, state) => const FocusScreen(),
-      ),
+      GoRoute(path: '/focus', builder: (context, state) => const FocusScreen()),
 
       // /food — модуль еды (из Health), вне оболочки
-      GoRoute(
-        path: '/food',
-        builder: (context, state) => const FoodScreen(),
-      ),
+      GoRoute(path: '/food', builder: (context, state) => const FoodScreen()),
 
       // /wrapped — weekly wrapped (из Diary), вне оболочки
       GoRoute(
@@ -202,7 +193,17 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const WrappedScreen(),
       ),
 
-      // /paywall — подписка Premium (из профиля и AI-апселлов), вне оболочки
+      // /sleep-report — полный отчёт сна, вне оболочки
+      GoRoute(
+        path: '/sleep-report',
+        builder: (context, state) => const SleepReportScreen(),
+      ),
+
+      // /water-report — полный отчёт воды, вне оболочки
+      GoRoute(
+        path: '/water-report',
+        builder: (context, state) => const WaterReportScreen(),
+      ), // /paywall — подписка Premium (из профиля и AI-апселлов), вне оболочки
       GoRoute(
         path: '/paywall',
         builder: (context, state) => const PaywallScreen(),
@@ -221,9 +222,8 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/recipes/:id',
-        builder: (context, state) => RecipeEditorScreen(
-          recipeId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            RecipeEditorScreen(recipeId: state.pathParameters['id']!),
       ),
 
       // /breathing — дыхательные сессии (SPEC C5, Ф2), вне оболочки
@@ -245,23 +245,24 @@ final routerProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: '/workouts/:id',
-        builder: (context, state) => WorkoutEditorScreen(
-          workoutId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            WorkoutEditorScreen(workoutId: state.pathParameters['id']!),
       ),
       // Режим «тренер»: пошаговое прохождение тренировки (Ф2)
       GoRoute(
         path: '/workouts/:id/train',
-        builder: (context, state) => WorkoutTrainerScreen(
-          workoutId: state.pathParameters['id']!,
-        ),
+        builder: (context, state) =>
+            WorkoutTrainerScreen(workoutId: state.pathParameters['id']!),
+      ),
+
+      // /diary-history — история записей дневника, вне оболочки
+      GoRoute(
+        path: '/diary-history',
+        builder: (context, state) => const DiaryHistoryScreen(),
       ),
 
       // /goals — долгосрочные цели (SPEC C4), push-route вне оболочки
-      GoRoute(
-        path: '/goals',
-        builder: (context, state) => const GoalsScreen(),
-      ),
+      GoRoute(path: '/goals', builder: (context, state) => const GoalsScreen()),
     ],
   );
 });
