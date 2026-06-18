@@ -8,6 +8,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import 'day_timeline.dart' show dayItemsProvider;
 import 'week_strip.dart' show selectedDayProvider;
@@ -30,19 +31,16 @@ class WeekAgenda extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Clone week'),
-        content: const Text(
-          'Copy everything scheduled this week to next week '
-          '(same days & times)?',
-        ),
+        title: Text(ctx.s('plan.clone_week_title')),
+        content: Text(ctx.s('plan.clone_week_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(ctx.s('btn.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Copy'),
+            child: Text(ctx.s('plan.clone_week_copy')),
           ),
         ],
       ),
@@ -58,8 +56,8 @@ class WeekAgenda extends ConsumerWidget {
       SnackBar(
         content: Text(
           count == 0
-              ? 'No classes/events this week to copy'
-              : 'Copied $count to next week',
+              ? context.s('plan.clone_week_nothing')
+              : '${context.s('plan.clone_week_done_prefix')}$count${context.s('plan.clone_week_done_suffix')}',
         ),
       ),
     );
@@ -81,7 +79,7 @@ class WeekAgenda extends ConsumerWidget {
           alignment: Alignment.centerRight,
           child: TextButton.icon(
             icon: const Icon(Icons.copy_all_outlined, size: 18),
-            label: const Text('Clone week → next'),
+            label: Text(context.s('plan.clone_week_button')),
             onPressed: () => _cloneWeek(context, ref, weekStart),
           ),
         ),
@@ -123,7 +121,7 @@ class _DaySection extends ConsumerWidget {
               ),
               if (isToday) ...[
                 const SizedBox(width: 6),
-                Text('today',
+                Text(context.s('plan.week_today_label'),
                     style: textTheme.labelSmall?.copyWith(
                         color: colorScheme.primary)),
               ],

@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/tone_provider.dart';
 import '../../core/utils/breakpoints.dart';
@@ -243,11 +244,11 @@ class _Header extends StatelessWidget {
 
   final DateTime now;
 
-  String get _greeting {
+  String _greeting(BuildContext context) {
     final hour = now.hour;
-    if (hour < 12) return 'Good morning';
-    if (hour < 18) return 'Good afternoon';
-    return 'Good evening';
+    if (hour < 12) return context.s('today.greeting_morning');
+    if (hour < 18) return context.s('today.greeting_afternoon');
+    return context.s('today.greeting_evening');
   }
 
   @override
@@ -256,7 +257,7 @@ class _Header extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(_greeting, style: textTheme.headlineMedium),
+        Text(_greeting(context), style: textTheme.headlineMedium),
         const SizedBox(height: 4),
         Text(
           DateFormat.yMMMMEEEEd().format(now),
@@ -278,7 +279,7 @@ class _ToneToggle extends ConsumerWidget {
     return TextButton.icon(
       onPressed: () => ref.read(toneProvider.notifier).toggle(),
       icon: Icon(harsh ? Icons.bolt : Icons.spa_outlined, size: 18),
-      label: Text(harsh ? 'Harsh' : 'Gentle'),
+      label: Text(harsh ? context.s('today.tone_harsh') : context.s('today.tone_gentle')),
     );
   }
 }

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/database/database_providers.dart' show waterDaoProvider;
+import '../../core/l10n/app_strings.dart';
 import '../../core/settings/water_goal_provider.dart';
 import 'health_screen.dart' show todayWaterProvider, waterReminderProvider;
 
@@ -24,11 +25,11 @@ class WaterFullscreenScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Water'),
+        title: Text(context.s('water.title')),
         actions: [
           IconButton(
             icon: const Icon(Icons.bar_chart_outlined),
-            tooltip: 'History',
+            tooltip: context.s('water.history_tooltip'),
             onPressed: () => context.push('/water-report'),
           ),
         ],
@@ -75,7 +76,7 @@ class WaterFullscreenScreen extends ConsumerWidget {
               // Undo последнего добавления
               TextButton.icon(
                 icon: const Icon(Icons.undo, size: 16),
-                label: const Text('Undo last'),
+                label: Text(context.s('water.undo_last')),
                 onPressed: () => dao.undoLast(DateTime.now()),
               ),
               const SizedBox(height: 24),
@@ -95,7 +96,7 @@ class WaterFullscreenScreen extends ConsumerWidget {
                     const SizedBox(width: 8),
                     Expanded(
                       child: Text(
-                        'Coffee & tea from Food count toward your goal',
+                        context.s('water.food_tip'),
                         style: textTheme.bodySmall?.copyWith(
                           color: colorScheme.onSurface.withAlpha(160),
                         ),
@@ -110,8 +111,8 @@ class WaterFullscreenScreen extends ConsumerWidget {
               Card(
                 child: SwitchListTile.adaptive(
                   secondary: const Icon(Icons.notifications_outlined),
-                  title: const Text('Drink reminders'),
-                  subtitle: const Text('Every 2 hours, 9:00–21:00'),
+                  title: Text(context.s('water.drink_reminders')),
+                  subtitle: Text(context.s('water.reminders_subtitle')),
                   value: ref.watch(waterReminderProvider),
                   onChanged: (v) =>
                       ref.read(waterReminderProvider.notifier).toggle(v),

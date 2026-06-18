@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/animations/ai_insight_reveal.dart';
 import '../../core/animations/ai_pulse_dot.dart';
 import '../../core/animations/app_sheet.dart';
@@ -55,15 +56,15 @@ class FoodScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Food'),
+        title: Text(context.s('health.food')),
         actions: [
           IconButton(
-            tooltip: 'My recipes',
+            tooltip: context.s('food.my_recipes_tooltip'),
             icon: const Icon(Icons.menu_book_outlined),
             onPressed: () => context.push('/recipes'),
           ),
           IconButton(
-            tooltip: 'Shopping list',
+            tooltip: context.s('food.shopping_list_tooltip'),
             icon: const Icon(Icons.shopping_cart_outlined),
             onPressed: () => context.push('/shopping'),
           ),
@@ -72,7 +73,7 @@ class FoodScreen extends ConsumerWidget {
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showSearchSheet(context),
         icon: const Icon(Icons.add),
-        label: const Text('Add food'),
+        label: Text(context.s('food.add')),
       ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
@@ -90,7 +91,7 @@ class FoodScreen extends ConsumerWidget {
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               icon: const Icon(Icons.auto_awesome, size: 18),
-              label: const Text('Build my day with AI (Premium)'),
+              label: Text(context.s('food.ai_menu_btn')),
               onPressed: () => showAiMenuSheet(context, ref),
             ),
           ),
@@ -100,7 +101,7 @@ class FoodScreen extends ConsumerWidget {
               padding: const EdgeInsets.symmetric(vertical: 48),
               child: Center(
                 child: Text(
-                  'Nothing logged today.\nTap "Add food" to search a product.',
+                  context.s('food.nothing_today'),
                   textAlign: TextAlign.center,
                   style: textTheme.bodyMedium,
                 ),
@@ -149,24 +150,25 @@ class _BalanceCard extends ConsumerWidget {
                       : colorScheme.onSurface.withAlpha(120),
                 ),
                 const SizedBox(width: 8),
-                Text('Balance', style: textTheme.titleMedium),
+                Text(context.s('food.balance_title'), style: textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 8),
             if (balance.balanced)
               Text(
-                'Nicely balanced today — calories, protein, fiber and sugar all on track.',
+                context.s('food.balance_ok'),
                 style: textTheme.bodyMedium,
               )
             else
+              // hints содержат ключи локализации (food.hint_*), резолвим здесь
               ...balance.hints.map(
-                (h) => Padding(
+                (key) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('· ', style: textTheme.bodyMedium),
-                      Expanded(child: Text(h, style: textTheme.bodyMedium)),
+                      Expanded(child: Text(context.s(key), style: textTheme.bodyMedium)),
                     ],
                   ),
                 ),
@@ -194,7 +196,7 @@ class _TotalsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Today', style: textTheme.titleMedium),
+            Text(context.s('food.totals_today'), style: textTheme.titleMedium),
             const SizedBox(height: 8),
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
@@ -209,9 +211,9 @@ class _TotalsCard extends StatelessWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _Macro(label: 'Protein', value: '${g(totals.protein)} g'),
-                _Macro(label: 'Fat', value: '${g(totals.fat)} g'),
-                _Macro(label: 'Carbs', value: '${g(totals.carbs)} g'),
+                _Macro(label: context.s('food.macro_protein'), value: '${g(totals.protein)} g'),
+                _Macro(label: context.s('food.macro_fat'), value: '${g(totals.fat)} g'),
+                _Macro(label: context.s('food.macro_carbs'), value: '${g(totals.carbs)} g'),
               ],
             ),
             const SizedBox(height: 12),
@@ -268,7 +270,7 @@ class _FoodRow extends ConsumerWidget {
         subtitle: Text('${log.grams.round()} g · ${log.meal} · $kcal',
             style: textTheme.bodySmall),
         trailing: IconButton(
-          tooltip: 'Remove',
+          tooltip: context.s('food.remove_tooltip'),
           icon: const Icon(Icons.close, size: 18),
           onPressed: () => ref.read(foodLogsDaoProvider).deleteLog(log.id),
         ),
@@ -337,8 +339,8 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     if (!mounted) return;
     if (!available) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Speech recognition is not available on this device'),
+        SnackBar(
+          content: Text(context.s('food.speech_unavailable')),
         ),
       );
       return;
@@ -380,7 +382,8 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
       if (!mounted) return;
       setState(() {
         _results = raw.whereType<Map<String, dynamic>>().toList();
-        if (_results.isEmpty) _error = 'Nothing found';
+        // Сохраняем ключ локализации; резолвится в build через context.s()
+        if (_results.isEmpty) _error = 'food.nothing_found';
       });
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -404,7 +407,7 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Add food', style: textTheme.headlineSmall),
+            Text(context.s('food.add'), style: textTheme.headlineSmall),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
@@ -417,12 +420,14 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                 _debounce = Timer(const Duration(milliseconds: 400), _search);
               },
               decoration: InputDecoration(
-                hintText: 'Search a product…',
+                hintText: context.s('food.search_hint'),
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     IconButton(
-                      tooltip: _listening ? 'Stop listening' : 'Voice input',
+                      tooltip: _listening
+                          ? context.s('food.voice_stop')
+                          : context.s('food.voice_input'),
                       icon: Icon(
                         _listening ? Icons.mic : Icons.mic_none,
                         color: _listening
@@ -432,7 +437,7 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                       onPressed: _voiceSearch,
                     ),
                     IconButton(
-                      tooltip: 'Scan barcode',
+                      tooltip: context.s('food.scan_barcode_tooltip'),
                       icon: const Icon(Icons.qr_code_scanner),
                       onPressed: _scanBarcode,
                     ),
@@ -453,7 +458,7 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                 icon: _loading
                     ? const AiPulseDot(size: 10)
                     : const Icon(Icons.camera_alt_outlined, size: 18),
-                label: const Text('AI photo (Premium)'),
+                label: Text(context.s('food.ai_photo_btn')),
                 onPressed: _loading ? null : _aiPhoto,
               ),
             ),
@@ -473,7 +478,8 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
             else if (_error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                child: Text(_error!, style: textTheme.bodyMedium),
+                // _error может быть ключом локализации или сырым сообщением API
+                child: Text(context.s(_error!), style: textTheme.bodyMedium),
               )
             else
               Flexible(
@@ -499,7 +505,7 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                               ),
                             )
                           : const SizedBox(width: 40, child: Icon(Icons.fastfood_outlined, size: 32)),
-                      title: Text((p['name'] as String?) ?? 'Unknown'),
+                      title: Text((p['name'] as String?) ?? context.s('food.unknown_product')),
                       subtitle: Text([
                         if (p['brand'] != null) p['brand'] as String,
                         if (kcal != null) '$kcal kcal / 100g',
@@ -523,9 +529,9 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     if (!premium) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Premium feature — AI recognizes food photos'),
+          content: Text(context.s('food.ai_photo_premium_msg')),
           action: SnackBarAction(
-            label: 'Upgrade',
+            label: context.s('food.upgrade_btn'),
             onPressed: () => context.push('/paywall'),
           ),
         ),
@@ -585,7 +591,8 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
             _aiNote = 'AI: $dish (${(confidence * 100).round()}%)');
         await _search();
       } else {
-        setState(() => _error = "Couldn't recognize the food — try again");
+        // Ключ локализации; резолвится в build через context.s()
+        setState(() => _error = 'food.ai_photo_fail');
       }
     } on ApiException catch (e) {
       if (mounted) setState(() => _error = e.message);
@@ -685,14 +692,15 @@ class _PortionDialogState extends State<_PortionDialog> {
           TextField(
             controller: _grams,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Grams'),
+            decoration: InputDecoration(labelText: context.s('food.grams_label')),
           ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             children: _meals.map((m) {
+              // Локализуем название приёма пищи через ключ food.meal_*
               return ChoiceChip(
-                label: Text(m),
+                label: Text(context.s('food.meal_$m')),
                 selected: _meal == m,
                 onSelected: (_) => setState(() => _meal = m),
               );
@@ -703,7 +711,7 @@ class _PortionDialogState extends State<_PortionDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(context.s('btn.cancel')),
         ),
         FilledButton(
           onPressed: () {
@@ -711,7 +719,7 @@ class _PortionDialogState extends State<_PortionDialog> {
             if (grams == null || grams <= 0) return;
             Navigator.of(context).pop((grams: grams, meal: _meal));
           },
-          child: const Text('Add'),
+          child: Text(context.s('btn.add')),
         ),
       ],
     );

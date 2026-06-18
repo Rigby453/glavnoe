@@ -11,6 +11,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../core/animations/app_toast.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/utils/breakpoints.dart';
@@ -134,7 +135,7 @@ class HealthScreen extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        Text('Health', style: textTheme.headlineMedium),
+        Text(context.s('health.title'), style: textTheme.headlineMedium),
         const SizedBox(height: 16),
         _buildWaterCard(context, ref, colorScheme, textTheme, total,
             waterGoalMl, progress, dao),
@@ -161,7 +162,7 @@ class HealthScreen extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        Text('Health', style: textTheme.headlineMedium),
+        Text(context.s('health.title'), style: textTheme.headlineMedium),
         const SizedBox(height: 16),
         // Water + Sleep side by side
         IntrinsicHeight(
@@ -213,7 +214,7 @@ class HealthScreen extends ConsumerWidget {
               children: [
                 Icon(Icons.water_drop, color: colorScheme.primary),
                 const SizedBox(width: 8),
-                Text('Water', style: textTheme.titleMedium),
+                Text(context.s('health.water'), style: textTheme.titleMedium),
                 const Spacer(),
                 Text(
                   '$total / $waterGoalMl ml',
@@ -222,7 +223,7 @@ class HealthScreen extends ConsumerWidget {
                 const SizedBox(width: 4),
                 IconButton(
                   icon: const Icon(Icons.open_in_new, size: 18),
-                  tooltip: 'Full view',
+                  tooltip: context.s('health.water_full_view'),
                   onPressed: () => context.push('/water'),
                 ),
               ],
@@ -241,7 +242,7 @@ class HealthScreen extends ConsumerWidget {
                         style: textTheme.headlineSmall,
                       ),
                       Text(
-                        'of $waterGoalMl ml goal',
+                        context.s('health.water_goal_of').replaceFirst('{goal}', '$waterGoalMl'),
                         style: textTheme.bodySmall,
                       ),
                       const SizedBox(height: 4),
@@ -275,7 +276,7 @@ class HealthScreen extends ConsumerWidget {
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: 'Undo',
+                  tooltip: context.s('health.water_undo'),
                   icon: const Icon(Icons.undo),
                   onPressed: () => dao.undoLast(DateTime.now()),
                 ),
@@ -286,7 +287,7 @@ class HealthScreen extends ConsumerWidget {
               children: [
                 const Icon(Icons.notifications_outlined, size: 16),
                 const SizedBox(width: 8),
-                const Expanded(child: Text('Drink reminders (every 2 h)')),
+                Expanded(child: Text(context.s('health.water_reminders'))),
                 Switch.adaptive(
                   value: ref.watch(waterReminderProvider),
                   onChanged: (v) =>
@@ -300,7 +301,7 @@ class HealthScreen extends ConsumerWidget {
             const SizedBox(height: 12),
             TextButton.icon(
               icon: const Icon(Icons.arrow_forward),
-              label: const Text('View Report'),
+              label: Text(context.s('health.view_report')),
               onPressed: () => context.push('/water-report'),
             ),
           ],
@@ -318,8 +319,8 @@ class HealthScreen extends ConsumerWidget {
       Card(
         child: ListTile(
           leading: Icon(Icons.restaurant_outlined, color: colorScheme.primary),
-          title: const Text('Food'),
-          subtitle: const Text('Log meals · KБЖУ from Open Food Facts'),
+          title: Text(context.s('health.food')),
+          subtitle: Text(context.s('health.food_subtitle')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/food'),
         ),
@@ -328,8 +329,8 @@ class HealthScreen extends ConsumerWidget {
       Card(
         child: ListTile(
           leading: Icon(Icons.timer_outlined, color: colorScheme.primary),
-          title: const Text('Focus session'),
-          subtitle: const Text('25/5 · 50/10 · 67/15 and more'),
+          title: Text(context.s('health.focus_session')),
+          subtitle: Text(context.s('health.focus_session_subtitle')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/focus'),
         ),
@@ -338,8 +339,8 @@ class HealthScreen extends ConsumerWidget {
       Card(
         child: ListTile(
           leading: Icon(Icons.fitness_center, color: colorScheme.primary),
-          title: const Text('Workouts'),
-          subtitle: const Text('Your workout plans'),
+          title: Text(context.s('health.workouts')),
+          subtitle: Text(context.s('health.workouts_subtitle')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/workouts'),
         ),
@@ -348,8 +349,8 @@ class HealthScreen extends ConsumerWidget {
       Card(
         child: ListTile(
           leading: Icon(Icons.air, color: colorScheme.primary),
-          title: const Text('Breathing'),
-          subtitle: const Text('Box 4-4-4-4 · Calm 4-7-8 · Simple 5-5'),
+          title: Text(context.s('health.breathing')),
+          subtitle: Text(context.s('health.breathing_subtitle')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/breathing'),
         ),
@@ -358,8 +359,8 @@ class HealthScreen extends ConsumerWidget {
       Card(
         child: ListTile(
           leading: Icon(Icons.spa_outlined, color: colorScheme.primary),
-          title: const Text('Meditation'),
-          subtitle: const Text('Guided text sessions · 5–15 min'),
+          title: Text(context.s('health.meditation')),
+          subtitle: Text(context.s('health.meditation_subtitle')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/meditation'),
         ),
@@ -368,8 +369,8 @@ class HealthScreen extends ConsumerWidget {
       Card(
         child: ListTile(
           leading: Icon(Icons.self_improvement, color: colorScheme.primary),
-          title: const Text('Posture'),
-          subtitle: const Text('Exercises · stand-tall reminders'),
+          title: Text(context.s('health.posture')),
+          subtitle: Text(context.s('health.posture_subtitle')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/posture'),
         ),
@@ -378,8 +379,8 @@ class HealthScreen extends ConsumerWidget {
       Card(
         child: ListTile(
           leading: Icon(Icons.phone_android_outlined, color: colorScheme.primary),
-          title: const Text('Screen Time'),
-          subtitle: const Text('Set daily limits for distracting apps'),
+          title: Text(context.s('health.screen_time')),
+          subtitle: Text(context.s('health.screen_time_subtitle')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/screen-time'),
         ),
@@ -388,8 +389,8 @@ class HealthScreen extends ConsumerWidget {
       Card(
         child: ListTile(
           leading: Icon(Icons.track_changes, color: colorScheme.primary),
-          title: const Text('Habits'),
-          subtitle: const Text('Build good habits · break bad ones'),
+          title: Text(context.s('habits.title')),
+          subtitle: Text(context.s('habits.subtitle_hub')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/habits'),
         ),
@@ -398,8 +399,8 @@ class HealthScreen extends ConsumerWidget {
       Card(
         child: ListTile(
           leading: const Icon(Icons.people_outline),
-          title: const Text('Co-study'),
-          subtitle: const Text('Study with friends · leaderboard'),
+          title: Text(context.s('costudy.title')),
+          subtitle: Text(context.s('costudy.subtitle_hub')),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.push('/costudy'),
         ),
@@ -447,7 +448,7 @@ class _AnimatedWaterGlassState extends State<_AnimatedWaterGlass>
             showAppToast(
               context,
               variant: AppToastVariant.done,
-              message: 'Water goal reached 💧',
+              message: context.s('health.water_goal_reached'),
             );
           }
         });
@@ -471,7 +472,7 @@ class _AnimatedWaterGlassState extends State<_AnimatedWaterGlass>
   Widget build(BuildContext context) {
     final color = Theme.of(context).colorScheme.primary;
     return Tooltip(
-      message: 'Water goal reached 💧',
+      message: context.s('health.water_goal_reached'),
       triggerMode: widget.progress >= 1.0
           ? TooltipTriggerMode.tap
           : TooltipTriggerMode.manual,
@@ -635,7 +636,7 @@ class _SleepCard extends ConsumerWidget {
               children: [
                 Icon(Icons.bedtime_outlined, color: colorScheme.primary),
                 const SizedBox(width: 8),
-                Text('Sleep', style: textTheme.titleMedium),
+                Text(context.s('health.sleep'), style: textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 12),
@@ -652,13 +653,13 @@ class _SleepCard extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       Text(
-                        'Sleeping since $timeStr',
+                        '${context.s('health.sleep_sleeping_since')} $timeStr',
                         style: textTheme.bodyLarge,
                       ),
                       const SizedBox(height: 12),
                       FilledButton.icon(
                         icon: const Icon(Icons.wb_sunny_outlined),
-                        label: const Text("I'm awake"),
+                        label: Text(context.s('health.sleep_im_awake')),
                         onPressed: () async {
                           await dao.endNight();
                           // Считаем длительность для снэкбара
@@ -685,7 +686,7 @@ class _SleepCard extends ConsumerWidget {
                   children: [
                     FilledButton.icon(
                       icon: const Icon(Icons.bedtime),
-                      label: const Text('Going to bed'),
+                      label: Text(context.s('health.sleep_going_to_bed')),
                       onPressed: () => dao.startNight(),
                     ),
                     const SizedBox(height: 16),
@@ -693,7 +694,7 @@ class _SleepCard extends ConsumerWidget {
                     const SizedBox(height: 12),
                     TextButton.icon(
                       icon: const Icon(Icons.arrow_forward),
-                      label: const Text('View Report'),
+                      label: Text(context.s('health.view_report')),
                       onPressed: () => context.push('/sleep-report'),
                     ),
                   ],
@@ -728,7 +729,7 @@ class _WeekSleepChart extends ConsumerWidget {
     if (nights == null) return const SizedBox.shrink();
     if (nights.isEmpty) {
       return Text(
-        'No nights tracked yet',
+        context.s('health.sleep_no_nights'),
         style: textTheme.bodySmall?.copyWith(
           color: colorScheme.onSurface.withValues(alpha: 0.5),
         ),

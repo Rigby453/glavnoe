@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../core/animations/constants.dart';
+import '../../core/l10n/app_strings.dart';
 import 'breathing_engine.dart';
 
 // Доступные длительности сессии
@@ -138,6 +139,23 @@ class _BreathingScreenState extends State<BreathingScreen>
       default:
         // Пробуем tertiary, если нет — secondary
         return cs.tertiary;
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Локализация метки фазы (label из engine остаётся на EN для switch-логики)
+  // ---------------------------------------------------------------------------
+
+  String _localizePhaseLabel(BuildContext ctx, String engineLabel) {
+    switch (engineLabel) {
+      case 'Inhale':
+        return ctx.s('breathing.inhale');
+      case 'Exhale':
+        return ctx.s('breathing.exhale');
+      case 'Hold':
+        return ctx.s('breathing.hold');
+      default:
+        return engineLabel;
     }
   }
 
@@ -306,7 +324,7 @@ class _BreathingScreenState extends State<BreathingScreen>
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Breathing')),
+      appBar: AppBar(title: Text(context.s('breathing.title'))),
       body: SafeArea(
         child: Padding(
           padding: const EdgeInsets.all(24),
@@ -328,7 +346,7 @@ class _BreathingScreenState extends State<BreathingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Choose a technique', style: textTheme.headlineSmall),
+        Text(context.s('breathing.choose_technique'), style: textTheme.headlineSmall),
         const SizedBox(height: 16),
 
         // Выбор пресета — ChoiceChip ряд
@@ -345,7 +363,7 @@ class _BreathingScreenState extends State<BreathingScreen>
         ),
         const SizedBox(height: 24),
 
-        Text('Duration', style: textTheme.titleMedium),
+        Text(context.s('breathing.duration'), style: textTheme.titleMedium),
         const SizedBox(height: 8),
 
         // Выбор длительности — SegmentedButton
@@ -364,7 +382,7 @@ class _BreathingScreenState extends State<BreathingScreen>
 
         FilledButton.icon(
           icon: const Icon(Icons.play_arrow),
-          label: const Text('Start'),
+          label: Text(context.s('breathing.start')),
           onPressed: _start,
         ),
       ],
@@ -404,7 +422,7 @@ class _BreathingScreenState extends State<BreathingScreen>
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Text(
-                        phase.label,
+                        _localizePhaseLabel(context, phase.label),
                         style: textTheme.headlineMedium?.copyWith(
                           color: colorScheme.onSurface,
                           fontWeight: FontWeight.w600,
@@ -445,7 +463,7 @@ class _BreathingScreenState extends State<BreathingScreen>
 
         OutlinedButton.icon(
           icon: const Icon(Icons.stop),
-          label: const Text('Stop'),
+          label: Text(context.s('breathing.stop')),
           onPressed: _stop,
         ),
       ],
@@ -471,7 +489,7 @@ class _BreathingScreenState extends State<BreathingScreen>
         const SizedBox(height: 24),
         Center(
           child: Text(
-            'Session complete · $_durationMinutes min',
+            '${context.s('breathing.session_complete')} · $_durationMinutes min',
             style: textTheme.headlineSmall,
             textAlign: TextAlign.center,
           ),
@@ -479,7 +497,7 @@ class _BreathingScreenState extends State<BreathingScreen>
         const SizedBox(height: 48),
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Done'),
+          child: Text(context.s('btn.done')),
         ),
       ],
     );

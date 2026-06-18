@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 
 /// Запись дневника за конкретный день
 final dayLogProvider = FutureProvider.family
@@ -14,12 +15,13 @@ final dayLogProvider = FutureProvider.family
       return ref.watch(dayLogsDaoProvider).getForDate(start);
     });
 
-const Map<String, String> _issueLabels = {
-  'social_media': 'Social media',
-  'went_out': 'Went out',
-  'was_tired': 'Was tired',
-  'sick': 'Sick',
-  'other': 'Other',
+/// Ключ тега → ключ локализации (зеркалит diary_screen).
+const Map<String, String> _issueL10nKeys = {
+  'social_media': 'diary.issue_social_media',
+  'went_out': 'diary.issue_went_out',
+  'was_tired': 'diary.issue_was_tired',
+  'sick': 'diary.issue_sick',
+  'other': 'diary.issue_other',
 };
 
 const List<String> _moodEmojis = ['😞', '😕', '😐', '🙂', '😄'];
@@ -53,7 +55,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: Text('Diary History', style: textTheme.headlineSmall),
+        title: Text(context.s('diary.history_screen_title'), style: textTheme.headlineSmall),
         centerTitle: true,
       ),
       body: Column(
@@ -65,7 +67,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('Select Date', style: textTheme.titleMedium),
+                Text(context.s('diary.history_select_date'), style: textTheme.titleMedium),
                 const SizedBox(height: 12),
                 Row(
                   children: [
@@ -156,7 +158,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
     if (log == null) {
       return Center(
         child: Text(
-          'No entry for this day',
+          context.s('diary.history_no_entry'),
           style: textTheme.bodyMedium?.copyWith(color: colorScheme.outline),
         ),
       );
@@ -178,7 +180,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
         children: [
           // Настроение
           if (log.mood != null) ...[
-            Text('Mood', style: textTheme.titleMedium),
+            Text(context.s('diary.mood'), style: textTheme.titleMedium),
             const SizedBox(height: 12),
             Text(
               _moodEmojis[log.mood! - 1],
@@ -188,7 +190,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
           ],
           // Заметка
           if (noteText.isNotEmpty) ...[
-            Text('Note', style: textTheme.titleMedium),
+            Text(context.s('diary.note'), style: textTheme.titleMedium),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),
@@ -202,13 +204,17 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
           ],
           // Issues
           if (issues.isNotEmpty) ...[
-            Text('What Went Wrong', style: textTheme.titleMedium),
+            Text(context.s('diary.history_what_went_wrong'), style: textTheme.titleMedium),
             const SizedBox(height: 12),
             Wrap(
               spacing: 8,
               children: issues
                   .map(
-                    (issue) => Chip(label: Text(_issueLabels[issue] ?? issue)),
+                    (issue) => Chip(label: Text(
+                      _issueL10nKeys.containsKey(issue)
+                          ? context.s(_issueL10nKeys[issue]!)
+                          : issue,
+                    )),
                   )
                   .toList(),
             ),
@@ -216,7 +222,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
           ],
           // AI-инсайт
           if (log.insight != null && log.insight!.isNotEmpty) ...[
-            Text('AI Insight', style: textTheme.titleMedium),
+            Text(context.s('diary.history_ai_insight'), style: textTheme.titleMedium),
             const SizedBox(height: 12),
             Container(
               padding: const EdgeInsets.all(12),

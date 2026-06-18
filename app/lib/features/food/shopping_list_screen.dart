@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/animations/animated_check.dart';
 import '../../core/animations/app_toast.dart';
 import '../../core/database/database.dart';
@@ -82,7 +83,7 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Shopping list'),
+        title: Text(context.s('food.shopping_list_title')),
         actions: [
           // «Clear checked» — виден только если есть отмеченные позиции
           if (hasChecked)
@@ -90,7 +91,7 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
               onPressed: () async {
                 await ref.read(shoppingDaoProvider).clearChecked();
               },
-              child: const Text('Clear checked'),
+              child: Text(context.s('food.clear_checked')),
             ),
         ],
       ),
@@ -107,15 +108,15 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
                     focusNode: _addFocus,
                     textInputAction: TextInputAction.done,
                     onSubmitted: (_) => _submit(),
-                    decoration: const InputDecoration(
-                      hintText: 'Add item…',
+                    decoration: InputDecoration(
+                      hintText: context.s('food.shopping_add_hint'),
                       isDense: true,
                     ),
                   ),
                 ),
                 const SizedBox(width: 8),
                 IconButton(
-                  tooltip: 'Add',
+                  tooltip: context.s('btn.add'),
                   icon: const Icon(Icons.add),
                   onPressed: _submit,
                 ),
@@ -224,7 +225,7 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.shopping_cart_outlined, size: 56, color: muted),
           const SizedBox(height: 16),
           Text(
-            'Nothing here yet — add groceries above',
+            context.s('food.shopping_empty'),
             style: textTheme.bodyMedium?.copyWith(color: muted),
             textAlign: TextAlign.center,
           ),

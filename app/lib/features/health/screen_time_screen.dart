@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/l10n/app_strings.dart';
 import 'screen_time_provider.dart';
 
 /// Иконки для категорий.
@@ -26,12 +27,12 @@ class ScreenTimeScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Screen Time')),
+      appBar: AppBar(title: Text(context.s('screentime.title'))),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
           // --- Section 1: Set daily limits ---
-          Text('Set daily limits', style: textTheme.titleMedium),
+          Text(context.s('screentime.set_daily_limits'), style: textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Column(
@@ -51,7 +52,7 @@ class ScreenTimeScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // --- Section 2: Usage data (stub) ---
-          Text('Usage data', style: textTheme.titleMedium),
+          Text(context.s('screentime.usage_data'), style: textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Padding(
@@ -67,7 +68,7 @@ class ScreenTimeScreen extends ConsumerWidget {
                   const SizedBox(width: 12),
                   Expanded(
                     child: Text(
-                      'Usage data requires system permissions not yet available. Coming soon.',
+                      context.s('screentime.usage_coming_soon'),
                       style: textTheme.bodyMedium?.copyWith(
                         color: colorScheme.onSurfaceVariant,
                       ),
@@ -81,7 +82,7 @@ class ScreenTimeScreen extends ConsumerWidget {
           const SizedBox(height: 24),
 
           // --- Section 3: Tips ---
-          Text('Tips', style: textTheme.titleMedium),
+          Text(context.s('screentime.tips'), style: textTheme.titleMedium),
           const SizedBox(height: 8),
           Card(
             child: Padding(
@@ -91,21 +92,21 @@ class ScreenTimeScreen extends ConsumerWidget {
                 children: [
                   _TipRow(
                     icon: Icons.pause_circle_outline,
-                    text: 'Turn off autoplay to avoid unintentional binge-watching.',
+                    text: context.s('screentime.tip_autoplay'),
                     colorScheme: colorScheme,
                     textTheme: textTheme,
                   ),
                   const SizedBox(height: 12),
                   _TipRow(
                     icon: Icons.invert_colors_outlined,
-                    text: 'Use grayscale mode to make your screen less appealing.',
+                    text: context.s('screentime.tip_grayscale'),
                     colorScheme: colorScheme,
                     textTheme: textTheme,
                   ),
                   const SizedBox(height: 12),
                   _TipRow(
                     icon: Icons.hotel_outlined,
-                    text: 'Keep your phone in another room while studying or sleeping.',
+                    text: context.s('screentime.tip_phone_away'),
                     colorScheme: colorScheme,
                     textTheme: textTheme,
                   ),
@@ -139,8 +140,8 @@ class _CategoryTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     final subtitle = currentMinutes == 0
-        ? 'No limit'
-        : '$currentMinutes min/day';
+        ? context.s('screentime.no_limit')
+        : '$currentMinutes ${context.s('screentime.min_per_day')}';
 
     return ListTile(
       leading: Icon(icon, color: colorScheme.primary),
@@ -241,7 +242,7 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
           Text(widget.categoryName, style: textTheme.titleLarge),
           const SizedBox(height: 4),
           Text(
-            'Set a daily time limit',
+            context.s('screentime.set_daily_time_limit'),
             style: textTheme.bodyMedium?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -253,7 +254,7 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
           Row(
             children: [
               Expanded(
-                child: Text('No limit', style: textTheme.bodyLarge),
+                child: Text(context.s('screentime.no_limit'), style: textTheme.bodyLarge),
               ),
               Switch.adaptive(
                 value: _noLimit,
@@ -301,7 +302,11 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
 
           FilledButton(
             onPressed: _save,
-            child: Text(_noLimit ? 'Remove limit' : 'Set $timeLabel limit'),
+            child: Text(
+              _noLimit
+                  ? context.s('screentime.remove_limit')
+                  : '${context.s('screentime.set_daily_time_limit')} · $timeLabel',
+            ),
           ),
         ],
       ),

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import 'workouts_screen.dart' show workoutExercisesProvider, workoutProvider;
 
 // ---------------------------------------------------------------------------
@@ -160,16 +161,16 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Stop workout?'),
-        content: const Text("Progress won't be saved."),
+        title: Text(ctx.s('workout.stop_title')),
+        content: Text(ctx.s('workout.stop_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Continue'),
+            child: Text(ctx.s('workout.continue_btn')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Stop'),
+            child: Text(ctx.s('workout.stop')),
           ),
         ],
       ),
@@ -229,7 +230,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
 
     final ex = _currentExercise;
     final progressLabel =
-        'Exercise ${_exerciseIndex + 1} of $_totalExercises';
+        '${context.s('workout.exercise_of')} ${_exerciseIndex + 1} ${context.s('workout.of')} $_totalExercises';
 
     return PopScope(
       canPop: false,
@@ -251,7 +252,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
                   Navigator.of(context).pop();
                 }
               },
-              child: const Text('Stop'),
+              child: Text(context.s('workout.stop')),
             ),
           ],
         ),
@@ -275,8 +276,10 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
     final muted = colorScheme.onSurface.withAlpha(120);
 
     // Строка «Set 2 of 3 · 10 reps · 40 kg»
-    final setLabel = StringBuffer('Set ${_setIndex + 1} of ${ex.sets}');
-    setLabel.write(' · ${ex.reps} reps');
+    final setLabel = StringBuffer(
+      '${context.s('workout.set_label')} ${_setIndex + 1} ${context.s('workout.of')} ${ex.sets}',
+    );
+    setLabel.write(' · ${ex.reps} ${context.s('workout.reps_label')}');
     if (ex.weightKg != null) {
       final w = ex.weightKg!;
       final wStr =
@@ -316,7 +319,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
           const Spacer(),
           FilledButton(
             onPressed: _onSetDone,
-            child: const Text('Set done'),
+            child: Text(context.s('workout.set_done')),
           ),
           const SizedBox(height: 16),
         ],
@@ -343,7 +346,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
         children: [
           const Spacer(),
           Text(
-            'Rest',
+            context.s('workout.rest_phase'),
             style: textTheme.titleLarge?.copyWith(color: muted),
             textAlign: TextAlign.center,
           ),
@@ -358,14 +361,15 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
           ),
           const SizedBox(height: 8),
           Text(
-            'Next: ${ex.name} · set ${_setIndex + 2} of ${ex.sets}',
+            '${context.s('workout.next_label')}: ${ex.name} · '
+            '${context.s('workout.set_label')} ${_setIndex + 2} ${context.s('workout.of')} ${ex.sets}',
             style: textTheme.bodyMedium?.copyWith(color: muted),
             textAlign: TextAlign.center,
           ),
           const Spacer(),
           OutlinedButton(
             onPressed: _skipRest,
-            child: const Text('Skip rest'),
+            child: Text(context.s('workout.skip_rest')),
           ),
           const SizedBox(height: 16),
         ],
@@ -397,7 +401,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
               ),
               const SizedBox(height: 24),
               Text(
-                'Did it as planned!',
+                context.s('workout.did_it'),
                 style: textTheme.headlineMedium?.copyWith(
                   fontWeight: FontWeight.bold,
                 ),
@@ -414,7 +418,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
               const Spacer(),
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: const Text('Done'),
+                child: Text(context.s('btn.done')),
               ),
             ],
           ),

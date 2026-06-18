@@ -41,35 +41,35 @@ void main() {
       calories: 1200, protein: 80, sugar: 10, fiber: 30,
     ));
     expect(b.balanced, isFalse);
-    expect(b.hints.single, contains('under your calorie goal'));
+    expect(b.hints.single, 'food.hint_cal_low');
   });
 
   test('перебор калорий → подсказка без шейминга', () {
     final b = eval(const Nutrition(
       calories: 2500, protein: 80, sugar: 10, fiber: 30,
     ));
-    expect(b.hints.single, contains('over the calorie goal'));
+    expect(b.hints.single, 'food.hint_cal_high');
   });
 
   test('мало белка → подсказка про белок', () {
     final b = eval(const Nutrition(
       calories: 2000, protein: 30, sugar: 10, fiber: 30,
     ));
-    expect(b.hints.single, contains('Protein'));
+    expect(b.hints.single, 'food.hint_protein_low');
   });
 
   test('мало клетчатки → подсказка про овощи/злаки', () {
     final b = eval(const Nutrition(
       calories: 2000, protein: 80, sugar: 10, fiber: 5,
     ));
-    expect(b.hints.single, contains('fiber'));
+    expect(b.hints.single, 'food.hint_fiber_low');
   });
 
   test('сахар выше потолка → подсказка про сладкое', () {
     final b = eval(const Nutrition(
       calories: 2000, protein: 80, sugar: 80, fiber: 30,
     ));
-    expect(b.hints.single, contains('Sugar'));
+    expect(b.hints.single, 'food.hint_sugar_high');
   });
 
   test('несколько проблем → несколько подсказок', () {

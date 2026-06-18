@@ -8,6 +8,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/app_strings.dart';
+
 // ---------------------------------------------------------------------------
 // Модель данных
 // ---------------------------------------------------------------------------
@@ -234,7 +236,7 @@ class MeditationScreen extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Meditation')),
+      appBar: AppBar(title: Text(context.s('meditation.title'))),
       body: ListView.separated(
         padding: const EdgeInsets.all(16),
         itemCount: _sessions.length,
@@ -372,10 +374,10 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
       barrierDismissible: false,
       builder: (dialogContext) => AlertDialog(
         icon: const Icon(Icons.spa_outlined, size: 40),
-        title: const Text('Session complete'),
+        title: Text(dialogContext.s('meditation.session_complete')),
         content: Text(
-          'You have finished "${widget.session.name}". '
-          'Take a moment to notice how you feel.',
+          '"${widget.session.name}" — '
+          '${dialogContext.s('meditation.session_complete_body')}',
         ),
         actions: [
           TextButton(
@@ -383,7 +385,7 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
               Navigator.of(dialogContext).pop();
               Navigator.of(context).pop();
             },
-            child: const Text('Done'),
+            child: Text(dialogContext.s('btn.done')),
           ),
         ],
       ),
@@ -409,7 +411,7 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
             children: [
               // Step progress
               Text(
-                'Step ${_stepIndex + 1} / $stepCount',
+                '${context.s('meditation.step')} ${_stepIndex + 1} / $stepCount',
                 style: textTheme.bodyMedium?.copyWith(
                   color: colorScheme.onSurface.withValues(alpha: 0.6),
                 ),
@@ -478,7 +480,11 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
                       _advanceStep();
                     }
                   },
-                  child: Text(_isLastStep ? 'Finish' : 'Next'),
+                  child: Text(
+                    _isLastStep
+                        ? context.s('meditation.finish')
+                        : context.s('meditation.next'),
+                  ),
                 ),
               ),
               const SizedBox(height: 8),
@@ -487,7 +493,7 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(
-                  'End session',
+                  context.s('meditation.end_session'),
                   style: TextStyle(
                     color: colorScheme.onSurface.withValues(alpha: 0.6),
                   ),

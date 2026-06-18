@@ -14,6 +14,7 @@ import '../../../core/animations/ai_pulse_dot.dart';
 import '../../../core/animations/app_sheet.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/settings/tone_provider.dart';
 import '../../../services/api/api_client.dart';
 import '../../auth/auth_controller.dart';
@@ -67,7 +68,7 @@ class EveningReviewCard extends ConsumerWidget {
               children: [
                 Icon(Icons.bedtime_outlined, color: colorScheme.secondary),
                 const SizedBox(width: 8),
-                Text('Plan tomorrow', style: textTheme.titleMedium),
+                Text(context.s('today.plan_tomorrow'), style: textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 8),
@@ -80,7 +81,7 @@ class EveningReviewCard extends ConsumerWidget {
               alignment: Alignment.centerRight,
               child: FilledButton(
                 onPressed: () => _showEveningReviewSheet(context),
-                child: const Text('Plan'),
+                child: Text(context.s('today.plan_tomorrow_btn')),
               ),
             ),
           ],
@@ -126,7 +127,7 @@ class _EveningReviewSheetState extends ConsumerState<_EveningReviewSheet> {
       setState(() => _aiPlans = mapped);
       if (mapped.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('AI had nothing to schedule')),
+          SnackBar(content: Text(context.s('today.ai_nothing_schedule'))),
         );
       }
     } on ApiException catch (e) {
@@ -167,7 +168,7 @@ class _EveningReviewSheetState extends ConsumerState<_EveningReviewSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Plan tomorrow', style: textTheme.headlineSmall),
+                Text(context.s('today.plan_tomorrow'), style: textTheme.headlineSmall),
                 if (pending.isNotEmpty)
                   TextButton(
                     onPressed: () async {
@@ -175,13 +176,13 @@ class _EveningReviewSheetState extends ConsumerState<_EveningReviewSheet> {
                         await moveToDay(ref, item, tomorrow);
                       }
                     },
-                    child: const Text('Move all to tomorrow'),
+                    child: Text(context.s('today.move_all_tomorrow')),
                   ),
               ],
             ),
             const SizedBox(height: 8),
             if (variants.isNotEmpty) ...[
-              Text('Smart plans (free)', style: textTheme.titleSmall),
+              Text(context.s('today.smart_plans'), style: textTheme.titleSmall),
               const SizedBox(height: 8),
               ...variants.map(
                 (v) => ReviewVariantCard(variant: v, onApply: () => _apply(v)),
@@ -195,12 +196,12 @@ class _EveningReviewSheetState extends ConsumerState<_EveningReviewSheet> {
                     icon: _aiLoading
                         ? const AiPulseDot(size: 10)
                         : const Icon(Icons.auto_awesome, size: 18),
-                    label: const Text('Smarter plan with AI (Premium)'),
+                    label: Text(context.s('today.ai_smarter_plan')),
                     onPressed: _aiLoading ? null : _getAiPlans,
                   ),
                 )
               else ...[
-                Text('AI plans', style: textTheme.titleSmall),
+                Text(context.s('today.ai_plans'), style: textTheme.titleSmall),
                 const SizedBox(height: 8),
                 // AI-варианты плана появляются с reveal (§7.3)
                 ...aiPlans.map(
@@ -218,7 +219,7 @@ class _EveningReviewSheetState extends ConsumerState<_EveningReviewSheet> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Center(
-                  child: Text("Nothing left for today 🎉",
+                  child: Text(context.s('today.nothing_left'),
                       style: textTheme.bodyLarge),
                 ),
               )
@@ -261,10 +262,10 @@ class _PendingRow extends ConsumerWidget {
         children: [
           TextButton(
             onPressed: () => moveToDay(ref, item, tomorrow),
-            child: const Text('Tomorrow'),
+            child: Text(context.s('today.move_to_tomorrow_btn')),
           ),
           IconButton(
-            tooltip: 'Skip',
+            tooltip: context.s('today.skip_tooltip'),
             icon: const Icon(Icons.remove_circle_outline),
             onPressed: () => ref.read(itemsDaoProvider).markSkipped(item.id),
           ),

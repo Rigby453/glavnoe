@@ -23,6 +23,7 @@ import '../../../core/animations/app_sheet.dart';
 import '../../../core/animations/app_toast.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/settings/recent_subjects.dart';
 import '../../../core/utils/id.dart';
 
@@ -200,7 +201,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
       if (effective >= _maxMainPerDay) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Max 3 main tasks')),
+            SnackBar(content: Text(context.s('today.max_main_snackbar'))),
           );
         }
         return;
@@ -255,8 +256,8 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     if (diffMinutes <= 0) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('End time must be after start time'),
+          SnackBar(
+            content: Text(context.s('today.end_time_error')),
           ),
         );
       }
@@ -319,7 +320,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           children: [
             ListTile(
               leading: const Icon(Icons.camera_alt_outlined),
-              title: const Text('Photo from camera'),
+              title: Text(context.s('today.photo_camera')),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickAttachment(ImageSource.camera);
@@ -327,7 +328,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             ),
             ListTile(
               leading: const Icon(Icons.photo_library_outlined),
-              title: const Text('Photo from gallery'),
+              title: Text(context.s('today.photo_gallery')),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickAttachment(ImageSource.gallery);
@@ -335,7 +336,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             ),
             ListTile(
               leading: const Icon(Icons.video_library_outlined),
-              title: const Text('Video from gallery'),
+              title: Text(context.s('today.video_gallery')),
               onTap: () {
                 Navigator.pop(ctx);
                 _pickAttachment(ImageSource.gallery, isVideo: true);
@@ -381,14 +382,14 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Remove attachment?'),
+        title: Text(context.s('today.remove_attachment_title')),
         actions: [
           TextButton(
               onPressed: () => Navigator.pop(ctx, false),
-              child: const Text('Cancel')),
+              child: Text(context.s('btn.cancel'))),
           FilledButton(
               onPressed: () => Navigator.pop(ctx, true),
-              child: const Text('Remove')),
+              child: Text(context.s('today.remove_attachment_btn'))),
         ],
       ),
     );
@@ -401,7 +402,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     final title = _titleController.text.trim();
     if (title.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Title is required')),
+        SnackBar(content: Text(context.s('today.title_required'))),
       );
       return;
     }
@@ -457,19 +458,19 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete task?'),
-        content: Text('"${existing.title}" will be removed.'),
+        title: Text(context.s('today.delete_task_title')),
+        content: Text('"${existing.title}"'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(context.s('btn.cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: Text(context.s('btn.delete')),
           ),
         ],
       ),
@@ -485,7 +486,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     showAppToast(
       context,
       variant: AppToastVariant.removed,
-      message: 'Task removed',
+      message: context.s('today.task_removed'),
       onUndo: () {
         final now = DateTime.now();
         dao.insertItem(
@@ -524,7 +525,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              _isEditing ? 'Edit task' : 'New task',
+              _isEditing ? context.s('today.edit_task') : context.s('today.new_task'),
               style: textTheme.headlineSmall,
             ),
             const SizedBox(height: 16),
@@ -543,13 +544,13 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
               controller: _titleController,
               autofocus: true,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(hintText: 'What needs doing?'),
+              decoration: InputDecoration(hintText: context.s('today.task_hint')),
               onSubmitted: (_) => _save(),
             ),
             const SizedBox(height: 16),
 
             // Тип
-            Text('Type', style: textTheme.labelMedium),
+            Text(context.s('today.type_label'), style: textTheme.labelMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -572,7 +573,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Recent subjects', style: textTheme.labelMedium),
+                      Text(context.s('today.recent_subjects'), style: textTheme.labelMedium),
                       const SizedBox(height: 8),
                       Wrap(
                         spacing: 8,
@@ -592,7 +593,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
               ),
 
             // Приоритет
-            Text('Priority', style: textTheme.labelMedium),
+            Text(context.s('today.priority_label'), style: textTheme.labelMedium),
             const SizedBox(height: 8),
             Wrap(
               spacing: 8,
@@ -602,7 +603,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                         // (видно при долгом нажатии / hover).
                         label: p == 'main'
                             ? Tooltip(
-                                message: 'Protected from replanning',
+                                message: context.s('today.priority_tooltip'),
                                 child: const Text('main'),
                               )
                             : Text(p),
@@ -624,7 +625,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                   ),
                   const SizedBox(width: 4),
                   Text(
-                    'Protected: replanning never moves it',
+                    context.s('today.protected_hint'),
                     style: textTheme.bodySmall?.copyWith(
                       color: colorScheme.primary,
                     ),
@@ -637,7 +638,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: Text(
-                  '3 main tasks max — keeps focus sharp 🎯',
+                  context.s('today.main_limit'),
                   style: textTheme.bodySmall?.copyWith(
                     color: colorScheme.primary,
                   ),
@@ -646,7 +647,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             const SizedBox(height: 16),
 
             // Длительность — пресеты + ручной ввод минут + End time (Баг 2)
-            Text('Duration', style: textTheme.labelMedium),
+            Text(context.s('today.duration_label'), style: textTheme.labelMedium),
             const SizedBox(height: 8),
             // Строка 1: пресеты чипами
             Wrap(
@@ -685,7 +686,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                     ],
                     textAlign: TextAlign.center,
                     decoration: InputDecoration(
-                      hintText: 'min',
+                      hintText: context.s('today.duration_min_hint'),
                       isDense: true,
                       contentPadding: const EdgeInsets.symmetric(
                           horizontal: 8, vertical: 10),
@@ -700,7 +701,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                 // Кнопка выбора конечного времени (Баг 2)
                 OutlinedButton.icon(
                   icon: const Icon(Icons.schedule_outlined, size: 16),
-                  label: const Text('End time'),
+                  label: Text(context.s('today.end_time')),
                   style: OutlinedButton.styleFrom(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 12, vertical: 10),
@@ -747,11 +748,11 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             // Вложения (фото / видео)
             Row(
               children: [
-                Text('Attachments', style: textTheme.labelMedium),
+                Text(context.s('today.attachments_label'), style: textTheme.labelMedium),
                 const Spacer(),
                 TextButton.icon(
                   icon: const Icon(Icons.add_photo_alternate_outlined, size: 16),
-                  label: const Text('Add'),
+                  label: Text(context.s('btn.add')),
                   onPressed: _showPickerMenu,
                 ),
               ],
@@ -817,7 +818,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _save,
-                child: Text(_isEditing ? 'Save changes' : 'Add task'),
+                child: Text(_isEditing ? context.s('today.save_changes') : context.s('today.add_task_btn')),
               ),
             ),
             if (_isEditing) ...[
@@ -826,7 +827,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                 width: double.infinity,
                 child: TextButton.icon(
                   icon: const Icon(Icons.delete_outline, size: 18),
-                  label: const Text('Delete task'),
+                  label: Text(context.s('today.delete_task_btn')),
                   style: TextButton.styleFrom(
                     foregroundColor: Theme.of(context).colorScheme.error,
                   ),

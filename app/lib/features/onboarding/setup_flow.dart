@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../core/animations/constants.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/settings/tone_provider.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -21,7 +22,9 @@ const reviewMorningHourKey = 'review_morning_hour';
 const reviewEveningHourKey = 'review_evening_hour';
 const interestsKey = 'interests';
 
-const _interests = <String>[
+// Ключи интересов (сохраняются как есть — идентификаторы).
+// Локализованные подписи берутся из S по ключу 'onboarding.interest_<value>'.
+const _interestValues = <String>[
   'University',
   'Exams',
   'Side projects',
@@ -30,6 +33,18 @@ const _interests = <String>[
   'Sleep',
   'Focus',
   'Reading',
+];
+
+// Локализационные ключи для интересов (один к одному с _interestValues).
+const _interestL10nKeys = <String>[
+  'onboarding.interest_university',
+  'onboarding.interest_exams',
+  'onboarding.interest_side_projects',
+  'onboarding.interest_fitness',
+  'onboarding.interest_nutrition',
+  'onboarding.interest_sleep',
+  'onboarding.interest_focus',
+  'onboarding.interest_reading',
 ];
 
 class SetupFlowScreen extends ConsumerStatefulWidget {
@@ -160,13 +175,13 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
               child: Row(
                 children: [
                   Text(
-                    'Set up · ${_page + 1}/$_pageCount',
+                    '${context.s('onboarding.setup_progress')} · ${_page + 1}/$_pageCount',
                     style: textTheme.labelMedium,
                   ),
                   const Spacer(),
                   TextButton(
                     onPressed: _finish,
-                    child: const Text('Skip all'),
+                    child: Text(context.s('onboarding.skip_all')),
                   ),
                 ],
               ),
@@ -193,7 +208,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   // Кнопка «Back» — только не на первом шаге
                   if (!isFirst)
                     IconButton(
-                      tooltip: 'Back',
+                      tooltip: context.s('btn.back'),
                       icon: const Icon(Icons.arrow_back_rounded),
                       onPressed: _back,
                     )
@@ -204,7 +219,11 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   Expanded(
                     child: FilledButton(
                       onPressed: _next,
-                      child: Text(isLast ? 'Start' : 'Continue'),
+                      child: Text(
+                        isLast
+                            ? context.s('onboarding.btn_start')
+                            : context.s('onboarding.btn_continue'),
+                      ),
                     ),
                   ),
                 ],
@@ -240,25 +259,27 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   // --- Шаг 1: интересы ---
   Widget _interestsStep(TextTheme textTheme) {
     return _step(
-      title: 'What matters to you?',
-      subtitle: 'Pick areas you want to keep on track. This shapes defaults.',
+      title: context.s('onboarding.interests_title'),
+      subtitle: context.s('onboarding.interests_subtitle'),
       child: Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: _interests.map((label) {
-          final selected = _selectedInterests.contains(label);
+        children: List.generate(_interestValues.length, (i) {
+          final value = _interestValues[i];
+          final l10nKey = _interestL10nKeys[i];
+          final selected = _selectedInterests.contains(value);
           return FilterChip(
-            label: Text(label),
+            label: Text(context.s(l10nKey)),
             selected: selected,
             onSelected: (v) => setState(() {
               if (v) {
-                _selectedInterests.add(label);
+                _selectedInterests.add(value);
               } else {
-                _selectedInterests.remove(label);
+                _selectedInterests.remove(value);
               }
             }),
           );
-        }).toList(),
+        }),
       ),
     );
   }
@@ -266,21 +287,19 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   // --- Шаг 2: импорт расписания ---
   Widget _importStep(TextTheme textTheme) {
     return _step(
-      title: 'Bring your timetable',
-      subtitle:
-          'Paste your class schedule as text and Kaizen turns it into events. '
-          'You can always do it later from the Plan tab.',
+      title: context.s('onboarding.import_title'),
+      subtitle: context.s('onboarding.import_subtitle'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           OutlinedButton.icon(
             icon: const Icon(Icons.content_paste_go),
-            label: const Text('Import now'),
+            label: Text(context.s('onboarding.import_now')),
             onPressed: () => showImportSheet(context, day: DateTime.now()),
           ),
           const SizedBox(height: 8),
           Text(
-            'Photo import with AI is available on Premium.',
+            context.s('onboarding.import_premium_hint'),
             style: textTheme.bodySmall,
           ),
         ],
@@ -318,14 +337,12 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
         );
 
     return _step(
-      title: 'When should we check in?',
-      subtitle:
-          'Morning review re-plans yesterday\'s loose ends; evening review '
-          'prepares tomorrow.',
+      title: context.s('onboarding.review_title'),
+      subtitle: context.s('onboarding.review_subtitle'),
       child: Column(
         children: [
-          tile('Morning review', _morningHour, true),
-          tile('Evening review', _eveningHour, false),
+          tile(context.s('onboarding.review_morning'), _morningHour, true),
+          tile(context.s('onboarding.review_evening'), _eveningHour, false),
         ],
       ),
     );
@@ -364,22 +381,20 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   Widget _toneStep(TextTheme textTheme) {
     final tone = ref.watch(toneProvider);
     return _step(
-      title: 'Pick your tone',
-      subtitle: 'How should Kaizen talk to you? You can switch any time.',
+      title: context.s('onboarding.tone_title'),
+      subtitle: context.s('onboarding.tone_subtitle'),
       child: Column(
         children: [
           _choiceTile(
             selected: tone == AppTone.gentle,
-            title: 'Gentle',
-            subtitle: '"Yesterday left 3 loose ends — I tucked them into '
-                'today around what matters."',
+            title: context.s('settings.gentle'),
+            subtitle: context.s('onboarding.tone_gentle_subtitle'),
             onTap: () => ref.read(toneProvider.notifier).set(AppTone.gentle),
           ),
           _choiceTile(
             selected: tone == AppTone.harsh,
-            title: 'Harsh',
-            subtitle: '"3 tasks ghosted you yesterday. I sorted them. '
-                "Don't ghost them again.\"",
+            title: context.s('settings.harsh'),
+            subtitle: context.s('onboarding.tone_harsh_subtitle'),
             onTap: () => ref.read(toneProvider.notifier).set(AppTone.harsh),
           ),
         ],
@@ -391,8 +406,8 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   Widget _themeStep(TextTheme textTheme, ColorScheme colorScheme) {
     final current = ref.watch(themeNotifierProvider);
     return _step(
-      title: 'Choose a theme',
-      subtitle: 'Each theme has its own face and typography.',
+      title: context.s('onboarding.theme_title'),
+      subtitle: context.s('onboarding.theme_subtitle'),
       child: Column(
         children: AppThemeKey.values.map((key) {
           return _choiceTile(
@@ -422,9 +437,8 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
         : null;
 
     return _step(
-      title: 'Daily water goal',
-      subtitle: 'Enter your stats and we\'ll suggest a starting point — '
-          'you can always adjust.',
+      title: context.s('onboarding.norms_title'),
+      subtitle: context.s('onboarding.norms_subtitle'),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -440,11 +454,11 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                     // Разрешаем цифры и одну точку/запятую
                     FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
                   ],
-                  decoration: const InputDecoration(
-                    labelText: 'Weight (kg)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.s('onboarding.norms_weight'),
+                    border: const OutlineInputBorder(),
                     contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
                   ),
                   textInputAction: TextInputAction.next,
                 ),
@@ -457,13 +471,12 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   inputFormatters: [
                     FilteringTextInputFormatter.digitsOnly,
                   ],
-                  decoration: const InputDecoration(
-                    labelText: 'Height (cm)',
-                    border: OutlineInputBorder(),
+                  decoration: InputDecoration(
+                    labelText: context.s('onboarding.norms_height'),
+                    border: const OutlineInputBorder(),
                     contentPadding:
-                        EdgeInsets.symmetric(horizontal: 12, vertical: 14),
-                    // Рост для будущей аналитики, подсказка для пользователя
-                    helperText: 'For analytics',
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 14),
+                    helperText: context.s('onboarding.norms_height_helper'),
                   ),
                   textInputAction: TextInputAction.done,
                 ),
@@ -473,14 +486,14 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
           const SizedBox(height: 16),
 
           // --- Уровень активности ---
-          Text('Activity level', style: textTheme.labelMedium),
+          Text(context.s('onboarding.norms_activity'), style: textTheme.labelMedium),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
             children: [
-              ('Low', 'low'),
-              ('Medium', 'medium'),
-              ('High', 'high'),
+              (context.s('onboarding.activity_low'), 'low'),
+              (context.s('onboarding.activity_medium'), 'medium'),
+              (context.s('onboarding.activity_high'), 'high'),
             ].map((pair) {
               final label = pair.$1;
               final value = pair.$2;
@@ -507,7 +520,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                 ),
                 const SizedBox(width: 6),
                 Text(
-                  'Recommended: $recommended ml',
+                  '${context.s('onboarding.norms_recommended')}: $recommended ml',
                   style: textTheme.bodyMedium?.copyWith(
                     color: colorScheme.primary,
                     fontWeight: FontWeight.w600,
@@ -529,7 +542,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
             onChanged: (v) => setState(() => _waterGoal = v.round()),
           ),
           Text(
-            'Drag to adjust manually.',
+            context.s('onboarding.norms_adjust_hint'),
             style: textTheme.bodySmall,
           ),
         ],

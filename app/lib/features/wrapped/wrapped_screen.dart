@@ -9,6 +9,7 @@ import '../../core/animations/ai_insight_reveal.dart';
 import '../../core/animations/ai_pulse_dot.dart';
 import '../../core/animations/ai_skeleton.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/settings/tone_provider.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
@@ -113,9 +114,9 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
     if (!premium) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: const Text('Premium feature — AI writes your recap'),
+          content: Text(context.s('wrapped.ai_premium_snack')),
           action: SnackBarAction(
-            label: 'Upgrade',
+            label: context.s('wrapped.btn_upgrade'),
             onPressed: () => context.push('/paywall'),
           ),
         ),
@@ -152,10 +153,20 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
   Widget build(BuildContext context) {
     final async = ref.watch(wrappedStatsProvider(_days));
     return Scaffold(
-      appBar: AppBar(title: Text(_days == 7 ? 'This week' : 'This month')),
+      appBar: AppBar(
+        title: Text(
+          _days == 7
+              ? context.s('wrapped.title_week')
+              : context.s('wrapped.title_month'),
+        ),
+      ),
       body: async.when(
         loading: () => const Center(child: CircularProgressIndicator()),
-        error: (e, _) => Center(child: Text('Failed to load: $e')),
+        error: (e, _) => Center(
+          child: Text(
+            context.s('wrapped.err_load').replaceAll('{e}', '$e'),
+          ),
+        ),
         data: (s) => _buildStats(context, s),
       ),
     );
@@ -164,25 +175,39 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
   Widget _buildStats(BuildContext context, WeeklyStats s) {
     final textTheme = Theme.of(context).textTheme;
     final moodStr = s.avgMood == null ? '—' : s.avgMood!.toStringAsFixed(1);
+
+    // Статические метки тайлов — через контекст
     final tiles = <(IconData, String, String)>[
       (
         Icons.check_circle_outline,
-        'Tasks done',
+        context.s('wrapped.stat_tasks_done'),
         '${s.tasksDone} / ${s.tasksTotal}'
       ),
-      (Icons.shield_outlined, 'Main done', '${s.mainDone} / ${s.mainTotal}'),
-      (Icons.sentiment_satisfied_alt, 'Avg mood', '$moodStr / 5'),
-      (Icons.water_drop, 'Water', '${s.waterMl} ml'),
-      (Icons.error_outline, 'Top setback', s.topIssue ?? '—'),
+      (
+        Icons.shield_outlined,
+        context.s('wrapped.stat_main_done'),
+        '${s.mainDone} / ${s.mainTotal}'
+      ),
+      (
+        Icons.sentiment_satisfied_alt,
+        context.s('wrapped.stat_avg_mood'),
+        '$moodStr / 5'
+      ),
+      (Icons.water_drop, context.s('wrapped.stat_water'), '${s.waterMl} ml'),
+      (
+        Icons.error_outline,
+        context.s('wrapped.stat_top_setback'),
+        s.topIssue ?? '—'
+      ),
     ];
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         SegmentedButton<int>(
-          segments: const [
-            ButtonSegment(value: 7, label: Text('Week')),
-            ButtonSegment(value: 30, label: Text('Month')),
+          segments: [
+            ButtonSegment(value: 7, label: Text(context.s('wrapped.seg_week'))),
+            ButtonSegment(value: 30, label: Text(context.s('wrapped.seg_month'))),
           ],
           selected: {_days},
           onSelectionChanged: (sel) => setState(() {
@@ -192,7 +217,7 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
         ),
         const SizedBox(height: 16),
         Text(
-          'Your last $_days days',
+          context.s('wrapped.period_label').replaceAll('{n}', '$_days'),
           style: textTheme.headlineMedium,
         ),
         const SizedBox(height: 16),
@@ -220,7 +245,10 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
                       children: [
                         const Icon(Icons.auto_awesome, size: 18),
                         const SizedBox(width: 8),
-                        Text('In a paragraph', style: textTheme.titleMedium),
+                        Text(
+                          context.s('wrapped.ai_paragraph_title'),
+                          style: textTheme.titleMedium,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 8),
@@ -244,7 +272,10 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
                         color: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(width: 10),
-                      Text('AI is writing…', style: textTheme.bodyMedium),
+                      Text(
+                        context.s('wrapped.ai_writing'),
+                        style: textTheme.bodyMedium,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -256,7 +287,7 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
         else
           OutlinedButton.icon(
             icon: const Icon(Icons.auto_awesome, size: 18),
-            label: const Text('AI recap (Premium)'),
+            label: Text(context.s('wrapped.btn_ai_recap')),
             onPressed: () => _aiRecap(s),
           ),
       ],

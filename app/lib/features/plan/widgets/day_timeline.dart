@@ -9,6 +9,7 @@ import 'package:intl/intl.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import 'plan_providers.dart';
@@ -132,7 +133,7 @@ class _ItemCard extends StatelessWidget {
                   // Обратный отсчёт для экзаменов/дедлайнов
                   if (item.type == 'exam' || item.type == 'deadline')
                     Text(
-                      _countdownLabel(item.scheduledAt),
+                      _countdownLabel(context, item.scheduledAt),
                       style: textTheme.bodySmall?.copyWith(
                         color: themeExt?.ember ?? colorScheme.secondary,
                         fontWeight: FontWeight.w600,
@@ -152,15 +153,16 @@ class _ItemCard extends StatelessWidget {
 }
 
 /// Текст обратного отсчёта до даты (для экзаменов/дедлайнов).
-String _countdownLabel(DateTime at) {
+String _countdownLabel(BuildContext context, DateTime at) {
   final now = DateTime.now();
   final d0 = DateTime(now.year, now.month, now.day);
   final d1 = DateTime(at.year, at.month, at.day);
   final days = d1.difference(d0).inDays;
-  if (days < 0) return 'overdue';
-  if (days == 0) return 'today';
-  if (days == 1) return 'tomorrow';
-  return 'in $days days';
+  if (days < 0) return context.s('plan.countdown_overdue');
+  if (days == 0) return context.s('plan.countdown_today');
+  if (days == 1) return context.s('plan.countdown_tomorrow');
+  // «in N days» — префикс + число + суффикс
+  return '${context.s('plan.countdown_in_days_prefix')}$days${context.s('plan.countdown_in_days_suffix')}';
 }
 
 /// Маленький цветной значок типа задачи.
@@ -175,10 +177,10 @@ class _TypeBadge extends StatelessWidget {
     final themeExt = Theme.of(context).extension<FocusThemeExtension>();
 
     final (label, color) = switch (type) {
-      'exam' => ('exam', themeExt?.ember ?? colorScheme.secondary),
-      'deadline' => ('DL', themeExt?.ember ?? colorScheme.secondary),
-      'event' => ('event', colorScheme.primary.withValues(alpha: 0.8)),
-      _ => ('task', colorScheme.primary.withValues(alpha: 0.5)), // task
+      'exam' => (context.s('plan.type_exam'), themeExt?.ember ?? colorScheme.secondary),
+      'deadline' => (context.s('plan.type_deadline'), themeExt?.ember ?? colorScheme.secondary),
+      'event' => (context.s('plan.type_event'), colorScheme.primary.withValues(alpha: 0.8)),
+      _ => (context.s('plan.type_task'), colorScheme.primary.withValues(alpha: 0.5)),
     };
 
     return Container(
@@ -223,7 +225,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             Text(
-              'Nothing planned for ${DateFormat.MMMd().format(day)}',
+              '${context.s('plan.empty_prefix')}${DateFormat.MMMd().format(day)}',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: themeExt?.textMuted ?? colorScheme.onSurface,
                   ),
@@ -231,7 +233,7 @@ class _EmptyState extends StatelessWidget {
             ),
             const SizedBox(height: 8),
             Text(
-              'Tap + to add something',
+              context.s('plan.empty_hint'),
               style: Theme.of(context).textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),

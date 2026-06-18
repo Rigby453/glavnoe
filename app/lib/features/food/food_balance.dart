@@ -58,21 +58,21 @@ DayBalance evaluateDayBalance(
   final hints = <String>[];
 
   if (calories < calorieGoal * _calLow) {
-    hints.add("You're under your calorie goal — one more proper meal could help.");
+    hints.add('food.hint_cal_low');
   } else if (calories > calorieGoal * _calHigh) {
-    hints.add('A bit over the calorie goal today — tomorrow is a fresh start.');
+    hints.add('food.hint_cal_high');
   }
 
   if (protein < proteinGoalG) {
-    hints.add('Protein is a bit low — eggs, dairy, fish or beans could help.');
+    hints.add('food.hint_protein_low');
   }
 
   if (fiber < fiberGoal) {
-    hints.add('Add some fiber — veggies, fruit or whole grains.');
+    hints.add('food.hint_fiber_low');
   }
 
   if (sugar > sugarCap) {
-    hints.add('Sugar is above the guideline — maybe swap one sweet snack.');
+    hints.add('food.hint_sugar_high');
   }
 
   return DayBalance(

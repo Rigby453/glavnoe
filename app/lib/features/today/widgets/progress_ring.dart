@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 
 import '../../../core/animations/constants.dart';
 import '../../../core/database/database.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class ProgressRing extends StatefulWidget {
   const ProgressRing({
@@ -202,7 +203,7 @@ class _ProgressRingState extends State<ProgressRing>
                     ),
                     if (total > 0)
                       Text(
-                        'main',
+                        context.s('today.ring_main'),
                         style: Theme.of(context).textTheme.bodySmall,
                       ),
                   ],

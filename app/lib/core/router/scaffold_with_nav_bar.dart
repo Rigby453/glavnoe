@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../l10n/app_strings.dart';
 import '../utils/breakpoints.dart';
 
 class ScaffoldWithNavBar extends StatelessWidget {
@@ -40,26 +41,26 @@ class ScaffoldWithNavBar extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: const ProfileAvatarButton(),
             ),
-            destinations: const [
+            destinations: [
               NavigationRailDestination(
-                icon: Icon(Icons.wb_sunny_outlined),
-                selectedIcon: Icon(Icons.wb_sunny),
-                label: Text('Today'),
+                icon: const Icon(Icons.wb_sunny_outlined),
+                selectedIcon: const Icon(Icons.wb_sunny),
+                label: Text(context.s('nav.today')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.calendar_today_outlined),
-                selectedIcon: Icon(Icons.calendar_today),
-                label: Text('Plan'),
+                icon: const Icon(Icons.calendar_today_outlined),
+                selectedIcon: const Icon(Icons.calendar_today),
+                label: Text(context.s('nav.plan')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.favorite_border),
-                selectedIcon: Icon(Icons.favorite),
-                label: Text('Health'),
+                icon: const Icon(Icons.favorite_border),
+                selectedIcon: const Icon(Icons.favorite),
+                label: Text(context.s('nav.health')),
               ),
               NavigationRailDestination(
-                icon: Icon(Icons.menu_book_outlined),
-                selectedIcon: Icon(Icons.menu_book),
-                label: Text('Diary'),
+                icon: const Icon(Icons.menu_book_outlined),
+                selectedIcon: const Icon(Icons.menu_book),
+                label: Text(context.s('nav.diary')),
               ),
             ],
           ),
@@ -77,33 +78,33 @@ class ScaffoldWithNavBar extends StatelessWidget {
         // Profile — leading кнопка, НЕ таб
         leading: const ProfileAvatarButton(),
         // Заголовок меняется в зависимости от активного таба
-        title: Text(_tabTitle(navigationShell.currentIndex)),
+        title: Text(_tabTitle(context, navigationShell.currentIndex)),
         centerTitle: true,
       ),
       body: navigationShell,
       bottomNavigationBar: BottomNavigationBar(
         currentIndex: navigationShell.currentIndex,
         onTap: (index) => _onTabTap(context, index),
-        items: const [
+        items: [
           BottomNavigationBarItem(
-            icon: Icon(Icons.wb_sunny_outlined),
-            activeIcon: Icon(Icons.wb_sunny),
-            label: 'Today',
+            icon: const Icon(Icons.wb_sunny_outlined),
+            activeIcon: const Icon(Icons.wb_sunny),
+            label: context.s('nav.today'),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.calendar_today_outlined),
-            activeIcon: Icon(Icons.calendar_today),
-            label: 'Plan',
+            icon: const Icon(Icons.calendar_today_outlined),
+            activeIcon: const Icon(Icons.calendar_today),
+            label: context.s('nav.plan'),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.favorite_border),
-            activeIcon: Icon(Icons.favorite),
-            label: 'Health',
+            icon: const Icon(Icons.favorite_border),
+            activeIcon: const Icon(Icons.favorite),
+            label: context.s('nav.health'),
           ),
           BottomNavigationBarItem(
-            icon: Icon(Icons.menu_book_outlined),
-            activeIcon: Icon(Icons.menu_book),
-            label: 'Diary',
+            icon: const Icon(Icons.menu_book_outlined),
+            activeIcon: const Icon(Icons.menu_book),
+            label: context.s('nav.diary'),
           ),
         ],
       ),
@@ -120,12 +121,12 @@ class ScaffoldWithNavBar extends StatelessWidget {
   }
 
   /// Заголовок AppBar в зависимости от активного таба
-  String _tabTitle(int index) => switch (index) {
-        0 => 'Today',
-        1 => 'Plan',
-        2 => 'Health',
-        3 => 'Diary',
-        _ => 'Kaizen',
+  String _tabTitle(BuildContext context, int index) => switch (index) {
+        0 => context.s('nav.today'),
+        1 => context.s('nav.plan'),
+        2 => context.s('nav.health'),
+        3 => context.s('nav.diary'),
+        _ => context.s('nav.fallback'),
       };
 }
 

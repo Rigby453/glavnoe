@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 
 // ---------------------------------------------------------------------------
 // Провайдеры (используются и редактором тренировки)
@@ -45,7 +46,10 @@ class WorkoutsScreen extends ConsumerWidget {
   const WorkoutsScreen({super.key});
 
   Future<void> _newWorkout(BuildContext context, WidgetRef ref) async {
-    final name = await _promptWorkoutName(context, title: 'New workout');
+    final name = await _promptWorkoutName(
+      context,
+      title: context.s('workout.new_workout'),
+    );
     if (name == null || name.isEmpty) return;
     final id = await ref.read(workoutsDaoProvider).createWorkout(name);
     if (context.mounted) context.push('/workouts/$id');
@@ -59,16 +63,16 @@ class WorkoutsScreen extends ConsumerWidget {
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Delete "${workout.name}"?'),
-        content: const Text('Its exercises will be removed too.'),
+        title: Text('"${workout.name}" — ${ctx.s('workout.delete_title')}'),
+        content: Text(ctx.s('workout.delete_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(ctx.s('btn.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: Text(ctx.s('btn.delete')),
           ),
         ],
       ),
@@ -83,10 +87,10 @@ class WorkoutsScreen extends ConsumerWidget {
     final workouts = ref.watch(workoutsListProvider).valueOrNull ?? const [];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Workouts')),
+      appBar: AppBar(title: Text(context.s('workout.title'))),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
-        label: const Text('New workout'),
+        label: Text(context.s('workout.new_workout')),
         onPressed: () => _newWorkout(context, ref),
       ),
       body: workouts.isEmpty
@@ -140,7 +144,7 @@ class _HistorySection extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text('History', style: textTheme.titleMedium),
+          Text(context.s('workout.history'), style: textTheme.titleMedium),
           const SizedBox(height: 8),
           ...sessions.take(10).map(
                 (s) => Padding(
@@ -189,7 +193,7 @@ class _WorkoutTile extends ConsumerWidget {
       title: Text(workout.name),
       subtitle: Text(subtitle),
       trailing: IconButton(
-        tooltip: 'Delete',
+        tooltip: context.s('btn.delete'),
         icon: const Icon(Icons.delete_outline),
         onPressed: onDelete,
       ),
@@ -211,7 +215,7 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.fitness_center, size: 56, color: muted),
           const SizedBox(height: 16),
           Text(
-            'No workouts yet — create one\nand add exercises to it',
+            context.s('workout.empty_state'),
             textAlign: TextAlign.center,
             style: Theme.of(context)
                 .textTheme
@@ -242,17 +246,17 @@ Future<String?> _promptWorkoutName(
         controller: controller,
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(hintText: 'Workout name'),
+        decoration: InputDecoration(hintText: ctx.s('workout.name_hint')),
         onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('Cancel'),
+          child: Text(ctx.s('btn.cancel')),
         ),
         FilledButton(
           onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-          child: const Text('Save'),
+          child: Text(ctx.s('btn.save')),
         ),
       ],
     ),

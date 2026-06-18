@@ -6,6 +6,8 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 
+import '../../core/l10n/app_strings.dart';
+
 class _Preset {
   const _Preset(this.label, this.workMin, this.breakMin);
   final String label;
@@ -101,7 +103,7 @@ class _FocusScreenState extends State<FocusScreen> {
     final idle = _phase == _Phase.idle;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Focus')),
+      appBar: AppBar(title: Text(context.s('focus.title'))),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: idle ? _buildIdle(textTheme) : _buildRunning(textTheme, colorScheme),
@@ -113,10 +115,9 @@ class _FocusScreenState extends State<FocusScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text('Pick a session', style: textTheme.headlineSmall),
+        Text(context.s('focus.pick_session'), style: textTheme.headlineSmall),
         const SizedBox(height: 4),
-        Text('Work / break minutes. 67 / 15 is our signature.',
-            style: textTheme.bodySmall),
+        Text(context.s('focus.session_hint'), style: textTheme.bodySmall),
         const SizedBox(height: 16),
         Wrap(
           spacing: 8,
@@ -132,13 +133,17 @@ class _FocusScreenState extends State<FocusScreen> {
         const Spacer(),
         if (_completedFocusBlocks > 0)
           Center(
-            child: Text('Focus blocks today: $_completedFocusBlocks',
-                style: textTheme.bodyMedium),
+            child: Text(
+              context
+                  .s('focus.blocks_today')
+                  .replaceAll('{n}', '$_completedFocusBlocks'),
+              style: textTheme.bodyMedium,
+            ),
           ),
         const SizedBox(height: 12),
         FilledButton.icon(
           icon: const Icon(Icons.play_arrow),
-          label: const Text('Start'),
+          label: Text(context.s('focus.btn_start')),
           onPressed: _start,
         ),
       ],
@@ -151,7 +156,7 @@ class _FocusScreenState extends State<FocusScreen> {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Text(
-          isWork ? 'Focus' : 'Break',
+          isWork ? context.s('focus.phase_work') : context.s('focus.phase_break'),
           style: textTheme.titleLarge?.copyWith(
             color: isWork ? colorScheme.primary : colorScheme.secondary,
           ),
@@ -171,13 +176,17 @@ class _FocusScreenState extends State<FocusScreen> {
           children: [
             OutlinedButton.icon(
               icon: Icon(_running ? Icons.pause : Icons.play_arrow),
-              label: Text(_running ? 'Pause' : 'Resume'),
+              label: Text(
+                _running
+                    ? context.s('focus.btn_pause')
+                    : context.s('focus.btn_resume'),
+              ),
               onPressed: _togglePause,
             ),
             const SizedBox(width: 12),
             OutlinedButton.icon(
               icon: const Icon(Icons.stop),
-              label: const Text('Stop'),
+              label: Text(context.s('focus.btn_stop')),
               onPressed: _stop,
             ),
           ],

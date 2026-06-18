@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/utils/breakpoints.dart';
 import '../import/import_sheet.dart';
 import '../today/widgets/add_task_sheet.dart';
@@ -32,8 +33,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final yesterday = DateTime(now.year, now.month, now.day - 1);
-    if (date == today) return 'Today';
-    if (date == yesterday) return 'Yesterday';
+    if (date == today) return context.s('plan.today');
+    if (date == yesterday) return context.s('plan.yesterday');
     // Год показываем только если не текущий
     if (date.year == now.year) return DateFormat('d MMM').format(date);
     return DateFormat('d MMM y').format(date);
@@ -121,10 +122,10 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               children: [
                 // Переключатель вида
                 SegmentedButton<PlanView>(
-                  segments: const [
-                    ButtonSegment(value: PlanView.day, label: Text('Day')),
-                    ButtonSegment(value: PlanView.week, label: Text('Week')),
-                    ButtonSegment(value: PlanView.month, label: Text('Month')),
+                  segments: [
+                    ButtonSegment(value: PlanView.day, label: Text(context.s('plan.view_day'))),
+                    ButtonSegment(value: PlanView.week, label: Text(context.s('plan.view_week'))),
+                    ButtonSegment(value: PlanView.month, label: Text(context.s('plan.view_month'))),
                   ],
                   selected: {view},
                   showSelectedIcon: false,
@@ -144,7 +145,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                             ref.read(selectedDayProvider.notifier).state =
                                 today;
                           },
-                          child: const Text('Today'),
+                          child: Text(ctx.s('plan.today')),
                         );
                       }
                       return const SizedBox.shrink();
@@ -194,7 +195,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                               ? Icons.search_off
                               : Icons.search,
                         ),
-                        tooltip: 'Search tasks',
+                        tooltip: context.s('plan.search_tooltip'),
                         onPressed: () {
                           final notifier =
                               ref.read(planSearchVisibleProvider.notifier);
@@ -206,7 +207,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                         },
                       ),
                       const SizedBox(width: 4),
-                      const Text('Search'),
+                      Text(context.s('plan.search_label')),
                     ],
                   ),
                 if (view == PlanView.day && searchVisible)
@@ -221,12 +222,12 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                 // Дополнительные действия
                 IconButton(
                   icon: const Icon(Icons.flag_outlined),
-                  tooltip: 'Long-term goals',
+                  tooltip: context.s('plan.goals_tooltip'),
                   onPressed: () => context.push('/goals'),
                 ),
                 TextButton.icon(
                   icon: const Icon(Icons.upload_file_outlined, size: 18),
-                  label: const Text('Import'),
+                  label: Text(context.s('plan.import_label')),
                   onPressed: () =>
                       showImportSheet(context, day: selectedDay),
                 ),
@@ -263,10 +264,10 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
               child: SegmentedButton<PlanView>(
-                segments: const [
-                  ButtonSegment(value: PlanView.day, label: Text('Day')),
-                  ButtonSegment(value: PlanView.week, label: Text('Week')),
-                  ButtonSegment(value: PlanView.month, label: Text('Month')),
+                segments: [
+                  ButtonSegment(value: PlanView.day, label: Text(context.s('plan.view_day'))),
+                  ButtonSegment(value: PlanView.week, label: Text(context.s('plan.view_week'))),
+                  ButtonSegment(value: PlanView.month, label: Text(context.s('plan.view_month'))),
                 ],
                 selected: {view},
                 showSelectedIcon: false,
@@ -287,7 +288,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                     onPressed: () {
                       ref.read(selectedDayProvider.notifier).state = today;
                     },
-                    child: const Text('Today'),
+                    child: Text(ctx.s('plan.today')),
                   );
                 }
                 return const SizedBox.shrink();
@@ -327,7 +328,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                   icon: Icon(
                     searchVisible ? Icons.search_off : Icons.search,
                   ),
-                  tooltip: 'Search tasks',
+                  tooltip: context.s('plan.search_tooltip'),
                   onPressed: () {
                     final notifier =
                         ref.read(planSearchVisibleProvider.notifier);
@@ -340,12 +341,12 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                 ),
               IconButton(
                 icon: const Icon(Icons.flag_outlined),
-                tooltip: 'Long-term goals',
+                tooltip: context.s('plan.goals_tooltip'),
                 onPressed: () => context.push('/goals'),
               ),
               TextButton.icon(
                 icon: const Icon(Icons.upload_file_outlined, size: 18),
-                label: const Text('Import'),
+                label: Text(context.s('plan.import_label')),
                 onPressed: () => showImportSheet(context, day: selectedDay),
               ),
             ],
@@ -427,7 +428,7 @@ class _SearchFieldState extends State<_SearchField> {
       controller: _controller,
       autofocus: true,
       decoration: InputDecoration(
-        hintText: 'Search tasks…',
+        hintText: context.s('plan.search_hint'),
         prefixIcon: const Icon(Icons.search, size: 20),
         suffixIcon: _controller.text.isNotEmpty
             ? IconButton(

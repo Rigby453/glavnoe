@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/animations/app_sheet.dart';
 import '../../core/database/database.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/database/database_providers.dart';
 import '../../services/api/api_client.dart';
 import 'food_nutrition.dart';
@@ -32,7 +33,7 @@ class RecipeEditorScreen extends ConsumerWidget {
   ) async {
     final name = await promptRecipeName(
       context,
-      title: 'Rename recipe',
+      title: context.s('food.rename_recipe'),
       initial: recipe.name,
     );
     if (name != null && name.isNotEmpty && name != recipe.name) {
@@ -98,6 +99,7 @@ class RecipeEditorScreen extends ConsumerWidget {
         );
     if (context.mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
+        // Строка интерполирована — оставляем как есть (имя + приём пищи динамические)
         SnackBar(content: Text('"${recipe.name}" logged as ${result.meal}')),
       );
       Navigator.of(context).pop();
@@ -129,7 +131,7 @@ class RecipeEditorScreen extends ConsumerWidget {
         title: Text(recipe.name),
         actions: [
           IconButton(
-            tooltip: 'Rename',
+            tooltip: context.s('food.rename_tooltip'),
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => _rename(context, ref, recipe),
           ),
@@ -189,7 +191,7 @@ class RecipeEditorScreen extends ConsumerWidget {
                       Expanded(
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.add, size: 18),
-                          label: const Text('Add ingredient'),
+                          label: Text(context.s('food.add_ingredient')),
                           onPressed: () => _addIngredient(context, ref),
                         ),
                       ),
@@ -197,7 +199,7 @@ class RecipeEditorScreen extends ConsumerWidget {
                       Expanded(
                         child: FilledButton.icon(
                           icon: const Icon(Icons.restaurant, size: 18),
-                          label: const Text('Log this recipe'),
+                          label: Text(context.s('food.log_recipe_btn')),
                           onPressed: ingredients.isEmpty
                               ? null
                               : () => _logRecipe(
@@ -224,7 +226,7 @@ class RecipeEditorScreen extends ConsumerWidget {
           Icon(Icons.egg_alt_outlined, size: 56, color: muted),
           const SizedBox(height: 16),
           Text(
-            'No ingredients yet —\nadd products from the food base',
+            context.s('food.ingredients_empty'),
             textAlign: TextAlign.center,
             style:
                 Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
@@ -364,7 +366,7 @@ class _IngredientSearchSheetState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Add ingredient', style: textTheme.headlineSmall),
+            Text(context.s('food.add_ingredient'), style: textTheme.headlineSmall),
             const SizedBox(height: 12),
             TextField(
               controller: _controller,
@@ -372,7 +374,7 @@ class _IngredientSearchSheetState
               textInputAction: TextInputAction.search,
               onSubmitted: (_) => _search(),
               decoration: InputDecoration(
-                hintText: 'Search a product…',
+                hintText: context.s('food.search_hint'),
                 suffixIcon: IconButton(
                   icon: const Icon(Icons.search),
                   onPressed: _search,
@@ -396,7 +398,7 @@ class _IngredientSearchSheetState
                 final kcal = (per?['calories'] as num?)?.round();
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: Text((p['name'] as String?) ?? 'Unknown'),
+                  title: Text((p['name'] as String?) ?? context.s('food.unknown_product')),
                   subtitle: Text([
                     if (p['brand'] != null) p['brand'] as String,
                     if (kcal != null) '$kcal kcal / 100g',
@@ -431,12 +433,12 @@ Future<double?> _promptGrams(
         controller: controller,
         autofocus: true,
         keyboardType: TextInputType.number,
-        decoration: const InputDecoration(labelText: 'Grams'),
+        decoration: InputDecoration(labelText: ctx.s('food.grams_label')),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('Cancel'),
+          child: Text(ctx.s('btn.cancel')),
         ),
         FilledButton(
           onPressed: () {
@@ -444,7 +446,7 @@ Future<double?> _promptGrams(
             if (grams == null || grams <= 0) return;
             Navigator.of(ctx).pop(grams);
           },
-          child: const Text('OK'),
+          child: Text(ctx.s('food.ok_btn')),
         ),
       ],
     ),
@@ -490,14 +492,15 @@ class _LogRecipeDialogState extends State<_LogRecipeDialog> {
           TextField(
             controller: _grams,
             keyboardType: TextInputType.number,
-            decoration: const InputDecoration(labelText: 'Grams eaten'),
+            decoration: InputDecoration(labelText: context.s('food.grams_eaten_label')),
           ),
           const SizedBox(height: 12),
           Wrap(
             spacing: 8,
             children: _meals.map((m) {
+              // Локализуем название приёма пищи через ключ food.meal_*
               return ChoiceChip(
-                label: Text(m),
+                label: Text(context.s('food.meal_$m')),
                 selected: _meal == m,
                 onSelected: (_) => setState(() => _meal = m),
               );
@@ -508,7 +511,7 @@ class _LogRecipeDialogState extends State<_LogRecipeDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(context.s('btn.cancel')),
         ),
         FilledButton(
           onPressed: () {
@@ -516,7 +519,7 @@ class _LogRecipeDialogState extends State<_LogRecipeDialog> {
             if (grams == null || grams <= 0) return;
             Navigator.of(context).pop((grams: grams, meal: _meal));
           },
-          child: const Text('Log'),
+          child: Text(context.s('food.log_btn')),
         ),
       ],
     );

@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import 'workouts_screen.dart'
     show promptWorkoutName, workoutExercisesProvider, workoutProvider;
 
@@ -27,7 +28,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
   ) async {
     final name = await promptWorkoutName(
       context,
-      title: 'Rename workout',
+      title: context.s('workout.rename_title'),
       initial: workout.name,
     );
     if (name != null && name.isNotEmpty && name != workout.name) {
@@ -38,7 +39,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
   Future<void> _addExercise(BuildContext context, WidgetRef ref) async {
     final result = await showDialog<_ExerciseFormResult>(
       context: context,
-      builder: (_) => const _ExerciseDialog(title: 'Add exercise'),
+      builder: (ctx) => _ExerciseDialog(title: ctx.s('workout.add_exercise_title')),
     );
     if (result == null) return;
     await ref.read(workoutsDaoProvider).addExercise(
@@ -59,8 +60,8 @@ class WorkoutEditorScreen extends ConsumerWidget {
   ) async {
     final result = await showDialog<_ExerciseFormResult>(
       context: context,
-      builder: (_) => _ExerciseDialog(
-        title: 'Edit exercise',
+      builder: (ctx) => _ExerciseDialog(
+        title: ctx.s('workout.edit_exercise_title'),
         initial: ex,
       ),
     );
@@ -99,7 +100,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
         title: Text(workout.name),
         actions: [
           IconButton(
-            tooltip: 'Rename',
+            tooltip: context.s('workout.rename'),
             icon: const Icon(Icons.edit_outlined),
             onPressed: () => _rename(context, ref, workout),
           ),
@@ -131,7 +132,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
                             .removeExercise(ex.id),
                         child: ListTile(
                           title: Text(ex.name),
-                          subtitle: Text(_exerciseSubtitle(ex)),
+                          subtitle: Text(_exerciseSubtitle(context, ex)),
                           onTap: () => _editExercise(context, ref, ex),
                         ),
                       );
@@ -147,7 +148,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
                   Expanded(
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.add, size: 18),
-                      label: const Text('Add exercise'),
+                      label: Text(context.s('workout.add_exercise')),
                       onPressed: () => _addExercise(context, ref),
                     ),
                   ),
@@ -155,7 +156,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
                   Expanded(
                     child: FilledButton.icon(
                       icon: const Icon(Icons.play_arrow, size: 18),
-                      label: const Text('Start workout'),
+                      label: Text(context.s('workout.start_workout')),
                       onPressed: exercises.isEmpty
                           ? null
                           : () => context.push('/workouts/$workoutId/train'),
@@ -179,7 +180,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
           Icon(Icons.fitness_center, size: 56, color: muted),
           const SizedBox(height: 16),
           Text(
-            'No exercises yet —\ntap "Add exercise" to get started',
+            context.s('workout.empty_exercises'),
             textAlign: TextAlign.center,
             style:
                 Theme.of(context).textTheme.bodyMedium?.copyWith(color: muted),
@@ -194,7 +195,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
 // Subtitle: «3×10 · 40 kg · rest 60s»
 // ---------------------------------------------------------------------------
 
-String _exerciseSubtitle(WorkoutExercisesTableData ex) {
+String _exerciseSubtitle(BuildContext context, WorkoutExercisesTableData ex) {
   final parts = <String>[];
   parts.add('${ex.sets}×${ex.reps}'); // sets×reps (× = U+00D7)
   if (ex.weightKg != null) {
@@ -204,7 +205,8 @@ String _exerciseSubtitle(WorkoutExercisesTableData ex) {
         w == w.truncateToDouble() ? '${w.round()} kg' : '$w kg';
     parts.add(formatted);
   }
-  parts.add('rest ${ex.restSeconds}s');
+  // «отдых Ns»
+  parts.add('${context.s('workout.rest_phase')} ${ex.restSeconds}s');
   return parts.join(' · ');
 }
 
@@ -314,7 +316,9 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
               controller: _name,
               autofocus: true,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(labelText: 'Exercise name'),
+              decoration: InputDecoration(
+                labelText: context.s('workout.exercise_name'),
+              ),
               onSubmitted: (_) => _submit(),
             ),
             const SizedBox(height: 12),
@@ -325,7 +329,9 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
                     controller: _sets,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(labelText: 'Sets'),
+                    decoration: InputDecoration(
+                      labelText: context.s('workout.sets'),
+                    ),
                   ),
                 ),
                 const SizedBox(width: 12),
@@ -334,7 +340,9 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
                     controller: _reps,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(labelText: 'Reps'),
+                    decoration: InputDecoration(
+                      labelText: context.s('workout.reps'),
+                    ),
                   ),
                 ),
               ],
@@ -347,9 +355,9 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
                     controller: _weight,
                     keyboardType: const TextInputType.numberWithOptions(
                         decimal: true),
-                    decoration: const InputDecoration(
-                      labelText: 'Weight (kg)',
-                      hintText: 'optional',
+                    decoration: InputDecoration(
+                      labelText: context.s('workout.weight_kg'),
+                      hintText: context.s('workout.optional'),
                     ),
                   ),
                 ),
@@ -359,7 +367,9 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
                     controller: _rest,
                     keyboardType: TextInputType.number,
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                    decoration: const InputDecoration(labelText: 'Rest (s)'),
+                    decoration: InputDecoration(
+                      labelText: context.s('workout.rest_s'),
+                    ),
                   ),
                 ),
               ],
@@ -368,9 +378,9 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
             TextField(
               controller: _technique,
               textCapitalization: TextCapitalization.sentences,
-              decoration: const InputDecoration(
-                labelText: 'Technique tip',
-                hintText: 'optional',
+              decoration: InputDecoration(
+                labelText: context.s('workout.technique_tip'),
+                hintText: context.s('workout.optional'),
               ),
               maxLines: 2,
             ),
@@ -380,11 +390,11 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(context.s('btn.cancel')),
         ),
         FilledButton(
           onPressed: _submit,
-          child: const Text('Save'),
+          child: Text(context.s('btn.save')),
         ),
       ],
     );

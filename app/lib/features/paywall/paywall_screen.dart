@@ -8,36 +8,38 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../services/api/api_client.dart';
 import '../../services/purchases/purchase_service.dart';
 import '../auth/auth_controller.dart';
 import '../profile/profile_screen.dart' show currentUserProvider;
 
-const List<({IconData icon, String title, String subtitle})> _benefits = [
+// Иконки остаются статичными; тексты локализуются через context.s().
+const List<({IconData icon, String titleKey, String subtitleKey})> _benefits = [
   (
     icon: Icons.auto_awesome,
-    title: 'Smarter plans',
-    subtitle: 'AI rebuilds your day around what matters — morning & evening.',
+    titleKey: 'paywall.benefit_smarter_title',
+    subtitleKey: 'paywall.benefit_smarter_subtitle',
   ),
   (
     icon: Icons.bolt,
-    title: 'Tone-aware nudges',
-    subtitle: 'Gentle or harsh — AI messages that actually land.',
+    titleKey: 'paywall.benefit_tone_title',
+    subtitleKey: 'paywall.benefit_tone_subtitle',
   ),
   (
     icon: Icons.insights,
-    title: 'Deeper diary insights',
-    subtitle: 'Understand why plans slip, beyond the free weekly summary.',
+    titleKey: 'paywall.benefit_diary_title',
+    subtitleKey: 'paywall.benefit_diary_subtitle',
   ),
   (
     icon: Icons.photo_camera_outlined,
-    title: 'Photo schedule import',
-    subtitle: 'Snap your timetable — AI turns it into tasks.',
+    titleKey: 'paywall.benefit_photo_title',
+    subtitleKey: 'paywall.benefit_photo_subtitle',
   ),
   (
     icon: Icons.block,
-    title: 'No ads',
-    subtitle: 'Calm, focused, ad-free.',
+    titleKey: 'paywall.benefit_noads_title',
+    subtitleKey: 'paywall.benefit_noads_subtitle',
   ),
 ];
 
@@ -46,9 +48,10 @@ const List<({IconData icon, String title, String subtitle})> _benefits = [
 void showPremiumUpsell(BuildContext context, String feature) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
+      // Интерполяция с $feature — строка остаётся на EN; переведены только константы.
       content: Text('Premium feature — upgrade for $feature'),
       action: SnackBarAction(
-        label: 'Upgrade',
+        label: context.s('paywall.upgrade'),
         onPressed: () => context.push('/paywall'),
       ),
     ),
@@ -77,16 +80,14 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           ref.invalidate(isPremiumProvider);
           ref.invalidate(currentUserProvider);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Welcome to Premium!')),
+            SnackBar(content: Text(context.s('paywall.welcome_premium'))),
           );
           context.pop();
 
         case PurchaseOutcome.unavailable:
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Subscriptions launch soon — payments are coming in the next update.',
-              ),
+            SnackBar(
+              content: Text(context.s('paywall.coming_soon')),
             ),
           );
 
@@ -95,8 +96,8 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           final isAuthed =
               ref.read(authControllerProvider.notifier).isAuthenticated;
           final message = isAuthed
-              ? 'Something went wrong. Please try again.'
-              : 'Sign in first to subscribe.';
+              ? context.s('paywall.error_generic')
+              : context.s('paywall.sign_in_to_subscribe');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(message)),
           );
@@ -164,22 +165,20 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           ref.invalidate(isPremiumProvider);
           ref.invalidate(currentUserProvider);
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Purchases restored!')),
+            SnackBar(content: Text(context.s('paywall.restored'))),
           );
           context.pop();
 
         case PurchaseOutcome.unavailable:
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text(
-                'Nothing to restore yet — payments are coming soon.',
-              ),
+            SnackBar(
+              content: Text(context.s('paywall.nothing_to_restore')),
             ),
           );
 
         case PurchaseOutcome.error:
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not restore purchases.')),
+            SnackBar(content: Text(context.s('paywall.restore_error'))),
           );
 
         case PurchaseOutcome.cancelled:
@@ -197,15 +196,15 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
     final isAuthed = ref.read(authControllerProvider.notifier).isAuthenticated;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Kaizen Premium')),
+      appBar: AppBar(title: Text(context.s('paywall.title'))),
       body: SafeArea(
         child: ListView(
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
           children: [
-            Text('Unlock the AI', style: textTheme.headlineSmall),
+            Text(context.s('paywall.headline'), style: textTheme.headlineSmall),
             const SizedBox(height: 4),
             Text(
-              'The important stuff, planned for you.',
+              context.s('paywall.subheadline'),
               style: textTheme.bodyMedium,
             ),
             const SizedBox(height: 24),
@@ -221,9 +220,9 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(b.title, style: textTheme.titleSmall),
+                          Text(context.s(b.titleKey), style: textTheme.titleSmall),
                           const SizedBox(height: 2),
-                          Text(b.subtitle, style: textTheme.bodySmall),
+                          Text(context.s(b.subtitleKey), style: textTheme.bodySmall),
                         ],
                       ),
                     ),
@@ -242,7 +241,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
                   textBaseline: TextBaseline.alphabetic,
                   children: [
                     Text('\$10', style: textTheme.headlineMedium),
-                    Text(' / month', style: textTheme.bodyMedium),
+                    Text(context.s('paywall.per_month'), style: textTheme.bodyMedium),
                   ],
                 ),
               ),
@@ -252,7 +251,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(
-                  'Sign in to subscribe and sync premium across devices.',
+                  context.s('paywall.sign_in_hint'),
                   style: textTheme.bodySmall,
                   textAlign: TextAlign.center,
                 ),
@@ -261,19 +260,18 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _working ? null : _subscribe,
-                child: const Text('Subscribe'),
+                child: Text(context.s('paywall.subscribe')),
               ),
             ),
             const SizedBox(height: 8),
             // Восстановление покупок — понадобится после интеграции RevenueCat.
             TextButton(
               onPressed: _working ? null : _restorePurchases,
-              child: const Text('Restore purchases'),
+              child: Text(context.s('paywall.restore')),
             ),
             const SizedBox(height: 12),
             Text(
-              'Cancel anytime. Free tier keeps tasks, streaks, rule-based plans, '
-              'water & diary.',
+              context.s('paywall.cancel_hint'),
               style: textTheme.bodySmall,
               textAlign: TextAlign.center,
             ),

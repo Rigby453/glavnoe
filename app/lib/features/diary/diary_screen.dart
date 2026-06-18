@@ -10,6 +10,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/animations/ai_pulse_dot.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/utils/breakpoints.dart';
 import '../../services/api/api_client.dart';
@@ -18,13 +19,13 @@ import '../health/health_screen.dart';
 import '../paywall/paywall_screen.dart';
 import 'diary_insight.dart';
 
-/// Метки тегов "What went wrong?" — ключ (хранится) → подпись (показывается)
-const Map<String, String> _issueLabels = {
-  'social_media': 'Social media',
-  'went_out': 'Went out',
-  'was_tired': 'Was tired',
-  'sick': 'Sick',
-  'other': 'Other',
+/// Ключи тегов "What went wrong?" — внутренний ключ → ключ локализации.
+const Map<String, String> _issueL10nKeys = {
+  'social_media': 'diary.issue_social_media',
+  'went_out': 'diary.issue_went_out',
+  'was_tired': 'diary.issue_was_tired',
+  'sick': 'diary.issue_sick',
+  'other': 'diary.issue_other',
 };
 
 const List<String> _moodEmojis = ['😞', '😕', '😐', '🙂', '😄'];
@@ -73,7 +74,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
     final tagsPart = note.substring(idx + _issuesPrefix.length);
     for (final raw in tagsPart.split(',')) {
       final key = raw.trim();
-      if (_issueLabels.containsKey(key)) _issues.add(key);
+      if (_issueL10nKeys.containsKey(key)) _issues.add(key);
     }
   }
 
@@ -101,7 +102,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Day saved')),
+        SnackBar(content: Text(context.s('diary.day_saved'))),
       );
     }
   }
@@ -122,12 +123,12 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
       await showDialog<void>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Insight'),
+          title: Text(ctx.s('diary.insight_dialog_title')),
           content: Text(insight),
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Close'),
+              child: Text(ctx.s('btn.close')),
             ),
           ],
         ),
@@ -213,20 +214,20 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
     final colorScheme = Theme.of(context).colorScheme;
 
     return [
-      Text('How was today?', style: textTheme.headlineSmall),
+      Text(context.s('diary.title'), style: textTheme.headlineSmall),
       const SizedBox(height: 16),
       Align(
         alignment: Alignment.centerRight,
         child: TextButton.icon(
           icon: const Icon(Icons.history),
-          label: const Text('View History'),
+          label: Text(context.s('diary.history')),
           onPressed: () => context.push('/diary-history'),
         ),
       ),
       const SizedBox(height: 8),
 
       // Настроение 1..5
-      Text('Mood', style: textTheme.labelMedium),
+      Text(context.s('diary.mood'), style: textTheme.labelMedium),
       const SizedBox(height: 8),
       Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -260,28 +261,28 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
       const SizedBox(height: 24),
 
       // Свободная заметка
-      Text('Anything interesting today?', style: textTheme.labelMedium),
+      Text(context.s('diary.note_prompt'), style: textTheme.labelMedium),
       const SizedBox(height: 8),
       TextField(
         controller: _noteController,
         maxLines: 4,
         textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(
-          hintText: 'Write a few words…',
+        decoration: InputDecoration(
+          hintText: context.s('diary.note_hint'),
         ),
       ),
       const SizedBox(height: 24),
 
       // What went wrong — мульти-выбор
-      Text('What went wrong?', style: textTheme.labelMedium),
+      Text(context.s('diary.what_went_wrong'), style: textTheme.labelMedium),
       const SizedBox(height: 8),
       Wrap(
         spacing: 8,
         runSpacing: 8,
-        children: _issueLabels.entries.map((e) {
+        children: _issueL10nKeys.entries.map((e) {
           final selected = _issues.contains(e.key);
           return FilterChip(
-            label: Text(e.value),
+            label: Text(context.s(e.value)),
             selected: selected,
             onSelected: (on) => setState(() {
               if (on) {
@@ -300,7 +301,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
         width: double.infinity,
         child: FilledButton(
           onPressed: _save,
-          child: const Text('Save Day'),
+          child: Text(context.s('diary.save_day_button')),
         ),
       ),
       const SizedBox(height: 8),
@@ -311,7 +312,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
           icon: _insightLoading
               ? const AiPulseDot(size: 10)
               : const Icon(Icons.auto_awesome, size: 18),
-          label: const Text('Get insight (Premium)'),
+          label: Text(context.s('diary.get_insight_button')),
           onPressed: _insightLoading ? null : _getInsight,
         ),
       ),
@@ -320,7 +321,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
         width: double.infinity,
         child: OutlinedButton.icon(
           icon: const Icon(Icons.calendar_view_week, size: 18),
-          label: const Text('This week'),
+          label: Text(context.s('diary.this_week_button')),
           onPressed: () => context.push('/wrapped'),
         ),
       ),
@@ -362,16 +363,16 @@ class _PlanVsFactCard extends ConsumerWidget {
                 Icon(Icons.fact_check_outlined,
                     color: colorScheme.primary, size: 18),
                 const SizedBox(width: 8),
-                Text('Today: plan vs fact', style: textTheme.titleMedium),
+                Text(context.s('diary.pvf_title'), style: textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 12),
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _Stat(label: 'Planned', value: pvf.planned),
-                _Stat(label: 'Done', value: pvf.done),
-                _Stat(label: 'Skipped', value: pvf.skipped),
+                _Stat(label: context.s('diary.pvf_planned'), value: pvf.planned),
+                _Stat(label: context.s('diary.pvf_done'), value: pvf.done),
+                _Stat(label: context.s('diary.pvf_skipped'), value: pvf.skipped),
               ],
             ),
           ],
@@ -424,7 +425,7 @@ class _QuickInsightCard extends ConsumerWidget {
               children: [
                 Icon(Icons.insights, color: colorScheme.primary, size: 18),
                 const SizedBox(width: 8),
-                Text('This week', style: textTheme.titleMedium),
+                Text(context.s('diary.this_week_card_title'), style: textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 8),
@@ -507,7 +508,7 @@ class _LifeInsightsCard extends ConsumerWidget {
               children: [
                 Icon(Icons.insights, color: colorScheme.primary, size: 20),
                 const SizedBox(width: 8),
-                Text('Life insights', style: textTheme.titleMedium),
+                Text(context.s('diary.life_insights_title'), style: textTheme.titleMedium),
               ],
             ),
             const SizedBox(height: 12),

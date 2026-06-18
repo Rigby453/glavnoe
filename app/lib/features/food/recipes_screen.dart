@@ -8,6 +8,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import 'recipe_nutrition.dart';
 
 // ---------------------------------------------------------------------------
@@ -40,7 +41,7 @@ class RecipesScreen extends ConsumerWidget {
   const RecipesScreen({super.key});
 
   Future<void> _newRecipe(BuildContext context, WidgetRef ref) async {
-    final name = await _promptName(context, title: 'New recipe');
+    final name = await _promptName(context, title: context.s('food.new_recipe'));
     if (name == null || name.isEmpty) return;
     final id = await ref.read(recipesDaoProvider).createRecipe(name);
     if (context.mounted) context.push('/recipes/$id');
@@ -55,15 +56,15 @@ class RecipesScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Delete "${recipe.name}"?'),
-        content: const Text('Its ingredients will be removed too.'),
+        content: Text(ctx.s('food.delete_recipe_body')),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(ctx.s('btn.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: Text(ctx.s('btn.delete')),
           ),
         ],
       ),
@@ -78,10 +79,10 @@ class RecipesScreen extends ConsumerWidget {
     final recipes = ref.watch(recipesListProvider).valueOrNull ?? const [];
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My recipes')),
+      appBar: AppBar(title: Text(context.s('food.my_recipes_title'))),
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
-        label: const Text('New recipe'),
+        label: Text(context.s('food.new_recipe')),
         onPressed: () => _newRecipe(context, ref),
       ),
       body: recipes.isEmpty
@@ -127,7 +128,7 @@ class _RecipeTile extends ConsumerWidget {
       title: Text(recipe.name),
       subtitle: Text(subtitle),
       trailing: IconButton(
-        tooltip: 'Delete',
+        tooltip: context.s('btn.delete'),
         icon: const Icon(Icons.delete_outline),
         onPressed: onDelete,
       ),
@@ -149,7 +150,7 @@ class _EmptyState extends StatelessWidget {
           Icon(Icons.restaurant_menu, size: 56, color: muted),
           const SizedBox(height: 16),
           Text(
-            'No recipes yet — create one\nand build it from ingredients',
+            context.s('food.recipes_empty'),
             textAlign: TextAlign.center,
             style: Theme.of(context)
                 .textTheme
@@ -180,17 +181,17 @@ Future<String?> _promptName(
         controller: controller,
         autofocus: true,
         textCapitalization: TextCapitalization.sentences,
-        decoration: const InputDecoration(hintText: 'Recipe name'),
+        decoration: InputDecoration(hintText: ctx.s('food.recipe_name_hint')),
         onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
       ),
       actions: [
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(),
-          child: const Text('Cancel'),
+          child: Text(ctx.s('btn.cancel')),
         ),
         FilledButton(
           onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
-          child: const Text('Save'),
+          child: Text(ctx.s('btn.save')),
         ),
       ],
     ),

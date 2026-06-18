@@ -6,32 +6,33 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/theme_provider.dart'; // sharedPreferencesProvider
 
 const onboardingDoneKey = 'onboarding_done';
 
-class _Slide {
-  const _Slide(this.icon, this.title, this.subtitle);
+class _SlideData {
+  const _SlideData(this.icon, this.titleKey, this.subtitleKey);
   final IconData icon;
-  final String title;
-  final String subtitle;
+  final String titleKey;
+  final String subtitleKey;
 }
 
 const _slides = [
-  _Slide(
+  _SlideData(
     Icons.flag_outlined,
-    'Plan what matters',
-    'Mark up to 3 "main" tasks a day and build a streak by finishing them.',
+    'onboarding.slide1_title',
+    'onboarding.slide1_subtitle',
   ),
-  _Slide(
+  _SlideData(
     Icons.wb_twilight,
-    "Nothing slips",
-    'Unfinished tasks are carried into today by priority — with your confirmation.',
+    'onboarding.slide2_title',
+    'onboarding.slide2_subtitle',
   ),
-  _Slide(
+  _SlideData(
     Icons.menu_book_outlined,
-    'Understand why',
-    'A quick diary captures your mood and what got in the way.',
+    'onboarding.slide3_title',
+    'onboarding.slide3_subtitle',
   ),
 ];
 
@@ -82,7 +83,7 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               alignment: Alignment.centerRight,
               child: TextButton(
                 onPressed: _finish,
-                child: const Text('Skip'),
+                child: Text(context.s('btn.skip')),
               ),
             ),
             Expanded(
@@ -100,13 +101,13 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                         Icon(s.icon, size: 72, color: colorScheme.primary),
                         const SizedBox(height: 32),
                         Text(
-                          s.title,
+                          context.s(s.titleKey),
                           style: textTheme.headlineMedium,
                           textAlign: TextAlign.center,
                         ),
                         const SizedBox(height: 12),
                         Text(
-                          s.subtitle,
+                          context.s(s.subtitleKey),
                           style: textTheme.bodyLarge,
                           textAlign: TextAlign.center,
                         ),
@@ -142,7 +143,11 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
                 width: double.infinity,
                 child: FilledButton(
                   onPressed: _next,
-                  child: Text(isLast ? 'Get started' : 'Next'),
+                  child: Text(
+                    isLast
+                        ? context.s('onboarding.btn_get_started')
+                        : context.s('onboarding.btn_next'),
+                  ),
                 ),
               ),
             ),

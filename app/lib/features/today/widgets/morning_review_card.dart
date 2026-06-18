@@ -19,6 +19,7 @@ import '../../../core/animations/ai_pulse_dot.dart';
 import '../../../core/animations/app_sheet.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
+import '../../../core/l10n/app_strings.dart';
 import '../../../core/settings/tone_provider.dart';
 import '../../../services/api/api_client.dart';
 import '../../auth/auth_controller.dart';
@@ -97,11 +98,11 @@ class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
               children: [
                 Icon(Icons.wb_twilight, color: colorScheme.secondary),
                 const SizedBox(width: 8),
-                Text('Morning review', style: textTheme.titleMedium),
+                Text(context.s('today.morning_review'), style: textTheme.titleMedium),
                 const Spacer(),
                 // AI-nudge кнопка: во время загрузки — пульс вместо спиннера (§7.1)
                 IconButton(
-                  tooltip: 'AI nudge (Premium)',
+                  tooltip: context.s('today.ai_nudge_tooltip'),
                   visualDensity: VisualDensity.compact,
                   icon: _messageLoading
                       ? const AiPulseDot(size: 10)
@@ -127,7 +128,7 @@ class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
               alignment: Alignment.centerRight,
               child: FilledButton(
                 onPressed: () => _showMorningReviewSheet(context),
-                child: const Text('Review'),
+                child: Text(context.s('today.review_btn')),
               ),
             ),
           ],
@@ -173,7 +174,7 @@ class _MorningReviewSheetState extends ConsumerState<_MorningReviewSheet> {
       setState(() => _aiPlans = mapped);
       if (mapped.isEmpty) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('AI had nothing to reschedule')),
+          SnackBar(content: Text(context.s('today.ai_nothing_reschedule'))),
         );
       }
     } on ApiException catch (e) {
@@ -213,7 +214,7 @@ class _MorningReviewSheetState extends ConsumerState<_MorningReviewSheet> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text('Carry over', style: textTheme.headlineSmall),
+                Text(context.s('today.carry_over'), style: textTheme.headlineSmall),
                 if (overdue.isNotEmpty)
                   TextButton(
                     onPressed: () async {
@@ -222,13 +223,13 @@ class _MorningReviewSheetState extends ConsumerState<_MorningReviewSheet> {
                         await moveToDay(ref, item, now);
                       }
                     },
-                    child: const Text('Move all to today'),
+                    child: Text(context.s('today.move_all_today')),
                   ),
               ],
             ),
             const SizedBox(height: 8),
             if (variants.isNotEmpty) ...[
-              Text('Smart plans (free)', style: textTheme.titleSmall),
+              Text(context.s('today.smart_plans'), style: textTheme.titleSmall),
               const SizedBox(height: 8),
               ...variants.map(
                 (v) => ReviewVariantCard(variant: v, onApply: () => _apply(v)),
@@ -242,12 +243,12 @@ class _MorningReviewSheetState extends ConsumerState<_MorningReviewSheet> {
                     icon: _aiLoading
                         ? const AiPulseDot(size: 10)
                         : const Icon(Icons.auto_awesome, size: 18),
-                    label: const Text('Smarter plan with AI (Premium)'),
+                    label: Text(context.s('today.ai_smarter_plan')),
                     onPressed: _aiLoading ? null : _getAiPlans,
                   ),
                 )
               else ...[
-                Text('AI plans', style: textTheme.titleSmall),
+                Text(context.s('today.ai_plans'), style: textTheme.titleSmall),
                 const SizedBox(height: 8),
                 // AI-варианты плана появляются с reveal (§7.3)
                 ...aiPlans.map(
@@ -265,7 +266,7 @@ class _MorningReviewSheetState extends ConsumerState<_MorningReviewSheet> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 32),
                 child: Center(
-                  child: Text("All caught up 🎉", style: textTheme.bodyLarge),
+                  child: Text(context.s('today.all_caught_up'), style: textTheme.bodyLarge),
                 ),
               )
             else
@@ -306,10 +307,10 @@ class _OverdueRow extends ConsumerWidget {
         children: [
           TextButton(
             onPressed: () => moveToDay(ref, item, DateTime.now()),
-            child: const Text('Today'),
+            child: Text(context.s('today.move_to_today_btn')),
           ),
           IconButton(
-            tooltip: 'Skip',
+            tooltip: context.s('today.skip_tooltip'),
             icon: const Icon(Icons.remove_circle_outline),
             onPressed: () => ref.read(itemsDaoProvider).markSkipped(item.id),
           ),

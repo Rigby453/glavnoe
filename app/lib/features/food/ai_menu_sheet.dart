@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/animations/ai_insight_reveal.dart';
 import '../../core/animations/ai_pulse_dot.dart';
 import '../../core/animations/ai_skeleton.dart';
@@ -47,6 +48,7 @@ Future<void> showAiMenuSheet(BuildContext context, WidgetRef ref) async {
 
   if (!context.mounted) return;
   if (candidates.length < kMenuCandidatesMin) {
+    // Строка интерполирована (kMenuCandidatesMin динамический) — оставляем как есть
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(
@@ -119,7 +121,8 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
         _meals = meals;
         _note = (response['note'] as String?) ?? '';
         _loading = false;
-        if (meals.isEmpty) _error = 'AI returned an empty menu — try again.';
+        // Ключ локализации; резолвится в build через context.s()
+        if (meals.isEmpty) _error = 'food.ai_empty_menu';
       });
     } on ApiException catch (e) {
       if (mounted) {
@@ -154,7 +157,7 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
     }
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Menu logged — enjoy your day!')),
+      SnackBar(content: Text(context.s('food.menu_logged'))),
     );
     Navigator.of(context).pop();
   }
@@ -180,7 +183,7 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
               children: [
                 const Icon(Icons.auto_awesome, size: 20),
                 const SizedBox(width: 8),
-                Text('AI menu for today', style: textTheme.headlineSmall),
+                Text(context.s('food.ai_menu_title'), style: textTheme.headlineSmall),
               ],
             ),
             const SizedBox(height: 16),
@@ -189,18 +192,19 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
                 children: [
                   const AiPulseDot(size: 10),
                   const SizedBox(width: 10),
-                  Text('AI is composing your day…',
+                  Text(context.s('food.ai_composing'),
                       style: textTheme.bodyMedium),
                 ],
               ),
               const SizedBox(height: 16),
               const AiSkeleton(lines: 4),
             ] else if (_error != null) ...[
-              Text(_error!, style: textTheme.bodyMedium),
+              // _error может быть ключом локализации или сырым сообщением API
+              Text(context.s(_error!), style: textTheme.bodyMedium),
               const SizedBox(height: 12),
               OutlinedButton.icon(
                 icon: const Icon(Icons.refresh, size: 18),
-                label: const Text('Try again'),
+                label: Text(context.s('food.try_again')),
                 onPressed: _build,
               ),
             ] else ...[
@@ -225,7 +229,7 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
                         Expanded(
                           child: OutlinedButton(
                             onPressed: _applying ? null : _build,
-                            child: const Text('Rebuild'),
+                            child: Text(context.s('food.rebuild_btn')),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -234,7 +238,7 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
                             icon: _applying
                                 ? const AiPulseDot(size: 10)
                                 : const Icon(Icons.check, size: 18),
-                            label: const Text('Log all'),
+                            label: Text(context.s('food.log_all_btn')),
                             onPressed: _applying ? null : _applyAll,
                           ),
                         ),

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 
 /// Провайдер для выбранной даты (sleep report)
 final sleepSelectedDateProvider = StateProvider.autoDispose<DateTime>((ref) {
@@ -99,13 +100,13 @@ class SleepReportScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: Text('Sleep Report', style: textTheme.headlineSmall),
+        title: Text(context.s('sleep.report_title'), style: textTheme.headlineSmall),
         centerTitle: true,
         actions: [
           IconButton(
             icon: const Icon(Icons.calendar_today),
             onPressed: () => _selectDate(context, ref),
-            tooltip: 'Select date',
+            tooltip: context.s('sleep.select_date'),
           ),
         ],
       ),
@@ -128,7 +129,7 @@ class SleepReportScreen extends ConsumerWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Text(
-                        _formatSelectedDate(selectedDate),
+                        _formatSelectedDate(context, selectedDate),
                         style: textTheme.titleMedium?.copyWith(
                           fontWeight: FontWeight.bold,
                           color: colorScheme.primary,
@@ -146,7 +147,7 @@ class SleepReportScreen extends ConsumerWidget {
                 const SizedBox(height: 16),
 
                 // История ночей
-                Text('Sleep History', style: textTheme.titleMedium),
+                Text(context.s('sleep.history'), style: textTheme.titleMedium),
                 const SizedBox(height: 12),
                 nights.when(
                   data: (nightList) {
@@ -155,7 +156,7 @@ class SleepReportScreen extends ConsumerWidget {
                         child: Padding(
                           padding: const EdgeInsets.all(24),
                           child: Text(
-                            'No sleep data for this date',
+                            context.s('sleep.no_data'),
                             style: textTheme.bodyMedium?.copyWith(
                               color: colorScheme.outline,
                             ),
@@ -201,7 +202,7 @@ class SleepReportScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: _StatCard(
-                label: 'Avg Sleep',
+                label: context.s('sleep.avg'),
                 value: '${stats.avgHours.toStringAsFixed(1)}h',
                 textTheme: textTheme,
               ),
@@ -209,7 +210,7 @@ class SleepReportScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                label: 'Best Night',
+                label: context.s('sleep.best_night'),
                 value: '${stats.maxHours.toStringAsFixed(1)}h',
                 textTheme: textTheme,
               ),
@@ -217,7 +218,7 @@ class SleepReportScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                label: 'Total Nights',
+                label: context.s('sleep.total_nights'),
                 value: '${stats.totalNights}',
                 textTheme: textTheme,
               ),
@@ -276,7 +277,7 @@ class SleepReportScreen extends ConsumerWidget {
             )
           else
             Text(
-              'In progress',
+              context.s('sleep.in_progress'),
               style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
             ),
         ],
@@ -302,15 +303,15 @@ class SleepReportScreen extends ConsumerWidget {
     return '${months[dt.month - 1]} ${dt.day}';
   }
 
-  String _formatSelectedDate(DateTime date) {
+  String _formatSelectedDate(BuildContext context, DateTime date) {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
     final selected = DateTime(date.year, date.month, date.day);
 
     if (selected == today) {
-      return 'Today';
+      return context.s('sleep.today');
     } else if (selected == today.subtract(const Duration(days: 1))) {
-      return 'Yesterday';
+      return context.s('sleep.yesterday');
     } else {
       final months = [
         'Jan',

@@ -68,7 +68,11 @@ void main() {
             type: const Value('task'),
             priority: Value(priority),
             status: Value(status),
-            scheduledAt: Value(scheduledAt ?? now),
+            // Полдень текущего дня, а не «сейчас»: иначе в ранние часы (когда
+            // локальное «сейчас» по UTC ещё вчера) UTC-границы watchTodayItems
+            // исключают задачу и тест становится зависимым от времени суток.
+            scheduledAt:
+                Value(scheduledAt ?? DateTime(now.year, now.month, now.day, 12)),
             durationMinutes: const Value(30),
             isProtected: Value(priority == 'main'),
             createdAt: Value(now),

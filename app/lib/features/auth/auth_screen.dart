@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../services/api/api_client.dart';
 import 'auth_controller.dart';
 
@@ -80,33 +81,33 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     if (_identifierType == _IdentifierType.phone) {
       final rawPhone = _phoneController.text.trim();
       if (rawPhone.isEmpty) {
-        setState(() => _error = 'Please enter your phone number');
+        setState(() => _error = context.s('auth.err_phone_empty'));
         return;
       }
       if (!_isValidRuPhone(rawPhone)) {
-        setState(() => _error = 'Enter a valid Russian phone number (+7…)');
+        setState(() => _error = context.s('auth.err_phone_invalid'));
         return;
       }
       phone = _normalizePhone(rawPhone);
     } else {
       email = _emailController.text.trim();
       if (email.isEmpty) {
-        setState(() => _error = 'Please enter your email');
+        setState(() => _error = context.s('auth.err_email_empty'));
         return;
       }
     }
 
     // --- Валидация пароля и имени ---
     if (password.isEmpty) {
-      setState(() => _error = 'Please enter your password');
+      setState(() => _error = context.s('auth.err_password_empty'));
       return;
     }
     if (!_isLogin && name.isEmpty) {
-      setState(() => _error = 'Please enter your name');
+      setState(() => _error = context.s('auth.err_name_empty'));
       return;
     }
     if (!_isLogin && password.length < 8) {
-      setState(() => _error = 'Password must be at least 8 characters');
+      setState(() => _error = context.s('auth.err_password_short'));
       return;
     }
 
@@ -132,7 +133,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
       // Сообщение бэкенда (напр. "Use a Russian email provider") показываем как есть.
       setState(() => _error = e.message);
     } catch (e) {
-      setState(() => _error = 'Something went wrong. Please try again.');
+      setState(() => _error = context.s('auth.err_generic'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -164,13 +165,15 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                   Text('Kaizen', style: textTheme.displaySmall),
                   const SizedBox(height: 4),
                   Text(
-                    "The important stuff won't slip.",
+                    context.s('auth.tagline'),
                     style: textTheme.bodyMedium,
                   ),
                   const SizedBox(height: 32),
 
                   Text(
-                    _isLogin ? 'Welcome back' : 'Create your account',
+                    _isLogin
+                        ? context.s('auth.welcome_back')
+                        : context.s('auth.create_account'),
                     style: textTheme.headlineSmall,
                   ),
                   const SizedBox(height: 16),
@@ -192,7 +195,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                     TextField(
                       controller: _nameController,
                       textCapitalization: TextCapitalization.words,
-                      decoration: const InputDecoration(labelText: 'Name'),
+                      decoration: InputDecoration(labelText: context.s('auth.field_name')),
                     ),
                     const SizedBox(height: 12),
                   ],
@@ -204,9 +207,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       controller: _phoneController,
                       keyboardType: TextInputType.phone,
                       autocorrect: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Phone (+7…)',
-                        hintText: '+7 999 123-45-67',
+                      decoration: InputDecoration(
+                        labelText: context.s('auth.field_phone'),
+                        hintText: context.s('auth.field_phone_hint'),
                       ),
                     )
                   else
@@ -215,14 +218,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       controller: _emailController,
                       keyboardType: TextInputType.emailAddress,
                       autocorrect: false,
-                      decoration: const InputDecoration(labelText: 'Email'),
+                      decoration: InputDecoration(labelText: context.s('auth.field_email')),
                     ),
 
                   const SizedBox(height: 12),
                   TextField(
                     controller: _passwordController,
                     obscureText: true,
-                    decoration: const InputDecoration(labelText: 'Password'),
+                    decoration: InputDecoration(labelText: context.s('auth.field_password')),
                     onSubmitted: (_) => _submit(),
                   ),
 
@@ -248,7 +251,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             width: 20,
                             child: CircularProgressIndicator(strokeWidth: 2),
                           )
-                        : Text(_isLogin ? 'Log in' : 'Sign up'),
+                        : Text(_isLogin
+                            ? context.s('auth.btn_login')
+                            : context.s('auth.btn_signup')),
                   ),
                   const SizedBox(height: 8),
 
@@ -262,8 +267,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                             }),
                     child: Text(
                       _isLogin
-                          ? "Don't have an account? Sign up"
-                          : 'Already have an account? Log in',
+                          ? context.s('auth.switch_to_signup')
+                          : context.s('auth.switch_to_login'),
                     ),
                   ),
 
@@ -273,14 +278,14 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                       onPressed: _loading
                           ? null
                           : () => context.push('/forgot-password'),
-                      child: const Text('Forgot password?'),
+                      child: Text(context.s('auth.forgot_password')),
                     ),
 
                   // --- Offline mode ---
                   const SizedBox(height: 8),
                   TextButton(
                     onPressed: _loading ? null : _continueOffline,
-                    child: const Text('Continue offline'),
+                    child: Text(context.s('auth.continue_offline')),
                   ),
                 ],
               ),
@@ -308,16 +313,16 @@ class _IdentifierToggle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return SegmentedButton<_IdentifierType>(
-      segments: const [
+      segments: [
         ButtonSegment(
           value: _IdentifierType.phone,
-          label: Text('Phone'),
-          icon: Icon(Icons.phone_outlined),
+          label: Text(context.s('auth.tab_phone')),
+          icon: const Icon(Icons.phone_outlined),
         ),
         ButtonSegment(
           value: _IdentifierType.email,
-          label: Text('Email'),
-          icon: Icon(Icons.email_outlined),
+          label: Text(context.s('auth.tab_email')),
+          icon: const Icon(Icons.email_outlined),
         ),
       ],
       selected: {selected},

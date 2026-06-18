@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+
+import '../../core/l10n/app_strings.dart';
 import '../../services/api/api_client.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
@@ -39,7 +41,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       if (!mounted) return;
       setState(() { _step2 = true; _devCode = code; });
     } catch (e) {
-      if (mounted) setState(() => _error = 'Failed to send code. Check your email.');
+      if (mounted) setState(() => _error = context.s('auth.reset_err_send'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -49,7 +51,7 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     final code = _codeCtrl.text.trim();
     final pw = _pwCtrl.text.trim();
     if (code.length != 6 || pw.length < 8) {
-      setState(() => _error = 'Enter 6-digit code and password (min 8 chars)');
+      setState(() => _error = context.s('auth.reset_err_code_pw'));
       return;
     }
     setState(() { _loading = true; _error = null; });
@@ -61,11 +63,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Password updated! Please sign in.')),
+        SnackBar(content: Text(context.s('auth.reset_success_snack'))),
       );
       context.pop();
     } catch (e) {
-      if (mounted) setState(() => _error = 'Invalid or expired code.');
+      if (mounted) setState(() => _error = context.s('auth.reset_err_invalid_code'));
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -76,17 +78,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Reset password')),
+      appBar: AppBar(title: Text(context.s('auth.reset_title'))),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             if (!_step2) ...[
-              Text('Enter your email', style: textTheme.headlineSmall),
+              Text(context.s('auth.reset_step1_heading'), style: textTheme.headlineSmall),
               const SizedBox(height: 8),
               Text(
-                "We'll send you a 6-digit code to reset your password.",
+                context.s('auth.reset_step1_body'),
                 style: textTheme.bodyMedium,
               ),
               const SizedBox(height: 24),
@@ -94,17 +96,17 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 controller: _emailCtrl,
                 keyboardType: TextInputType.emailAddress,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: 'Email',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.s('auth.field_email'),
+                  border: const OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => _requestCode(),
               ),
             ] else ...[
-              Text('Enter the code', style: textTheme.headlineSmall),
+              Text(context.s('auth.reset_step2_heading'), style: textTheme.headlineSmall),
               const SizedBox(height: 8),
               Text(
-                'Check your email for a 6-digit code.',
+                context.s('auth.reset_step2_body'),
                 style: textTheme.bodyMedium,
               ),
               if (_devCode != null) ...[
@@ -127,18 +129,18 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 keyboardType: TextInputType.number,
                 maxLength: 6,
                 autofocus: true,
-                decoration: const InputDecoration(
-                  labelText: '6-digit code',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.s('auth.reset_field_code'),
+                  border: const OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 12),
               TextField(
                 controller: _pwCtrl,
                 obscureText: true,
-                decoration: const InputDecoration(
-                  labelText: 'New password (min 8 chars)',
-                  border: OutlineInputBorder(),
+                decoration: InputDecoration(
+                  labelText: context.s('auth.reset_field_new_password'),
+                  border: const OutlineInputBorder(),
                 ),
                 onSubmitted: (_) => _resetPassword(),
               ),
@@ -152,7 +154,11 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
                 ? const Center(child: CircularProgressIndicator())
                 : FilledButton(
                     onPressed: _step2 ? _resetPassword : _requestCode,
-                    child: Text(_step2 ? 'Reset password' : 'Send code'),
+                    child: Text(
+                      _step2
+                          ? context.s('auth.reset_btn_reset')
+                          : context.s('auth.reset_btn_send_code'),
+                    ),
                   ),
           ],
         ),

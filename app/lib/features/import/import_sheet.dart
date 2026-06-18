@@ -16,6 +16,7 @@ import 'package:intl/intl.dart';
 import '../../core/animations/app_sheet.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/utils/id.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
@@ -106,7 +107,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     final parsed = _parse(_controller.text);
     if (parsed.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('No valid "HH:MM Title" lines found')),
+        SnackBar(content: Text(context.s('import.err_no_lines'))),
       );
       return;
     }
@@ -136,7 +137,11 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     if (mounted) {
       Navigator.of(context).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Imported ${parsed.length} tasks')),
+        SnackBar(
+          content: Text(
+            context.s('import.success_tasks').replaceAll('{n}', '${parsed.length}'),
+          ),
+        ),
       );
     }
   }
@@ -148,8 +153,8 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
     if (!mounted) return;
     if (!premium) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Premium feature — upgrade to import from a photo'),
+        SnackBar(
+          content: Text(context.s('import.photo_premium_snack')),
         ),
       );
       return;
@@ -184,7 +189,13 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
       _controller.text =
           _controller.text.trim().isEmpty ? lines : '${_controller.text}\n$lines';
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Recognized ${items.length} items — review & Import')),
+        SnackBar(
+          content: Text(
+            context
+                .s('import.photo_recognized')
+                .replaceAll('{n}', '${items.length}'),
+          ),
+        ),
       );
     } on ApiException catch (e) {
       if (mounted) {
@@ -223,7 +234,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
         if (data == null || data.files.isEmpty || data.files.first.bytes == null) {
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not read file')),
+              SnackBar(content: Text(context.s('import.err_no_file'))),
             );
           }
           return;
@@ -232,7 +243,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
       } else {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not read file')),
+            SnackBar(content: Text(context.s('import.err_no_file'))),
           );
         }
         return;
@@ -255,7 +266,9 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(
-              'No events found for ${DateFormat.yMMMd().format(_day)} in this file',
+              context
+                  .s('import.ics_no_events')
+                  .replaceAll('{date}', DateFormat.yMMMd().format(_day)),
             ),
           ),
         );
@@ -276,7 +289,10 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text(
-            'Found ${dayEvents.length} events on ${DateFormat.yMMMd().format(_day)} — review & Import',
+            context
+                .s('import.ics_found')
+                .replaceAll('{n}', '${dayEvents.length}')
+                .replaceAll('{date}', DateFormat.yMMMd().format(_day)),
           ),
         ),
       );
@@ -301,7 +317,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
       if (file.bytes == null) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not read file')),
+            SnackBar(content: Text(context.s('import.err_no_file'))),
           );
         }
         return;
@@ -313,7 +329,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
       if (tasks.isEmpty) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('No tasks found in Todoist CSV')),
+            SnackBar(content: Text(context.s('import.err_no_todoist_tasks'))),
           );
         }
         return;
@@ -350,7 +366,13 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
       if (mounted) {
         Navigator.of(context).pop();
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Imported ${tasks.length} tasks from Todoist')),
+          SnackBar(
+            content: Text(
+              context
+                  .s('import.success_todoist')
+                  .replaceAll('{n}', '${tasks.length}'),
+            ),
+          ),
         );
       }
     } finally {
@@ -369,10 +391,10 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text('Import schedule', style: textTheme.headlineSmall),
+            Text(context.s('import.title'), style: textTheme.headlineSmall),
             const SizedBox(height: 4),
             Text(
-              'Paste lines like "09:00 Math lecture", one per line.',
+              context.s('import.paste_hint_body'),
               style: textTheme.bodySmall,
             ),
             const SizedBox(height: 16),
@@ -380,8 +402,8 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               controller: _controller,
               maxLines: 8,
               minLines: 4,
-              decoration: const InputDecoration(
-                hintText: '09:00 Math lecture\n14:30 Gym',
+              decoration: InputDecoration(
+                hintText: context.s('import.text_hint'),
               ),
             ),
             const SizedBox(height: 8),
@@ -389,7 +411,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               children: [
                 TextButton.icon(
                   icon: const Icon(Icons.lightbulb_outline, size: 18),
-                  label: const Text('Example'),
+                  label: Text(context.s('import.btn_example')),
                   onPressed: () => _controller.text = _templateExample,
                 ),
                 const Spacer(),
@@ -412,7 +434,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.photo_camera_outlined, size: 18),
-                label: const Text('From photo (Premium)'),
+                label: Text(context.s('import.btn_from_photo')),
                 onPressed: _recognizing ? null : _importFromPhoto,
               ),
             ),
@@ -428,7 +450,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.calendar_month_outlined, size: 18),
-                label: const Text('From ICS file (Google / Apple / Outlook)'),
+                label: Text(context.s('import.btn_from_ics')),
                 onPressed: _importingIcs ? null : _importFromIcs,
               ),
             ),
@@ -444,7 +466,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
                         child: CircularProgressIndicator(strokeWidth: 2),
                       )
                     : const Icon(Icons.check_circle_outline, size: 18),
-                label: const Text('From Todoist CSV'),
+                label: Text(context.s('import.btn_from_todoist')),
                 onPressed: _importingTodoist ? null : _importFromTodoist,
               ),
             ),
@@ -453,7 +475,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               width: double.infinity,
               child: FilledButton(
                 onPressed: _import,
-                child: const Text('Import'),
+                child: Text(context.s('import.btn_import')),
               ),
             ),
           ],

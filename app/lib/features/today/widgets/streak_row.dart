@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/database/database_providers.dart';
+import '../../../core/l10n/app_strings.dart';
 
 class StreakRow extends ConsumerWidget {
   const StreakRow({super.key});
@@ -64,7 +65,7 @@ class _StreakRowContent extends StatelessWidget {
         ),
         const SizedBox(width: 4),
         Text(
-          current == 1 ? 'day' : 'days',
+          current == 1 ? context.s('today.streak_day') : context.s('today.streak_days'),
           style: textTheme.bodySmall,
         ),
 

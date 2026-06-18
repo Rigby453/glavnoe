@@ -9,6 +9,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/utils/id.dart';
 import 'goal_progress.dart';
 
@@ -33,15 +34,19 @@ final _stepsFamily =
 
 const List<String> _horizonKeys = ['month', 'year', 'five_years', 'ten_years'];
 
-String _horizonLabel(String key) {
-  const labels = {
-    'month': 'Month',
-    'year': 'Year',
-    'five_years': '5 years',
-    'ten_years': '10 years',
+/// Ключ горизонта → ключ локализации.
+String _horizonL10nKey(String key) {
+  const map = {
+    'month': 'plan.horizon_month',
+    'year': 'plan.horizon_year',
+    'five_years': 'plan.horizon_five_years',
+    'ten_years': 'plan.horizon_ten_years',
   };
-  return labels[key] ?? key;
+  return map[key] ?? key;
 }
+
+String _horizonLabel(BuildContext context, String key) =>
+    context.s(_horizonL10nKey(key));
 
 // ---------------------------------------------------------------------------
 // Экран
@@ -55,11 +60,11 @@ class GoalsScreen extends ConsumerWidget {
     final goalsAsync = ref.watch(_goalsProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Long-term goals')),
+      appBar: AppBar(title: Text(context.s('plan.goals_screen_title'))),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: () => _showNewGoalDialog(context, ref),
         icon: const Icon(Icons.add),
-        label: const Text('New goal'),
+        label: Text(context.s('plan.goals_new_button')),
       ),
       body: goalsAsync.when(
         loading: () => const Center(child: CircularProgressIndicator()),
@@ -104,7 +109,7 @@ class _EmptyState extends StatelessWidget {
           ),
           const SizedBox(height: 16),
           Text(
-            'Set a goal for the month, the year — or the decade',
+            context.s('plan.goals_empty'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                   color: Theme.of(context).colorScheme.outline,
@@ -145,7 +150,7 @@ class _GoalsList extends ConsumerWidget {
               padding:
                   const EdgeInsets.fromLTRB(16, 16, 16, 4),
               child: Text(
-                _horizonLabel(key),
+                _horizonLabel(context, key),
                 style: Theme.of(context).textTheme.titleSmall?.copyWith(
                       color: Theme.of(context).colorScheme.primary,
                     ),
@@ -184,19 +189,19 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Delete goal?'),
-        content: Text('"${widget.goal.title}" and all its steps will be removed.'),
+        title: Text(ctx.s('plan.goals_delete_title')),
+        content: Text('"${widget.goal.title}"${ctx.s('plan.goals_delete_body_suffix')}'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: const Text('Cancel'),
+            child: Text(ctx.s('btn.cancel')),
           ),
           FilledButton(
             style: FilledButton.styleFrom(
               backgroundColor: Theme.of(ctx).colorScheme.error,
             ),
             onPressed: () => Navigator.of(ctx).pop(true),
-            child: const Text('Delete'),
+            child: Text(ctx.s('plan.goals_delete_button')),
           ),
         ],
       ),
@@ -212,8 +217,10 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
     final now = DateTime.now();
     // Ближайший следующий час
     final scheduledAt = DateTime(now.year, now.month, now.day, now.hour + 1, 0);
-    // Захватываем messenger до await, чтобы не использовать context через async-gap
+    // Захватываем messenger и строку перевода до await, чтобы не использовать
+    // context через async-gap
     final messenger = ScaffoldMessenger.of(context);
+    final addedMsg = context.s('plan.goals_added_to_today');
 
     await ref.read(itemsDaoProvider).insertItem(
           ItemsTableCompanion(
@@ -232,7 +239,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
         );
     if (!mounted) return;
     messenger.showSnackBar(
-      const SnackBar(content: Text('Added to today')),
+      SnackBar(content: Text(addedMsg)),
     );
   }
 
@@ -264,8 +271,8 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                 const SizedBox(height: 2),
                 Text(
                   steps.isEmpty
-                      ? 'No steps yet'
-                      : '$doneCount of ${steps.length} steps',
+                      ? context.s('plan.goals_no_steps')
+                      : '$doneCount ${context.s('plan.goals_steps_of')} ${steps.length}${context.s('plan.goals_steps_suffix')}',
                   style: Theme.of(context).textTheme.bodySmall,
                 ),
               ],
@@ -276,7 +283,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
               children: [
                 IconButton(
                   icon: const Icon(Icons.delete_outline, size: 20),
-                  tooltip: 'Delete goal',
+                  tooltip: context.s('plan.goals_delete_tooltip'),
                   onPressed: () => _confirmDelete(context),
                 ),
                 // Стандартная стрелка ExpansionTile появится после trailing
@@ -307,7 +314,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                   ),
                   trailing: IconButton(
                     icon: const Icon(Icons.today_outlined, size: 20),
-                    tooltip: 'Plan today',
+                    tooltip: context.s('plan.goals_plan_today_tooltip'),
                     onPressed: () => _planToday(context, step),
                   ),
                 ),
@@ -321,8 +328,8 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                     Expanded(
                       child: TextField(
                         controller: _stepController,
-                        decoration: const InputDecoration(
-                          hintText: 'Add step',
+                        decoration: InputDecoration(
+                          hintText: context.s('plan.goals_add_step_hint'),
                           isDense: true,
                         ),
                         textCapitalization: TextCapitalization.sentences,
@@ -331,7 +338,7 @@ class _GoalCardState extends ConsumerState<_GoalCard> {
                     ),
                     IconButton(
                       icon: const Icon(Icons.add),
-                      tooltip: 'Add step',
+                      tooltip: context.s('plan.goals_add_step_tooltip'),
                       onPressed: _addStep,
                     ),
                   ],
@@ -386,7 +393,7 @@ class _NewGoalDialogState extends State<_NewGoalDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: const Text('New goal'),
+      title: Text(context.s('plan.goals_new_title')),
       content: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -395,11 +402,11 @@ class _NewGoalDialogState extends State<_NewGoalDialog> {
             controller: _titleController,
             autofocus: true,
             textCapitalization: TextCapitalization.sentences,
-            decoration: const InputDecoration(hintText: 'What do you want to achieve?'),
+            decoration: InputDecoration(hintText: context.s('plan.goals_new_hint')),
             onSubmitted: (_) => _save(),
           ),
           const SizedBox(height: 16),
-          Text('Horizon', style: Theme.of(context).textTheme.labelMedium),
+          Text(context.s('plan.goals_horizon_label'), style: Theme.of(context).textTheme.labelMedium),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -407,7 +414,7 @@ class _NewGoalDialogState extends State<_NewGoalDialog> {
             children: _horizonKeys
                 .map(
                   (key) => ChoiceChip(
-                    label: Text(_horizonLabel(key)),
+                    label: Text(_horizonLabel(context, key)),
                     selected: _horizon == key,
                     onSelected: (_) => setState(() => _horizon = key),
                   ),
@@ -419,11 +426,11 @@ class _NewGoalDialogState extends State<_NewGoalDialog> {
       actions: [
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
-          child: const Text('Cancel'),
+          child: Text(context.s('btn.cancel')),
         ),
         FilledButton(
           onPressed: _saving ? null : _save,
-          child: const Text('Create'),
+          child: Text(context.s('plan.goals_create_button')),
         ),
       ],
     );

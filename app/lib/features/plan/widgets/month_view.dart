@@ -10,17 +10,19 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/database/database.dart';
+import '../../../core/l10n/app_strings.dart';
 import 'plan_providers.dart';
 import 'week_strip.dart' show selectedDayProvider;
 
-const List<String> _weekdayLabels = [
-  'Mon',
-  'Tue',
-  'Wed',
-  'Thu',
-  'Fri',
-  'Sat',
-  'Sun',
+/// Ключи локализованных подписей дней недели (Пн..Вс).
+const List<String> _weekdayKeys = [
+  'plan.weekday_mon',
+  'plan.weekday_tue',
+  'plan.weekday_wed',
+  'plan.weekday_thu',
+  'plan.weekday_fri',
+  'plan.weekday_sat',
+  'plan.weekday_sun',
 ];
 
 class MonthView extends ConsumerWidget {
@@ -108,11 +110,11 @@ class MonthView extends ConsumerWidget {
         // Подписи дней недели
         Row(
           children: [
-            for (final label in _weekdayLabels)
+            for (final key in _weekdayKeys)
               Expanded(
                 child: Center(
                   child: Text(
-                    label,
+                    context.s(key),
                     style: textTheme.labelSmall?.copyWith(
                       color: colorScheme.onSurface.withValues(alpha: 0.6),
                     ),

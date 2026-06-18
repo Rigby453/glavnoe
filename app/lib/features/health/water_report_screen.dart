@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/settings/water_goal_provider.dart';
 
 /// Провайдер для выбранной даты (water report)
@@ -51,7 +52,7 @@ class WaterReportScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: Text('Water Report', style: textTheme.headlineSmall),
+        title: Text(context.s('water.report_title'), style: textTheme.headlineSmall),
         centerTitle: true,
       ),
       body: Column(
@@ -81,12 +82,12 @@ class WaterReportScreen extends ConsumerWidget {
                       const SizedBox(height: 24),
 
                       // История записей
-                      Text('Water Logs', style: textTheme.titleMedium),
+                      Text(context.s('water.logs_section'), style: textTheme.titleMedium),
                       const SizedBox(height: 12),
                       if (logs.isEmpty)
                         Center(
                           child: Text(
-                            'No water logs for this day',
+                            context.s('water.no_logs'),
                             style: textTheme.bodyMedium?.copyWith(
                               color: colorScheme.outline,
                             ),
@@ -121,7 +122,8 @@ class WaterReportScreen extends ConsumerWidget {
     TextTheme textTheme,
   ) {
     final percentage = waterGoal > 0 ? (total / waterGoal * 100).round() : 0;
-    final status = percentage >= 100 ? 'Goal Met!' : '$percentage%';
+    final status =
+        percentage >= 100 ? context.s('water.goal_met') : '$percentage%';
 
     return Column(
       children: [
@@ -129,7 +131,7 @@ class WaterReportScreen extends ConsumerWidget {
           children: [
             Expanded(
               child: _StatCard(
-                label: 'Total',
+                label: context.s('water.stat_total'),
                 value: '${(total / 1000).toStringAsFixed(1)}L',
                 textTheme: textTheme,
               ),
@@ -137,7 +139,7 @@ class WaterReportScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                label: 'Goal',
+                label: context.s('water.stat_goal'),
                 value: '${(waterGoal / 1000).toStringAsFixed(1)}L',
                 textTheme: textTheme,
               ),
@@ -145,7 +147,7 @@ class WaterReportScreen extends ConsumerWidget {
             const SizedBox(width: 12),
             Expanded(
               child: _StatCard(
-                label: 'Status',
+                label: context.s('water.stat_status'),
                 value: status,
                 textTheme: textTheme,
               ),

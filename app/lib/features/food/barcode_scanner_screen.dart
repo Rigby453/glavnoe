@@ -7,6 +7,8 @@ import 'dart:async' show unawaited;
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../core/l10n/app_strings.dart';
+
 class BarcodeScannerScreen extends StatefulWidget {
   const BarcodeScannerScreen({super.key});
 
@@ -53,7 +55,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
     return Scaffold(
       backgroundColor: Colors.black,
       appBar: AppBar(
-        title: const Text('Scan barcode'),
+        title: Text(context.s('food.scan_barcode_title')),
         backgroundColor: Colors.black,
         foregroundColor: Colors.white,
         actions: [
@@ -64,7 +66,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
             builder: (context, state, _) {
               final on = state.torchState == TorchState.on;
               return IconButton(
-                tooltip: on ? 'Torch off' : 'Torch on',
+                tooltip: on ? context.s('food.torch_off') : context.s('food.torch_on'),
                 icon: Icon(
                   on
                       ? Icons.flashlight_on
@@ -101,7 +103,7 @@ class _BarcodeScannerScreenState extends State<BarcodeScannerScreen> {
             child: Padding(
               padding: const EdgeInsets.all(24),
               child: Text(
-                'Point the camera at the product barcode',
+                context.s('food.scan_instruction'),
                 style: Theme.of(context)
                     .textTheme
                     .bodyMedium

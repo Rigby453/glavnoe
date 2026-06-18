@@ -22,6 +22,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/animations/constants.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
+import '../../../core/l10n/app_strings.dart';
 
 // ---------------------------------------------------------------------------
 // Провайдеры
@@ -345,7 +346,7 @@ class _CelebrationOverlayState extends ConsumerState<CelebrationOverlay>
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
-                    'Day complete',
+                    context.s('today.day_complete'),
                     style: textTheme.headlineMedium?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.bold,
@@ -353,7 +354,7 @@ class _CelebrationOverlayState extends ConsumerState<CelebrationOverlay>
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'All the important stuff — done',
+                    context.s('today.day_complete_sub'),
                     style: textTheme.bodyLarge?.copyWith(
                       color: Colors.white.withValues(alpha: 0.85),
                     ),

@@ -18,6 +18,7 @@ import '../../../core/animations/constants.dart';
 import '../../../core/animations/pressable.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
+import '../../../core/l10n/app_strings.dart';
 import 'add_task_sheet.dart';
 
 class TaskList extends ConsumerWidget {
@@ -40,7 +41,7 @@ class TaskList extends ConsumerWidget {
         padding: const EdgeInsets.symmetric(vertical: 48),
         child: Center(
           child: Text(
-            'Nothing planned yet.\nTap + to add your first task.',
+            context.s('today.empty'),
             textAlign: TextAlign.center,
             style: Theme.of(context).textTheme.bodyMedium,
           ),
@@ -55,12 +56,12 @@ class TaskList extends ConsumerWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (mainItems.isNotEmpty) ...[
-          _SectionHeader(title: 'Main today'),
+          _SectionHeader(title: context.s('today.main_tasks')),
           ...mainItems.map((i) => _buildRow(context, ref, i)),
           const SizedBox(height: 16),
         ],
         if (laterItems.isNotEmpty) ...[
-          _SectionHeader(title: 'Later'),
+          _SectionHeader(title: context.s('today.later_section')),
           ...laterItems.map((i) => _buildRow(context, ref, i)),
         ],
       ],
@@ -109,7 +110,7 @@ class TaskList extends ConsumerWidget {
             showAppToast(
               context,
               variant: AppToastVariant.done,
-              message: '"${item.title}" marked as done',
+              message: '"${item.title}" ${context.s('today.marked_done')}',
               onUndo: () async {
                 await ref.read(itemsDaoProvider).updateItem(
                       item.id,
@@ -256,7 +257,7 @@ class _TaskCardState extends State<_TaskCard> {
     // Баг 3: Tooltip объясняет назначение щита без лишних элементов в UI.
     if (widget.item.priority == 'main') {
       return Tooltip(
-        message: 'Protected from replanning',
+        message: context.s('today.shield_tooltip'),
         child: Icon(Icons.shield_outlined, color: colorScheme.primary, size: 20),
       );
     }

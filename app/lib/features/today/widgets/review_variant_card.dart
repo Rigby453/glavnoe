@@ -3,6 +3,7 @@
 
 import 'package:flutter/material.dart';
 
+import '../../../core/l10n/app_strings.dart';
 import 'review_engine.dart';
 
 class ReviewVariantCard extends StatelessWidget {
@@ -24,7 +25,7 @@ class ReviewVariantCard extends StatelessWidget {
         subtitle: variant.reason.isEmpty ? null : Text(variant.reason),
         trailing: TextButton(
           onPressed: onApply,
-          child: const Text('Apply'),
+          child: Text(context.s('today.apply_btn')),
         ),
       ),
     );

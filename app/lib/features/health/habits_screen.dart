@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/l10n/app_strings.dart';
 
 final _habitsProvider = StreamProvider.autoDispose<List<HabitsTableData>>((ref) {
   return ref.watch(habitsDaoProvider).watchActive();
@@ -19,7 +20,7 @@ class HabitsScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Habits')),
+      appBar: AppBar(title: Text(context.s('habits.title'))),
       floatingActionButton: FloatingActionButton(
         onPressed: () => _showAddDialog(context, ref),
         child: const Icon(Icons.add),
@@ -35,10 +36,10 @@ class HabitsScreen extends ConsumerWidget {
                 children: [
                   const Text('🌱', style: TextStyle(fontSize: 48)),
                   const SizedBox(height: 16),
-                  Text('No habits yet', style: textTheme.titleMedium),
+                  Text(context.s('habits.empty_title'), style: textTheme.titleMedium),
                   const SizedBox(height: 8),
                   Text(
-                    'Add good habits to build streaks,\nor track bad ones to break them.',
+                    context.s('habits.empty_body'),
                     textAlign: TextAlign.center,
                     style: textTheme.bodyMedium,
                   ),
@@ -54,13 +55,13 @@ class HabitsScreen extends ConsumerWidget {
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 96),
             children: [
               if (good.isNotEmpty) ...[
-                Text('Good habits', style: textTheme.titleMedium),
+                Text(context.s('habits.good_habits'), style: textTheme.titleMedium),
                 const SizedBox(height: 8),
                 ...good.map((h) => _GoodHabitCard(habit: h)),
                 const SizedBox(height: 24),
               ],
               if (bad.isNotEmpty) ...[
-                Text('Break these', style: textTheme.titleMedium),
+                Text(context.s('habits.break_these'), style: textTheme.titleMedium),
                 const SizedBox(height: 8),
                 ...bad.map((h) => _BadHabitCard(habit: h)),
               ],
@@ -80,22 +81,22 @@ class HabitsScreen extends ConsumerWidget {
       context: context,
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setState) => AlertDialog(
-          title: const Text('New habit'),
+          title: Text(ctx.s('habits.new_habit')),
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
               TextField(
                 controller: nameController,
                 autofocus: true,
-                decoration: const InputDecoration(labelText: 'Habit name'),
+                decoration: InputDecoration(labelText: ctx.s('habits.habit_name')),
               ),
               const SizedBox(height: 16),
               Row(
                 children: [
-                  const Text('Type: '),
+                  Text(ctx.s('habits.type_label')),
                   const SizedBox(width: 8),
                   ChoiceChip(
-                    label: const Text('✅ Good'),
+                    label: Text(ctx.s('habits.type_good')),
                     selected: type == 'good',
                     onSelected: (_) => setState(() {
                       type = 'good';
@@ -104,7 +105,7 @@ class HabitsScreen extends ConsumerWidget {
                   ),
                   const SizedBox(width: 8),
                   ChoiceChip(
-                    label: const Text('🚫 Bad'),
+                    label: Text(ctx.s('habits.type_bad')),
                     selected: type == 'bad',
                     onSelected: (_) => setState(() {
                       type = 'bad';
@@ -118,7 +119,7 @@ class HabitsScreen extends ConsumerWidget {
           actions: [
             TextButton(
               onPressed: () => Navigator.of(ctx).pop(),
-              child: const Text('Cancel'),
+              child: Text(ctx.s('btn.cancel')),
             ),
             FilledButton(
               onPressed: () async {
@@ -131,7 +132,7 @@ class HabitsScreen extends ConsumerWidget {
                     );
                 if (ctx.mounted) Navigator.of(ctx).pop();
               },
-              child: const Text('Add'),
+              child: Text(ctx.s('btn.add')),
             ),
           ],
         ),
@@ -190,7 +191,7 @@ class _GoodHabitCard extends ConsumerWidget {
                         if (v == 'archive') dao.archive(habit.id);
                       },
                       itemBuilder: (_) => [
-                        const PopupMenuItem(value: 'archive', child: Text('Archive')),
+                        PopupMenuItem(value: 'archive', child: Text(context.s('habits.archive'))),
                       ],
                     ),
                   ],
@@ -209,7 +210,8 @@ class _GoodHabitCard extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  done ? 'Done! 🎉' : '$count / $target today',
+                  // "$count / $target today" — числа не переводятся; "today" опускаем через ключ
+                  done ? context.s('habits.done') : '$count / $target today',
                   style: textTheme.bodySmall?.copyWith(
                     color: done ? Colors.green : colorScheme.outline,
                   ),
@@ -275,7 +277,7 @@ class _BadHabitCard extends ConsumerWidget {
                     if (v == 'archive') dao.archive(habit.id);
                   },
                   itemBuilder: (_) => [
-                    const PopupMenuItem(value: 'archive', child: Text('Archive')),
+                    PopupMenuItem(value: 'archive', child: Text(context.s('habits.archive'))),
                   ],
                 ),
               ],

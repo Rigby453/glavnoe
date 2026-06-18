@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/l10n/app_strings.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../services/notifications/notification_service.dart';
 import 'posture_exercises.dart';
@@ -64,7 +65,7 @@ class PostureScreen extends ConsumerWidget {
     final remindersOn = ref.watch(postureRemindersProvider);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Posture')),
+      appBar: AppBar(title: Text(context.s('posture.title'))),
       body: ListView(
         padding: const EdgeInsets.symmetric(vertical: 8),
         children: [
@@ -73,8 +74,8 @@ class PostureScreen extends ConsumerWidget {
             margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             child: SwitchListTile(
               secondary: const Icon(Icons.notifications_outlined),
-              title: const Text('Sit-up-straight reminders'),
-              subtitle: const Text('Every 2 hours, 10:00–18:00'),
+              title: Text(context.s('posture.reminders_title')),
+              subtitle: Text(context.s('posture.reminders_subtitle')),
               value: remindersOn,
               onChanged: (value) async {
                 final notifier =
@@ -83,12 +84,9 @@ class PostureScreen extends ConsumerWidget {
                 // Если разрешение не выдано — показываем снэкбар
                 if (value && !result && context.mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text(
-                        'Notification permission required. '
-                        'Enable it in system settings.',
-                      ),
-                      duration: Duration(seconds: 4),
+                    SnackBar(
+                      content: Text(context.s('posture.permission_required')),
+                      duration: const Duration(seconds: 4),
                     ),
                   );
                 }
@@ -100,7 +98,7 @@ class PostureScreen extends ConsumerWidget {
           Padding(
             padding:
                 const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-            child: Text('Exercises', style: textTheme.titleMedium),
+            child: Text(context.s('posture.exercises'), style: textTheme.titleMedium),
           ),
           ...postureExercises.map(
             (exercise) => _ExerciseTile(exercise: exercise),

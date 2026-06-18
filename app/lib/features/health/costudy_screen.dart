@@ -6,6 +6,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../services/api/api_client.dart';
 
 // Активная сессия: null = нет сессии, иначе ID сессии
@@ -66,7 +67,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
             SnackBar(
               content: Text('$names ${studying.length == 1 ? 'is' : 'are'} studying now! 📚'),
               action: SnackBarAction(
-                label: 'Start too',
+                label: context.s('costudy.start_too'),
                 onPressed: _startSession,
               ),
               duration: const Duration(seconds: 4),
@@ -83,21 +84,21 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
     final email = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Add study buddy'),
+        title: Text(ctx.s('costudy.add_buddy_title')),
         content: TextField(
           controller: ctrl,
-          decoration: const InputDecoration(labelText: 'Email address'),
+          decoration: InputDecoration(labelText: ctx.s('costudy.email_label')),
           keyboardType: TextInputType.emailAddress,
           autofocus: true,
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
-            child: const Text('Cancel'),
+            child: Text(ctx.s('btn.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Add'),
+            child: Text(ctx.s('btn.add')),
           ),
         ],
       ),
@@ -108,6 +109,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
       _load();
     } catch (_) {
       if (mounted) {
+        // "Not found: $email" — email не переводится, оставляем как есть
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Not found: $email')),
         );
@@ -132,11 +134,11 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
     final code = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Join a session'),
+        title: Text(ctx.s('costudy.join_session_title')),
         content: TextField(
           controller: ctrl,
-          decoration: const InputDecoration(
-            labelText: 'Session code (8 characters)',
+          decoration: InputDecoration(
+            labelText: ctx.s('costudy.session_code_hint_label'),
             hintText: 'e.g. a1b2c3d4',
           ),
           autofocus: true,
@@ -144,10 +146,10 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
           textCapitalization: TextCapitalization.none,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.s('btn.cancel'))),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
-            child: const Text('Join'),
+            child: Text(ctx.s('costudy.join')),
           ),
         ],
       ),
@@ -160,13 +162,15 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
       final confirmed = await showDialog<bool>(
         context: context,
         builder: (ctx) => AlertDialog(
-          title: const Text('Study together'),
+          title: Text(ctx.s('costudy.study_together')),
           content: Text(
+            // Интерполяция с числом минут — оставляем английский вариант,
+            // чтобы не сломать русские словоформы (1 минута / 2 минуты / 5 минут).
             '${info['user_email']} has been studying for ${info['elapsed_minutes']} min.\nJoin their session?',
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Start')),
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: Text(ctx.s('btn.cancel'))),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text(ctx.s('costudy.start'))),
           ],
         ),
       );
@@ -174,7 +178,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Session not found or has ended')),
+          SnackBar(content: Text(context.s('costudy.session_not_found'))),
         );
       }
     }
@@ -212,7 +216,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Co-study'),
+        title: Text(context.s('costudy.title')),
         actions: [
           IconButton(icon: const Icon(Icons.refresh), onPressed: _load),
           IconButton(
@@ -243,14 +247,14 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
                     if (inSession) ...[
                       Text(_formatElapsed(), style: textTheme.displaySmall),
                       const SizedBox(height: 4),
-                      Text('Session in progress', style: textTheme.bodySmall),
+                      Text(context.s('costudy.session_in_progress'), style: textTheme.bodySmall),
                       if (_sessionCode != null) ...[
                         const SizedBox(height: 8),
                         Row(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
                             Text(
-                              'Code: $_sessionCode',
+                              '${context.s('costudy.session_code_label')} $_sessionCode',
                               style: textTheme.titleLarge?.copyWith(
                                 letterSpacing: 4,
                                 fontWeight: FontWeight.bold,
@@ -262,35 +266,35 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
                               onPressed: () {
                                 Clipboard.setData(ClipboardData(text: _sessionCode!));
                                 ScaffoldMessenger.of(context).showSnackBar(
-                                  const SnackBar(content: Text('Code copied!')),
+                                  SnackBar(content: Text(context.s('costudy.code_copied'))),
                                 );
                               },
                             ),
                           ],
                         ),
-                        Text('Share this code with a friend', style: textTheme.bodySmall),
+                        Text(context.s('costudy.share_code'), style: textTheme.bodySmall),
                       ],
                       const SizedBox(height: 16),
                       FilledButton.tonal(
                         onPressed: _endSession,
-                        child: const Text('End session'),
+                        child: Text(context.s('costudy.end_session')),
                       ),
                     ] else ...[
-                      Text('Ready to focus?', style: textTheme.titleMedium),
+                      Text(context.s('costudy.ready_to_focus'), style: textTheme.titleMedium),
                       const SizedBox(height: 4),
                       Text(
-                        "Start a session and your friends will see you're studying",
+                        context.s('costudy.session_prompt'),
                         style: textTheme.bodySmall,
                         textAlign: TextAlign.center,
                       ),
                       const SizedBox(height: 16),
                       FilledButton(
                         onPressed: _startSession,
-                        child: const Text('Start session'),
+                        child: Text(context.s('costudy.start_session')),
                       ),
                       TextButton(
                         onPressed: _joinByCode,
-                        child: const Text('Join a session by code'),
+                        child: Text(context.s('costudy.join_by_code')),
                       ),
                     ],
                   ],
@@ -303,11 +307,11 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
             // Секция друзей
             Row(
               children: [
-                Text('Study buddies', style: textTheme.titleSmall),
+                Text(context.s('costudy.study_buddies'), style: textTheme.titleSmall),
                 const Spacer(),
                 TextButton.icon(
                   icon: const Icon(Icons.add, size: 16),
-                  label: const Text('Add'),
+                  label: Text(context.s('btn.add')),
                   onPressed: _addFriend,
                 ),
               ],
@@ -319,7 +323,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
-                  'No buddies yet. Add a friend by email!',
+                  context.s('costudy.no_buddies'),
                   style: textTheme.bodySmall,
                   textAlign: TextAlign.center,
                 ),
@@ -340,13 +344,13 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
             const SizedBox(height: 16),
 
             // Таблица лидеров
-            Text('This week', style: textTheme.titleSmall),
+            Text(context.s('costudy.this_week'), style: textTheme.titleSmall),
             const SizedBox(height: 8),
             if (_leaderboard.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
                 child: Text(
-                  'No sessions yet this week.',
+                  context.s('costudy.no_sessions_week'),
                   style: textTheme.bodySmall,
                 ),
               )
@@ -376,12 +380,14 @@ class _FriendTile extends StatelessWidget {
       title: Text(email),
       subtitle: inSession
           ? Text(
+              // Интерполяция с числом минут — оставляем как есть (EN),
+              // чтобы не сломать русские словоформы (мин/минута/минуты).
               'Studying${minutes != null && minutes > 0 ? ' · ${minutes}m' : ''}',
               style: TextStyle(
                 color: Theme.of(context).colorScheme.primary,
               ),
             )
-          : const Text('Idle'),
+          : Text(context.s('costudy.friend_idle')),
       trailing: IconButton(
         icon: const Icon(Icons.person_remove_outlined, size: 20),
         onPressed: onRemove,
@@ -415,7 +421,7 @@ class _LeaderboardTile extends StatelessWidget {
         entry['email'] as String,
         style: isMe ? const TextStyle(fontWeight: FontWeight.bold) : null,
       ),
-      subtitle: isMe ? const Text('You') : null,
+      subtitle: isMe ? Text(context.s('costudy.you')) : null,
       trailing: Text(label, style: Theme.of(context).textTheme.bodyMedium),
     );
   }

@@ -17,6 +17,7 @@ import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/text_scale_provider.dart';
 import '../../core/utils/id.dart';
 import 'shared_plan.dart';
+import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/locale_provider.dart';
 import '../../core/settings/tone_provider.dart';
 import '../../services/notifications/notification_service.dart';
@@ -55,7 +56,7 @@ class ProfileScreen extends ConsumerWidget {
         ref.read(authControllerProvider.notifier).isAuthenticated;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Profile')),
+      appBar: AppBar(title: Text(context.s('profile.title'))),
       body: Padding(
         padding: const EdgeInsets.all(24),
         child: Column(
@@ -73,7 +74,7 @@ class ProfileScreen extends ConsumerWidget {
               onPressed: () async {
                 await ref.read(authControllerProvider.notifier).logout();
               },
-              child: Text(isAuthenticated ? 'Sign out' : 'Sign in / Sign up'),
+              child: Text(isAuthenticated ? context.s('btn.sign_out') : context.s('btn.sign_in')),
             ),
             const SizedBox(height: 8),
             const _AppVersionLabel(),
@@ -101,11 +102,10 @@ class ProfileScreen extends ConsumerWidget {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Offline mode', style: textTheme.titleMedium),
+                      Text(context.s('profile.offline_mode'), style: textTheme.titleMedium),
                       const SizedBox(height: 4),
                       Text(
-                        'Your tasks are stored on this device only. '
-                        'Sign in to sync across devices.',
+                        context.s('profile.offline_subtitle'),
                         style: textTheme.bodyMedium,
                       ),
                     ],
@@ -115,7 +115,7 @@ class ProfileScreen extends ConsumerWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      (user['name'] as String?) ?? 'You',
+                      (user['name'] as String?) ?? context.s('profile.you'),
                       style: textTheme.titleLarge,
                     ),
                     const SizedBox(height: 4),
@@ -136,12 +136,12 @@ class ProfileScreen extends ConsumerWidget {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceAround,
                       children: [
-                        _StreakStat(label: 'Streak', value: '${streak?.current ?? 0}'),
-                        _StreakStat(label: 'Best', value: '${streak?.longest ?? 0}'),
+                        _StreakStat(label: context.s('profile.streak'), value: '${streak?.current ?? 0}'),
+                        _StreakStat(label: context.s('profile.streak_best'), value: '${streak?.longest ?? 0}'),
                         Tooltip(
-                          message: 'Freeze protects your streak\nif you miss a day.',
+                          message: context.s('streak.freeze'),
                           child: _StreakStat(
-                            label: 'Freezes ❄️',
+                            label: context.s('profile.streak_freezes'),
                             value: '${streak?.freezeCount ?? 0}',
                           ),
                         ),
@@ -157,7 +157,7 @@ class ProfileScreen extends ConsumerWidget {
                           const SizedBox(width: 8),
                           Expanded(
                             child: Text(
-                              'Give yourself a day off — a freeze will protect your streak automatically if you miss today.',
+                              context.s('profile.freeze_hint'),
                               style: Theme.of(context).textTheme.bodySmall,
                             ),
                           ),
@@ -175,11 +175,11 @@ class ProfileScreen extends ConsumerWidget {
             const SizedBox(height: 8),
             const _SharedWithMeCard(),
             const SizedBox(height: 24),
-            Text('Appearance', style: textTheme.titleMedium),
+            Text(context.s('profile.section_appearance'), style: textTheme.titleMedium),
             const SizedBox(height: 8),
             const _ThemePicker(),
             const SizedBox(height: 24),
-            Text('Preferences', style: textTheme.titleMedium),
+            Text(context.s('profile.section_preferences'), style: textTheme.titleMedium),
             const SizedBox(height: 8),
             // --- Язык ---
             Consumer(
@@ -188,7 +188,7 @@ class ProfileScreen extends ConsumerWidget {
                 return ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.language),
-                  title: const Text('Language'),
+                  title: Text(context.s('profile.language')),
                   trailing: DropdownButton<String>(
                     value: locale.languageCode,
                     underline: const SizedBox.shrink(),
@@ -216,34 +216,34 @@ class ProfileScreen extends ConsumerWidget {
             const _NotificationsSetting(),
             const _ShowKaiSetting(),
             const SizedBox(height: 16),
-            Text('Support', style: textTheme.titleMedium),
+            Text(context.s('profile.section_support'), style: textTheme.titleMedium),
             const SizedBox(height: 8),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.star_border),
-              title: const Text('Rate the app'),
+              title: Text(context.s('profile.rate_app')),
               onTap: () {
                 // TODO: открыть Store страницу — подставить реальный URL при публикации
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Coming soon — we\'re not in the store yet 😊')),
+                  SnackBar(content: Text(context.s('profile.rate_coming_soon'))),
                 );
               },
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.feedback_outlined),
-              title: const Text('Send feedback'),
-              subtitle: const Text('Report a bug or suggest a feature'),
+              title: Text(context.s('profile.send_feedback')),
+              subtitle: Text(context.s('profile.feedback_subtitle')),
               onTap: () {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Email us: support@kaizen.app')),
+                  SnackBar(content: Text(context.s('profile.feedback_email'))),
                 );
               },
             ),
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.description_outlined),
-              title: const Text('Terms & Privacy'),
+              title: Text(context.s('profile.terms_privacy')),
               onTap: () => context.push('/terms'),
             ),
             const SizedBox(height: 8),
@@ -262,11 +262,11 @@ class ProfileScreen extends ConsumerWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Invite a friend',
+                                context.s('profile.invite_title'),
                                 style: Theme.of(context).textTheme.titleSmall,
                               ),
                               Text(
-                                'Get 1 week free Premium for each friend who joins',
+                                context.s('profile.invite_subtitle'),
                                 style: Theme.of(context).textTheme.bodySmall,
                               ),
                             ],
@@ -277,12 +277,12 @@ class ProfileScreen extends ConsumerWidget {
                     const SizedBox(height: 12),
                     FilledButton.icon(
                       icon: const Icon(Icons.share, size: 16),
-                      label: const Text('Share Kaizen'),
+                      label: Text(context.s('profile.share_kaizen')),
                       onPressed: () {
                         // TODO: реальная реферальная ссылка после публикации в стор
                         ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text('Referral links coming after App Store launch 🚀'),
+                          SnackBar(
+                            content: Text(context.s('profile.referral_coming_soon')),
                           ),
                         );
                       },
@@ -305,8 +305,8 @@ class _NotificationsSetting extends ConsumerWidget {
     final enabled = ref.watch(notificationsEnabledProvider);
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
-      title: const Text('Daily reminders'),
-      subtitle: const Text('Morning & evening review nudges'),
+      title: Text(context.s('profile.notifications')),
+      subtitle: Text(context.s('profile.notifications_subtitle')),
       value: enabled,
       onChanged: (want) async {
         final result = await ref
@@ -315,8 +315,8 @@ class _NotificationsSetting extends ConsumerWidget {
         // Если включали, но разрешение не выдали — подсказываем.
         if (want && !result && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(
-              content: Text('Enable notifications in system settings to use reminders'),
+            SnackBar(
+              content: Text(context.s('profile.notifications_snackbar')),
             ),
           );
         }
@@ -335,8 +335,8 @@ class _ShowKaiSetting extends ConsumerWidget {
     final showKai = ref.watch(showKaiProvider);
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
-      title: const Text('Show Kai'),
-      subtitle: const Text('The AI presence on your Today screen'),
+      title: Text(context.s('profile.show_kai')),
+      subtitle: Text(context.s('profile.show_kai_subtitle')),
       value: showKai,
       onChanged: (_) => ref.read(showKaiProvider.notifier).toggle(),
     );
@@ -348,11 +348,11 @@ class _ThemePicker extends ConsumerWidget {
   const _ThemePicker();
 
   static const _available = [
-    (AppThemeKey.focus, 'Focus'),
-    (AppThemeKey.calm, 'Calm'),
-    (AppThemeKey.black, 'Black'),
-    (AppThemeKey.white, 'White'),
-    (AppThemeKey.contrast, 'Contrast'),
+    (AppThemeKey.focus, 'profile.theme_focus'),
+    (AppThemeKey.calm, 'profile.theme_calm'),
+    (AppThemeKey.black, 'profile.theme_black'),
+    (AppThemeKey.white, 'profile.theme_white'),
+    (AppThemeKey.contrast, 'profile.theme_contrast'),
   ];
 
   @override
@@ -361,9 +361,9 @@ class _ThemePicker extends ConsumerWidget {
     return Wrap(
       spacing: 8,
       children: _available.map((entry) {
-        final (key, label) = entry;
+        final (key, labelKey) = entry;
         return ChoiceChip(
-          label: Text(label),
+          label: Text(context.s(labelKey)),
           selected: current == key,
           onSelected: (_) =>
               ref.read(themeNotifierProvider.notifier).setTheme(key),
@@ -389,7 +389,7 @@ class _ShareWeekCardState extends ConsumerState<_ShareWeekCard> {
     final api = ref.read(apiClientProvider);
     if (api.token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Sign in to share your plan')),
+        SnackBar(content: Text(context.s('profile.share_sign_in'))),
       );
       return;
     }
@@ -406,8 +406,8 @@ class _ShareWeekCardState extends ConsumerState<_ShareWeekCard> {
       await Clipboard.setData(ClipboardData(text: url));
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('Link copied — valid for 7 days, view-only'),
+          SnackBar(
+            content: Text(context.s('profile.share_link_copied')),
           ),
         );
       }
@@ -433,8 +433,8 @@ class _ShareWeekCardState extends ConsumerState<_ShareWeekCard> {
                 child: CircularProgressIndicator(strokeWidth: 2),
               )
             : Icon(Icons.ios_share, color: colorScheme.primary),
-        title: const Text('Share my week'),
-        subtitle: const Text('View-only web link · friends need no app'),
+        title: Text(context.s('profile.share_week')),
+        subtitle: Text(context.s('profile.share_week_subtitle')),
         trailing: const Icon(Icons.chevron_right),
         onTap: _working ? null : _share,
       ),
@@ -459,10 +459,11 @@ class _PremiumCard extends ConsumerWidget {
           isPremium ? Icons.workspace_premium : Icons.workspace_premium_outlined,
           color: colorScheme.primary,
         ),
-        title: Text(isPremium ? 'Kaizen Premium' : 'Free plan',
+        title: Text(
+            isPremium ? context.s('profile.premium_badge') : context.s('profile.free_plan'),
             style: textTheme.titleSmall),
         subtitle: Text(
-          isPremium ? 'AI features unlocked' : 'Unlock AI — \$10/mo',
+          isPremium ? context.s('profile.premium_unlocked') : context.s('profile.premium_unlock_cta'),
           style: textTheme.bodySmall,
         ),
         trailing: isPremium
@@ -485,11 +486,11 @@ class _ToneSetting extends ConsumerWidget {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
-        Text('Default tone', style: textTheme.bodyLarge),
+        Text(context.s('profile.default_tone'), style: textTheme.bodyLarge),
         SegmentedButton<AppTone>(
-          segments: const [
-            ButtonSegment(value: AppTone.gentle, label: Text('Gentle')),
-            ButtonSegment(value: AppTone.harsh, label: Text('Harsh')),
+          segments: [
+            ButtonSegment(value: AppTone.gentle, label: Text(context.s('settings.gentle'))),
+            ButtonSegment(value: AppTone.harsh, label: Text(context.s('settings.harsh'))),
           ],
           selected: {tone},
           showSelectedIcon: false,
@@ -512,7 +513,7 @@ class _TextSizeSetting extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Text size', style: textTheme.bodyLarge),
+        Text(context.s('profile.text_size'), style: textTheme.bodyLarge),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
@@ -596,23 +597,23 @@ class _SharedWithMeCardState extends ConsumerState<_SharedWithMeCard> {
     final submitted = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text("Shared with me"),
+        title: Text(context.s('profile.shared_with_me')),
         content: TextField(
           controller: _linkController,
           autofocus: true,
-          decoration: const InputDecoration(
-            hintText: 'Paste link or token',
+          decoration: InputDecoration(
+            hintText: context.s('profile.paste_link_hint'),
           ),
           onSubmitted: (v) => Navigator.of(ctx).pop(v),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Cancel'),
+            child: Text(context.s('btn.cancel')),
           ),
           FilledButton(
             onPressed: () => Navigator.of(ctx).pop(_linkController.text),
-            child: const Text('Open'),
+            child: Text(context.s('profile.open')),
           ),
         ],
       ),
@@ -627,7 +628,7 @@ class _SharedWithMeCardState extends ConsumerState<_SharedWithMeCard> {
     final token = extractShareToken(submitted);
     if (token == null) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Invalid link or token')),
+        SnackBar(content: Text(context.s('profile.invalid_link'))),
       );
       return;
     }
@@ -651,7 +652,7 @@ class _SharedWithMeCardState extends ConsumerState<_SharedWithMeCard> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Network error — check your connection')),
+          SnackBar(content: Text(context.s('profile.network_error'))),
         );
       }
       return;
@@ -776,8 +777,8 @@ class _SharedWithMeCardState extends ConsumerState<_SharedWithMeCard> {
     return Card(
       child: ListTile(
         leading: Icon(Icons.group_outlined, color: colorScheme.primary),
-        title: const Text('Shared with me'),
-        subtitle: const Text("Open a friend's plan link"),
+        title: Text(context.s('profile.shared_with_me')),
+        subtitle: Text(context.s('profile.shared_with_me_subtitle')),
         trailing: const Icon(Icons.chevron_right),
         onTap: _openDialog,
       ),
@@ -861,7 +862,7 @@ class _PlanSheetContent extends StatelessWidget {
             child: rawItems.isEmpty
                 ? Center(
                     child: Text(
-                      'No events in this plan',
+                      context.s('profile.no_events'),
                       style: textTheme.bodyMedium,
                     ),
                   )
