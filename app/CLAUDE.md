@@ -5,6 +5,8 @@
 2. /docs/design-tokens.json — colours, fonts, spacing per theme
 3. /docs/ANIMATIONS.md — animation spec (durations, curves, per-element behaviour) — THE source of truth for motion
 4. /docs/api-spec.yaml — endpoints to call (implement Dio client matching exactly)
+5. /docs/UX-LAYOUT.md — control placement, accent usage, tap-reduction (ADR-033) — read before touching navigation/screen layout
+6. /docs/MASCOT.md — mascot "Kai" spec (ADR-032) — read before building the mascot/Rive presence
 
 ---
 
@@ -140,7 +142,8 @@ Tap [+] → AddEventSheet with type selector (task/event/exam/deadline).
 | Claude API | NEVER in Flutter — backend handles all AI calls |
 | State | Riverpod only — no setState in feature screens |
 | Themes | All 5 themes switchable; default = focus; load from SharedPreferences |
-| Navigation | Profile is AppBar leading button, NOT a 5th tab |
+| Navigation | Profile is AppBar leading button, NOT a 5th tab. Placement rationale + refinements in /docs/UX-LAYOUT.md (ADR-033) |
+| Mascot | "Kai" presence (Rive) per /docs/MASCOT.md (ADR-032); eyes = theme accent; behaviour from gentle/harsh tone; off-toggle in Profile; static under disableAnimations |
 | Main limit | Max 3 items with priority=main per day — enforce in AddTaskBottomSheet |
 | Animations | Follow /docs/ANIMATIONS.md exactly (snap=120, fast=180, normal=280, slow=400; constants in core/animations/constants.dart); all disableable via MediaQuery.disableAnimations |
 | Tone | gentle/harsh stored in prefs, affects display strings ONLY (not logic) |
