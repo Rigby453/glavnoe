@@ -6,6 +6,10 @@
 //
 // ANIMATIONS.md §1.1+§1.2: карточка обёрнута в Pressable (scale/lift).
 // ANIMATIONS.md §2.3: AnimatedCheck + AnimatedDefaultTextStyle для done-строк.
+//
+// UX-LAYOUT §9.4: одноразовый нёдж-хинт при первом появлении списка задач —
+// первая ожидающая карточка чуть смещается вправо и возвращается обратно,
+// намекая на свайп-действие. Отключается при reduce-motion.
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -19,9 +23,10 @@ import '../../../core/animations/pressable.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/settings/swipe_hint_provider.dart';
 import 'add_task_sheet.dart';
 
-class TaskList extends ConsumerWidget {
+class TaskList extends ConsumerStatefulWidget {
   const TaskList({
     required this.items,
     required this.day,
@@ -35,7 +40,95 @@ class TaskList extends ConsumerWidget {
   final DateTime day;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TaskList> createState() => _TaskListState();
+}
+
+class _TaskListState extends ConsumerState<TaskList>
+    with SingleTickerProviderStateMixin {
+  // Контроллер нёджа: смещение вправо → обратно за ~700 мс.
+  // null пока не запущен или после завершения.
+  AnimationController? _nudgeController;
+  Animation<double>? _nudgeAnim;
+
+  // Индекс первой ожидающей карточки в общем списке items —
+  // только она получает трансформ нёджа.
+  int? _nudgeItemIndex;
+
+  @override
+  void initState() {
+    super.initState();
+    // Откладываем проверку до первого кадра: нам нужен BuildContext для
+    // reduceMotionOf() и Riverpod-провайдер уже прочитан.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _maybeStartNudge());
+  }
+
+  void _maybeStartNudge() {
+    if (!mounted) return;
+
+    // Нёдж не нужен если reduce-motion включён.
+    if (reduceMotionOf(context)) return;
+
+    // Нёдж не нужен если пользователь уже видел подсказку.
+    final alreadySeen = ref.read(swipeHintSeenProvider);
+    if (alreadySeen) return;
+
+    // Нёдж не нужен если нет swipeable (pending) задач.
+    final pendingIndex = widget.items.indexWhere((i) => i.status == 'pending');
+    if (pendingIndex < 0) return;
+
+    // Создаём контроллер: 700 мс общая длительность (≤ slow=300 × 2 + пауза).
+    // Нёдж не является UI-переходом в смысле §0 ANIMATIONS.md, это декоративная
+    // подсказка — поэтому допустимо 700 мс без блокировки интерфейса.
+    final controller = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 700),
+    );
+
+    // Смещение: 0 → +22 px → 0, кривая easeInOut для плавности.
+    // 22 px достаточно чтобы зелёный фон был заметен, но не пугал.
+    final anim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: 22.0)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 40,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 22.0, end: 0.0)
+            .chain(CurveTween(curve: Curves.easeIn)),
+        weight: 60,
+      ),
+    ]).animate(controller);
+
+    setState(() {
+      _nudgeItemIndex = pendingIndex;
+      _nudgeController = controller;
+      _nudgeAnim = anim;
+    });
+
+    // Запускаем нёдж один раз, затем помечаем подсказку как просмотренную.
+    controller.forward().then((_) {
+      if (mounted) {
+        ref.read(swipeHintSeenProvider.notifier).markSeen();
+        setState(() {
+          _nudgeItemIndex = null;
+          _nudgeController = null;
+          _nudgeAnim = null;
+        });
+      }
+      controller.dispose();
+    });
+  }
+
+  @override
+  void dispose() {
+    _nudgeController?.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final items = widget.items;
+
     if (items.isEmpty) {
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 48),
@@ -57,18 +150,24 @@ class TaskList extends ConsumerWidget {
       children: [
         if (mainItems.isNotEmpty) ...[
           _SectionHeader(title: context.s('today.main_tasks')),
-          ...mainItems.map((i) => _buildRow(context, ref, i)),
+          ...mainItems.map((i) => _buildRow(context, i)),
           const SizedBox(height: 16),
         ],
         if (laterItems.isNotEmpty) ...[
           _SectionHeader(title: context.s('today.later_section')),
-          ...laterItems.map((i) => _buildRow(context, ref, i)),
+          ...laterItems.map((i) => _buildRow(context, i)),
         ],
       ],
     );
   }
 
-  Widget _buildRow(BuildContext context, WidgetRef ref, ItemsTableData item) {
+  Widget _buildRow(BuildContext context, ItemsTableData item) {
+    // Определяем индекс этого item в общем списке для нёджа.
+    final itemIndex = widget.items.indexOf(item);
+    final isNudgeTarget = _nudgeItemIndex != null &&
+        _nudgeAnim != null &&
+        itemIndex == _nudgeItemIndex;
+
     // Завершённые/пропущенные — без свайпа, но в ТОЙ ЖЕ обёртке Dismissible
     // (direction: none): у обеих веток одинаковый runtimeType и ключ, поэтому
     // element переживает смену статуса, _TaskCardState ловит переход
@@ -77,13 +176,13 @@ class TaskList extends ConsumerWidget {
       return Dismissible(
         key: ValueKey(item.id),
         direction: DismissDirection.none,
-        child: _TaskCard(item: item, day: day),
+        child: _TaskCard(item: item, day: widget.day),
       );
     }
 
     final colorScheme = Theme.of(context).colorScheme;
 
-    return Dismissible(
+    Widget dismissible = Dismissible(
       key: ValueKey(item.id),
       // Свайп вправо = done
       background: _swipeBg(
@@ -127,8 +226,23 @@ class TaskList extends ConsumerWidget {
         }
         return false;
       },
-      child: _TaskCard(key: ValueKey(item.id), item: item, day: day),
+      child: _TaskCard(key: ValueKey(item.id), item: item, day: widget.day),
     );
+
+    // Оборачиваем первую ожидающую карточку в нёдж-трансформ.
+    // AnimatedBuilder пересчитывает только эту карточку — остальные не перерисовываются.
+    if (isNudgeTarget) {
+      dismissible = AnimatedBuilder(
+        animation: _nudgeAnim!,
+        builder: (ctx, child) => Transform.translate(
+          offset: Offset(_nudgeAnim!.value, 0),
+          child: child,
+        ),
+        child: dismissible,
+      );
+    }
+
+    return dismissible;
   }
 
   Widget _swipeBg({

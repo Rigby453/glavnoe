@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/utils/breakpoints.dart';
+import '../../core/widgets/collapsing_fab.dart';
 import '../import/import_sheet.dart';
 import '../today/widgets/add_task_sheet.dart';
 import 'widgets/day_timeline.dart';
@@ -62,11 +63,21 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     final searchVisible = ref.watch(planSearchVisibleProvider);
 
     final isTablet = MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
+    // На планшете — две колонки прокручиваются независимо; CollapsingFab
+    // реагировал бы на случайную из них. Используем статичный extended FAB.
+    // На мобильном — одна колонка с чётко определённым скроллером → collapse.
     return Scaffold(
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showAddTaskSheet(context, day: selectedDay),
-        child: const Icon(Icons.add),
-      ),
+      floatingActionButton: isTablet
+          ? FloatingActionButton.extended(
+              onPressed: () => showAddTaskSheet(context, day: selectedDay),
+              icon: const Icon(Icons.add),
+              label: const Text('+ Add'),
+            )
+          : CollapsingFab(
+              onPressed: () => showAddTaskSheet(context, day: selectedDay),
+              icon: const Icon(Icons.add),
+              label: const Text('+ Add'),
+            ),
       body: isTablet
           ? _buildTabletLayout(context, selectedDay, view, searchVisible)
           : _buildMobileLayout(context, selectedDay, view, searchVisible),

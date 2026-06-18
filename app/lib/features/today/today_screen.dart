@@ -13,6 +13,7 @@ import '../../core/l10n/app_strings.dart';
 import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/tone_provider.dart';
 import '../../core/utils/breakpoints.dart';
+import '../../core/widgets/collapsing_fab.dart';
 import '../../features/mascot/kai_mascot.dart';
 import '../../services/streak/streak_service.dart';
 import '../../services/widget/widget_service.dart';
@@ -126,9 +127,14 @@ class TodayScreen extends ConsumerWidget {
     return Stack(
       children: [
         Scaffold(
-          floatingActionButton: FloatingActionButton(
+          // CollapsingFab: развёрнут «+ Add» в покое, сворачивается при скролле вниз.
+          // Зазор ≥16dp над таб-баром обеспечивается стандартным FAB-отступом Flutter
+          // (16dp от нижней границы SafeArea); extraBottomMargin не нужен, т.к.
+          // ScaffoldWithNavBar уже корректирует MediaQuery.padding для вложенных Scaffold.
+          floatingActionButton: CollapsingFab(
             onPressed: () => showAddTaskSheet(context, day: now),
-            child: const Icon(Icons.add),
+            icon: const Icon(Icons.add),
+            label: const Text('+ Add'),
           ),
           body: itemsAsync.when(
             loading: () => const Center(child: CircularProgressIndicator()),
@@ -200,9 +206,14 @@ class TodayScreen extends ConsumerWidget {
     return Stack(
       children: [
         Scaffold(
-          floatingActionButton: FloatingActionButton(
+          // Планшет: collapse-on-scroll не применяем — две независимые колонки
+          // прокручиваются отдельно, поэтому CollapsingFab будет реагировать
+          // только на одну из них непредсказуемо. Используем обычный extended FAB
+          // с корректным зазором через стандартный отступ Flutter.
+          floatingActionButton: FloatingActionButton.extended(
             onPressed: () => showAddTaskSheet(context, day: now),
-            child: const Icon(Icons.add),
+            icon: const Icon(Icons.add),
+            label: const Text('+ Add'),
           ),
           body: Row(
               crossAxisAlignment: CrossAxisAlignment.start,

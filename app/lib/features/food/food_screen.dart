@@ -15,6 +15,7 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/animations/ai_insight_reveal.dart';
+import '../../core/widgets/collapsing_fab.dart';
 import '../../core/animations/ai_pulse_dot.dart';
 import '../../core/animations/app_sheet.dart';
 import '../../core/database/database.dart';
@@ -72,7 +73,7 @@ class FoodScreen extends ConsumerWidget {
           ),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
+      floatingActionButton: CollapsingFab(
         onPressed: () => _showSearchSheet(context),
         icon: const Icon(Icons.add),
         label: Text(context.s('food.add')),

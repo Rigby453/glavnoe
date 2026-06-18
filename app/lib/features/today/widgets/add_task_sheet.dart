@@ -151,12 +151,13 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     if (mounted) setState(() => _mainCount = count);
   }
 
-  /// Умный дефолт времени при создании задачи (UX-LAYOUT §7, ADR-033):
+  /// Умный дефолт времени при создании задачи (UX-LAYOUT §7, §9.5, ADR-033):
   ///
   /// • Будущая дата → 09:00 на эту дату (текущий час ничего не значит для другого дня).
-  /// • Сегодня, и следующий круглый час ≤ 23 → этот час на сегодня (всегда в будущем).
-  /// • Сегодня, но уже ≥ 23:00 (т.е. nextHour = 24) → 09:00 завтра,
-  ///   чтобы не предлагать пользователю уже прошедший/бесполезный слот 23:00.
+  /// • Сегодня → ближайший будущий получасовой слот (:00 или :30) от текущего момента.
+  ///   Пример: сейчас 14:07 → дефолт 14:30; сейчас 14:33 → дефолт 15:00.
+  ///   Добавляем 1 минуту буфера чтобы не предлагать «сейчас» — слот должен быть в будущем.
+  /// • Сегодня, но ближайший слот ≥ 23:30 → 09:00 завтра, чтобы дефолт был полезным.
   DateTime _defaultScheduledAt() {
     final now = DateTime.now();
     final today = DateTime(now.year, now.month, now.day);
@@ -168,15 +169,20 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
       return DateTime(widget.day.year, widget.day.month, widget.day.day, 9, 0);
     }
 
-    // Сегодня (или прошлое — edge-case, но обрабатываем одинаково).
-    final nextHour = now.hour + 1;
-    if (nextHour <= 23) {
-      // Следующий круглый час сегодня — всегда в будущем.
+    // Сегодня (или прошлое — edge-case, обрабатываем как сегодня):
+    // ближайший будущий получасовой слот (+1 мин буфер против «сейчас»).
+    final base = now.add(const Duration(minutes: 1));
+    // Округляем минуты вверх до ближайшего кратного 30.
+    final rawMinutes = base.hour * 60 + base.minute;
+    final slotMinutes = ((rawMinutes + 29) ~/ 30) * 30;
+    final slotHour = slotMinutes ~/ 60;
+    final slotMin = slotMinutes % 60;
+
+    if (slotHour <= 23) {
       return DateTime(
-          widget.day.year, widget.day.month, widget.day.day, nextHour, 0);
+          widget.day.year, widget.day.month, widget.day.day, slotHour, slotMin);
     } else {
-      // Уже поздно (23:xx или 00:xx после полуночи) — откатываемся на утро
-      // следующего дня, чтобы дефолт был полезным, а не заведомо прошедшим.
+      // Уже после 23:30 — откатываемся на утро следующего дня.
       final tomorrow = widgetDay.add(const Duration(days: 1));
       return DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 9, 0);
     }
