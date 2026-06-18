@@ -150,12 +150,35 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     if (mounted) setState(() => _mainCount = count);
   }
 
-  /// Сегодня, следующий круглый час
+  /// Умный дефолт времени при создании задачи (UX-LAYOUT §7, ADR-033):
+  ///
+  /// • Будущая дата → 09:00 на эту дату (текущий час ничего не значит для другого дня).
+  /// • Сегодня, и следующий круглый час ≤ 23 → этот час на сегодня (всегда в будущем).
+  /// • Сегодня, но уже ≥ 23:00 (т.е. nextHour = 24) → 09:00 завтра,
+  ///   чтобы не предлагать пользователю уже прошедший/бесполезный слот 23:00.
   DateTime _defaultScheduledAt() {
     final now = DateTime.now();
+    final today = DateTime(now.year, now.month, now.day);
+    final widgetDay =
+        DateTime(widget.day.year, widget.day.month, widget.day.day);
+
+    // Будущая дата — 09:00 утра того дня.
+    if (widgetDay.isAfter(today)) {
+      return DateTime(widget.day.year, widget.day.month, widget.day.day, 9, 0);
+    }
+
+    // Сегодня (или прошлое — edge-case, но обрабатываем одинаково).
     final nextHour = now.hour + 1;
-    return DateTime(widget.day.year, widget.day.month, widget.day.day,
-        nextHour.clamp(0, 23), 0);
+    if (nextHour <= 23) {
+      // Следующий круглый час сегодня — всегда в будущем.
+      return DateTime(
+          widget.day.year, widget.day.month, widget.day.day, nextHour, 0);
+    } else {
+      // Уже поздно (23:xx или 00:xx после полуночи) — откатываемся на утро
+      // следующего дня, чтобы дефолт был полезным, а не заведомо прошедшим.
+      final tomorrow = widgetDay.add(const Duration(days: 1));
+      return DateTime(tomorrow.year, tomorrow.month, tomorrow.day, 9, 0);
+    }
   }
 
   @override

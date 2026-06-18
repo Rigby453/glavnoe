@@ -142,9 +142,11 @@ class _BalanceCard extends ConsumerWidget {
                       ? Icons.check_circle_outline
                       : Icons.tips_and_updates_outlined,
                   size: 20,
+                  // Иконка подсказки — нейтральный мутед, не акцент:
+                  // лайм должен означать «важное», а не «совет».
                   color: balance.balanced
                       ? Colors.green
-                      : colorScheme.primary,
+                      : colorScheme.onSurface.withAlpha(120),
                 ),
                 const SizedBox(width: 8),
                 Text('Balance', style: textTheme.titleMedium),
@@ -220,8 +222,9 @@ class _TotalsCard extends StatelessWidget {
                 const SizedBox(width: 4),
                 Text('Sugar ${g(totals.sugar)} g', style: textTheme.bodySmall),
                 const SizedBox(width: 16),
+                // Клетчатка — «следящая» метрика (не главная), нейтральный цвет.
                 Icon(Icons.grass_outlined,
-                    size: 16, color: colorScheme.primary),
+                    size: 16, color: colorScheme.onSurface.withAlpha(120)),
                 const SizedBox(width: 4),
                 Text('Fiber ${g(totals.fiber)} g', style: textTheme.bodySmall),
               ],

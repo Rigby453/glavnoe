@@ -9,8 +9,10 @@ import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/tone_provider.dart';
 import '../../core/utils/breakpoints.dart';
+import '../../features/mascot/kai_mascot.dart';
 import '../../services/streak/streak_service.dart';
 import '../../services/widget/widget_service.dart';
 import 'widgets/add_task_sheet.dart';
@@ -56,13 +58,21 @@ class TodayScreen extends ConsumerWidget {
     final allMainDone = mainItems.isNotEmpty &&
         mainItems.every((i) => i.status == 'done' || i.status == 'skipped');
 
+    // Kai: определяем эмоцию по прогрессу главных задач
+    final showKai = ref.watch(showKaiProvider);
+    final kaiEmotion = mainItems.isEmpty
+        ? KaiEmotion.neutral
+        : (allMainDone ? KaiEmotion.success : KaiEmotion.neutral);
+
     final isTablet = MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
     if (isTablet) {
       return _buildTabletLayout(
-          context, itemsAsync, mainItems, tone, allMainDone, now);
+          context, itemsAsync, mainItems, tone, allMainDone, now,
+          showKai: showKai, kaiEmotion: kaiEmotion);
     }
     return _buildMobileLayout(
-        context, itemsAsync, mainItems, tone, allMainDone, now);
+        context, itemsAsync, mainItems, tone, allMainDone, now,
+        showKai: showKai, kaiEmotion: kaiEmotion);
   }
 
   /// Мобильный макет — одна колонка, оригинальный вид.
@@ -72,8 +82,10 @@ class TodayScreen extends ConsumerWidget {
     List<ItemsTableData> mainItems,
     AppTone tone,
     bool allMainDone,
-    DateTime now,
-  ) {
+    DateTime now, {
+    required bool showKai,
+    required KaiEmotion kaiEmotion,
+  }) {
 
     return Stack(
       children: [
@@ -93,6 +105,13 @@ class TodayScreen extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(child: _Header(now: now)),
+                      if (showKai) ...[
+                        const SizedBox(width: 8),
+                        _KaiHeader(
+                          emotion: kaiEmotion,
+                          isHarsh: tone == AppTone.harsh,
+                        ),
+                      ],
                       const _ToneToggle(),
                     ],
                   ),
@@ -136,8 +155,10 @@ class TodayScreen extends ConsumerWidget {
     List<ItemsTableData> mainItems,
     AppTone tone,
     bool allMainDone,
-    DateTime now,
-  ) {
+    DateTime now, {
+    required bool showKai,
+    required KaiEmotion kaiEmotion,
+  }) {
     final items = itemsAsync.valueOrNull ?? const <ItemsTableData>[];
 
     return Stack(
@@ -161,6 +182,13 @@ class TodayScreen extends ConsumerWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Expanded(child: _Header(now: now)),
+                            if (showKai) ...[
+                              const SizedBox(width: 8),
+                              _KaiHeader(
+                                emotion: kaiEmotion,
+                                isHarsh: tone == AppTone.harsh,
+                              ),
+                            ],
                             const _ToneToggle(),
                           ],
                         ),
@@ -251,6 +279,33 @@ class _ToneToggle extends ConsumerWidget {
       onPressed: () => ref.read(toneProvider.notifier).toggle(),
       icon: Icon(harsh ? Icons.bolt : Icons.spa_outlined, size: 18),
       label: Text(harsh ? 'Harsh' : 'Gentle'),
+    );
+  }
+}
+
+/// Маскот Kai в шапке Today — компактный, 44×44, вертикально выровнен по центру.
+/// Виден только если showKaiProvider == true (условие проверяется в _buildMobileLayout
+/// и _buildTabletLayout, сюда попадаем уже внутри if-блока).
+class _KaiHeader extends StatelessWidget {
+  const _KaiHeader({
+    required this.emotion,
+    required this.isHarsh,
+  });
+
+  final KaiEmotion emotion;
+  final bool isHarsh;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      // Небольшой отступ сверху, чтобы выровнять оптически с иконкой тона
+      padding: const EdgeInsets.only(top: 2),
+      child: KaiMascot(
+        size: 44,
+        emotion: emotion,
+        isHarsh: isHarsh,
+        // onTap — зарезервировано для будущего цикла выражений
+      ),
     );
   }
 }

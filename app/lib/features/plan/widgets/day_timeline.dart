@@ -37,15 +37,27 @@ class DayTimeline extends ConsumerWidget {
         ? items
         : items.where((i) => i.title.toLowerCase().contains(query)).toList();
 
-    if (filtered.isEmpty) {
+    // Закрепляем экзамены/дедлайны вверху ленты (UX-LAYOUT.md §5, §9 п.2).
+    // Stable-sort: сначала pinned (exam/deadline), отсортированные по scheduledAt
+    // (ближайший = первый, просроченные — раньше всех по дате); затем остальные
+    // в исходном хронологическом порядке без изменений.
+    final pinned = filtered
+        .where((i) => i.type == 'exam' || i.type == 'deadline')
+        .toList()
+      ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
+    final rest =
+        filtered.where((i) => i.type != 'exam' && i.type != 'deadline').toList();
+    final sorted = [...pinned, ...rest];
+
+    if (sorted.isEmpty) {
       return _EmptyState(day: selectedDay);
     }
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 96),
-      itemCount: filtered.length,
+      itemCount: sorted.length,
       separatorBuilder: (_, _) => const SizedBox(height: 8),
       itemBuilder: (context, index) {
-        final item = filtered[index];
+        final item = sorted[index];
         return _ItemCard(
           item: item,
           selectedDay: selectedDay,

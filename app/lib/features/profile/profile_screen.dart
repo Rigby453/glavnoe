@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/text_scale_provider.dart';
 import '../../core/utils/id.dart';
 import 'shared_plan.dart';
@@ -213,6 +214,7 @@ class ProfileScreen extends ConsumerWidget {
             const _TextSizeSetting(),
             const SizedBox(height: 8),
             const _NotificationsSetting(),
+            const _ShowKaiSetting(),
             const SizedBox(height: 16),
             Text('Support', style: textTheme.titleMedium),
             const SizedBox(height: 8),
@@ -319,6 +321,24 @@ class _NotificationsSetting extends ConsumerWidget {
           );
         }
       },
+    );
+  }
+}
+
+/// Тумблер отображения маскота Kai на экране Today (MASCOT.md §6, ADR-032).
+/// Взрослая аудитория может отключить присутствие — функционал не страдает.
+class _ShowKaiSetting extends ConsumerWidget {
+  const _ShowKaiSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showKai = ref.watch(showKaiProvider);
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: const Text('Show Kai'),
+      subtitle: const Text('The AI presence on your Today screen'),
+      value: showKai,
+      onChanged: (_) => ref.read(showKaiProvider.notifier).toggle(),
     );
   }
 }

@@ -43,6 +43,8 @@
 
 ## Журнал работ (хронология сделанного по блокам)
 
+- [x] Маскот «Kai» — pure-Flutter реализация (2026-06-18): `KaiMascot` CustomPainter (6 выражений: neutral/success/thinking/harsh/anxious/away, squircle-тело, dash-глаза с асимметрией, морфинг через AnimationController, idle-дыхание ±2%, reduce-motion-safe); `showKaiProvider` (Riverpod+SharedPreferences, default true); Today-шапка: Kai рядом с _ToneToggle, эмоция по прогрессу main-задач, isHarsh от toneProvider; Profile: SwitchListTile «Show Kai» в Preferences.
+
 - [x] Дизайн-слой: маскот «Kai» + раскладка «по науке» (2026-06-18) — зафиксированы как контракты `docs/MASCOT.md` (ADR-032: AI-присутствие, морфящийся squircle, глаза = акцент темы, тон gentle/harsh, Rive, off-toggle) и `docs/UX-LAYOUT.md` (ADR-033: навигация подтверждена по UX-законам + список шлифовки поверх готовых экранов). Подключено из SPEC §B4/§C, CLAUDE.md (таблица источников истины), app/CLAUDE.md (read-order + Rules). Реализация — в дизайн-бэклоге, ждёт Rive-ассет + живую проверку.
 
 - [x] Аудит всего проекта (2026-06-10): сводка вынесена наверх этого файла (раздел «Сводка для пользователя») — реализовано/в процессе/не начато/баги/техдолг
