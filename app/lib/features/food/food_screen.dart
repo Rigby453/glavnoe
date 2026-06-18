@@ -13,6 +13,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../core/l10n/app_strings.dart';
+import '../../core/theme/app_theme.dart';
 import '../../core/animations/ai_insight_reveal.dart';
 import '../../core/animations/ai_pulse_dot.dart';
 import '../../core/animations/app_sheet.dart';
@@ -25,6 +26,7 @@ import '../auth/auth_controller.dart';
 import 'ai_menu_sheet.dart';
 import 'barcode_scanner_screen.dart';
 import 'food_balance.dart';
+import 'food_icons.dart';
 import 'food_nutrition.dart';
 
 const List<String> _meals = ['breakfast', 'lunch', 'dinner', 'snack'];
@@ -180,6 +182,11 @@ class _BalanceCard extends ConsumerWidget {
   }
 }
 
+// Карточка «Итоги дня» — применяет правило «акцент = дефицитный ресурс» (UX-LAYOUT §6.3):
+// • Акцент (primary/лайм): только заголовочная цифра калорий.
+// • Вторичные бары (Б/Ж/У): нейтральный текст (textMuted).
+// • Сахар: ember/urgent (семантика «следи»).
+// • Клетчатка: нейтральный мутед (нейтрально-позитивный тон).
 class _TotalsCard extends StatelessWidget {
   const _TotalsCard({required this.totals});
   final Nutrition totals;
@@ -188,6 +195,13 @@ class _TotalsCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    // textMuted — из ThemeExtension; fallback на onSurface.withAlpha для совместимости.
+    final mutedColor =
+        ext?.textMuted ?? colorScheme.onSurface.withAlpha(153);
+    // ember — семантика «срочное/следи», используется для Сахара.
+    final emberColor = ext?.ember ?? colorScheme.secondary;
+
     String g(double? v) => v == null ? '—' : v.round().toString();
 
     return Card(
@@ -198,37 +212,60 @@ class _TotalsCard extends StatelessWidget {
           children: [
             Text(context.s('food.totals_today'), style: textTheme.titleMedium),
             const SizedBox(height: 8),
+            // Калории — единственная метрика с акцентом (лайм = «главное»).
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
               children: [
-                Text(g(totals.calories), style: textTheme.headlineMedium),
+                Text(
+                  g(totals.calories),
+                  style: textTheme.headlineMedium?.copyWith(
+                    color: colorScheme.primary,
+                  ),
+                ),
                 const SizedBox(width: 6),
                 Text('kcal', style: textTheme.bodyMedium),
               ],
             ),
             const SizedBox(height: 12),
+            // Вторичные макросы (Б/Ж/У) — мутед: важны, но не «главная» метрика.
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                _Macro(label: context.s('food.macro_protein'), value: '${g(totals.protein)} g'),
-                _Macro(label: context.s('food.macro_fat'), value: '${g(totals.fat)} g'),
-                _Macro(label: context.s('food.macro_carbs'), value: '${g(totals.carbs)} g'),
+                _Macro(
+                  label: context.s('food.macro_protein'),
+                  value: '${g(totals.protein)} g',
+                  color: mutedColor,
+                ),
+                _Macro(
+                  label: context.s('food.macro_fat'),
+                  value: '${g(totals.fat)} g',
+                  color: mutedColor,
+                ),
+                _Macro(
+                  label: context.s('food.macro_carbs'),
+                  value: '${g(totals.carbs)} g',
+                  color: mutedColor,
+                ),
               ],
             ),
             const SizedBox(height: 12),
+            // Следящие метрики: Сахар — ember (семантика «следи»), Клетчатка — мутед.
             Row(
               children: [
-                Icon(Icons.cookie_outlined,
-                    size: 16, color: colorScheme.secondary),
+                Icon(Icons.cookie_outlined, size: 16, color: emberColor),
                 const SizedBox(width: 4),
-                Text('Sugar ${g(totals.sugar)} g', style: textTheme.bodySmall),
+                Text(
+                  'Sugar ${g(totals.sugar)} g',
+                  style: textTheme.bodySmall?.copyWith(color: emberColor),
+                ),
                 const SizedBox(width: 16),
-                // Клетчатка — «следящая» метрика (не главная), нейтральный цвет.
-                Icon(Icons.grass_outlined,
-                    size: 16, color: colorScheme.onSurface.withAlpha(120)),
+                Icon(Icons.grass_outlined, size: 16, color: mutedColor),
                 const SizedBox(width: 4),
-                Text('Fiber ${g(totals.fiber)} g', style: textTheme.bodySmall),
+                Text(
+                  'Fiber ${g(totals.fiber)} g',
+                  style: textTheme.bodySmall?.copyWith(color: mutedColor),
+                ),
               ],
             ),
           ],
@@ -239,17 +276,19 @@ class _TotalsCard extends StatelessWidget {
 }
 
 class _Macro extends StatelessWidget {
-  const _Macro({required this.label, required this.value});
+  const _Macro({required this.label, required this.value, this.color});
   final String label;
   final String value;
+  // Цвет цифры и подписи — передаётся снаружи (мутед для вторичных макросов).
+  final Color? color;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     return Column(
       children: [
-        Text(value, style: textTheme.titleMedium),
-        Text(label, style: textTheme.bodySmall),
+        Text(value, style: textTheme.titleMedium?.copyWith(color: color)),
+        Text(label, style: textTheme.bodySmall?.copyWith(color: color)),
       ],
     );
   }
@@ -297,6 +336,25 @@ class _FoodSearchSheet extends ConsumerStatefulWidget {
   ConsumerState<_FoodSearchSheet> createState() => _FoodSearchSheetState();
 }
 
+// ---------------------------------------------------------------------------
+// Кэш поискового запроса (в памяти, на время жизни листа).
+// Ключ — нормализованный запрос (trim+lowercase).
+// Значение — результаты + метка времени для TTL.
+// ---------------------------------------------------------------------------
+
+class _CacheEntry {
+  _CacheEntry(this.results) : timestamp = DateTime.now();
+  final List<Map<String, dynamic>> results;
+  final DateTime timestamp;
+}
+
+/// TTL кэша — 5 минут.
+const _kCacheTtl = Duration(minutes: 5);
+
+/// Максимум записей в кэше (по принципу LRU-приближения: при переполнении
+/// удаляем первый вошедший ключ).
+const _kCacheMaxEntries = 20;
+
 class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
   final _controller = TextEditingController();
   Timer? _debounce;
@@ -310,6 +368,12 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
   // Голосовой ввод (SPEC C5): локальное распознавание речи → строка поиска.
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _listening = false;
+
+  // --- Кэш поиска и защита от устаревших ответов ---
+  final Map<String, _CacheEntry> _searchCache = {};
+
+  /// Монотонно растущий счётчик запросов — чтобы игнорировать устаревшие ответы.
+  int _requestSeq = 0;
 
   @override
   void dispose() {
@@ -370,25 +434,59 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     );
   }
 
+  /// Нормализованный запрос: без лишних пробелов, в нижнем регистре.
+  String _normalizeQuery(String q) => q.trim().toLowerCase();
+
   Future<void> _search() async {
     final q = _controller.text.trim();
     if (q.isEmpty) return;
+
+    final key = _normalizeQuery(q);
+
+    // --- Проверка кэша ---
+    final cached = _searchCache[key];
+    if (cached != null &&
+        DateTime.now().difference(cached.timestamp) < _kCacheTtl) {
+      // Попадание в кэш — мгновенный ответ, сеть не нужна.
+      if (!mounted) return;
+      setState(() {
+        _results = cached.results;
+        _error = _results.isEmpty ? 'food.nothing_found' : null;
+        _loading = false;
+      });
+      return;
+    }
+
+    // --- Присваиваем токен этому запросу ---
+    final seq = ++_requestSeq;
+
     setState(() {
       _loading = true;
       _error = null;
     });
     try {
       final raw = await ref.read(apiClientProvider).foodSearch(q);
-      if (!mounted) return;
+      // Защита от устаревших ответов: если пришёл ответ на старый запрос — игнорируем.
+      if (!mounted || seq != _requestSeq) return;
+
+      final results = raw.whereType<Map<String, dynamic>>().toList();
+
+      // --- Сохраняем в кэш ---
+      if (_searchCache.length >= _kCacheMaxEntries) {
+        // Удаляем самую старую запись (первый ключ в порядке вставки)
+        _searchCache.remove(_searchCache.keys.first);
+      }
+      _searchCache[key] = _CacheEntry(results);
+
       setState(() {
-        _results = raw.whereType<Map<String, dynamic>>().toList();
+        _results = results;
         // Сохраняем ключ локализации; резолвится в build через context.s()
         if (_results.isEmpty) _error = 'food.nothing_found';
       });
     } on ApiException catch (e) {
-      if (mounted) setState(() => _error = e.message);
+      if (mounted && seq == _requestSeq) setState(() => _error = e.message);
     } finally {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && seq == _requestSeq) setState(() => _loading = false);
     }
   }
 
@@ -490,21 +588,11 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                     final p = _results[i];
                     final per = p['per_100g'] as Map<String, dynamic>?;
                     final kcal = (per?['calories'] as num?)?.round();
-                    final imageUrl = p['image'] as String?;
                     return ListTile(
-                      leading: imageUrl != null && imageUrl.isNotEmpty
-                          ? ClipRRect(
-                              borderRadius: BorderRadius.circular(6),
-                              child: Image.network(
-                                imageUrl,
-                                width: 40,
-                                height: 40,
-                                fit: BoxFit.cover,
-                                errorBuilder: (context, error, stackTrace) =>
-                                    const Icon(Icons.fastfood_outlined, size: 32),
-                              ),
-                            )
-                          : const SizedBox(width: 40, child: Icon(Icons.fastfood_outlined, size: 32)),
+                      leading: FoodIconTile(
+                        name: p['name'] as String?,
+                        category: p['category'] as String?,
+                      ),
                       title: Text((p['name'] as String?) ?? context.s('food.unknown_product')),
                       subtitle: Text([
                         if (p['brand'] != null) p['brand'] as String,

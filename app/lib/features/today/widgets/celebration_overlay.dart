@@ -23,6 +23,9 @@ import '../../../core/animations/constants.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/settings/mascot_provider.dart';
+import '../../../core/settings/tone_provider.dart';
+import '../../mascot/kai_mascot.dart';
 
 // ---------------------------------------------------------------------------
 // Провайдеры
@@ -319,10 +322,28 @@ class _CelebrationOverlayState extends ConsumerState<CelebrationOverlay>
     final titleOffsetY = reduce ? 0.0 : 16.0 * (1.0 - _titleSlide.value);
     final streakBounceVal = reduce ? 1.0 : _streakBounce.value;
 
+    // Kai — показываем при showKai == true (MASCOT.md §6: ambient, не блокирует).
+    final showKai = ref.read(showKaiProvider);
+    final isHarsh = ref.read(toneProvider) == AppTone.harsh;
+
     return Center(
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
+          // Kai в режиме «success»: появляется вместе с галочкой,
+          // уже пружинит к кругу (виджет делает это сам для KaiEmotion.success).
+          if (showKai) ...[
+            Opacity(
+              opacity: checkScaleVal.clamp(0.0, 1.0),
+              child: KaiMascot(
+                size: 56,
+                emotion: KaiEmotion.success,
+                isHarsh: isHarsh,
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+
           // Большая галочка ~96px, scale с пружиной
           Transform.scale(
             scale: checkScaleVal,

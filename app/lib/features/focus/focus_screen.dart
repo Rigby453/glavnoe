@@ -5,8 +5,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/animations/constants.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/settings/mascot_provider.dart';
+import '../../core/settings/tone_provider.dart';
+import '../mascot/kai_mascot.dart';
 
 class _Preset {
   const _Preset(this.label, this.workMin, this.breakMin);
@@ -152,44 +157,79 @@ class _FocusScreenState extends State<FocusScreen> {
 
   Widget _buildRunning(TextTheme textTheme, ColorScheme colorScheme) {
     final isWork = _phase == _Phase.work;
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
+    // Kai в углу при активной сессии — ambient, не добавляет тапов (MASCOT.md §6).
+    // Используем Consumer точечно, чтобы не менять тип виджета на ConsumerStatefulWidget.
+    return Stack(
       children: [
-        Text(
-          isWork ? context.s('focus.phase_work') : context.s('focus.phase_break'),
-          style: textTheme.titleLarge?.copyWith(
-            color: isWork ? colorScheme.primary : colorScheme.secondary,
-          ),
-        ),
-        const SizedBox(height: 16),
-        Text(
-          _mmss,
-          style: textTheme.displayLarge?.copyWith(
-            fontFeatures: const [FontFeature.tabularFigures()],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Text(_preset.label, style: textTheme.bodyMedium),
-        const SizedBox(height: 40),
-        Row(
+        // Основной контент по центру
+        Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            OutlinedButton.icon(
-              icon: Icon(_running ? Icons.pause : Icons.play_arrow),
-              label: Text(
-                _running
-                    ? context.s('focus.btn_pause')
-                    : context.s('focus.btn_resume'),
+            Text(
+              isWork ? context.s('focus.phase_work') : context.s('focus.phase_break'),
+              style: textTheme.titleLarge?.copyWith(
+                color: isWork ? colorScheme.primary : colorScheme.secondary,
               ),
-              onPressed: _togglePause,
             ),
-            const SizedBox(width: 12),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.stop),
-              label: Text(context.s('focus.btn_stop')),
-              onPressed: _stop,
+            const SizedBox(height: 16),
+            Text(
+              _mmss,
+              style: textTheme.displayLarge?.copyWith(
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(_preset.label, style: textTheme.bodyMedium),
+            const SizedBox(height: 40),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                OutlinedButton.icon(
+                  icon: Icon(_running ? Icons.pause : Icons.play_arrow),
+                  label: Text(
+                    _running
+                        ? context.s('focus.btn_pause')
+                        : context.s('focus.btn_resume'),
+                  ),
+                  onPressed: _togglePause,
+                ),
+                const SizedBox(width: 12),
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.stop),
+                  label: Text(context.s('focus.btn_stop')),
+                  onPressed: _stop,
+                ),
+              ],
             ),
           ],
+        ),
+
+        // Kai — тихо «дышит» в правом нижнем углу.
+        // IgnorePointer: не перехватывает тапы, не перекрывает кнопки.
+        Positioned(
+          right: 0,
+          bottom: 0,
+          child: IgnorePointer(
+            child: Consumer(
+              builder: (context, ref, _) {
+                final showKai = ref.watch(showKaiProvider);
+                if (!showKai) return const SizedBox.shrink();
+                final isHarsh = ref.watch(toneProvider) == AppTone.harsh;
+                final reduce = reduceMotionOf(context);
+                return AnimatedOpacity(
+                  opacity: showKai ? 1.0 : 0.0,
+                  duration: reduce ? Duration.zero : kDurationNormal,
+                  child: KaiMascot(
+                    size: 40,
+                    // Во время работы — thinking (сосредоточен вместе с пользователем);
+                    // во время перерыва — neutral (спокойно отдыхает).
+                    emotion: isWork ? KaiEmotion.thinking : KaiEmotion.neutral,
+                    isHarsh: isHarsh,
+                  ),
+                );
+              },
+            ),
+          ),
         ),
       ],
     );

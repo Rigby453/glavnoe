@@ -59,11 +59,46 @@ class TodayScreen extends ConsumerWidget {
     final allMainDone = mainItems.isNotEmpty &&
         mainItems.every((i) => i.status == 'done' || i.status == 'skipped');
 
-    // Kai: определяем эмоцию по прогрессу главных задач
+    // Kai: определяем эмоцию по реальному состоянию дня.
+    //
+    // Приоритет проверок (сверху вниз — первое совпавшее побеждает):
+    //   1. success  — все главные задачи закрыты.
+    //   2. anxious  — есть просроченные pending main/important задачи СЕГОДНЯ
+    //                 (scheduledAt в прошлом, статус pending, приоритет main|important).
+    //   3. thinking — есть карточка утреннего разбора (overdue != empty, т.е.
+    //                 MorningReviewCard сейчас показана) и главные задачи ещё не начаты,
+    //                 ИЛИ показана карточка вечернего разбора (час >= 17).
+    //   4. neutral  — иначе.
     final showKai = ref.watch(showKaiProvider);
-    final kaiEmotion = mainItems.isEmpty
-        ? KaiEmotion.neutral
-        : (allMainDone ? KaiEmotion.success : KaiEmotion.neutral);
+    final overdueItems = ref.watch(overduePendingProvider).valueOrNull ??
+        const <ItemsTableData>[];
+    // Переиспользуем уже отслеживаемый itemsAsync — не добавляем лишних подписок.
+    final allItems = itemsAsync.valueOrNull ?? const <ItemsTableData>[];
+
+    // Задачи с просроченным временем сегодня (main|important, pending, scheduledAt < now)
+    final overdueToday = allItems.where((i) =>
+      (i.priority == 'main' || i.priority == 'important') &&
+      i.status == 'pending' &&
+      i.scheduledAt.isBefore(now),
+    ).toList();
+
+    // Показан ли утренний разбор (есть просроченные невыполненные из прошлых дней)?
+    final morningReviewVisible = overdueItems.isNotEmpty;
+    // Показан ли вечерний разбор (время >= 17:00)?
+    final eveningReviewVisible = now.hour >= 17;
+
+    final KaiEmotion kaiEmotion;
+    if (allMainDone) {
+      kaiEmotion = KaiEmotion.success;
+    } else if (overdueToday.isNotEmpty) {
+      kaiEmotion = KaiEmotion.anxious;
+    } else if (morningReviewVisible ||
+        (eveningReviewVisible && mainItems.isNotEmpty &&
+         mainItems.any((i) => i.status == 'pending'))) {
+      kaiEmotion = KaiEmotion.thinking;
+    } else {
+      kaiEmotion = KaiEmotion.neutral;
+    }
 
     final isTablet = MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
     if (isTablet) {
