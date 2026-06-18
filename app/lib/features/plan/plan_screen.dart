@@ -256,16 +256,24 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          SegmentedButton<PlanView>(
-            segments: const [
-              ButtonSegment(value: PlanView.day, label: Text('Day')),
-              ButtonSegment(value: PlanView.week, label: Text('Week')),
-              ButtonSegment(value: PlanView.month, label: Text('Month')),
-            ],
-            selected: {view},
-            showSelectedIcon: false,
-            onSelectionChanged: (s) =>
-                ref.read(planViewProvider.notifier).state = s.first,
+          // Обёртка Flexible + SingleChildScrollView предотвращает overflow
+          // на узких экранах (~360px): сегменты прокручиваются горизонтально,
+          // но все три всегда доступны.
+          Flexible(
+            child: SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: SegmentedButton<PlanView>(
+                segments: const [
+                  ButtonSegment(value: PlanView.day, label: Text('Day')),
+                  ButtonSegment(value: PlanView.week, label: Text('Week')),
+                  ButtonSegment(value: PlanView.month, label: Text('Month')),
+                ],
+                selected: {view},
+                showSelectedIcon: false,
+                onSelectionChanged: (s) =>
+                    ref.read(planViewProvider.notifier).state = s.first,
+              ),
+            ),
           ),
           Row(
             mainAxisSize: MainAxisSize.min,

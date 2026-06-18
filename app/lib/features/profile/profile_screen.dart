@@ -572,16 +572,33 @@ class _SharedWithMeCardState extends ConsumerState<_SharedWithMeCard> {
   // Форматтер для времени событий
   static final _timeFmt = DateFormat('HH:mm');
 
+  // Контроллер живёт вместе со State, чтобы не утечь при анимации закрытия
+  // диалога: утилизируем в dispose(), а не сразу после await showDialog.
+  late final TextEditingController _linkController;
+
+  @override
+  void initState() {
+    super.initState();
+    _linkController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _linkController.dispose();
+    super.dispose();
+  }
+
   /// Диалог ввода ссылки/токена, затем загрузка и показ шита.
   Future<void> _openDialog() async {
-    final controller = TextEditingController();
+    // Сбрасываем поле перед показом диалога
+    _linkController.clear();
 
     final submitted = await showDialog<String>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text("Shared with me"),
         content: TextField(
-          controller: controller,
+          controller: _linkController,
           autofocus: true,
           decoration: const InputDecoration(
             hintText: 'Paste link or token',
@@ -594,14 +611,16 @@ class _SharedWithMeCardState extends ConsumerState<_SharedWithMeCard> {
             child: const Text('Cancel'),
           ),
           FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(controller.text),
+            onPressed: () => Navigator.of(ctx).pop(_linkController.text),
             child: const Text('Open'),
           ),
         ],
       ),
     );
 
-    controller.dispose();
+    // Контроллер НЕ утилизируем здесь — диалог может ещё анимироваться.
+    // dispose() вызовется из State.dispose() когда виджет уйдёт из дерева.
+
     if (submitted == null || submitted.trim().isEmpty) return;
     if (!mounted) return;
 

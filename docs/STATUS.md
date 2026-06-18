@@ -26,6 +26,8 @@
 
 ### 🐞 Баги / техдолг (мелочь, не блокирует)
 - ~~Лимит AI-фото (3/день) хранился в памяти процесса~~ → **закрыто 2026-06-18:** таблица `AiUsage` (устойчиво к рестарту/мультиинстансу), ADR-034, jest 111/111.
+- ~~RenderFlex overflow в тулбаре Plan на ~390px~~ → **закрыто 2026-06-18:** `SegmentedButton` обёрнут в `Flexible` + `SingleChildScrollView(Axis.horizontal)`; overflow на 360px устранён, поведение не изменилось.
+- ~~«Shared with me» краш с красным экраном~~ → **закрыто 2026-06-18:** `TextEditingController` перенесён в поле `_SharedWithMeCardState` (initState/dispose), больше не утилизируется синхронно после `await showDialog` — каскад ошибок (duplicate GlobalKey / multiple heroes / wrong build scope) устранён.
 - Шрифт Geist — временная замена, ждём пакет (`app/.../app_theme.dart`).
 - Ссылки сторов / Privacy / Terms на лендинге — плейсхолдеры (`landing/index.html`).
 - `widget_test.dart` — пустышка (реальные тесты в `screens_smoke_test.dart`).
