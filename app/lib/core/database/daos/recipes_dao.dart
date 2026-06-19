@@ -129,6 +129,31 @@ class RecipesDao extends DatabaseAccessor<AppDatabase>
     }
   }
 
+  /// Восстановить удалённый ингредиент по снапшоту (Undo-паттерн).
+  /// Сохраняет оригинальный id и все поля — без изменений схемы БД.
+  Future<void> restoreIngredient(RecipeIngredientsTableData snapshot) async {
+    // insertOnConflictUpdate: если ингредиент вдруг ещё не удалён — обновляем.
+    await into(recipeIngredientsTable).insertOnConflictUpdate(
+      RecipeIngredientsTableCompanion(
+        id: Value(snapshot.id),
+        recipeId: Value(snapshot.recipeId),
+        name: Value(snapshot.name),
+        grams: Value(snapshot.grams),
+        calories: Value(snapshot.calories),
+        protein: Value(snapshot.protein),
+        fat: Value(snapshot.fat),
+        carbs: Value(snapshot.carbs),
+        sugar: Value(snapshot.sugar),
+        fiber: Value(snapshot.fiber),
+        sortOrder: Value(snapshot.sortOrder),
+      ),
+    );
+    // Обновляем updatedAt рецепта
+    await (update(recipesTable)
+          ..where((t) => t.id.equals(snapshot.recipeId)))
+        .write(RecipesTableCompanion(updatedAt: Value(DateTime.now())));
+  }
+
   /// Обновить граммы ингредиента.
   Future<void> updateIngredientGrams(String id, double grams) async {
     final row = await (select(recipeIngredientsTable)

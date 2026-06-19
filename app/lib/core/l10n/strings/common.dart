@@ -132,4 +132,7 @@ const Map<String, Map<String, String>> commonStrings = {
   // Настройки тона
   'settings.gentle': {'en': 'Gentle', 'ru': 'Мягкий', 'de': 'Sanft'},
   'settings.harsh': {'en': 'Harsh', 'ru': 'Строгий', 'de': 'Streng'},
+
+  // Undo-паттерн (showUndoSnackBar): общая кнопка отмены
+  'common.undo': {'en': 'Undo', 'ru': 'Отмена', 'de': 'Rückgängig'},
 };

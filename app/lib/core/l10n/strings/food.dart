@@ -239,6 +239,12 @@ const Map<String, Map<String, String>> foodStrings = {
     'ru': 'Ингредиентов пока нет —\nдобавь продукты из базы',
     'de': 'Noch keine Zutaten —\nProdukte aus der Datenbank hinzufügen',
   },
+  // Уведомление об удалении ингредиента (Undo-snackbar в recipe_editor_screen)
+  'food.ingredient_removed': {
+    'en': 'Ingredient removed',
+    'ru': 'Ингредиент удалён',
+    'de': 'Zutat entfernt',
+  },
   'food.ok_btn': {
     'en': 'OK',
     'ru': 'ОК',

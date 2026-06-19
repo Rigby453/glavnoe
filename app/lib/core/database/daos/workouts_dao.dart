@@ -173,6 +173,29 @@ class WorkoutsDao extends DatabaseAccessor<AppDatabase>
     }
   }
 
+  /// Восстановить удалённое упражнение по снапшоту (Undo-паттерн).
+  /// Сохраняет оригинальный id и все поля — без изменений схемы БД.
+  Future<void> restoreExercise(WorkoutExercisesTableData snapshot) async {
+    // insertOnConflictUpdate: если упражнение вдруг не удалено — обновляем.
+    await into(workoutExercisesTable).insertOnConflictUpdate(
+      WorkoutExercisesTableCompanion(
+        id: Value(snapshot.id),
+        workoutId: Value(snapshot.workoutId),
+        name: Value(snapshot.name),
+        sets: Value(snapshot.sets),
+        reps: Value(snapshot.reps),
+        weightKg: Value(snapshot.weightKg),
+        restSeconds: Value(snapshot.restSeconds),
+        technique: Value(snapshot.technique),
+        sortOrder: Value(snapshot.sortOrder),
+      ),
+    );
+    // Сдвигаем updatedAt шаблона
+    await (update(workoutsTable)
+          ..where((t) => t.id.equals(snapshot.workoutId)))
+        .write(WorkoutsTableCompanion(updatedAt: Value(DateTime.now())));
+  }
+
   // ---------------------------------------------------------------------------
   // Сессии тренировок
   // ---------------------------------------------------------------------------

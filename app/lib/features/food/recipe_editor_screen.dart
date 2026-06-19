@@ -1,6 +1,14 @@
 // Редактор рецепта (SPEC C5, Phase 1): ингредиенты из поиска Open Food Facts,
 // итоги КБЖУ считает код (recipe_nutrition.dart), готовый рецепт логируется
 // в food_logs как обычная порция (синхронизация еды уже работает, ADR-024).
+//
+// Паттерн безопасного удаления ингредиентов (ADR-delete-safe):
+//   - Свайп влево (SwipeToDelete) ИЛИ кнопка-корзина trailing IconButton
+//   - Оба пути идут через _deleteIngredient(), который:
+//     1. Сохраняет снапшот ингредиента ДО удаления
+//     2. Удаляет через DAO
+//     3. Показывает Undo-snackbar через showUndoSnackBar
+//     4. По нажатию Undo: вызывает dao.restoreIngredient(snapshot)
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -11,6 +19,8 @@ import '../../core/l10n/app_strings.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
+import '../../core/widgets/swipe_to_delete.dart';
+import '../../core/widgets/undo_snack_bar.dart';
 import '../../services/api/api_client.dart';
 import 'food_nutrition.dart';
 import 'recipe_nutrition.dart';
@@ -21,18 +31,22 @@ import 'recipes_screen.dart' show
 
 const List<String> _meals = ['breakfast', 'lunch', 'dinner', 'snack'];
 
-class RecipeEditorScreen extends ConsumerWidget {
+// ConsumerStatefulWidget (не ConsumerWidget) — нужен mounted-check
+// после асинхронных операций удаления в SwipeToDelete.onDismissed.
+class RecipeEditorScreen extends ConsumerStatefulWidget {
   const RecipeEditorScreen({super.key, required this.recipeId});
 
   final String recipeId;
 
+  @override
+  ConsumerState<RecipeEditorScreen> createState() => _RecipeEditorScreenState();
+}
+
+class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
+
   // --- Действия -------------------------------------------------------------
 
-  Future<void> _rename(
-    BuildContext context,
-    WidgetRef ref,
-    RecipesTableData recipe,
-  ) async {
+  Future<void> _rename(RecipesTableData recipe) async {
     final name = await promptRecipeName(
       context,
       title: context.s('food.rename_recipe'),
@@ -43,11 +57,7 @@ class RecipeEditorScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _editGrams(
-    BuildContext context,
-    WidgetRef ref,
-    RecipeIngredientsTableData ing,
-  ) async {
+  Future<void> _editGrams(RecipeIngredientsTableData ing) async {
     final grams = await _promptGrams(
       context,
       title: ing.name,
@@ -58,18 +68,16 @@ class RecipeEditorScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _addIngredient(BuildContext context, WidgetRef ref) async {
+  Future<void> _addIngredient() async {
     await showAppSheet<void>(
       context,
       isScrollControlled: true,
-      builder: (_) => _IngredientSearchSheet(recipeId: recipeId),
+      builder: (_) => _IngredientSearchSheet(recipeId: widget.recipeId),
     );
   }
 
   /// Записать порцию рецепта в дневник еды.
   Future<void> _logRecipe(
-    BuildContext context,
-    WidgetRef ref,
     RecipesTableData recipe,
     List<RecipeIngredientsTableData> ingredients,
   ) async {
@@ -99,7 +107,7 @@ class RecipeEditorScreen extends ConsumerWidget {
           sugar: scaled.sugar,
           fiber: scaled.fiber,
         );
-    if (context.mounted) {
+    if (mounted) {
       // Локализуем название приёма пищи через food.meal_* ключ
       final mealLabel = context.s('food.meal_${result.meal}');
       ScaffoldMessenger.of(context).showSnackBar(
@@ -115,17 +123,41 @@ class RecipeEditorScreen extends ConsumerWidget {
     }
   }
 
-  // --- UI ---------------------------------------------------------------------
+  // --- Единый путь удаления ингредиента + Undo --------------------------------
+
+  /// Удалить ингредиент и показать Undo-snackbar.
+  /// Вызывается как из SwipeToDelete.onDelete, так и из кнопки-корзины.
+  Future<void> _deleteIngredient(RecipeIngredientsTableData ing) async {
+    // Снапшот ДО удаления — для восстановления по Undo
+    final snapshot = ing;
+    final dao = ref.read(recipesDaoProvider);
+
+    await dao.removeIngredient(snapshot.id);
+
+    if (!mounted) return;
+
+    // Сообщение: имя ингредиента + ключ 'food.ingredient_removed'
+    final message = '"${snapshot.name}" — ${context.s('food.ingredient_removed')}';
+    showUndoSnackBar(
+      context,
+      message: message,
+      onUndo: () async {
+        await dao.restoreIngredient(snapshot);
+      },
+    );
+  }
+
+  // --- UI -------------------------------------------------------------------
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
     final mutedColor = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
 
-    final recipe = ref.watch(recipeProvider(recipeId)).valueOrNull;
+    final recipe = ref.watch(recipeProvider(widget.recipeId)).valueOrNull;
     final ingredients =
-        ref.watch(recipeIngredientsProvider(recipeId)).valueOrNull ??
+        ref.watch(recipeIngredientsProvider(widget.recipeId)).valueOrNull ??
             const <RecipeIngredientsTableData>[];
 
     if (recipe == null) {
@@ -148,7 +180,7 @@ class RecipeEditorScreen extends ConsumerWidget {
           IconButton(
             tooltip: context.s('food.rename_tooltip'),
             icon: const Icon(Icons.edit_outlined),
-            onPressed: () => _rename(context, ref, recipe),
+            onPressed: () => _rename(recipe),
           ),
         ],
       ),
@@ -162,22 +194,10 @@ class RecipeEditorScreen extends ConsumerWidget {
                     itemCount: ingredients.length,
                     itemBuilder: (context, i) {
                       final ing = ingredients[i];
-                      return Dismissible(
+                      // SwipeToDelete: свайп влево → _deleteIngredient
+                      return SwipeToDelete(
                         key: ValueKey(ing.id),
-                        direction: DismissDirection.endToStart,
-                        // Фон свайпа — colorScheme.error (ember семантика)
-                        background: Container(
-                          alignment: Alignment.centerRight,
-                          padding: const EdgeInsets.only(right: 24),
-                          color: Theme.of(context).colorScheme.error,
-                          child: Icon(
-                            Icons.delete_outline,
-                            color: Theme.of(context).colorScheme.onError,
-                          ),
-                        ),
-                        onDismissed: (_) => ref
-                            .read(recipesDaoProvider)
-                            .removeIngredient(ing.id),
+                        onDelete: () => _deleteIngredient(ing),
                         child: ListTile(
                           title: Text(ing.name),
                           subtitle: ing.calories == null
@@ -188,14 +208,35 @@ class RecipeEditorScreen extends ConsumerWidget {
                                     color: mutedColor,
                                   ),
                                 ),
-                          trailing: TextButton(
-                            child: Text(
-                              '${ing.grams.round()} g',
-                              style: textTheme.labelMedium?.copyWith(
-                                color: mutedColor,
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Кнопка граммов (как раньше)
+                              TextButton(
+                                child: Text(
+                                  '${ing.grams.round()} g',
+                                  style: textTheme.labelMedium?.copyWith(
+                                    color: mutedColor,
+                                  ),
+                                ),
+                                onPressed: () => _editGrams(ing),
                               ),
-                            ),
-                            onPressed: () => _editGrams(context, ref, ing),
+                              // Кнопка-корзина — второй способ удаления (03-components)
+                              IconButton(
+                                icon: Icon(
+                                  Icons.delete_outline,
+                                  size: 20,
+                                  // textFaint — мягкий, не агрессивный цвет для корзины
+                                  color: ext?.textFaint ??
+                                      Theme.of(context)
+                                          .colorScheme
+                                          .onSurface
+                                          .withAlpha(100),
+                                ),
+                                tooltip: context.s('btn.delete'),
+                                onPressed: () => _deleteIngredient(ing),
+                              ),
+                            ],
                           ),
                         ),
                       );
@@ -219,7 +260,7 @@ class RecipeEditorScreen extends ConsumerWidget {
                         child: OutlinedButton.icon(
                           icon: const Icon(Icons.add, size: 18),
                           label: Text(context.s('food.add_ingredient')),
-                          onPressed: () => _addIngredient(context, ref),
+                          onPressed: _addIngredient,
                         ),
                       ),
                       const SizedBox(width: 12),
@@ -230,8 +271,7 @@ class RecipeEditorScreen extends ConsumerWidget {
                           label: Text(context.s('food.log_recipe_btn')),
                           onPressed: ingredients.isEmpty
                               ? null
-                              : () => _logRecipe(
-                                  context, ref, recipe, ingredients),
+                              : () => _logRecipe(recipe, ingredients),
                         ),
                       ),
                     ],

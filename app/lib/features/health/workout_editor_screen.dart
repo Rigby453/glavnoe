@@ -3,6 +3,14 @@
 // Тап → диалог редактирования; свайп → удалить.
 // «Start workout» → /workouts/:id/train (режим «тренер», под-блок 2).
 // RESTYLE 2026-06-19: bold design system — typography/color/spacing/buttons.
+//
+// Паттерн безопасного удаления упражнений (ADR-delete-safe):
+//   - Свайп влево (SwipeToDelete) ИЛИ кнопка-корзина trailing IconButton
+//   - Оба пути идут через _deleteExercise(), который:
+//     1. Сохраняет снапшот упражнения ДО удаления
+//     2. Удаляет через DAO
+//     3. Показывает Undo-snackbar через showUndoSnackBar
+//     4. По нажатию Undo: вызывает dao.restoreExercise(snapshot)
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -14,21 +22,28 @@ import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
+import '../../core/widgets/swipe_to_delete.dart';
+import '../../core/widgets/undo_snack_bar.dart';
 import 'workouts_screen.dart'
     show promptWorkoutName, workoutExercisesProvider, workoutProvider;
 
-class WorkoutEditorScreen extends ConsumerWidget {
+// ConsumerStatefulWidget (не ConsumerWidget) — нужен mounted-check
+// после асинхронных операций удаления в SwipeToDelete.onDismissed.
+class WorkoutEditorScreen extends ConsumerStatefulWidget {
   const WorkoutEditorScreen({super.key, required this.workoutId});
 
   final String workoutId;
 
+  @override
+  ConsumerState<WorkoutEditorScreen> createState() =>
+      _WorkoutEditorScreenState();
+}
+
+class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
+
   // --- Действия ---------------------------------------------------------------
 
-  Future<void> _rename(
-    BuildContext context,
-    WidgetRef ref,
-    WorkoutsTableData workout,
-  ) async {
+  Future<void> _rename(WorkoutsTableData workout) async {
     final name = await promptWorkoutName(
       context,
       title: context.s('workout.rename_title'),
@@ -39,14 +54,14 @@ class WorkoutEditorScreen extends ConsumerWidget {
     }
   }
 
-  Future<void> _addExercise(BuildContext context, WidgetRef ref) async {
+  Future<void> _addExercise() async {
     final result = await showDialog<_ExerciseFormResult>(
       context: context,
       builder: (ctx) => _ExerciseDialog(title: ctx.s('workout.add_exercise_title')),
     );
     if (result == null) return;
     await ref.read(workoutsDaoProvider).addExercise(
-          workoutId: workoutId,
+          workoutId: widget.workoutId,
           name: result.name,
           sets: result.sets,
           reps: result.reps,
@@ -56,11 +71,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
         );
   }
 
-  Future<void> _editExercise(
-    BuildContext context,
-    WidgetRef ref,
-    WorkoutExercisesTableData ex,
-  ) async {
+  Future<void> _editExercise(WorkoutExercisesTableData ex) async {
     final result = await showDialog<_ExerciseFormResult>(
       context: context,
       builder: (ctx) => _ExerciseDialog(
@@ -82,17 +93,41 @@ class WorkoutEditorScreen extends ConsumerWidget {
         );
   }
 
+  // --- Единый путь удаления упражнения + Undo ---------------------------------
+
+  /// Удалить упражнение и показать Undo-snackbar.
+  /// Вызывается как из SwipeToDelete.onDelete, так и из кнопки-корзины.
+  Future<void> _deleteExercise(WorkoutExercisesTableData ex) async {
+    // Снапшот ДО удаления — для восстановления по Undo
+    final snapshot = ex;
+    final dao = ref.read(workoutsDaoProvider);
+
+    await dao.removeExercise(snapshot.id);
+
+    if (!mounted) return;
+
+    // Сообщение: имя упражнения + ключ 'workout.exercise_removed'
+    final message = '"${snapshot.name}" — ${context.s('workout.exercise_removed')}';
+    showUndoSnackBar(
+      context,
+      message: message,
+      onUndo: () async {
+        await dao.restoreExercise(snapshot);
+      },
+    );
+  }
+
   // --- UI ---------------------------------------------------------------------
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final colorScheme = Theme.of(context).colorScheme;
 
-    final workout = ref.watch(workoutProvider(workoutId)).valueOrNull;
+    final workout = ref.watch(workoutProvider(widget.workoutId)).valueOrNull;
     final exercises =
-        ref.watch(workoutExercisesProvider(workoutId)).valueOrNull ??
+        ref.watch(workoutExercisesProvider(widget.workoutId)).valueOrNull ??
             const <WorkoutExercisesTableData>[];
 
     // Загрузка данных — KaiLoader вместо CircularProgressIndicator
@@ -118,7 +153,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
                 fontWeight: FontWeight.w400,
               ),
             ),
-            onPressed: () => _rename(context, ref, workout),
+            onPressed: () => _rename(workout),
           ),
         ],
       ),
@@ -135,28 +170,14 @@ class WorkoutEditorScreen extends ConsumerWidget {
                       final ex = exercises[i];
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 12),
-                        child: Dismissible(
+                        // SwipeToDelete: свайп влево → _deleteExercise
+                        child: SwipeToDelete(
                           key: ValueKey(ex.id),
-                          direction: DismissDirection.endToStart,
-                          // Фон свайпа — ember (деструктивное действие)
-                          background: Container(
-                            alignment: Alignment.centerRight,
-                            padding: const EdgeInsets.only(right: 24),
-                            decoration: BoxDecoration(
-                              color: ext.ember.withValues(alpha: 0.15),
-                              borderRadius: BorderRadius.circular(16),
-                            ),
-                            child: Icon(
-                              Icons.delete_outline,
-                              color: ext.ember,
-                            ),
-                          ),
-                          onDismissed: (_) => ref
-                              .read(workoutsDaoProvider)
-                              .removeExercise(ex.id),
+                          onDelete: () => _deleteExercise(ex),
                           child: _ExerciseCard(
                             exercise: ex,
-                            onTap: () => _editExercise(context, ref, ex),
+                            onTap: () => _editExercise(ex),
+                            onDelete: () => _deleteExercise(ex),
                             ext: ext,
                             textTheme: textTheme,
                           ),
@@ -178,7 +199,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
                     child: OutlinedButton.icon(
                       icon: const Icon(Icons.add, size: 18),
                       label: Text(context.s('workout.add_exercise')),
-                      onPressed: () => _addExercise(context, ref),
+                      onPressed: _addExercise,
                     ),
                   ),
                   const SizedBox(width: 12),
@@ -194,7 +215,7 @@ class WorkoutEditorScreen extends ConsumerWidget {
                       label: Text(context.s('workout.start_workout')),
                       onPressed: exercises.isEmpty
                           ? null
-                          : () => context.push('/workouts/$workoutId/train'),
+                          : () => context.push('/workouts/${widget.workoutId}/train'),
                     ),
                   ),
                 ],
@@ -244,12 +265,15 @@ class _ExerciseCard extends StatelessWidget {
   const _ExerciseCard({
     required this.exercise,
     required this.onTap,
+    required this.onDelete,
     required this.ext,
     required this.textTheme,
   });
 
   final WorkoutExercisesTableData exercise;
   final VoidCallback onTap;
+  /// Колбэк удаления — вызывается из кнопки-корзины trailing
+  final VoidCallback onDelete;
   final FocusThemeExtension ext;
   final TextTheme textTheme;
 
@@ -296,8 +320,17 @@ class _ExerciseCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Стрелка вправо — textFaint (не accent)
-              Icon(Icons.chevron_right, color: ext.textFaint),
+              // Кнопка-корзина — второй способ удаления помимо свайпа
+              // textFaint цвет — мягкий, не агрессивный
+              IconButton(
+                icon: Icon(
+                  Icons.delete_outline,
+                  size: 20,
+                  color: ext.textFaint,
+                ),
+                tooltip: context.s('btn.delete'),
+                onPressed: onDelete,
+              ),
             ],
           ),
         ),

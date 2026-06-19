@@ -140,6 +140,12 @@ const Map<String, Map<String, String>> healthBStrings = {
     'ru': 'Сделано по плану!',
     'de': 'Wie geplant erledigt!',
   },
+  // Уведомление об удалении упражнения (Undo-snackbar в workout_editor_screen)
+  'workout.exercise_removed': {
+    'en': 'Exercise removed',
+    'ru': 'Упражнение удалено',
+    'de': 'Übung entfernt',
+  },
 
   // ---------------------------------------------------------------------------
   // breathing.*  —  breathing_screen.dart
