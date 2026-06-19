@@ -8,6 +8,8 @@ import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/settings/water_goal_provider.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/kai_loader.dart';
 
 /// Провайдер для выбранной даты (water report)
 final waterSelectedDateProvider = StateProvider.autoDispose<DateTime>((ref) {
@@ -41,7 +43,8 @@ class WaterReportScreen extends ConsumerWidget {
     }
 
     final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
+    // ThemeExtension для textMuted / border / success (без хардкода)
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final waterLogs = ref.watch(waterLogsForDateProvider);
     final waterTotal = ref.watch(waterTotalForDateProvider);
     final waterGoal = ref.watch(waterGoalProvider);
@@ -52,19 +55,21 @@ class WaterReportScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: Text(context.s('water.report_title'), style: textTheme.headlineSmall),
+        // Заголовок — AppBarTheme уже задаёт нужный стиль; не переопределяем
+        title: Text(context.s('water.report_title')),
         centerTitle: true,
       ),
       body: Column(
         children: [
-          // Выбор даты
-          _buildDatePicker(context, ref, textTheme),
+          // Выбор даты — компактная панель навигации по дням
+          _buildDatePicker(context, ref, textTheme, ext),
 
           Expanded(
             child: waterLogs.when(
               data: (logs) => SingleChildScrollView(
+                // 24dp горизонтальные поля — §4.1
                 child: Padding(
-                  padding: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -75,21 +80,35 @@ class WaterReportScreen extends ConsumerWidget {
                           total,
                           waterGoal,
                           textTheme,
+                          ext,
                         ),
-                        loading: () => const SizedBox(height: 100),
+                        // KaiLoader вместо пустого SizedBox (п. 6)
+                        loading: () => const Center(
+                          child: Padding(
+                            padding: EdgeInsets.all(24),
+                            child: KaiLoader(label: 'Loading…'),
+                          ),
+                        ),
                         error: (err, st) => Text('Error: $err'),
                       ),
                       const SizedBox(height: 24),
 
-                      // История записей
-                      Text(context.s('water.logs_section'), style: textTheme.titleMedium),
+                      // Заголовок секции записей
+                      Text(
+                        context.s('water.logs_section'),
+                        style: textTheme.titleMedium,
+                      ),
                       const SizedBox(height: 12),
+
                       if (logs.isEmpty)
                         Center(
-                          child: Text(
-                            context.s('water.no_logs'),
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.outline,
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(vertical: 24),
+                            child: Text(
+                              context.s('water.no_logs'),
+                              style: textTheme.bodyMedium?.copyWith(
+                                color: ext.textMuted,
+                              ),
                             ),
                           ),
                         )
@@ -99,14 +118,20 @@ class WaterReportScreen extends ConsumerWidget {
                             context,
                             log,
                             textTheme,
-                            colorScheme,
+                            ext,
                           ),
                         ),
                     ],
                   ),
                 ),
               ),
-              loading: () => const Center(child: CircularProgressIndicator()),
+              // KaiLoader заменяет CircularProgressIndicator (п. 6)
+              loading: () => const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(48),
+                  child: KaiLoader(label: 'Loading water data…'),
+                ),
+              ),
               error: (err, st) => Center(child: Text('Error: $err')),
             ),
           ),
@@ -115,110 +140,107 @@ class WaterReportScreen extends ConsumerWidget {
     );
   }
 
+  /// Три мини-карточки: всего / цель / статус.
   Widget _buildStatsSection(
     BuildContext context,
     int total,
     int waterGoal,
     TextTheme textTheme,
+    FocusThemeExtension ext,
   ) {
     final percentage = waterGoal > 0 ? (total / waterGoal * 100).round() : 0;
     final status =
         percentage >= 100 ? context.s('water.goal_met') : '$percentage%';
 
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _StatCard(
-                label: context.s('water.stat_total'),
-                value: '${(total / 1000).toStringAsFixed(1)}L',
-                textTheme: textTheme,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _StatCard(
-                label: context.s('water.stat_goal'),
-                value: '${(waterGoal / 1000).toStringAsFixed(1)}L',
-                textTheme: textTheme,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _StatCard(
-                label: context.s('water.stat_status'),
-                value: status,
-                textTheme: textTheme,
-              ),
-            ),
-          ],
+        Expanded(
+          child: _StatCard(
+            label: context.s('water.stat_total'),
+            value: '${(total / 1000).toStringAsFixed(1)}L',
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatCard(
+            label: context.s('water.stat_goal'),
+            value: '${(waterGoal / 1000).toStringAsFixed(1)}L',
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatCard(
+            label: context.s('water.stat_status'),
+            value: status,
+          ),
         ),
       ],
     );
   }
 
+  /// Панель выбора даты: стрелки назад/вперёд + нажатие открывает DatePicker.
   Widget _buildDatePicker(
     BuildContext context,
     WidgetRef ref,
     TextTheme textTheme,
+    FocusThemeExtension ext,
   ) {
     final selectedDate = ref.watch(waterSelectedDateProvider);
-    final colorScheme = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      margin: const EdgeInsets.all(16),
-      child: Row(
-        children: [
-          GestureDetector(
-            onTap: () => _selectDate(context, ref),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  _formatFullDate(selectedDate),
-                  style: textTheme.bodyLarge?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
+    return Card(
+      margin: const EdgeInsets.fromLTRB(24, 12, 24, 0),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: Row(
+          children: [
+            // Дата — bodyLarge, кликабельная; иконка нейтральная
+            Expanded(
+              child: GestureDetector(
+                onTap: () => _selectDate(context, ref),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      _formatFullDate(selectedDate),
+                      style: textTheme.bodyLarge?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Icon(
+                      Icons.calendar_today,
+                      size: 14,
+                      color: ext.textMuted,
+                    ),
+                  ],
                 ),
-                const SizedBox(width: 6),
-                Icon(
-                  Icons.calendar_today,
-                  size: 14,
-                  color: Theme.of(context).colorScheme.outline,
-                ),
-              ],
+              ),
             ),
-          ),
-          const Spacer(),
-          IconButton(
-            icon: const Icon(Icons.chevron_left),
-            onPressed: () {
-              ref.read(waterSelectedDateProvider.notifier).state =
-                  selectedDate.subtract(const Duration(days: 1));
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.chevron_right),
-            onPressed: selectedDate.isBefore(
-                  DateTime(
-                    DateTime.now().year,
-                    DateTime.now().month,
-                    DateTime.now().day,
-                  ),
-                )
-                ? () {
-                    ref.read(waterSelectedDateProvider.notifier).state =
-                        selectedDate.add(const Duration(days: 1));
-                  }
-                : null,
-          ),
-        ],
+            // Навигация по дням — chevron IconButton
+            IconButton(
+              icon: const Icon(Icons.chevron_left),
+              onPressed: () {
+                ref.read(waterSelectedDateProvider.notifier).state =
+                    selectedDate.subtract(const Duration(days: 1));
+              },
+            ),
+            IconButton(
+              icon: const Icon(Icons.chevron_right),
+              onPressed: selectedDate.isBefore(
+                    DateTime(
+                      DateTime.now().year,
+                      DateTime.now().month,
+                      DateTime.now().day,
+                    ),
+                  )
+                  ? () {
+                      ref.read(waterSelectedDateProvider.notifier).state =
+                          selectedDate.add(const Duration(days: 1));
+                    }
+                  : null,
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -254,18 +276,21 @@ class WaterReportScreen extends ConsumerWidget {
     return '${months[dt.month - 1]} ${dt.day}, ${dt.year}';
   }
 
+  /// Карточка одной записи воды (время + объём).
   Widget _buildWaterLogCard(
     BuildContext context,
     WaterLogsTableData log,
     TextTheme textTheme,
-    ColorScheme colorScheme,
+    FocusThemeExtension ext,
   ) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
+        // surface — первый уровень подъёма; без хардкода
+        color: Theme.of(context).colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ext.border),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -280,17 +305,17 @@ class WaterReportScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 4),
+              // Метаданные — bodySmall + textMuted
               Text(
                 _formatTime(log.loggedAt),
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.outline,
-                ),
+                style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
               ),
             ],
           ),
+          // Объём выпитого — titleMedium (не жирный bold, читается чётче)
           Text(
             '${log.amountMl} ml',
-            style: textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.bold),
+            style: textTheme.titleMedium,
           ),
         ],
       ),
@@ -320,42 +345,40 @@ class WaterReportScreen extends ConsumerWidget {
   }
 }
 
+/// Мини-карточка статистики — использует Card ThemeData вместо Container.
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final TextTheme textTheme;
 
   const _StatCard({
     required this.label,
     required this.value,
-    required this.textTheme,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Метка — bodySmall + textMuted
+            Text(
+              label,
+              style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+            const SizedBox(height: 8),
+            // Hero-число — displaySmall (32sp, display font, w700)
+            Text(
+              value,
+              style: textTheme.displaySmall,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

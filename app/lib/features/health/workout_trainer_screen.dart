@@ -2,15 +2,19 @@
 // Фазы: work (выполнение подхода) и rest (обратный отсчёт отдыха).
 // Офлайн-первый: startSession/finishSession пишут только в Drift.
 // Phase 2, SPEC C5.
+// RESTYLE 2026-06-19: bold design system — typography/color/spacing/buttons.
 
 import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/animations/constants.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/kai_loader.dart';
 import 'workouts_screen.dart' show workoutExercisesProvider, workoutProvider;
 
 // ---------------------------------------------------------------------------
@@ -33,7 +37,8 @@ class WorkoutTrainerScreen extends ConsumerStatefulWidget {
       _WorkoutTrainerScreenState();
 }
 
-class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
+class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
+    with SingleTickerProviderStateMixin {
   // Идентификатор текущей сессии (записан в Drift при входе)
   String? _sessionId;
   DateTime? _startedAt;
@@ -53,10 +58,51 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
   // Флаг: сессия уже завершена (finishSession вызван)
   bool _finished = false;
 
+  // Контроллер анимации смены упражнения (scale при переходе)
+  late AnimationController _transitionCtrl;
+  late Animation<double> _scaleAnim;
+
+  @override
+  void initState() {
+    super.initState();
+    // Анимация scale при смене упражнения — быстрая (kDurationFast 180ms)
+    _transitionCtrl = AnimationController(
+      vsync: this,
+      // Продолжительность будет уточнена при первом build через effectiveDuration
+      duration: kDurationFast,
+    );
+    _scaleAnim = Tween<double>(begin: 0.92, end: 1.0).animate(
+      CurvedAnimation(parent: _transitionCtrl, curve: kCurveSnap),
+    );
+    _transitionCtrl.value = 1.0; // начальное состояние — показан
+  }
+
   @override
   void dispose() {
     _restTimer?.cancel();
+    _transitionCtrl.dispose();
     super.dispose();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Анимация смены фазы / упражнения с учётом reduce-motion
+  // ---------------------------------------------------------------------------
+
+  void _animateTransition(VoidCallback stateUpdate) {
+    final dur = effectiveDuration(context, kDurationFast);
+    _transitionCtrl.duration = dur;
+    // fade-scale out → обновляем состояние → fade-scale in
+    if (dur == Duration.zero) {
+      // reduce-motion: мгновенно
+      setState(stateUpdate);
+    } else {
+      _transitionCtrl.reverse().then((_) {
+        if (mounted) {
+          setState(stateUpdate);
+          _transitionCtrl.forward();
+        }
+      });
+    }
   }
 
   // ---------------------------------------------------------------------------
@@ -97,7 +143,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
 
     if (!isLastSet) {
       // Ещё есть подходы → фаза отдыха
-      setState(() {
+      _animateTransition(() {
         _phase = _TrainerPhase.rest;
         _restSecondsLeft = ex.restSeconds;
       });
@@ -109,7 +155,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
       if (isLastExercise) {
         _doFinish();
       } else {
-        setState(() {
+        _animateTransition(() {
           _exerciseIndex++;
           _setIndex = 0;
           _phase = _TrainerPhase.work;
@@ -121,7 +167,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
   /// Пропустить отдых — сразу переходим к следующему подходу.
   void _skipRest() {
     _restTimer?.cancel();
-    setState(() {
+    _animateTransition(() {
       _setIndex++;
       _phase = _TrainerPhase.work;
     });
@@ -134,7 +180,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
       if (_restSecondsLeft <= 1) {
         _restTimer?.cancel();
         // Автоматический переход к следующему подходу
-        setState(() {
+        _animateTransition(() {
           _setIndex++;
           _phase = _TrainerPhase.work;
         });
@@ -158,17 +204,24 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
 
   /// Попытка выйти раньше — диалог подтверждения.
   Future<bool> _confirmStop() async {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text(ctx.s('workout.stop_title')),
         content: Text(ctx.s('workout.stop_body')),
         actions: [
+          // TextButton — продолжить (лёгкое навигационное действие)
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(ctx.s('workout.continue_btn')),
           ),
-          FilledButton(
+          // OutlinedButton с ember — деструктивное «остановить»
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: ext.ember,
+              side: BorderSide(color: ext.ember),
+            ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(ctx.s('workout.stop')),
           ),
@@ -206,11 +259,11 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
     final workout = workoutAsync.valueOrNull;
     final exercises = exercisesAsync.valueOrNull;
 
-    // Ждём данных из Drift
+    // Ожидание данных из Drift — KaiLoader вместо CircularProgressIndicator
     if (workout == null || exercises == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(child: CircularProgressIndicator()),
+        body: const Center(child: KaiLoader(label: 'Loading workout…')),
       );
     }
 
@@ -230,7 +283,8 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
 
     final ex = _currentExercise;
     final progressLabel =
-        '${context.s('workout.exercise_of')} ${_exerciseIndex + 1} ${context.s('workout.of')} $_totalExercises';
+        '${context.s('workout.exercise_of')} ${_exerciseIndex + 1} '
+        '${context.s('workout.of')} $_totalExercises';
 
     return PopScope(
       canPop: false,
@@ -243,8 +297,10 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
       },
       child: Scaffold(
         appBar: AppBar(
+          // Прогресс «Exercise 2 of 5» — AppBar title через display font
           title: Text(progressLabel),
           actions: [
+            // TextButton — «Остановить» (вторичное лёгкое действие в AppBar)
             TextButton(
               onPressed: () async {
                 final stop = await _confirmStop();
@@ -256,9 +312,16 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
             ),
           ],
         ),
-        body: _phase == _TrainerPhase.work
-            ? _buildWorkPhase(context, ex)
-            : _buildRestPhase(context, ex),
+        // Анимация смены упражнения: scale + fade (reduce-motion: без анимации)
+        body: ScaleTransition(
+          scale: _scaleAnim,
+          child: FadeTransition(
+            opacity: _transitionCtrl,
+            child: _phase == _TrainerPhase.work
+                ? _buildWorkPhase(context, ex)
+                : _buildRestPhase(context, ex),
+          ),
+        ),
       ),
     );
   }
@@ -272,8 +335,8 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
     WorkoutExercisesTableData ex,
   ) {
     final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final colorScheme = Theme.of(context).colorScheme;
-    final muted = colorScheme.onSurface.withAlpha(120);
 
     // Строка «Set 2 of 3 · 10 reps · 40 kg»
     final setLabel = StringBuffer(
@@ -293,33 +356,40 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Spacer(),
-          // Крупное название упражнения
+          // Крупное название упражнения — displaySmall (32sp, display serif font)
+          // Это «большой таймер/счётчик» тренера → display role per spec
           Text(
             ex.name,
-            style: textTheme.displaySmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: textTheme.displaySmall,
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 12),
-          // Set N of M · reps · weight
+          // «Set 2 of 3 · 10 reps · 40 kg» — titleMedium + textMuted
           Text(
             setLabel.toString(),
-            style: textTheme.titleMedium?.copyWith(color: muted),
+            style: textTheme.titleMedium?.copyWith(color: ext.textMuted),
             textAlign: TextAlign.center,
           ),
           if (ex.technique != null && ex.technique!.isNotEmpty) ...[
             const SizedBox(height: 16),
+            // Подсказка по технике — bodyMedium + textFaint
             Text(
               ex.technique!,
-              style: textTheme.bodyMedium?.copyWith(color: muted),
+              style: textTheme.bodyMedium?.copyWith(color: ext.textFaint),
               textAlign: TextAlign.center,
             ),
           ],
           const Spacer(),
+          // FilledButton — единственная первичная CTA (Set done)
+          // ACCENT DISCIPLINE: только этот элемент в фазе work получает accent
           FilledButton(
             onPressed: _onSetDone,
-            child: Text(context.s('workout.set_done')),
+            child: Text(
+              context.s('workout.set_done'),
+              style: textTheme.labelLarge?.copyWith(
+                color: colorScheme.onPrimary,
+              ),
+            ),
           ),
           const SizedBox(height: 16),
         ],
@@ -336,8 +406,11 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
     WorkoutExercisesTableData ex,
   ) {
     final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-    final muted = colorScheme.onSurface.withAlpha(120);
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    // Определяем цвет таймера: ember при ≤10с (срочно), иначе нейтральный textMuted
+    // ACCENT DISCIPLINE: отдых — нейтральный; ember только когда срочно
+    final timerColor = _restSecondsLeft <= 10 ? ext.ember : ext.textMuted;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
@@ -345,28 +418,33 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const Spacer(),
+          // «Rest» — titleLarge + textMuted (информационный заголовок)
           Text(
             context.s('workout.rest_phase'),
-            style: textTheme.titleLarge?.copyWith(color: muted),
+            style: textTheme.titleLarge?.copyWith(color: ext.textMuted),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 16),
-          // Обратный отсчёт крупно
+          // Обратный отсчёт — displayLarge (56sp, display serif font)
+          // Это главный «дисплейный» элемент экрана
+          // Цвет: ember когда ≤10с (срочно), иначе текст по умолчанию
           Text(
             _mmss(_restSecondsLeft),
-            style: textTheme.displayLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: textTheme.displayLarge?.copyWith(color: timerColor),
             textAlign: TextAlign.center,
           ),
           const SizedBox(height: 8),
+          // «Next: Exercise · Set N of M» — bodyMedium + textFaint
           Text(
             '${context.s('workout.next_label')}: ${ex.name} · '
-            '${context.s('workout.set_label')} ${_setIndex + 2} ${context.s('workout.of')} ${ex.sets}',
-            style: textTheme.bodyMedium?.copyWith(color: muted),
+            '${context.s('workout.set_label')} ${_setIndex + 2} '
+            '${context.s('workout.of')} ${ex.sets}',
+            style: textTheme.bodyMedium?.copyWith(color: ext.textFaint),
             textAlign: TextAlign.center,
           ),
           const Spacer(),
+          // OutlinedButton — «Skip rest» (вторичное действие, не filled)
+          // ACCENT DISCIPLINE: не первичное действие → не FilledButton
           OutlinedButton(
             onPressed: _skipRest,
             child: Text(context.s('workout.skip_rest')),
@@ -383,7 +461,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
 
   Widget _buildDoneScreen(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final mins = _elapsedMinutes();
 
     return Scaffold(
@@ -394,28 +472,29 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen> {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               const Spacer(),
+              // Иконка завершения — success color (не accent)
+              // ACCENT DISCIPLINE: done/completed = success, не accent
               Icon(
                 Icons.check_circle_outline,
                 size: 80,
-                color: colorScheme.primary,
+                color: ext.success,
               ),
               const SizedBox(height: 24),
+              // «Did it as planned!» — headlineMedium (32sp, display serif)
               Text(
                 context.s('workout.did_it'),
-                style: textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.bold,
-                ),
+                style: textTheme.headlineMedium,
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 8),
+              // «N min» — titleLarge + textMuted (вторичная метрика)
               Text(
                 '$mins min',
-                style: textTheme.titleLarge?.copyWith(
-                  color: colorScheme.onSurface.withAlpha(160),
-                ),
+                style: textTheme.titleLarge?.copyWith(color: ext.textMuted),
                 textAlign: TextAlign.center,
               ),
               const Spacer(),
+              // FilledButton — единственная CTA на экране «done»
               FilledButton(
                 onPressed: () => Navigator.of(context).pop(),
                 child: Text(context.s('btn.done')),

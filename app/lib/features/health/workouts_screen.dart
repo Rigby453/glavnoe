@@ -1,6 +1,7 @@
 // Экран «Мои тренировки» (Phase 2).
 // Список шаблонов тренировок; шаблон → редактор упражнений.
 // Данные локальные (Drift), без синхронизации.
+// RESTYLE 2026-06-19: bold design system — typography/color/spacing/buttons.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -9,6 +10,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/kai_loader.dart';
 
 // ---------------------------------------------------------------------------
 // Провайдеры (используются и редактором тренировки)
@@ -60,17 +63,24 @@ class WorkoutsScreen extends ConsumerWidget {
     WidgetRef ref,
     WorkoutsTableData workout,
   ) async {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('"${workout.name}" — ${ctx.s('workout.delete_title')}'),
         content: Text(ctx.s('workout.delete_body')),
         actions: [
+          // Отмена — TextButton (навигационный нудж)
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
             child: Text(ctx.s('btn.cancel')),
           ),
-          FilledButton(
+          // Удаление — деструктивное действие: ember border + ember foreground
+          OutlinedButton(
+            style: OutlinedButton.styleFrom(
+              foregroundColor: ext.ember,
+              side: BorderSide(color: ext.ember),
+            ),
             onPressed: () => Navigator.of(ctx).pop(true),
             child: Text(ctx.s('btn.delete')),
           ),
@@ -84,35 +94,122 @@ class WorkoutsScreen extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final workouts = ref.watch(workoutsListProvider).valueOrNull ?? const [];
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final workoutsAsync = ref.watch(workoutsListProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(context.s('workout.title'))),
+      // FAB — единственное первичное действие (+ New Workout)
       floatingActionButton: FloatingActionButton.extended(
         icon: const Icon(Icons.add),
         label: Text(context.s('workout.new_workout')),
         onPressed: () => _newWorkout(context, ref),
       ),
-      body: workouts.isEmpty
-          ? const _EmptyState()
-          : ListView(
-              padding: const EdgeInsets.only(bottom: 88),
-              children: [
-                ...workouts.map(
-                  (w) => _WorkoutTile(
+      body: workoutsAsync.when(
+        // KaiLoader вместо CircularProgressIndicator
+        loading: () => const Center(
+          child: KaiLoader(label: 'Loading workouts…'),
+        ),
+        error: (e, _) => Center(
+          child: Text(
+            'Error loading workouts',
+            style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+          ),
+        ),
+        data: (workouts) {
+          if (workouts.isEmpty) return const _EmptyState();
+          return ListView(
+            // 24dp screen margin — spec §4.1
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
+            children: [
+              const SizedBox(height: 8),
+              ...workouts.map(
+                (w) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _WorkoutCard(
                     key: ValueKey(w.id),
                     workout: w,
                     onDelete: () => _deleteWorkout(context, ref, w),
                   ),
                 ),
-                const _HistorySection(),
-              ],
-            ),
+              ),
+              const _HistorySection(),
+            ],
+          );
+        },
+      ),
     );
   }
 }
 
-/// История: последние завершённые сессии («Сделал по плану»).
+/// Карточка одной тренировки.
+/// ACCENT DISCIPLINE: иконка нейтральная (textMuted); акцент нет.
+/// Удаление — ember (деструктивное).
+class _WorkoutCard extends ConsumerWidget {
+  const _WorkoutCard({
+    required this.workout,
+    required this.onDelete,
+    super.key,
+  });
+
+  final WorkoutsTableData workout;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    final exercises =
+        ref.watch(workoutExercisesProvider(workout.id)).valueOrNull ??
+            const <WorkoutExercisesTableData>[];
+    final count = exercises.length;
+    final subtitle = '$count exercise${count == 1 ? '' : 's'}';
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => context.push('/workouts/${workout.id}'),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Иконка нейтральная — textMuted (не accent, не colorScheme.primary)
+              Icon(Icons.fitness_center_outlined, color: ext.textMuted),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Название тренировки — titleMedium (body font, w600)
+                    Text(workout.name, style: textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    // Метаданные — bodySmall + textMuted
+                    Text(
+                      subtitle,
+                      style: textTheme.bodySmall?.copyWith(
+                        color: ext.textMuted,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Деструктивная кнопка удаления — ember (не accent)
+              IconButton(
+                tooltip: context.s('btn.delete'),
+                icon: Icon(Icons.delete_outline, color: ext.ember),
+                onPressed: onDelete,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// История: последние завершённые сессии.
 class _HistorySection extends ConsumerWidget {
   const _HistorySection();
 
@@ -123,7 +220,7 @@ class _HistorySection extends ConsumerWidget {
     if (sessions.isEmpty) return const SizedBox.shrink();
 
     final textTheme = Theme.of(context).textTheme;
-    final muted = Theme.of(context).colorScheme.onSurface.withAlpha(140);
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     String line(WorkoutSessionsTableData s) {
       const months = [
@@ -140,23 +237,33 @@ class _HistorySection extends ConsumerWidget {
     }
 
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 0),
+      // Отступ сверху от списка тренировок
+      padding: const EdgeInsets.only(top: 24),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Заголовок секции — titleMedium (body font, w600, нет serif)
           Text(context.s('workout.history'), style: textTheme.titleMedium),
-          const SizedBox(height: 8),
+          const SizedBox(height: 12),
           ...sessions.take(10).map(
                 (s) => Padding(
-                  padding: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.only(bottom: 8),
                   child: Row(
                     children: [
-                      Icon(Icons.check_circle_outline, size: 16, color: muted),
+                      // Иконка завершения — success color (не accent)
+                      Icon(
+                        Icons.check_circle_outline,
+                        size: 16,
+                        color: ext.success,
+                      ),
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
                           line(s),
-                          style: textTheme.bodyMedium?.copyWith(color: muted),
+                          // bodySmall + textMuted — метаданные истории
+                          style: textTheme.bodySmall?.copyWith(
+                            color: ext.textMuted,
+                          ),
                         ),
                       ),
                     ],
@@ -169,60 +276,33 @@ class _HistorySection extends ConsumerWidget {
   }
 }
 
-class _WorkoutTile extends ConsumerWidget {
-  const _WorkoutTile({
-    required this.workout,
-    required this.onDelete,
-    super.key,
-  });
-
-  final WorkoutsTableData workout;
-  final VoidCallback onDelete;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final exercises =
-        ref.watch(workoutExercisesProvider(workout.id)).valueOrNull ??
-            const <WorkoutExercisesTableData>[];
-    final count = exercises.length;
-    final subtitle =
-        '$count exercise${count == 1 ? '' : 's'}';
-
-    return ListTile(
-      leading: const Icon(Icons.fitness_center),
-      title: Text(workout.name),
-      subtitle: Text(subtitle),
-      trailing: IconButton(
-        tooltip: context.s('btn.delete'),
-        icon: const Icon(Icons.delete_outline),
-        onPressed: onDelete,
-      ),
-      onTap: () => context.push('/workouts/${workout.id}'),
-    );
-  }
-}
-
+/// Пустое состояние — нет тренировок.
 class _EmptyState extends StatelessWidget {
   const _EmptyState();
 
   @override
   Widget build(BuildContext context) {
-    final muted = Theme.of(context).colorScheme.onSurface.withAlpha(80);
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
     return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(Icons.fitness_center, size: 56, color: muted),
-          const SizedBox(height: 16),
-          Text(
-            context.s('workout.empty_state'),
-            textAlign: TextAlign.center,
-            style: Theme.of(context)
-                .textTheme
-                .bodyMedium
-                ?.copyWith(color: muted),
-          ),
-        ],
+      child: Padding(
+        // 24dp горизонтальный отступ
+        padding: const EdgeInsets.symmetric(horizontal: 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Иконка пустого состояния — textFaint (терциарный, самый тихий)
+            Icon(Icons.fitness_center_outlined, size: 56, color: ext.textFaint),
+            const SizedBox(height: 16),
+            Text(
+              context.s('workout.empty_state'),
+              textAlign: TextAlign.center,
+              // bodyMedium + textMuted для пустого состояния
+              style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -250,10 +330,12 @@ Future<String?> _promptWorkoutName(
         onSubmitted: (v) => Navigator.of(ctx).pop(v.trim()),
       ),
       actions: [
+        // TextButton — лёгкое действие, навигационный нудж
         TextButton(
           onPressed: () => Navigator.of(ctx).pop(),
           child: Text(ctx.s('btn.cancel')),
         ),
+        // FilledButton — единственное основное действие диалога
         FilledButton(
           onPressed: () => Navigator.of(ctx).pop(controller.text.trim()),
           child: Text(ctx.s('btn.save')),

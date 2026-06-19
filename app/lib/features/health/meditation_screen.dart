@@ -9,6 +9,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import '../../core/l10n/app_strings.dart';
+import '../../core/theme/app_theme.dart';
 
 // ---------------------------------------------------------------------------
 // Модель данных
@@ -232,54 +233,94 @@ class MeditationScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     return Scaffold(
       appBar: AppBar(title: Text(context.s('meditation.title'))),
       body: ListView.separated(
-        padding: const EdgeInsets.all(16),
+        // 24dp screen margin — spec §4.1
+        padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
         itemCount: _sessions.length,
-        separatorBuilder: (context2, index2) => const SizedBox(height: 12),
+        separatorBuilder: (_, _) => const SizedBox(height: 12),
         itemBuilder: (context, index) {
           final session = _sessions[index];
-          return Card(
-            child: ListTile(
-              contentPadding:
-                  const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              leading: CircleAvatar(
-                backgroundColor: colorScheme.primaryContainer,
-                child: Icon(
-                  Icons.spa_outlined,
-                  color: colorScheme.onPrimaryContainer,
-                ),
-              ),
-              title: Text(session.name, style: textTheme.titleMedium),
-              subtitle: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 2),
-                  Text(session.description),
-                  const SizedBox(height: 4),
-                  Text(
-                    '${session.duration} min · ${session.steps.length} steps',
-                    style: textTheme.bodySmall?.copyWith(
-                      color: colorScheme.primary,
-                    ),
-                  ),
-                ],
-              ),
-              trailing: const Icon(Icons.chevron_right),
-              onTap: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute<void>(
-                    builder: (_) => _SessionPlayerScreen(session: session),
-                  ),
-                );
-              },
+          return _SessionCard(session: session, ext: ext, textTheme: textTheme);
+        },
+      ),
+    );
+  }
+}
+
+/// Карточка сессии — выделена в StatelessWidget для чистоты.
+class _SessionCard extends StatelessWidget {
+  const _SessionCard({
+    required this.session,
+    required this.ext,
+    required this.textTheme,
+  });
+
+  final _Session session;
+  final FocusThemeExtension ext;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () {
+          Navigator.of(context).push(
+            MaterialPageRoute<void>(
+              builder: (_) => _SessionPlayerScreen(session: session),
             ),
           );
         },
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Аватар — нейтральный (accentMuted фон, textMuted иконка)
+              // Accent только для активной/выбранной сессии — здесь нейтрально
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: ext.accentMuted,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.spa_outlined,
+                  color: ext.textMuted,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Название сессии — titleMedium
+                    Text(session.name, style: textTheme.titleMedium),
+                    const SizedBox(height: 2),
+                    // Описание — bodyMedium (основной текст)
+                    Text(session.description, style: textTheme.bodyMedium),
+                    const SizedBox(height: 6),
+                    // Мета-строка: длительность + шаги — bodySmall + textFaint
+                    Text(
+                      '${session.duration} min · ${session.steps.length} steps',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: ext.textFaint,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Icon(Icons.chevron_right, color: ext.textMuted),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -372,30 +413,35 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
     showDialog<void>(
       context: context,
       barrierDismissible: false,
-      builder: (dialogContext) => AlertDialog(
-        icon: const Icon(Icons.spa_outlined, size: 40),
-        title: Text(dialogContext.s('meditation.session_complete')),
-        content: Text(
-          '"${widget.session.name}" — '
-          '${dialogContext.s('meditation.session_complete_body')}',
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              Navigator.of(dialogContext).pop();
-              Navigator.of(context).pop();
-            },
-            child: Text(dialogContext.s('btn.done')),
+      builder: (dialogContext) {
+        final ext = Theme.of(dialogContext).extension<FocusThemeExtension>()!;
+        return AlertDialog(
+          // Иконка завершения — success color (не accent, per ACCENT DISCIPLINE)
+          icon: Icon(Icons.spa_outlined, size: 40, color: ext.success),
+          title: Text(dialogContext.s('meditation.session_complete')),
+          content: Text(
+            '"${widget.session.name}" — '
+            '${dialogContext.s('meditation.session_complete_body')}',
           ),
-        ],
-      ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop();
+                Navigator.of(context).pop();
+              },
+              child: Text(dialogContext.s('btn.done')),
+            ),
+          ],
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
     final stepCount = widget.session.steps.length;
     final reduce = MediaQuery.disableAnimationsOf(context);
 
@@ -406,54 +452,57 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
       ),
       body: SafeArea(
         child: Padding(
+          // 24dp screen margin, 16dp top — spec §4.1
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             children: [
-              // Step progress
+              // Прогресс шагов — bodySmall + textMuted
               Text(
                 '${context.s('meditation.step')} ${_stepIndex + 1} / $stepCount',
-                style: textTheme.bodyMedium?.copyWith(
-                  color: colorScheme.onSurface.withValues(alpha: 0.6),
-                ),
+                style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
               ),
               const SizedBox(height: 8),
+              // Линейный прогресс — accent (несёт смысл прогресса)
               LinearProgressIndicator(
                 value: (_stepIndex + 1) / stepCount,
                 minHeight: 4,
                 borderRadius: BorderRadius.circular(2),
               ),
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
 
-              // Countdown arc
+              // Дуга таймера — accent (первичная метрика текущего шага)
               SizedBox(
-                width: 180,
-                height: 180,
+                width: 200,
+                height: 200,
                 child: reduce
                     ? _StaticArcTimer(
                         remaining: _remaining,
                         total: _currentStep.seconds,
                         color: colorScheme.primary,
+                        textTheme: textTheme,
                       )
                     : AnimatedBuilder(
                         animation: _arcController,
-                        builder: (context3, _) => CustomPaint(
+                        builder: (_, _) => CustomPaint(
                           painter: _ArcPainter(
                             progress: 1 - _arcController.value,
                             color: colorScheme.primary,
+                            trackColor: ext.border,
                           ),
                           child: Center(
+                            // Таймер внутри дуги — displaySmall (крупный, display font)
                             child: Text(
                               _formatSeconds(_remaining),
-                              style: textTheme.headlineMedium,
+                              style: textTheme.displaySmall,
                             ),
                           ),
                         ),
                       ),
               ),
 
-              const SizedBox(height: 32),
+              const SizedBox(height: 40),
 
-              // Step text
+              // Текст шага — bodyLarge, центрально, прокручиваемый
               Expanded(
                 child: Center(
                   child: SingleChildScrollView(
@@ -468,7 +517,7 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
 
               const SizedBox(height: 24),
 
-              // Next button
+              // Единственное первичное действие — FilledButton
               SizedBox(
                 width: double.infinity,
                 child: FilledButton(
@@ -489,15 +538,10 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
               ),
               const SizedBox(height: 8),
 
-              // End session button
+              // Вторичное действие — TextButton (навигационный нудж, низкий приоритет)
               TextButton(
                 onPressed: () => Navigator.of(context).pop(),
-                child: Text(
-                  context.s('meditation.end_session'),
-                  style: TextStyle(
-                    color: colorScheme.onSurface.withValues(alpha: 0.6),
-                  ),
-                ),
+                child: Text(context.s('meditation.end_session')),
               ),
             ],
           ),
@@ -522,27 +566,33 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
 
 /// Дуга таймера: прогресс уменьшается по мере хода времени.
 class _ArcPainter extends CustomPainter {
-  const _ArcPainter({required this.progress, required this.color});
+  const _ArcPainter({
+    required this.progress,
+    required this.color,
+    required this.trackColor,
+  });
+
   final double progress; // 1.0 → полная дуга, 0.0 → пустая
   final Color color;
+  final Color trackColor; // из темы (ext.border)
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
     final radius = (size.shortestSide / 2) - 8;
 
-    // Фоновая дорожка
+    // Фоновая дорожка — border color (нейтральный)
     canvas.drawCircle(
       center,
       radius,
       Paint()
-        ..color = color.withValues(alpha: 0.15)
+        ..color = trackColor
         ..style = PaintingStyle.stroke
         ..strokeWidth = 8
         ..strokeCap = StrokeCap.round,
     );
 
-    // Прогресс-дуга
+    // Прогресс-дуга — accent (несёт смысл таймера)
     if (progress > 0) {
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
@@ -560,7 +610,7 @@ class _ArcPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ArcPainter old) =>
-      old.progress != progress || old.color != color;
+      old.progress != progress || old.color != color || old.trackColor != color;
 }
 
 /// Статичная дуга + время для reduce-motion режима.
@@ -569,22 +619,31 @@ class _StaticArcTimer extends StatelessWidget {
     required this.remaining,
     required this.total,
     required this.color,
+    required this.textTheme,
   });
+
   final int remaining;
   final int total;
   final Color color;
+  final TextTheme textTheme;
 
   @override
   Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final progress = total > 0 ? remaining / total : 0.0;
     final m = remaining ~/ 60;
     final s = remaining % 60;
     final label = m > 0 ? '$m:${s.toString().padLeft(2, '0')}' : '${s}s';
 
     return CustomPaint(
-      painter: _ArcPainter(progress: progress, color: color),
+      painter: _ArcPainter(
+        progress: progress,
+        color: color,
+        trackColor: ext.border,
+      ),
       child: Center(
-        child: Text(label, style: Theme.of(context).textTheme.headlineMedium),
+        // displaySmall для крупного таймера внутри дуги
+        child: Text(label, style: textTheme.displaySmall),
       ),
     );
   }

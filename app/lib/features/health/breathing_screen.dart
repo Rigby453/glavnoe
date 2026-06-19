@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 
 import '../../core/animations/constants.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/theme/app_theme.dart';
 import 'breathing_engine.dart';
 
 // Доступные длительности сессии
@@ -126,19 +127,24 @@ class _BreathingScreenState extends State<BreathingScreen>
 
   // ---------------------------------------------------------------------------
   // Цвет круга по метке фазы
+  // Фазы имеют семантику: Inhale=accent, Exhale=success, Hold=textMuted.
+  // Hex не хардкодим — берём из темы через ext/colorScheme.
   // ---------------------------------------------------------------------------
 
   Color _colorForPhaseLabel(String label) {
     final cs = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     switch (label) {
       case 'Inhale':
+        // Вдох — accent (первичное, активное состояние)
         return cs.primary;
       case 'Exhale':
-        return cs.primaryContainer;
+        // Выдох — success (расслабление, завершение цикла)
+        return ext.success;
       case 'Hold':
       default:
-        // Пробуем tertiary, если нет — secondary
-        return cs.tertiary;
+        // Задержка — textMuted (нейтральная пауза)
+        return ext.textMuted;
     }
   }
 
@@ -327,7 +333,8 @@ class _BreathingScreenState extends State<BreathingScreen>
       appBar: AppBar(title: Text(context.s('breathing.title'))),
       body: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(24),
+          // 24dp screen margin — spec §4.1
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
           child: _done
               ? _buildDone(textTheme)
               : _running
@@ -346,8 +353,9 @@ class _BreathingScreenState extends State<BreathingScreen>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // headlineSmall — display font (серифный), заголовок секции
         Text(context.s('breathing.choose_technique'), style: textTheme.headlineSmall),
-        const SizedBox(height: 16),
+        const SizedBox(height: 24),
 
         // Выбор пресета — ChoiceChip ряд
         Wrap(
@@ -361,10 +369,10 @@ class _BreathingScreenState extends State<BreathingScreen>
             );
           }),
         ),
-        const SizedBox(height: 24),
+        const SizedBox(height: 32),
 
         Text(context.s('breathing.duration'), style: textTheme.titleMedium),
-        const SizedBox(height: 8),
+        const SizedBox(height: 12),
 
         // Выбор длительности — SegmentedButton
         SegmentedButton<int>(
@@ -377,9 +385,11 @@ class _BreathingScreenState extends State<BreathingScreen>
           selected: {_durationMinutes},
           onSelectionChanged: (s) =>
               setState(() => _durationMinutes = s.first),
+          showSelectedIcon: false,
         ),
         const Spacer(),
 
+        // Единственное первичное действие — FilledButton (Start)
         FilledButton.icon(
           icon: const Icon(Icons.play_arrow),
           label: Text(context.s('breathing.start')),
@@ -395,6 +405,7 @@ class _BreathingScreenState extends State<BreathingScreen>
 
   Widget _buildRunning(TextTheme textTheme) {
     final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final reduce = reduceMotionOf(context);
 
     final result = phaseAt(_preset.phases, _elapsed);
@@ -418,25 +429,25 @@ class _BreathingScreenState extends State<BreathingScreen>
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Подпись фазы с fade-анимацией
+                    // Подпись фазы: displaySmall — крупный, display font (серифный)
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Text(
                         _localizePhaseLabel(context, phase.label),
-                        style: textTheme.headlineMedium?.copyWith(
+                        style: textTheme.displaySmall?.copyWith(
                           color: colorScheme.onSurface,
-                          fontWeight: FontWeight.w600,
                         ),
+                        textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Счётчик секунд
+                    // Счётчик секунд — titleLarge, приглушённый
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Text(
                         '$secsLeft',
                         style: textTheme.titleLarge?.copyWith(
-                          color: colorScheme.onSurface.withValues(alpha: 0.55),
+                          color: ext.textMuted,
                           fontFeatures: const [FontFeature.tabularFigures()],
                         ),
                       ),
@@ -447,20 +458,21 @@ class _BreathingScreenState extends State<BreathingScreen>
             },
           ),
         ),
-        const SizedBox(height: 32),
+        const SizedBox(height: 40),
 
-        // Оставшееся время сессии
+        // Оставшееся время сессии — крупный display-таймер
         Center(
           child: Text(
             _formatDuration(_remaining),
-            style: textTheme.titleLarge?.copyWith(
-              color: colorScheme.onSurface.withValues(alpha: 0.6),
+            style: textTheme.headlineMedium?.copyWith(
+              color: ext.textMuted,
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: 56),
 
+        // Вторичное действие — OutlinedButton (не перетягивает акцент у круга)
         OutlinedButton.icon(
           icon: const Icon(Icons.stop),
           label: Text(context.s('breathing.stop')),
@@ -475,16 +487,17 @@ class _BreathingScreenState extends State<BreathingScreen>
   // ---------------------------------------------------------------------------
 
   Widget _buildDone(TextTheme textTheme) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // Иконка завершения — success (а не accent, per spec §1 ACCENT DISCIPLINE)
         Icon(
           Icons.check_circle_outline,
           size: 72,
-          color: colorScheme.primary,
+          color: ext.success,
         ),
         const SizedBox(height: 24),
         Center(
@@ -494,7 +507,8 @@ class _BreathingScreenState extends State<BreathingScreen>
             textAlign: TextAlign.center,
           ),
         ),
-        const SizedBox(height: 48),
+        const SizedBox(height: 56),
+        // Единственное первичное действие — FilledButton
         FilledButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(context.s('btn.done')),
@@ -533,10 +547,10 @@ class _BreathCircle extends StatelessWidget {
         height: _baseSize,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: color.withValues(alpha: 0.25),
+          color: color.withValues(alpha: 0.20),
           border: Border.all(
-            color: color.withValues(alpha: 0.7),
-            width: 3,
+            color: color.withValues(alpha: 0.6),
+            width: 2,
           ),
         ),
         child: Stack(
@@ -548,7 +562,7 @@ class _BreathCircle extends StatelessWidget {
               height: _baseSize * 0.5,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                color: color.withValues(alpha: 0.45),
+                color: color.withValues(alpha: 0.35),
               ),
             ),
             // Текст поверх кружка

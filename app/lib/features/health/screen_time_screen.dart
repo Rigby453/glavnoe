@@ -6,9 +6,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/l10n/app_strings.dart';
+import '../../core/theme/app_theme.dart';
 import 'screen_time_provider.dart';
 
-/// Иконки для категорий.
+/// Иконки для категорий — нейтральные (textMuted), не accent (03-components §1).
 const _categoryIcons = <String, IconData>{
   'social': Icons.people_outline,
   'video': Icons.play_circle_outline,
@@ -23,16 +24,32 @@ class ScreenTimeScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final limits = ref.watch(screenTimeLimitsProvider);
-    final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     return Scaffold(
       appBar: AppBar(title: Text(context.s('screentime.title'))),
       body: ListView(
-        padding: const EdgeInsets.all(16),
+        // 24dp screen margin — spec §4.1
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
         children: [
+          // Заголовок экрана — headlineMedium, display font (серифный), 32sp w700
+          Text(
+            context.s('screentime.title'),
+            style: textTheme.headlineMedium,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.s('screentime.set_daily_limits'),
+            style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+          ),
+          const SizedBox(height: 24),
+
           // --- Section 1: Set daily limits ---
-          Text(context.s('screentime.set_daily_limits'), style: textTheme.titleMedium),
+          Text(
+            context.s('screentime.set_daily_limits'),
+            style: textTheme.titleMedium,
+          ),
           const SizedBox(height: 8),
           Card(
             child: Column(
@@ -60,9 +77,10 @@ class ScreenTimeScreen extends ConsumerWidget {
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  // Иконка — textFaint (третичная, информационная)
                   Icon(
                     Icons.info_outline,
-                    color: colorScheme.onSurfaceVariant,
+                    color: ext.textFaint,
                     size: 20,
                   ),
                   const SizedBox(width: 12),
@@ -70,7 +88,7 @@ class ScreenTimeScreen extends ConsumerWidget {
                     child: Text(
                       context.s('screentime.usage_coming_soon'),
                       style: textTheme.bodyMedium?.copyWith(
-                        color: colorScheme.onSurfaceVariant,
+                        color: ext.textMuted,
                       ),
                     ),
                   ),
@@ -93,21 +111,21 @@ class ScreenTimeScreen extends ConsumerWidget {
                   _TipRow(
                     icon: Icons.pause_circle_outline,
                     text: context.s('screentime.tip_autoplay'),
-                    colorScheme: colorScheme,
+                    ext: ext,
                     textTheme: textTheme,
                   ),
                   const SizedBox(height: 12),
                   _TipRow(
                     icon: Icons.invert_colors_outlined,
                     text: context.s('screentime.tip_grayscale'),
-                    colorScheme: colorScheme,
+                    ext: ext,
                     textTheme: textTheme,
                   ),
                   const SizedBox(height: 12),
                   _TipRow(
                     icon: Icons.hotel_outlined,
                     text: context.s('screentime.tip_phone_away'),
-                    colorScheme: colorScheme,
+                    ext: ext,
                     textTheme: textTheme,
                   ),
                 ],
@@ -123,6 +141,7 @@ class ScreenTimeScreen extends ConsumerWidget {
 }
 
 /// Плитка одной категории с текущим лимитом. Тап → боттом-шит с ползунком.
+/// Иконки — textMuted (нейтральные); accent только для active/selected — §1 ACCENT DISCIPLINE.
 class _CategoryTile extends ConsumerWidget {
   const _CategoryTile({
     required this.categoryKey,
@@ -138,16 +157,25 @@ class _CategoryTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
     final subtitle = currentMinutes == 0
         ? context.s('screentime.no_limit')
         : '$currentMinutes ${context.s('screentime.min_per_day')}';
 
     return ListTile(
-      leading: Icon(icon, color: colorScheme.primary),
-      title: Text(categoryName),
-      subtitle: Text(subtitle),
-      trailing: const Icon(Icons.chevron_right),
+      // Иконки нейтральные (textMuted) — не accent (wall-of-lime anti-pattern)
+      leading: Icon(icon, color: ext.textMuted),
+      title: Text(categoryName, style: textTheme.bodyLarge),
+      subtitle: Text(
+        subtitle,
+        style: textTheme.bodySmall?.copyWith(
+          // «over limit» hint: показываем ember при нулевом лимите как напоминание
+          color: currentMinutes == 0 ? ext.textFaint : ext.textMuted,
+        ),
+      ),
+      trailing: Icon(Icons.chevron_right, color: ext.textMuted),
       onTap: () => _showLimitSheet(context, ref),
     );
   }
@@ -206,7 +234,7 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     final displayMinutes = _sliderValue.round();
     final hours = displayMinutes ~/ 60;
@@ -226,25 +254,26 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Handle
+          // Handle — hairline (border color, нейтральный)
           Center(
             child: Container(
               width: 36,
               height: 4,
               decoration: BoxDecoration(
-                color: colorScheme.outlineVariant,
+                color: ext.border,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
           ),
           const SizedBox(height: 20),
 
-          Text(widget.categoryName, style: textTheme.titleLarge),
+          // Заголовок шита — headlineSmall, display font (серифный)
+          Text(widget.categoryName, style: textTheme.headlineSmall),
           const SizedBox(height: 4),
           Text(
             context.s('screentime.set_daily_time_limit'),
             style: textTheme.bodyMedium?.copyWith(
-              color: colorScheme.onSurfaceVariant,
+              color: ext.textMuted,
             ),
           ),
 
@@ -254,7 +283,10 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
           Row(
             children: [
               Expanded(
-                child: Text(context.s('screentime.no_limit'), style: textTheme.bodyLarge),
+                child: Text(
+                  context.s('screentime.no_limit'),
+                  style: textTheme.bodyLarge,
+                ),
               ),
               Switch.adaptive(
                 value: _noLimit,
@@ -266,8 +298,9 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
           const SizedBox(height: 16),
 
           // Slider (disabled when _noLimit)
+          // Reduce-motion: AnimatedOpacity соответствует spec (toggle opacity, не scale)
           AnimatedOpacity(
-            opacity: _noLimit ? 0.4 : 1.0,
+            opacity: _noLimit ? 0.38 : 1.0,
             duration: const Duration(milliseconds: 200),
             child: Column(
               children: [
@@ -275,10 +308,12 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     Text('15 min', style: textTheme.bodySmall),
+                    // Большая цифра текущего лимита — displaySmall, accent (primary CTA metric)
                     Text(
                       timeLabel,
-                      style: textTheme.titleMedium?.copyWith(
-                        color: colorScheme.primary,
+                      style: textTheme.displaySmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                        fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
                     Text('3 h', style: textTheme.bodySmall),
@@ -300,6 +335,7 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
 
           const SizedBox(height: 8),
 
+          // Единственное первичное действие — FilledButton (§2 BUTTON HIERARCHY)
           FilledButton(
             onPressed: _save,
             child: Text(
@@ -315,17 +351,18 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
 }
 
 /// Строка совета с иконкой и текстом.
+/// Иконки — textMuted (нейтральные); текст — bodyMedium.
 class _TipRow extends StatelessWidget {
   const _TipRow({
     required this.icon,
     required this.text,
-    required this.colorScheme,
+    required this.ext,
     required this.textTheme,
   });
 
   final IconData icon;
   final String text;
-  final ColorScheme colorScheme;
+  final FocusThemeExtension ext;
   final TextTheme textTheme;
 
   @override
@@ -333,7 +370,8 @@ class _TipRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 20, color: colorScheme.primary),
+        // Иконки советов — textMuted (декоративные, не accent)
+        Icon(icon, size: 20, color: ext.textMuted),
         const SizedBox(width: 12),
         Expanded(
           child: Text(text, style: textTheme.bodyMedium),

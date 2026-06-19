@@ -7,6 +7,8 @@ import 'package:go_router/go_router.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/theme/app_theme.dart';
+import '../../core/widgets/kai_loader.dart';
 
 /// Провайдер для выбранной даты (sleep report)
 final sleepSelectedDateProvider = StateProvider.autoDispose<DateTime>((ref) {
@@ -90,6 +92,8 @@ class SleepReportScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
+    // ThemeExtension для textMuted / textFaint / success / border
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final selectedDate = ref.watch(sleepSelectedDateProvider);
     final nights = ref.watch(sleepFilteredNightsProvider);
     final stats = ref.watch(sleepStatsForDateProvider);
@@ -100,7 +104,8 @@ class SleepReportScreen extends ConsumerWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: Text(context.s('sleep.report_title'), style: textTheme.headlineSmall),
+        // Заголовок экрана — headlineSmall (display font, 22sp)
+        title: Text(context.s('sleep.report_title')),
         centerTitle: true,
         actions: [
           IconButton(
@@ -112,16 +117,17 @@ class SleepReportScreen extends ConsumerWidget {
       ),
       body: nights.when(
         data: (nightList) => SingleChildScrollView(
+          // 24dp горизонтальные поля, 16dp сверху — §4.1
           child: Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Статистика
-                _buildStatsCards(context, stats, textTheme),
+                // Блок статистики: три карточки рядом
+                _buildStatsCards(context, stats, textTheme, ext),
                 const SizedBox(height: 24),
 
-                // Выбранная дата
+                // Выбор даты — кнопка-нудж, не акцентный элемент
                 GestureDetector(
                   onTap: () => _selectDate(context, ref),
                   child: Row(
@@ -131,120 +137,130 @@ class SleepReportScreen extends ConsumerWidget {
                       Text(
                         _formatSelectedDate(context, selectedDate),
                         style: textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.bold,
-                          color: colorScheme.primary,
+                          // Дата — textMuted, не accent
+                          color: ext.textMuted,
                         ),
                       ),
                       const SizedBox(width: 4),
                       Icon(
                         Icons.calendar_today,
                         size: 14,
-                        color: colorScheme.primary,
+                        // Иконка тоже нейтральная
+                        color: ext.textMuted,
                       ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 20),
 
-                // История ночей
-                Text(context.s('sleep.history'), style: textTheme.titleMedium),
-                const SizedBox(height: 12),
-                nights.when(
-                  data: (nightList) {
-                    if (nightList.isEmpty) {
-                      return Center(
-                        child: Padding(
-                          padding: const EdgeInsets.all(24),
-                          child: Text(
-                            context.s('sleep.no_data'),
-                            style: textTheme.bodyMedium?.copyWith(
-                              color: colorScheme.outline,
-                            ),
-                          ),
-                        ),
-                      );
-                    }
-                    return Column(
-                      children: nightList
-                          .map(
-                            (night) => _buildNightCard(
-                              context,
-                              night,
-                              textTheme,
-                              colorScheme,
-                            ),
-                          )
-                          .toList(),
-                    );
-                  },
-                  loading: () =>
-                      const Center(child: CircularProgressIndicator()),
-                  error: (err, st) => Text('Error: $err'),
+                // Заголовок секции истории
+                Text(
+                  context.s('sleep.history'),
+                  style: textTheme.titleMedium,
                 ),
+                const SizedBox(height: 12),
+
+                // Список ночей
+                if (nightList.isEmpty)
+                  Center(
+                    child: Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Text(
+                        context.s('sleep.no_data'),
+                        style: textTheme.bodyMedium?.copyWith(
+                          color: ext.textMuted,
+                        ),
+                      ),
+                    ),
+                  )
+                else
+                  Column(
+                    children: nightList
+                        .map(
+                          (night) => _buildNightCard(
+                            context,
+                            night,
+                            textTheme,
+                            colorScheme,
+                            ext,
+                          ),
+                        )
+                        .toList(),
+                  ),
               ],
             ),
           ),
         ),
-        loading: () => const Center(child: CircularProgressIndicator()),
+        // KaiLoader заменяет CircularProgressIndicator (п. 6)
+        loading: () => const Center(
+          child: Padding(
+            padding: EdgeInsets.all(48),
+            child: KaiLoader(label: 'Loading sleep data…'),
+          ),
+        ),
         error: (err, st) => Center(child: Text('Error: $err')),
       ),
     );
   }
 
+  /// Три мини-карточки статистики: avg / best / total nights.
   Widget _buildStatsCards(
     BuildContext context,
     SleepStats stats,
     TextTheme textTheme,
+    FocusThemeExtension ext,
   ) {
-    return Column(
+    return Row(
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: _StatCard(
-                label: context.s('sleep.avg'),
-                value: '${stats.avgHours.toStringAsFixed(1)}h',
-                textTheme: textTheme,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _StatCard(
-                label: context.s('sleep.best_night'),
-                value: '${stats.maxHours.toStringAsFixed(1)}h',
-                textTheme: textTheme,
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _StatCard(
-                label: context.s('sleep.total_nights'),
-                value: '${stats.totalNights}',
-                textTheme: textTheme,
-              ),
-            ),
-          ],
+        Expanded(
+          child: _StatCard(
+            label: context.s('sleep.avg'),
+            // Большие hero-числа: displaySmall (32sp, display font) — §1
+            value: '${stats.avgHours.toStringAsFixed(1)}h',
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatCard(
+            label: context.s('sleep.best_night'),
+            value: '${stats.maxHours.toStringAsFixed(1)}h',
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: _StatCard(
+            label: context.s('sleep.total_nights'),
+            value: '${stats.totalNights}',
+          ),
         ),
       ],
     );
   }
 
+  /// Карточка одной ночи: дата + время старта + длительность.
   Widget _buildNightCard(
     BuildContext context,
     SleepLogsTableData night,
     TextTheme textTheme,
     ColorScheme colorScheme,
+    FocusThemeExtension ext,
   ) {
     final duration = night.endAt != null
         ? night.endAt!.difference(night.startAt).inMinutes / 60.0
         : null;
 
+    // Цель достигнута (≥ 7ч) → success color; иначе — textMuted
+    final durationColor =
+        duration != null && duration >= 7 ? ext.success : ext.textMuted;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
+        // surface вместо surfaceContainer (нет хардкода)
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: ext.border),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -259,26 +275,25 @@ class SleepReportScreen extends ConsumerWidget {
                 ),
               ),
               const SizedBox(height: 4),
+              // Метаданные — bodySmall + textMuted (§ TYPOGRAPHY)
               Text(
                 _formatTime(night.startAt),
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.outline,
-                ),
+                style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
               ),
             ],
           ),
           if (duration != null)
+            // Hero-число длительности — headlineSmall (display font, 22sp)
             Text(
               '${duration.toStringAsFixed(1)}h',
-              style: textTheme.bodyLarge?.copyWith(
-                color: duration >= 7 ? Colors.green : colorScheme.outline,
-                fontWeight: FontWeight.bold,
+              style: textTheme.headlineSmall?.copyWith(
+                color: durationColor,
               ),
             )
           else
             Text(
               context.s('sleep.in_progress'),
-              style: textTheme.bodySmall?.copyWith(color: colorScheme.outline),
+              style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
             ),
         ],
       ),
@@ -364,42 +379,41 @@ class SleepReportScreen extends ConsumerWidget {
   }
 }
 
+/// Мини-карточка статистики (avg/best/total).
+/// Использует Card ThemeData вместо хардкоженного Container + декорации.
 class _StatCard extends StatelessWidget {
   final String label;
   final String value;
-  final TextTheme textTheme;
 
   const _StatCard({
     required this.label,
     required this.value,
-    required this.textTheme,
   });
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: textTheme.labelSmall?.copyWith(
-              color: Theme.of(context).colorScheme.outline,
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Метка — bodySmall + textMuted
+            Text(
+              label,
+              style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
             ),
-          ),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
+            const SizedBox(height: 8),
+            // Hero-число — displaySmall (32sp, display font, w700)
+            Text(
+              value,
+              style: textTheme.displaySmall,
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
