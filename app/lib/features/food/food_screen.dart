@@ -21,7 +21,7 @@ import '../../core/animations/app_sheet.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/locale_provider.dart';
-import '../../core/settings/nutrition_goals_provider.dart';
+import '../../core/settings/nutrition_targets.dart';
 import '../../core/widgets/kai_loader.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
@@ -134,10 +134,12 @@ class _BalanceCard extends ConsumerWidget {
     final successColor = ext?.success ?? Theme.of(context).colorScheme.primary;
     final mutedColor = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
 
+    // Персонализированные нормы из антропометрии (или дефолт, если не заполнено)
+    final targets = ref.watch(nutritionTargetsProvider);
     final balance = evaluateDayBalance(
       totals,
-      calorieGoal: ref.watch(calorieGoalProvider),
-      proteinGoalG: ref.watch(proteinGoalProvider),
+      calorieGoal: targets.kcal,
+      proteinGoalG: targets.proteinG,
     );
 
     return Card(
@@ -194,15 +196,15 @@ class _BalanceCard extends ConsumerWidget {
 
 // Карточка «Итоги дня» — применяет правило «акцент = дефицитный ресурс» (UX-LAYOUT §6.3):
 // • Акцент (primary/лайм): только заголовочная цифра калорий.
-// • Вторичные бары (Б/Ж/У): нейтральный textMuted.
-// • Сахар: ember/urgent (семантика «следи»).
-// • Клетчатка: нейтральный мутед (нейтрально-позитивный тон).
-class _TotalsCard extends StatelessWidget {
+// • Вторичные бары (Б/Ж/У): нейтральный textMuted, формат «X / target g».
+// • Сахар: ember/urgent (семантика «следи»), формат «X / max g».
+// • Клетчатка: нейтральный мутед, формат «X / goal g».
+class _TotalsCard extends ConsumerWidget {
   const _TotalsCard({required this.totals});
   final Nutrition totals;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
@@ -210,6 +212,9 @@ class _TotalsCard extends StatelessWidget {
     final mutedColor = ext?.textMuted ?? colorScheme.onSurface.withAlpha(153);
     // ember — семантика «срочное/следи», используется для Сахара
     final emberColor = ext?.ember ?? colorScheme.secondary;
+
+    // Персональные нормы для отображения «съедено / норма»
+    final targets = ref.watch(nutritionTargetsProvider);
 
     String g(double? v) => v == null ? '—' : v.round().toString();
 
@@ -234,9 +239,9 @@ class _TotalsCard extends StatelessWidget {
                     color: colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 6),
+                const SizedBox(width: 4),
                 Text(
-                  'kcal',
+                  '/ ${targets.kcal} kcal',
                   style: textTheme.bodyMedium?.copyWith(color: mutedColor),
                 ),
               ],
@@ -248,17 +253,17 @@ class _TotalsCard extends StatelessWidget {
               children: [
                 _Macro(
                   label: context.s('food.macro_protein'),
-                  value: '${g(totals.protein)} g',
+                  value: '${g(totals.protein)} / ${targets.proteinG} g',
                   color: mutedColor,
                 ),
                 _Macro(
                   label: context.s('food.macro_fat'),
-                  value: '${g(totals.fat)} g',
+                  value: '${g(totals.fat)} / ${targets.fatG} g',
                   color: mutedColor,
                 ),
                 _Macro(
                   label: context.s('food.macro_carbs'),
-                  value: '${g(totals.carbs)} g',
+                  value: '${g(totals.carbs)} / ${targets.carbsG} g',
                   color: mutedColor,
                 ),
               ],
@@ -270,14 +275,14 @@ class _TotalsCard extends StatelessWidget {
                 Icon(Icons.cookie_outlined, size: 16, color: emberColor),
                 const SizedBox(width: 4),
                 Text(
-                  'Sugar ${g(totals.sugar)} g',
+                  'Sugar ${g(totals.sugar)} / ${targets.sugarMaxG} g',
                   style: textTheme.bodySmall?.copyWith(color: emberColor),
                 ),
                 const SizedBox(width: 16),
                 Icon(Icons.grass_outlined, size: 16, color: mutedColor),
                 const SizedBox(width: 4),
                 Text(
-                  'Fiber ${g(totals.fiber)} g',
+                  'Fiber ${g(totals.fiber)} / ${targets.fiberG} g',
                   style: textTheme.bodySmall?.copyWith(color: mutedColor),
                 ),
               ],

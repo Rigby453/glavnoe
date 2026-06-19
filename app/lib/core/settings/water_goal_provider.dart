@@ -13,21 +13,26 @@ const kDefaultWaterGoalMl = 2000;
 const kUserWeightKgKey = 'user_weight_kg';
 const kUserHeightCmKey = 'user_height_cm';
 const kUserActivityKey = 'user_activity'; // 'low' | 'medium' | 'high'
+const kUserAgeKey = 'user_age'; // int (лет)
+const kUserSexKey = 'user_sex'; // 'male' | 'female' | 'other'
 
-/// Рассчитывает рекомендуемую норму воды по весу, активности и росту.
+/// Рассчитывает рекомендуемую норму воды по весу, активности, росту и возрасту.
 ///
-/// Формула: weightKg × 33 мл × множитель активности × поправка на рост.
+/// Формула: weightKg × 33 мл × множитель активности × поправка на рост × поправка на возраст.
 /// Множители активности: low=0.9, medium=1.0, high=1.15.
 /// Поправка на рост [heightCm] — мягкая, относительно эталона 170 см:
 /// ±0.2% на каждый см, зажата в [0.95, 1.08]. Основной фактор — вес;
 /// рост влияет слабо (так и положено физиологически). Если рост не задан —
 /// поправка нейтральная (1.0).
+/// Поправка на возраст [age] — мягкое снижение у пожилых: clamp(1 - (age-30)*0.001, 0.95, 1.0).
+/// Если возраст не задан — поправка нейтральная (1.0).
 /// Результат округляется до 100 мл, зажимается в диапазон [1500, 4000].
 /// После расчёта пользователь может поправить норму вручную (слайдер).
 int recommendedWaterMl({
   required double weightKg,
   required String activity, // 'low' | 'medium' | 'high'
   double? heightCm,
+  int? age,
 }) {
   final multiplier = switch (activity) {
     'low' => 0.9,
@@ -38,8 +43,12 @@ int recommendedWaterMl({
   final heightFactor = (heightCm == null || heightCm <= 0)
       ? 1.0
       : (1 + (heightCm - 170) * 0.002).clamp(0.95, 1.08);
+  // Поправка на возраст: мягкое снижение для возраста > 30 лет.
+  final ageFactor = (age == null || age <= 0)
+      ? 1.0
+      : (1.0 - (age - 30) * 0.001).clamp(0.95, 1.0);
   // Базовый расчёт: 33 мл на кг веса
-  final raw = weightKg * 33.0 * multiplier * heightFactor;
+  final raw = weightKg * 33.0 * multiplier * heightFactor * ageFactor;
   // Округление до 100 мл
   final rounded = ((raw / 100).round() * 100).toInt();
   // Ограничиваем физиологически разумным диапазоном

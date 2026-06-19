@@ -72,7 +72,9 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   // Антропометрия — шаг «нормы»
   final _weightController = TextEditingController();
   final _heightController = TextEditingController();
+  final _ageController = TextEditingController();
   String _activity = 'medium'; // 'low' | 'medium' | 'high'
+  String _sex = 'other'; // 'male' | 'female' | 'other'
 
   @override
   void initState() {
@@ -81,29 +83,34 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     // Слушаем изменения полей — пересчитываем рекомендацию на лету.
     _weightController.addListener(_recalcWater);
     _heightController.addListener(_recalcWater);
+    _ageController.addListener(_recalcWater);
   }
 
   @override
   void dispose() {
     _weightController.removeListener(_recalcWater);
     _heightController.removeListener(_recalcWater);
+    _ageController.removeListener(_recalcWater);
     _weightController.dispose();
     _heightController.dispose();
+    _ageController.dispose();
     _pageController.dispose();
     super.dispose();
   }
 
-  /// Пересчитывает рекомендацию воды при изменении веса или активности.
+  /// Пересчитывает рекомендацию воды при изменении веса, роста, возраста или активности.
   /// Если поле веса пустое или невалидное — ничего не делаем.
   void _recalcWater() {
     final weightText = _weightController.text.trim();
     final weight = double.tryParse(weightText);
     if (weight == null || weight <= 0) return;
     final height = double.tryParse(_heightController.text.trim());
+    final age = int.tryParse(_ageController.text.trim());
     final recommended = recommendedWaterMl(
       weightKg: weight,
       activity: _activity,
       heightCm: height,
+      age: age,
     );
     setState(() => _waterGoal = recommended);
   }
@@ -115,16 +122,21 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     await prefs.setInt(reviewEveningHourKey, _eveningHour);
     await ref.read(waterGoalProvider.notifier).set(_waterGoal);
 
-    // Сохраняем антропометрию для будущей аналитики.
+    // Сохраняем антропометрию для расчёта норм питания и аналитики.
     final weight = double.tryParse(_weightController.text.trim());
     final height = int.tryParse(_heightController.text.trim());
+    final age = int.tryParse(_ageController.text.trim());
     if (weight != null && weight > 0) {
       await prefs.setDouble(kUserWeightKgKey, weight);
     }
     if (height != null && height > 0) {
       await prefs.setInt(kUserHeightCmKey, height);
     }
+    if (age != null && age > 0) {
+      await prefs.setInt(kUserAgeKey, age);
+    }
     await prefs.setString(kUserActivityKey, _activity);
+    await prefs.setString(kUserSexKey, _sex);
 
     // Если напоминания уже включены — перепланируем под выбранные часы.
     if (ref.read(notificationsEnabledProvider)) {
@@ -505,6 +517,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
             weightKg: weightVal,
             activity: _activity,
             heightCm: double.tryParse(_heightController.text.trim()),
+            age: int.tryParse(_ageController.text.trim()),
           )
         : null;
 
@@ -514,7 +527,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // --- Поля антропометрии ---
+          // --- Поля антропометрии: вес + рост ---
           Row(
             children: [
               Expanded(
@@ -543,7 +556,57 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                     labelText: context.s('onboarding.norms_height'),
                     helperText: context.s('onboarding.norms_height_helper'),
                   ),
+                  textInputAction: TextInputAction.next,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // --- Возраст + пол ---
+          Row(
+            children: [
+              Expanded(
+                child: TextField(
+                  controller: _ageController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly,
+                  ],
+                  decoration: InputDecoration(
+                    labelText: context.s('onboarding.norms_age'),
+                  ),
                   textInputAction: TextInputAction.done,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.s('onboarding.norms_sex'),
+                      style: textTheme.labelMedium,
+                    ),
+                    const SizedBox(height: 6),
+                    Wrap(
+                      spacing: 6,
+                      children: [
+                        (context.s('onboarding.sex_male'), 'male'),
+                        (context.s('onboarding.sex_female'), 'female'),
+                        (context.s('onboarding.sex_other'), 'other'),
+                      ].map((pair) {
+                        final label = pair.$1;
+                        final value = pair.$2;
+                        return ChoiceChip(
+                          label: Text(label),
+                          selected: _sex == value,
+                          onSelected: (_) => setState(() => _sex = value),
+                          visualDensity: VisualDensity.compact,
+                        );
+                      }).toList(),
+                    ),
+                  ],
                 ),
               ),
             ],

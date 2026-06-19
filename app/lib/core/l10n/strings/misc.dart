@@ -452,6 +452,31 @@ const Map<String, Map<String, String>> miscStrings = {
     'ru': 'Потяни, чтобы скорректировать вручную.',
     'de': 'Ziehen zum manuellen Anpassen.',
   },
+  'onboarding.norms_age': {
+    'en': 'Age',
+    'ru': 'Возраст',
+    'de': 'Alter',
+  },
+  'onboarding.norms_sex': {
+    'en': 'Sex',
+    'ru': 'Пол',
+    'de': 'Geschlecht',
+  },
+  'onboarding.sex_male': {
+    'en': 'Male',
+    'ru': 'Муж.',
+    'de': 'Männl.',
+  },
+  'onboarding.sex_female': {
+    'en': 'Female',
+    'ru': 'Жен.',
+    'de': 'Weibl.',
+  },
+  'onboarding.sex_other': {
+    'en': 'Other',
+    'ru': 'Другой',
+    'de': 'Divers',
+  },
 
   // ---------------------------------------------------------------------------
   // Import (import_sheet.dart)
