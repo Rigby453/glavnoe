@@ -64,7 +64,12 @@ class NutritionTargets {
 ///   medium → 1.55   (по умолчанию)
 ///   high   → 1.725
 ///
-/// TDEE = BMR × фактор, kcal = round(TDEE), зажимаем в [1200, 4000].
+/// TDEE = BMR × фактор, затем корректируется целью [goal]:
+///   lose     → TDEE × 0.85
+///   gain     → TDEE × 1.15
+///   maintain → TDEE × 1.00   (по умолчанию)
+///
+/// kcal = round(скорректированный TDEE), зажимаем в [1200, 4000].
 ///
 /// Макросы:
 ///   protein = round(1.6 × weight) г
@@ -78,6 +83,7 @@ NutritionTargets computeNutritionTargets({
   required int age,
   required String sex, // 'male' | 'female' | 'other'
   required String activity, // 'low' | 'medium' | 'high'
+  String goal = 'maintain', // 'maintain' | 'lose' | 'gain'
 }) {
   // Константа Миффлина по полу
   final s = switch (sex) {
@@ -96,8 +102,16 @@ NutritionTargets computeNutritionTargets({
   };
 
   final tdee = bmr * factor;
+
+  // Множитель цели: похудение ×0.85, набор ×1.15, поддержание ×1.0
+  final goalMultiplier = switch (goal) {
+    'lose' => 0.85,
+    'gain' => 1.15,
+    _ => 1.0, // 'maintain' и любое неизвестное
+  };
+
   // Зажимаем ккал в физиологически разумный диапазон [1200, 4000]
-  final kcal = tdee.round().clamp(1200, 4000);
+  final kcal = (tdee * goalMultiplier).round().clamp(1200, 4000);
 
   // Белок: 1.6 г на кг веса (рекомендация для активного человека)
   final proteinG = (1.6 * weightKg).round();
@@ -126,7 +140,8 @@ NutritionTargets computeNutritionTargets({
 }
 
 /// Riverpod-провайдер персональных норм питания.
-/// Читает антропометрию из SharedPreferences (сохранённую на шаге онбординга).
+/// Читает антропометрию из SharedPreferences (сохранённую на шаге онбординга)
+/// и цель из food_goal (food_preferences_provider.dart).
 /// Если данные отсутствуют или неполны — возвращает NutritionTargets.fallback.
 final nutritionTargetsProvider = Provider<NutritionTargets>((ref) {
   final prefs = ref.watch(sharedPreferencesProvider);
@@ -136,6 +151,8 @@ final nutritionTargetsProvider = Provider<NutritionTargets>((ref) {
   final age = prefs.getInt(kUserAgeKey);
   final sex = prefs.getString(kUserSexKey) ?? 'other';
   final activity = prefs.getString(kUserActivityKey) ?? 'medium';
+  // Цель из блока пищевых предпочтений: влияет на TDEE-множитель.
+  final goal = prefs.getString('food_goal') ?? 'maintain';
 
   // Если ключевые поля не заполнены — возвращаем дефолт
   if (weightKg == null || weightKg <= 0 ||
@@ -150,5 +167,6 @@ final nutritionTargetsProvider = Provider<NutritionTargets>((ref) {
     age: age,
     sex: sex,
     activity: activity,
+    goal: goal,
   );
 });

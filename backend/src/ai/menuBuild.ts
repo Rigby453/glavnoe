@@ -53,6 +53,11 @@ const RawMenuSchema = z.object({
  *   allergies — аллергии/непереносимости; healing — скорость заживления ран;
  *   deficiencies — известные дефициты витаминов/минералов.
  *   Используется ТОЛЬКО для фильтрации и смещения выбора — числа КБЖУ считает код.
+ * @param foodPrefs - необязательные пищевые предпочтения (ADR-038):
+ *   diet — тип диеты (vegetarian, vegan, keto …); goal — цель по весу (lose/maintain/gain);
+ *   dislikes — нежелательные продукты (свободный текст); likes — предпочтительные.
+ *   mealsPerDay — целевое кол-во приёмов (справочно; состав meals[] — источник истины).
+ *   Используется ТОЛЬКО для фильтрации/смещения выбора. Не медицинские рекомендации.
  */
 export async function buildMenu(params: {
   candidates: MenuCandidate[];
@@ -66,8 +71,15 @@ export async function buildMenu(params: {
     healing?: string;
     deficiencies?: string;
   };
+  foodPrefs?: {
+    diet?: string;
+    goal?: string;
+    dislikes?: string;
+    likes?: string;
+    mealsPerDay?: number;
+  };
 }): Promise<{ meals: MenuMeal[]; note: string }> {
-  const { candidates, calorieGoal, proteinGoalG, meals, tone, language = "English", healthProfile } = params;
+  const { candidates, calorieGoal, proteinGoalG, meals, tone, language = "English", healthProfile, foodPrefs } = params;
 
   const validNames = new Set(candidates.map((c) => c.name));
 
@@ -109,6 +121,41 @@ export async function buildMenu(params: {
         "Bias selection toward foods rich in nutrients relevant to the notes " +
         "(e.g. slow wound healing → protein, vitamin C, zinc; stated deficiency → foods rich in it), " +
         "while still hitting the calorie/protein goals from the user's own candidate foods. " +
+        "You still output ONLY name+grams and NEVER any nutrition numbers.";
+    }
+  }
+
+  // Если переданы пищевые предпочтения — добавляем блок фильтрации/смещения (ADR-038).
+  // Не медицинские рекомендации; числа КБЖУ считает код.
+  if (foodPrefs) {
+    const fp = foodPrefs;
+    const effectiveDiet = fp.diet?.trim() && fp.diet.trim().toLowerCase() !== "none"
+      ? fp.diet.trim()
+      : undefined;
+    const hasAny =
+      effectiveDiet ||
+      fp.goal?.trim() ||
+      fp.dislikes?.trim() ||
+      fp.likes?.trim() ||
+      fp.mealsPerDay !== undefined;
+    if (hasAny) {
+      system += "\n\nUSER FOOD PREFERENCES (treat as preferences, NOT medical/nutritional prescription):\n";
+      if (effectiveDiet) {
+        system += `- Diet: Honor the diet: ${effectiveDiet}. EXCLUDE any candidate food that conflicts with it.\n`;
+      }
+      if (fp.dislikes?.trim()) {
+        system += `- Avoid these disliked foods: ${fp.dislikes.trim()}\n`;
+      }
+      if (fp.likes?.trim()) {
+        system += `- Prefer these when sensible: ${fp.likes.trim()}\n`;
+      }
+      if (fp.goal?.trim()) {
+        system += `- The calorie goal already reflects the user's weight goal (${fp.goal.trim()}). No need to adjust numbers — just pick fitting foods.\n`;
+      }
+      if (fp.mealsPerDay !== undefined) {
+        system += `- The user targets ${fp.mealsPerDay} meals per day. Use exactly the meal names provided in the request — do not invent new meal names.\n`;
+      }
+      system +=
         "You still output ONLY name+grams and NEVER any nutrition numbers.";
     }
   }

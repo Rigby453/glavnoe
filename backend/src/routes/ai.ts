@@ -72,6 +72,18 @@ const healthProfileSchema = z
   })
   .optional();
 
+// Необязательные пищевые предпочтения пользователя (диета, цель, антипатии/симпатии).
+// Backward-compatible: отсутствие поля не меняет поведение (ADR-038).
+const foodPrefsSchema = z
+  .object({
+    diet: z.string().max(300).trim().optional(),
+    goal: z.string().max(300).trim().optional(),
+    dislikes: z.string().max(300).trim().optional(),
+    likes: z.string().max(300).trim().optional(),
+    meals_per_day: z.number().int().min(1).max(8).optional(),
+  })
+  .optional();
+
 const menuBuildSchema = z.object({
   candidates: z.array(menuCandidateSchema).min(5).max(40),
   calorie_goal: z.number().min(800).max(6000),
@@ -83,6 +95,7 @@ const menuBuildSchema = z.object({
     .default(["breakfast", "lunch", "dinner"]),
   tone: toneSchema.default("gentle"),
   health_profile: healthProfileSchema,
+  food_prefs: foodPrefsSchema,
 });
 const wrappedSummarySchema = z.object({
   period_days: z.number().int().min(1).max(366),
@@ -305,6 +318,17 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
           language: langName(request.headers["accept-language"]),
           ...(parsed.data.health_profile !== undefined
             ? { healthProfile: parsed.data.health_profile }
+            : {}),
+          ...(parsed.data.food_prefs !== undefined
+            ? {
+                foodPrefs: {
+                  diet: parsed.data.food_prefs.diet,
+                  goal: parsed.data.food_prefs.goal,
+                  dislikes: parsed.data.food_prefs.dislikes,
+                  likes: parsed.data.food_prefs.likes,
+                  mealsPerDay: parsed.data.food_prefs.meals_per_day,
+                },
+              }
             : {}),
         });
         return reply.status(200).send({

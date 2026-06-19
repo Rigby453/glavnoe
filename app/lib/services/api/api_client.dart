@@ -503,6 +503,8 @@ class ApiClient {
   /// name+grams, числа КБЖУ пересчитывает клиент (код).
   /// [healthProfile] — опциональный профиль здоровья (аллергии/заживление/дефицит);
   /// передаётся в тело запроса как health_profile ТОЛЬКО когда непустой.
+  /// [foodPrefs] — опциональные пищевые предпочтения (диета/цель/лайки/дизлайки);
+  /// передаётся как food_prefs ТОЛЬКО когда непустой (isEmpty == false).
   Future<Map<String, dynamic>> aiMenuBuild({
     required List<Map<String, dynamic>> candidates,
     required int calorieGoal,
@@ -510,6 +512,7 @@ class ApiClient {
     List<String> meals = const ['breakfast', 'lunch', 'dinner'],
     required String tone,
     Map<String, String>? healthProfile,
+    Map<String, dynamic>? foodPrefs,
   }) async {
     try {
       final body = <String, dynamic>{
@@ -523,6 +526,10 @@ class ApiClient {
       if (healthProfile != null &&
           healthProfile.values.any((v) => v.trim().isNotEmpty)) {
         body['health_profile'] = healthProfile;
+      }
+      // Включаем пищевые предпочтения только если они непустые.
+      if (foodPrefs != null && foodPrefs.isNotEmpty) {
+        body['food_prefs'] = foodPrefs;
       }
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/ai/menu-build',

@@ -182,4 +182,95 @@ void main() {
     );
     expect(unknown.kcal, medium.kcal);
   });
+
+  // --- Тест 9: goal=maintain (дефолт) не меняет ккал ---
+  test('goal=maintain совпадает с отсутствием параметра (множитель 1.0)', () {
+    final base = computeNutritionTargets(
+      weightKg: 70,
+      heightCm: 175,
+      age: 25,
+      sex: 'male',
+      activity: 'medium',
+    );
+    final maintain = computeNutritionTargets(
+      weightKg: 70,
+      heightCm: 175,
+      age: 25,
+      sex: 'male',
+      activity: 'medium',
+      goal: 'maintain',
+    );
+    expect(maintain.kcal, base.kcal);
+  });
+
+  // --- Тест 10: goal=lose уменьшает ккал на ~15% (множитель 0.85) ---
+  group('goal multipliers', () {
+    late NutritionTargets maintain;
+    late NutritionTargets lose;
+    late NutritionTargets gain;
+
+    setUpAll(() {
+      // male 80kg / 180cm / 22y / medium — TDEE ≈ 2800, далеко от clamp-границ
+      maintain = computeNutritionTargets(
+        weightKg: 80,
+        heightCm: 180,
+        age: 22,
+        sex: 'male',
+        activity: 'medium',
+        goal: 'maintain',
+      );
+      lose = computeNutritionTargets(
+        weightKg: 80,
+        heightCm: 180,
+        age: 22,
+        sex: 'male',
+        activity: 'medium',
+        goal: 'lose',
+      );
+      gain = computeNutritionTargets(
+        weightKg: 80,
+        heightCm: 180,
+        age: 22,
+        sex: 'male',
+        activity: 'medium',
+        goal: 'gain',
+      );
+    });
+
+    test('lose < maintain (ккал снижены на 15%)', () {
+      expect(lose.kcal, lessThan(maintain.kcal));
+      // Ожидаемое значение: round(maintain * 0.85); допуск ±5 из-за округлений
+      final expected = (maintain.kcal * 0.85).round();
+      expect(lose.kcal, closeTo(expected, 5));
+    });
+
+    test('gain > maintain (ккал увеличены на 15%)', () {
+      expect(gain.kcal, greaterThan(maintain.kcal));
+      final expected = (maintain.kcal * 1.15).round();
+      expect(gain.kcal, closeTo(expected, 5));
+    });
+
+    test('lose < maintain < gain (порядок)', () {
+      expect(lose.kcal, lessThan(maintain.kcal));
+      expect(maintain.kcal, lessThan(gain.kcal));
+    });
+
+    test('макросы пересчитываются от скорректированных kcal', () {
+      // fat = round(kcal * 0.25 / 9)
+      expect(lose.fatG, (lose.kcal * 0.25 / 9).round());
+      expect(gain.fatG, (gain.kcal * 0.25 / 9).round());
+    });
+
+    test('неизвестная goal трактуется как maintain', () {
+      final unknown = computeNutritionTargets(
+        weightKg: 80,
+        heightCm: 180,
+        age: 22,
+        sex: 'male',
+        activity: 'medium',
+        goal: 'bulk',
+      );
+      expect(unknown.kcal, maintain.kcal);
+    });
+  });
 }

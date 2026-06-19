@@ -393,4 +393,163 @@ const Map<String, Map<String, String>> healthAStrings = {
     'ru': 'Ещё не заполнен. Нажми «Редактировать».',
     'de': 'Noch nicht ausgefüllt. Tippe auf Bearbeiten.',
   },
+
+  // ---------------------------------------------------------------------------
+  // Food preferences (food_preferences_provider.dart, profile_screen.dart)
+  // ---------------------------------------------------------------------------
+  'food_prefs.section_title': {
+    'en': 'Food preferences',
+    'ru': 'Пищевые предпочтения',
+    'de': 'Ernährungspräferenzen',
+  },
+  'food_prefs.ai_note': {
+    'en': 'Used to personalise your AI menu.',
+    'ru': 'Используется для персонализации AI-меню.',
+    'de': 'Wird zur Personalisierung deines KI-Menüs verwendet.',
+  },
+  'food_prefs.edit_btn': {
+    'en': 'Edit',
+    'ru': 'Изменить',
+    'de': 'Bearbeiten',
+  },
+  'food_prefs.btn_save': {
+    'en': 'Save',
+    'ru': 'Сохранить',
+    'de': 'Speichern',
+  },
+  'food_prefs.saved_snack': {
+    'en': 'Food preferences saved',
+    'ru': 'Пищевые предпочтения сохранены',
+    'de': 'Ernährungspräferenzen gespeichert',
+  },
+  'food_prefs.empty_hint': {
+    'en': 'Not set. Tap Edit to personalise your AI menu.',
+    'ru': 'Не указаны. Нажми «Изменить» для персонализации AI-меню.',
+    'de': 'Nicht gesetzt. Tippe auf Bearbeiten, um dein KI-Menü zu personalisieren.',
+  },
+
+  // Диета
+  'food_prefs.diet_label': {
+    'en': 'Diet',
+    'ru': 'Тип питания',
+    'de': 'Ernährungsweise',
+  },
+  'food_prefs.diet_none': {
+    'en': 'None',
+    'ru': 'Обычная',
+    'de': 'Keine',
+  },
+  'food_prefs.diet_vegetarian': {
+    'en': 'Vegetarian',
+    'ru': 'Вегетарианец',
+    'de': 'Vegetarisch',
+  },
+  'food_prefs.diet_vegan': {
+    'en': 'Vegan',
+    'ru': 'Веган',
+    'de': 'Vegan',
+  },
+  'food_prefs.diet_pescatarian': {
+    'en': 'Pescatarian',
+    'ru': 'Пескетарианец',
+    'de': 'Pescetarisch',
+  },
+  'food_prefs.diet_halal': {
+    'en': 'Halal',
+    'ru': 'Халяль',
+    'de': 'Halal',
+  },
+  'food_prefs.diet_kosher': {
+    'en': 'Kosher',
+    'ru': 'Кошерное',
+    'de': 'Koscher',
+  },
+  'food_prefs.diet_keto': {
+    'en': 'Keto',
+    'ru': 'Кето',
+    'de': 'Keto',
+  },
+  'food_prefs.diet_other': {
+    'en': 'Other',
+    'ru': 'Другое',
+    'de': 'Sonstiges',
+  },
+
+  // Цель
+  'food_prefs.goal_label': {
+    'en': 'Goal',
+    'ru': 'Цель',
+    'de': 'Ziel',
+  },
+  'food_prefs.goal_lose': {
+    'en': 'Lose weight',
+    'ru': 'Похудеть',
+    'de': 'Abnehmen',
+  },
+  'food_prefs.goal_maintain': {
+    'en': 'Maintain',
+    'ru': 'Поддержать',
+    'de': 'Halten',
+  },
+  'food_prefs.goal_gain': {
+    'en': 'Gain weight',
+    'ru': 'Набрать массу',
+    'de': 'Zunehmen',
+  },
+
+  // Приёмы пищи
+  'food_prefs.meals_label': {
+    'en': 'Meals per day',
+    'ru': 'Приёмов пищи в день',
+    'de': 'Mahlzeiten pro Tag',
+  },
+
+  // Свободный текст
+  'food_prefs.dislikes_label': {
+    'en': 'Dislikes (ingredients / dishes to avoid)',
+    'ru': 'Не нравится (ингредиенты / блюда избегать)',
+    'de': 'Abneigungen (Zutaten / Gerichte meiden)',
+  },
+  'food_prefs.dislikes_hint': {
+    'en': 'e.g. mushrooms, very spicy food',
+    'ru': 'напр. грибы, острая еда',
+    'de': 'z. B. Pilze, sehr scharfes Essen',
+  },
+  'food_prefs.likes_label': {
+    'en': 'Likes (favourite ingredients / dishes)',
+    'ru': 'Нравится (любимые ингредиенты / блюда)',
+    'de': 'Vorlieben (Lieblinge Zutaten / Gerichte)',
+  },
+  'food_prefs.likes_hint': {
+    'en': 'e.g. chicken, pasta, avocado',
+    'ru': 'напр. курица, паста, авокадо',
+    'de': 'z. B. Hähnchen, Pasta, Avocado',
+  },
+
+  // Просмотр заполненных значений
+  'food_prefs.view_diet': {
+    'en': 'Diet',
+    'ru': 'Питание',
+    'de': 'Diät',
+  },
+  'food_prefs.view_goal': {
+    'en': 'Goal',
+    'ru': 'Цель',
+    'de': 'Ziel',
+  },
+  'food_prefs.view_meals': {
+    'en': 'Meals/day',
+    'ru': 'Приёмов/день',
+    'de': 'Mahlzeiten/Tag',
+  },
+  'food_prefs.view_dislikes': {
+    'en': 'Dislikes',
+    'ru': 'Не нравится',
+    'de': 'Abneigungen',
+  },
+  'food_prefs.view_likes': {
+    'en': 'Likes',
+    'ru': 'Нравится',
+    'de': 'Vorlieben',
+  },
 };

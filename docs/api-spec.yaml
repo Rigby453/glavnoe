@@ -429,6 +429,42 @@ paths:
                       type: string
                       maxLength: 500
                       description: Known vitamin or mineral deficiencies.
+                food_prefs:
+                  type: object
+                  description: >
+                    Optional food preferences used only to filter/bias candidate
+                    selection. All sub-fields are optional. Absent = unchanged
+                    behavior (backward compatible). Not medical/nutritional
+                    prescription — all КБЖУ numbers remain code-computed (ADR-038).
+                  properties:
+                    diet:
+                      type: string
+                      maxLength: 300
+                      description: >
+                        Dietary pattern: none|vegetarian|vegan|pescatarian|
+                        halal|kosher|keto|other. "none" or absent = no restriction.
+                    goal:
+                      type: string
+                      maxLength: 300
+                      description: >
+                        Weight goal: lose|maintain|gain. Already reflected in
+                        calorie_goal; included for contextual food biasing only.
+                    dislikes:
+                      type: string
+                      maxLength: 300
+                      description: Free-text list of foods or ingredients to avoid.
+                    likes:
+                      type: string
+                      maxLength: 300
+                      description: Free-text list of preferred foods (best-effort).
+                    meals_per_day:
+                      type: integer
+                      minimum: 1
+                      maximum: 8
+                      description: >
+                        Target number of meals per day. Informational — the
+                        requested meals array remains the source of truth for
+                        meal names and count.
       responses:
         '200':
           description: Proposed menu (names + grams only) and a one-sentence note

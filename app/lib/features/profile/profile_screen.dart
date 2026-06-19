@@ -13,6 +13,7 @@ import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/food_preferences_provider.dart';
 import '../../core/settings/health_profile_provider.dart';
 import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/text_scale_provider.dart';
@@ -209,6 +210,10 @@ class ProfileScreen extends ConsumerWidget {
         // Секция «Профиль здоровья»
         const SizedBox(height: 28),
         const _HealthProfileSection(),
+
+        // Секция «Пищевые предпочтения»
+        const SizedBox(height: 28),
+        const _FoodPreferencesSection(),
 
         // Секция «Внешний вид»
         const SizedBox(height: 28),
@@ -586,6 +591,290 @@ class _HealthProfileVoiceFields extends StatelessWidget {
           labelText: context.s('health_profile.q_deficiencies'),
           maxLines: 3,
         ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Food preferences section
+// ---------------------------------------------------------------------------
+
+/// Секция «Пищевые предпочтения» в профиле.
+/// Показывает диету/цель/приёмы пищи/лайки/дизлайки.
+/// По нажатию «Изменить» раскрывает inline-редактор.
+class _FoodPreferencesSection extends ConsumerStatefulWidget {
+  const _FoodPreferencesSection();
+
+  @override
+  ConsumerState<_FoodPreferencesSection> createState() =>
+      _FoodPreferencesSectionState();
+}
+
+class _FoodPreferencesSectionState
+    extends ConsumerState<_FoodPreferencesSection> {
+  bool _editing = false;
+
+  // Управляемое состояние редактора: синхронизируется при открытии.
+  late String _diet;
+  late String _goal;
+  late int _mealsPerDay;
+
+  late final TextEditingController _dislikesCtrl;
+  late final TextEditingController _likesCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final fp = ref.read(foodPreferencesProvider);
+    _diet = fp.diet;
+    _goal = fp.goal;
+    _mealsPerDay = fp.mealsPerDay;
+    _dislikesCtrl = TextEditingController(text: fp.dislikes);
+    _likesCtrl = TextEditingController(text: fp.likes);
+  }
+
+  @override
+  void dispose() {
+    _dislikesCtrl.dispose();
+    _likesCtrl.dispose();
+    super.dispose();
+  }
+
+  void _startEditing() {
+    final fp = ref.read(foodPreferencesProvider);
+    _diet = fp.diet;
+    _goal = fp.goal;
+    _mealsPerDay = fp.mealsPerDay;
+    _dislikesCtrl.text = fp.dislikes;
+    _likesCtrl.text = fp.likes;
+    setState(() => _editing = true);
+  }
+
+  Future<void> _save() async {
+    await ref.read(foodPreferencesProvider.notifier).save(FoodPreferences(
+          diet: _diet,
+          goal: _goal,
+          dislikes: _dislikesCtrl.text,
+          likes: _likesCtrl.text,
+          mealsPerDay: _mealsPerDay,
+        ));
+    if (!mounted) return;
+    setState(() => _editing = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.s('food_prefs.saved_snack'))),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final fp = ref.watch(foodPreferencesProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Заголовок секции + кнопка редактирования
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                context.s('food_prefs.section_title'),
+                style: textTheme.titleMedium,
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                if (_editing) {
+                  setState(() => _editing = false);
+                } else {
+                  _startEditing();
+                }
+              },
+              child: Text(_editing
+                  ? context.s('btn.cancel')
+                  : context.s('food_prefs.edit_btn')),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        // Заметка об использовании в AI-меню
+        Text(
+          context.s('food_prefs.ai_note'),
+          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+        ),
+        const SizedBox(height: 12),
+
+        if (_editing) ...[
+          // ---- Диета ----
+          Text(
+            context.s('food_prefs.diet_label'),
+            style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: _dietOptions(context).entries.map((e) {
+              return ChoiceChip(
+                label: Text(e.value),
+                selected: _diet == e.key,
+                onSelected: (_) => setState(() => _diet = e.key),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 16),
+
+          // ---- Цель ----
+          Text(
+            context.s('food_prefs.goal_label'),
+            style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<String>(
+            segments: [
+              ButtonSegment(
+                value: 'lose',
+                label: Text(context.s('food_prefs.goal_lose')),
+              ),
+              ButtonSegment(
+                value: 'maintain',
+                label: Text(context.s('food_prefs.goal_maintain')),
+              ),
+              ButtonSegment(
+                value: 'gain',
+                label: Text(context.s('food_prefs.goal_gain')),
+              ),
+            ],
+            selected: {_goal},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) => setState(() => _goal = s.first),
+          ),
+          const SizedBox(height: 16),
+
+          // ---- Приёмы пищи ----
+          Text(
+            context.s('food_prefs.meals_label'),
+            style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+          ),
+          const SizedBox(height: 8),
+          SegmentedButton<int>(
+            segments: const [
+              ButtonSegment(value: 3, label: Text('3')),
+              ButtonSegment(value: 4, label: Text('4')),
+              ButtonSegment(value: 5, label: Text('5')),
+            ],
+            selected: {_mealsPerDay},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) => setState(() => _mealsPerDay = s.first),
+          ),
+          const SizedBox(height: 16),
+
+          // ---- Не нравится ----
+          VoiceTextField(
+            controller: _dislikesCtrl,
+            labelText: context.s('food_prefs.dislikes_label'),
+            hintText: context.s('food_prefs.dislikes_hint'),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+
+          // ---- Нравится ----
+          VoiceTextField(
+            controller: _likesCtrl,
+            labelText: context.s('food_prefs.likes_label'),
+            hintText: context.s('food_prefs.likes_hint'),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+
+          FilledButton(
+            onPressed: _save,
+            child: Text(context.s('food_prefs.btn_save')),
+          ),
+        ] else ...[
+          // Режим просмотра
+          if (fp.isEmpty)
+            Text(
+              context.s('food_prefs.empty_hint'),
+              style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+            )
+          else
+            _FoodPreferencesView(prefs: fp),
+        ],
+      ],
+    );
+  }
+
+  /// Маппинг diet-ключей на локализованные метки.
+  Map<String, String> _dietOptions(BuildContext context) => {
+        'none': context.s('food_prefs.diet_none'),
+        'vegetarian': context.s('food_prefs.diet_vegetarian'),
+        'vegan': context.s('food_prefs.diet_vegan'),
+        'pescatarian': context.s('food_prefs.diet_pescatarian'),
+        'halal': context.s('food_prefs.diet_halal'),
+        'kosher': context.s('food_prefs.diet_kosher'),
+        'keto': context.s('food_prefs.diet_keto'),
+        'other': context.s('food_prefs.diet_other'),
+      };
+}
+
+/// Режим просмотра — показывает непустые/неdефолтные поля предпочтений.
+class _FoodPreferencesView extends StatelessWidget {
+  const _FoodPreferencesView({required this.prefs});
+
+  final FoodPreferences prefs;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    Widget row(String label, String value) {
+      if (value.trim().isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 6),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              width: 100,
+              child: Text(
+                label,
+                style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+              ),
+            ),
+            Expanded(
+              child: Text(value, style: textTheme.bodyMedium),
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Локализованное название диеты
+    String dietLabel() {
+      final key = 'food_prefs.diet_${prefs.diet}';
+      return context.s(key);
+    }
+
+    // Локализованная цель
+    String goalLabel() {
+      final key = 'food_prefs.goal_${prefs.goal}';
+      return context.s(key);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (prefs.diet != 'none') row(context.s('food_prefs.view_diet'), dietLabel()),
+        row(context.s('food_prefs.view_goal'), goalLabel()),
+        row(context.s('food_prefs.view_meals'), '${prefs.mealsPerDay}'),
+        if (prefs.dislikes.trim().isNotEmpty)
+          row(context.s('food_prefs.view_dislikes'), prefs.dislikes),
+        if (prefs.likes.trim().isNotEmpty)
+          row(context.s('food_prefs.view_likes'), prefs.likes),
       ],
     );
   }
