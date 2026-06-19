@@ -334,4 +334,63 @@ const Map<String, Map<String, String>> healthAStrings = {
     'ru': 'Сделано! 🎉',
     'de': 'Erledigt! 🎉',
   },
+
+  // ---------------------------------------------------------------------------
+  // Health profile (health_profile_provider.dart, setup_flow.dart, profile_screen.dart)
+  // ---------------------------------------------------------------------------
+  'health_profile.section_title': {
+    'en': 'Health profile',
+    'ru': 'Профиль здоровья',
+    'de': 'Gesundheitsprofil',
+  },
+  'health_profile.onboarding_title': {
+    'en': 'Tell us about your health',
+    'ru': 'Расскажи о своём здоровье',
+    'de': 'Erzähl uns von deiner Gesundheit',
+  },
+  'health_profile.onboarding_subtitle': {
+    'en': 'Optional — helps the AI menu builder account for allergies and nutrients.',
+    'ru': 'Необязательно — помогает AI-конструктору меню учесть аллергии и питательные потребности.',
+    'de': 'Optional — hilft dem KI-Menü-Builder, Allergien und Nährstoffe zu berücksichtigen.',
+  },
+  'health_profile.q_allergies': {
+    'en': 'Any allergies or intolerances? Tell us in your own words.',
+    'ru': 'Есть ли у тебя аллергии или непереносимость? Напиши своими словами.',
+    'de': 'Hast du Allergien oder Unverträglichkeiten? Schildere es in deinen eigenen Worten.',
+  },
+  'health_profile.q_healing': {
+    'en': 'How fast do your wounds heal — fast, normal, slow?',
+    'ru': 'Как быстро заживают твои раны — быстро, нормально, медленно?',
+    'de': 'Wie schnell heilen deine Wunden — schnell, normal, langsam?',
+  },
+  'health_profile.q_deficiencies': {
+    'en': 'Any vitamins or minerals you know you\'re low on?',
+    'ru': 'Знаешь ли ты о дефиците каких-либо витаминов или минералов?',
+    'de': 'Weißt du von Vitamin- oder Mineralstoffmängeln bei dir?',
+  },
+  'health_profile.disclaimer': {
+    'en': 'This is not medical advice — for deficiencies, see a doctor.',
+    'ru': 'Это не медицинская рекомендация — при дефиците обратись к врачу.',
+    'de': 'Dies ist kein medizinischer Rat — bei Mängeln wende dich an einen Arzt.',
+  },
+  'health_profile.btn_save': {
+    'en': 'Save',
+    'ru': 'Сохранить',
+    'de': 'Speichern',
+  },
+  'health_profile.saved_snack': {
+    'en': 'Health profile saved',
+    'ru': 'Профиль здоровья сохранён',
+    'de': 'Gesundheitsprofil gespeichert',
+  },
+  'health_profile.edit_btn': {
+    'en': 'Edit',
+    'ru': 'Редактировать',
+    'de': 'Bearbeiten',
+  },
+  'health_profile.empty_hint': {
+    'en': 'Not filled in yet. Tap Edit to add.',
+    'ru': 'Ещё не заполнен. Нажми «Редактировать».',
+    'de': 'Noch nicht ausgefüllt. Tippe auf Bearbeiten.',
+  },
 };

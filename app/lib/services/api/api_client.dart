@@ -501,23 +501,32 @@ class ApiClient {
   /// «Собрать ИИ» (premium): дневное меню из кандидатов клиента.
   /// [candidates] — [{ name, per_100g: {...} }]; модель возвращает только
   /// name+grams, числа КБЖУ пересчитывает клиент (код).
+  /// [healthProfile] — опциональный профиль здоровья (аллергии/заживление/дефицит);
+  /// передаётся в тело запроса как health_profile ТОЛЬКО когда непустой.
   Future<Map<String, dynamic>> aiMenuBuild({
     required List<Map<String, dynamic>> candidates,
     required int calorieGoal,
     required int proteinGoalG,
     List<String> meals = const ['breakfast', 'lunch', 'dinner'],
     required String tone,
+    Map<String, String>? healthProfile,
   }) async {
     try {
+      final body = <String, dynamic>{
+        'candidates': candidates,
+        'calorie_goal': calorieGoal,
+        'protein_goal_g': proteinGoalG,
+        'meals': meals,
+        'tone': tone,
+      };
+      // Включаем профиль здоровья только если он непустой (не null и не всё пустые строки).
+      if (healthProfile != null &&
+          healthProfile.values.any((v) => v.trim().isNotEmpty)) {
+        body['health_profile'] = healthProfile;
+      }
       final response = await _dio.post<Map<String, dynamic>>(
         '/api/v1/ai/menu-build',
-        data: {
-          'candidates': candidates,
-          'calorie_goal': calorieGoal,
-          'protein_goal_g': proteinGoalG,
-          'meals': meals,
-          'tone': tone,
-        },
+        data: body,
       );
       return response.data!;
     } on DioException catch (e) {

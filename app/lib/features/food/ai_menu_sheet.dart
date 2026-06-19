@@ -11,6 +11,7 @@ import '../../core/animations/ai_pulse_dot.dart';
 import '../../core/animations/ai_skeleton.dart';
 import '../../core/animations/app_sheet.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/health_profile_provider.dart';
 import '../../core/settings/nutrition_targets.dart';
 import '../../core/settings/tone_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -98,6 +99,8 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
     try {
       final tone =
           ref.read(toneProvider) == AppTone.harsh ? 'harsh' : 'gentle';
+      // Профиль здоровья: передаётся бэкенду только если непустой.
+      final hp = ref.read(healthProfileProvider);
       final response = await ref.read(apiClientProvider).aiMenuBuild(
             candidates: widget.candidates
                 .map((c) => {
@@ -115,6 +118,7 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
             calorieGoal: ref.read(nutritionTargetsProvider).kcal,
             proteinGoalG: ref.read(nutritionTargetsProvider).proteinG,
             tone: tone,
+            healthProfile: hp.isEmpty ? null : hp.toApiMap(),
           );
       final meals = parseProposedMenu(response, widget.candidates);
       if (!mounted) return;

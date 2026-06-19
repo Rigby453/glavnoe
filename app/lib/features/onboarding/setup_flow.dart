@@ -14,10 +14,12 @@ import 'package:go_router/go_router.dart';
 
 import '../../core/animations/constants.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/settings/health_profile_provider.dart';
 import '../../core/settings/tone_provider.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart'; // sharedPreferencesProvider, themeProvider
+import '../../core/widgets/voice_text_field.dart';
 import '../../services/notifications/notification_service.dart';
 import '../import/import_sheet.dart';
 
@@ -61,7 +63,7 @@ class SetupFlowScreen extends ConsumerStatefulWidget {
 class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   final _pageController = PageController();
   int _page = 0;
-  static const _pageCount = 6;
+  static const _pageCount = 7;
 
   // Локальное состояние шагов (сохраняется при Finish)
   final Set<String> _selectedInterests = {};
@@ -75,6 +77,11 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   final _ageController = TextEditingController();
   String _activity = 'medium'; // 'low' | 'medium' | 'high'
   String _sex = 'other'; // 'male' | 'female' | 'other'
+
+  // Профиль здоровья — шаг 7 (опциональный)
+  final _allergiesController = TextEditingController();
+  final _healingController = TextEditingController();
+  final _deficienciesController = TextEditingController();
 
   @override
   void initState() {
@@ -94,6 +101,9 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     _weightController.dispose();
     _heightController.dispose();
     _ageController.dispose();
+    _allergiesController.dispose();
+    _healingController.dispose();
+    _deficienciesController.dispose();
     _pageController.dispose();
     super.dispose();
   }
@@ -137,6 +147,16 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     }
     await prefs.setString(kUserActivityKey, _activity);
     await prefs.setString(kUserSexKey, _sex);
+
+    // Сохраняем профиль здоровья (только если хоть одно поле непустое).
+    final hp = HealthProfile(
+      allergies: _allergiesController.text,
+      healing: _healingController.text,
+      deficiencies: _deficienciesController.text,
+    );
+    if (!hp.isEmpty) {
+      await ref.read(healthProfileProvider.notifier).save(hp);
+    }
 
     // Если напоминания уже включены — перепланируем под выбранные часы.
     if (ref.read(notificationsEnabledProvider)) {
@@ -237,6 +257,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   _toneStep(textTheme),
                   _themeStep(textTheme, colorScheme),
                   _normsStep(textTheme, colorScheme, ext),
+                  _healthProfileStep(textTheme, ext),
                 ],
               ),
             ),
@@ -498,6 +519,43 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                 ref.read(themeNotifierProvider.notifier).setTheme(key),
           );
         }).toList(),
+      ),
+    );
+  }
+
+  // --- Шаг 7: профиль здоровья (опциональный) ---
+  // Три текстовых поля с диктовкой. Данные сохраняются в _finish.
+  Widget _healthProfileStep(TextTheme textTheme, FocusThemeExtension ext) {
+    return _step(
+      title: context.s('health_profile.onboarding_title'),
+      subtitle: context.s('health_profile.onboarding_subtitle'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          VoiceTextField(
+            controller: _allergiesController,
+            labelText: context.s('health_profile.q_allergies'),
+            maxLines: 3,
+          ),
+          const SizedBox(height: 16),
+          VoiceTextField(
+            controller: _healingController,
+            labelText: context.s('health_profile.q_healing'),
+            maxLines: 2,
+          ),
+          const SizedBox(height: 16),
+          VoiceTextField(
+            controller: _deficienciesController,
+            labelText: context.s('health_profile.q_deficiencies'),
+            maxLines: 3,
+          ),
+          const SizedBox(height: 16),
+          // Дисклеймер: не медицинская рекомендация
+          Text(
+            context.s('health_profile.disclaimer'),
+            style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
+          ),
+        ],
       ),
     );
   }

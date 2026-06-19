@@ -13,8 +13,10 @@ import 'package:intl/intl.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/health_profile_provider.dart';
 import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/text_scale_provider.dart';
+import '../../core/widgets/voice_text_field.dart';
 import '../../core/utils/id.dart';
 import 'shared_plan.dart';
 import '../../core/l10n/app_strings.dart';
@@ -204,6 +206,10 @@ class ProfileScreen extends ConsumerWidget {
         const SizedBox(height: 8),
         const _SharedWithMeCard(),
 
+        // Секция «Профиль здоровья»
+        const SizedBox(height: 28),
+        const _HealthProfileSection(),
+
         // Секция «Внешний вид»
         const SizedBox(height: 28),
         Text(context.s('profile.section_appearance'), style: textTheme.titleMedium),
@@ -382,6 +388,205 @@ class _ShowKaiSetting extends ConsumerWidget {
       subtitle: Text(context.s('profile.show_kai_subtitle')),
       value: showKai,
       onChanged: (_) => ref.read(showKaiProvider.notifier).toggle(),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Health profile section
+// ---------------------------------------------------------------------------
+
+/// Секция «Профиль здоровья» в профиле.
+/// Показывает три поля (или заглушку «не заполнено»), по нажатию «Редактировать»
+/// раскрывает inline-редактор с VoiceTextField и кнопкой Save.
+class _HealthProfileSection extends ConsumerStatefulWidget {
+  const _HealthProfileSection();
+
+  @override
+  ConsumerState<_HealthProfileSection> createState() =>
+      _HealthProfileSectionState();
+}
+
+class _HealthProfileSectionState extends ConsumerState<_HealthProfileSection> {
+  bool _editing = false;
+
+  late final TextEditingController _allergiesCtrl;
+  late final TextEditingController _healingCtrl;
+  late final TextEditingController _deficienciesCtrl;
+
+  @override
+  void initState() {
+    super.initState();
+    final hp = ref.read(healthProfileProvider);
+    _allergiesCtrl = TextEditingController(text: hp.allergies);
+    _healingCtrl = TextEditingController(text: hp.healing);
+    _deficienciesCtrl = TextEditingController(text: hp.deficiencies);
+  }
+
+  @override
+  void dispose() {
+    _allergiesCtrl.dispose();
+    _healingCtrl.dispose();
+    _deficienciesCtrl.dispose();
+    super.dispose();
+  }
+
+  Future<void> _save() async {
+    await ref.read(healthProfileProvider.notifier).save(HealthProfile(
+          allergies: _allergiesCtrl.text,
+          healing: _healingCtrl.text,
+          deficiencies: _deficienciesCtrl.text,
+        ));
+    if (!mounted) return;
+    setState(() => _editing = false);
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(context.s('health_profile.saved_snack'))),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final hp = ref.watch(healthProfileProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Заголовок секции + кнопка редактирования
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                context.s('health_profile.section_title'),
+                style: textTheme.titleMedium,
+              ),
+            ),
+            TextButton(
+              onPressed: () {
+                if (_editing) {
+                  // Отмена — сброс к сохранённым значениям
+                  final current = ref.read(healthProfileProvider);
+                  _allergiesCtrl.text = current.allergies;
+                  _healingCtrl.text = current.healing;
+                  _deficienciesCtrl.text = current.deficiencies;
+                }
+                setState(() => _editing = !_editing);
+              },
+              child: Text(_editing
+                  ? context.s('btn.cancel')
+                  : context.s('health_profile.edit_btn')),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+
+        if (_editing) ...[
+          // Режим редактирования — три VoiceTextField
+          _HealthProfileVoiceFields(
+            allergiesCtrl: _allergiesCtrl,
+            healingCtrl: _healingCtrl,
+            deficienciesCtrl: _deficienciesCtrl,
+          ),
+          const SizedBox(height: 8),
+          // Дисклеймер
+          Text(
+            context.s('health_profile.disclaimer'),
+            style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
+          ),
+          const SizedBox(height: 12),
+          FilledButton(
+            onPressed: _save,
+            child: Text(context.s('health_profile.btn_save')),
+          ),
+        ] else ...[
+          // Режим просмотра — краткий дисплей заполненных полей
+          if (hp.isEmpty)
+            Text(
+              context.s('health_profile.empty_hint'),
+              style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+            )
+          else
+            _HealthProfileView(profile: hp),
+        ],
+      ],
+    );
+  }
+}
+
+/// Виджет просмотра (read-only): показывает непустые поля профиля здоровья.
+class _HealthProfileView extends StatelessWidget {
+  const _HealthProfileView({required this.profile});
+
+  final HealthProfile profile;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    Widget field(String label, String value) {
+      if (value.trim().isEmpty) return const SizedBox.shrink();
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 8),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(label,
+                style: textTheme.labelMedium?.copyWith(color: ext.textMuted)),
+            const SizedBox(height: 2),
+            Text(value, style: textTheme.bodyMedium),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        field(context.s('health_profile.q_allergies'), profile.allergies),
+        field(context.s('health_profile.q_healing'), profile.healing),
+        field(context.s('health_profile.q_deficiencies'), profile.deficiencies),
+      ],
+    );
+  }
+}
+
+/// Три VoiceTextField для редактора профиля здоровья.
+/// Вынесен в отдельный StatelessWidget, чтобы не пересоздавать при setState(_editing).
+class _HealthProfileVoiceFields extends StatelessWidget {
+  const _HealthProfileVoiceFields({
+    required this.allergiesCtrl,
+    required this.healingCtrl,
+    required this.deficienciesCtrl,
+  });
+
+  final TextEditingController allergiesCtrl;
+  final TextEditingController healingCtrl;
+  final TextEditingController deficienciesCtrl;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        VoiceTextField(
+          controller: allergiesCtrl,
+          labelText: context.s('health_profile.q_allergies'),
+          maxLines: 3,
+        ),
+        const SizedBox(height: 16),
+        VoiceTextField(
+          controller: healingCtrl,
+          labelText: context.s('health_profile.q_healing'),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 16),
+        VoiceTextField(
+          controller: deficienciesCtrl,
+          labelText: context.s('health_profile.q_deficiencies'),
+          maxLines: 3,
+        ),
+      ],
     );
   }
 }
