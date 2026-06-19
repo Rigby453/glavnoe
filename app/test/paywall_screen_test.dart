@@ -1,7 +1,10 @@
 // Виджет-дымовой тест пейвола: рендерится без рантайм-ошибок, показывает
-// преимущества/цену/кнопки Subscribe и Restore purchases.
-// Dev: unlock premium удалён — теперь Subscribe сам делает dev-апгрейд в debug.
+// преимущества/цену/кнопки «Start free» и «Restore purchases».
+// Ассерты обновлены под актуальный экран: headline «Unlock the AI», бенефиты
+// из _benefits (reschedule, menu, photo, voice, wrapped), CTA «Start free»,
+// суффикс цены « / mo».
 
+import 'package:app/core/theme/app_theme.dart';
 import 'package:app/core/theme/theme_provider.dart' show sharedPreferencesProvider;
 import 'package:app/features/auth/auth_controller.dart' show isPremiumProvider;
 import 'package:app/features/paywall/paywall_screen.dart';
@@ -21,9 +24,29 @@ class _FakePurchaseService implements PurchaseService {
       PurchaseOutcome.unavailable;
 }
 
+/// Лёгкая тестовая тема: системный шрифт + FocusThemeExtension с палитрой Focus.
+/// Избегает GoogleFonts (в тестах шрифты не доступны через сеть/ассеты),
+/// но предоставляет `extension<FocusThemeExtension>()!`, который нужен экранам.
+ThemeData _testTheme() {
+  return ThemeData.dark().copyWith(
+    extensions: const [
+      FocusThemeExtension(
+        textMuted: Color(0xFF9E9070),
+        ember: Color(0xFFFF6A3D),
+        border: Color(0xFF3A3020),
+        surfaceElevated: Color(0xFF2E2618),
+        textFaint: Color(0xFF736850),
+        accentMuted: Color(0xFF26290F),
+        success: Color(0xFF4BAF6F),
+        borderStrong: Color(0xFF524630),
+      ),
+    ],
+  );
+}
+
 void main() {
   testWidgets(
-      'PaywallScreen renders benefits, price, Subscribe and Restore purchases',
+      'PaywallScreen renders benefits, price, Start free and Restore purchases',
       (tester) async {
     SharedPreferences.setMockInitialValues({});
     final prefs = await SharedPreferences.getInstance();
@@ -38,14 +61,16 @@ void main() {
           purchaseServiceProvider
               .overrideWithValue(_FakePurchaseService()),
         ],
-        child: const MaterialApp(home: PaywallScreen()),
+        // _testTheme() содержит FocusThemeExtension — PaywallScreen вызывает extension<FocusThemeExtension>()!
+        // Используем системный шрифт вместо GoogleFonts (шрифты недоступны в тест-окружении).
+        child: MaterialApp(theme: _testTheme(), home: const PaywallScreen()),
       ),
     );
     await tester.pump();
 
-    // Верх списка (виден сразу).
-    expect(find.text('Kaizen Premium'), findsOneWidget);
-    expect(find.text('Smarter plans'), findsOneWidget);
+    // Верх списка (виден сразу): заголовок и первый бенефит.
+    expect(find.text('Unlock the AI'), findsOneWidget);
+    expect(find.text('AI smart reschedule'), findsOneWidget);
 
     // Низ ListView ленивый — доскролливаем до кнопки Restore purchases.
     await tester.scrollUntilVisible(
@@ -54,10 +79,12 @@ void main() {
       scrollable: find.byType(Scrollable).first,
     );
     expect(find.text('Restore purchases'), findsOneWidget);
-    expect(find.text('Subscribe'), findsOneWidget);
-    expect(find.textContaining('/ month'), findsOneWidget);
-    expect(find.text('No ads'), findsOneWidget);
-    // Кнопки Dev: unlock premium больше нет.
+    // Основная CTA — «Start free» (paywall.cta_start_free)
+    expect(find.text('Start free'), findsOneWidget);
+    // Суффикс цены месячного плана — « / mo» (paywall.per_month)
+    expect(find.textContaining('/ mo'), findsWidgets);
+    // Dev: unlock premium больше нет — dev-кнопки проверяем в kDebugMode;
+    // в тесте они могут быть видны (debug build) — не ломаем тест их наличием.
     expect(find.text('Dev: unlock premium'), findsNothing);
   });
 }

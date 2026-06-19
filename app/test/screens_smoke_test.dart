@@ -4,6 +4,7 @@
 
 import 'package:app/core/database/database.dart';
 import 'package:app/core/database/database_providers.dart';
+import 'package:app/core/theme/app_theme.dart';
 import 'package:app/core/theme/theme_provider.dart'
     show sharedPreferencesProvider;
 import 'package:app/core/utils/id.dart';
@@ -17,6 +18,26 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+/// Лёгкая тестовая тема: системный шрифт + FocusThemeExtension с палитрой Focus.
+/// Избегает GoogleFonts (в тестах шрифты не доступны через сеть/ассеты),
+/// но предоставляет `extension<FocusThemeExtension>()!`, который нужен экранам.
+ThemeData _testTheme() {
+  return ThemeData.dark().copyWith(
+    extensions: const [
+      FocusThemeExtension(
+        textMuted: Color(0xFF9E9070),
+        ember: Color(0xFFFF6A3D),
+        border: Color(0xFF3A3020),
+        surfaceElevated: Color(0xFF2E2618),
+        textFaint: Color(0xFF736850),
+        accentMuted: Color(0xFF26290F),
+        success: Color(0xFF4BAF6F),
+        borderStrong: Color(0xFF524630),
+      ),
+    ],
+  );
+}
 
 void main() {
   late AppDatabase db;
@@ -40,7 +61,9 @@ void main() {
       ],
       // Scaffold — потому что в приложении экраны живут внутри
       // ScaffoldWithNavBar; без него TextField в Diary не находит Material.
-      child: MaterialApp(home: Scaffold(body: screen)),
+      // _testTheme() содержит FocusThemeExtension — экраны вызывают extension<FocusThemeExtension>()!
+      // Используем системный шрифт вместо GoogleFonts (шрифты недоступны в тест-окружении).
+      child: MaterialApp(theme: _testTheme(), home: Scaffold(body: screen)),
     );
   }
 
@@ -111,7 +134,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 100));
       await tester.pump(const Duration(milliseconds: 600));
 
-      expect(find.textContaining('Nothing planned yet'), findsOneWidget);
+      // 'Nothing planned yet' встречается в двух виджетах: TaskList и Kai-пузырь.
+      expect(find.textContaining('Nothing planned yet'), findsWidgets);
 
       await unmountAndFlush(tester);
     });
@@ -163,7 +187,8 @@ void main() {
 
       // Вводим название и нажимаем кнопку добавления
       await tester.enterText(find.byType(TextField), 'Apples');
-      await tester.tap(find.byIcon(Icons.add));
+      // Экран использует Icons.add_circle_outline (не Icons.add)
+      await tester.tap(find.byIcon(Icons.add_circle_outline));
       // Ждём записи в Drift и обновления стрима
       await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 100)));
