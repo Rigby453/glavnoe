@@ -316,8 +316,27 @@ class HealthScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            // График: последние 7 дней относительно нормы
-            _WeekWaterChart(goalMl: waterGoalMl),
+            // График: последние 7 дней — нажимаемая зона → отчёт о воде.
+            // InkWell охватывает только график, не кнопки лога выше.
+            InkWell(
+              borderRadius: BorderRadius.circular(8),
+              onTap: () => context.push('/water-report'),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                child: Row(
+                  children: [
+                    Expanded(child: _WeekWaterChart(goalMl: waterGoalMl)),
+                    Icon(
+                      Icons.chevron_right,
+                      size: 18,
+                      color: Theme.of(context)
+                          .extension<FocusThemeExtension>()!
+                          .textMuted,
+                    ),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 8),
             // "View report" — TextButton (навигационный нудж, не основное действие)
             TextButton.icon(
@@ -730,7 +749,27 @@ class _SleepCard extends ConsumerWidget {
                       onPressed: () => dao.startNight(),
                     ),
                     const SizedBox(height: 16),
-                    _WeekSleepChart(goalHours: 7),
+                    // График: последние 7 дней — нажимаемая зона → отчёт о сне.
+                    // InkWell охватывает только график, не кнопку «Ложусь спать».
+                    InkWell(
+                      borderRadius: BorderRadius.circular(8),
+                      onTap: () => context.push('/sleep-report'),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            Expanded(child: _WeekSleepChart(goalHours: 7)),
+                            Icon(
+                              Icons.chevron_right,
+                              size: 18,
+                              color: Theme.of(context)
+                                  .extension<FocusThemeExtension>()!
+                                  .textMuted,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
                     const SizedBox(height: 8),
                     // TextButton — навигационный нудж (не основное действие)
                     TextButton.icon(

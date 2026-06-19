@@ -517,11 +517,15 @@ class _LifeInsightsCard extends ConsumerWidget {
             completedNights.length;
         if (avgSleep < 6) {
           insights.add(
-            '😴 You averaged ${avgSleep.toStringAsFixed(1)}h sleep — try going to bed 30 min earlier.',
+            context
+                .s('diary.insight_sleep_low')
+                .replaceAll('{avg}', avgSleep.toStringAsFixed(1)),
           );
         } else if (avgSleep >= 7.5) {
           insights.add(
-            '✅ Great sleep this week — ${avgSleep.toStringAsFixed(1)}h avg!',
+            context
+                .s('diary.insight_sleep_good')
+                .replaceAll('{avg}', avgSleep.toStringAsFixed(1)),
           );
         }
       }
@@ -531,19 +535,19 @@ class _LifeInsightsCard extends ConsumerWidget {
     if (waterTotals.length == 7 && waterGoal > 0) {
       final metGoal = waterTotals.where((t) => t >= waterGoal).length;
       if (metGoal == 7) {
-        insights.add('💧 Perfect hydration week — goal met every day!');
+        insights.add(context.s('diary.insight_water_perfect'));
       } else if (metGoal < 3) {
         insights.add(
-          '💧 Only $metGoal/7 days met your water goal this week. Try keeping a bottle nearby.',
+          context
+              .s('diary.insight_water_low')
+              .replaceAll('{n}', '$metGoal'),
         );
       }
     }
 
     // Дефолтное сообщение если нет данных
     if (insights.isEmpty) {
-      insights.add(
-        '📊 Track sleep and water consistently to see personal insights here.',
-      );
+      insights.add(context.s('diary.insight_no_data'));
     }
 
     return Card(

@@ -14,12 +14,14 @@ import '../../core/settings/tone_provider.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
 
+// Внутренний ключ тега → ключ локализации (diary.issue_* в plan_diary.dart).
+// Разрешается в контексте виджета, а не в провайдере (нет BuildContext).
 const Map<String, String> _issueLabels = {
-  'social_media': 'Social media',
-  'went_out': 'Went out',
-  'was_tired': 'Was tired',
-  'sick': 'Sick',
-  'other': 'Other',
+  'social_media': 'diary.issue_social_media',
+  'went_out': 'diary.issue_went_out',
+  'was_tired': 'diary.issue_was_tired',
+  'sick': 'diary.issue_sick',
+  'other': 'diary.issue_other',
 };
 const String _issuesPrefix = '\n\nIssues: ';
 
@@ -197,7 +199,8 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
       (
         Icons.error_outline,
         context.s('wrapped.stat_top_setback'),
-        s.topIssue ?? '—'
+        // topIssue хранит ключ локализации; если null — показываем прочерк
+        s.topIssue != null ? context.s(s.topIssue!) : '—',
       ),
     ];
 

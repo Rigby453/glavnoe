@@ -75,6 +75,30 @@ const Map<String, Map<String, String>> todayStrings = {
   // Карточка варианта раскладки
   'today.apply_btn': {'en': 'Apply', 'ru': 'Применить', 'de': 'Anwenden'},
 
+  // Варианты раскладки (rule-based; AI-варианты приходят с бэкенда и не локализуются здесь)
+  'variant.frontloaded': {'en': 'Front-loaded', 'ru': 'В начале дня', 'de': 'Früh starten'},
+  'variant.frontloaded_reason': {
+    'en': 'Earliest free slots, important first',
+    'ru': 'Ранние свободные слоты, важное в приоритете',
+    'de': 'Früheste freie Slots, Wichtiges zuerst',
+  },
+  'variant.spread_out': {'en': 'Spread out', 'ru': 'Свободнее', 'de': 'Verteilt'},
+  'variant.spread_out_reason': {
+    'en': 'More breathing room between tasks',
+    'ru': 'Больше пространства между делами',
+    'de': 'Mehr Luft zwischen den Aufgaben',
+  },
+  'variant.afternoon_start': {
+    'en': 'Afternoon start',
+    'ru': 'Со второй половины',
+    'de': 'Nachmittag-Start',
+  },
+  'variant.afternoon_start_reason': {
+    'en': 'Ease in, tackle them after noon',
+    'ru': 'Плавное начало, главное — после полудня',
+    'de': 'Sanft starten, Aufgaben nach dem Mittag',
+  },
+
   // Экран завершения дня (CelebrationOverlay)
   'today.day_complete': {'en': 'Day complete', 'ru': 'День закрыт', 'de': 'Tag abgeschlossen'},
   'today.day_complete_sub': {'en': 'All the important stuff — done', 'ru': 'Всё главное — сделано', 'de': 'Das Wichtigste — erledigt'},

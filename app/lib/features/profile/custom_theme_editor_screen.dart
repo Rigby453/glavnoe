@@ -403,13 +403,17 @@ class _LivePreview extends StatelessWidget {
       child: AnimatedContainer(
         duration: dur,
         curve: kCurveLift,
-        height: 180,
+        height: 190,
         decoration: BoxDecoration(
           color: palette.bg,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(color: palette.border),
         ),
-        child: Stack(
+        // Превью — мини-макет фиксированного размера: системный text-scale
+        // (Profile → Text size = Extra large) НЕ должен его растягивать,
+        // иначе fixed-height Column переполняется (overflow + жёлто-чёрные полосы).
+        child: MediaQuery.withNoTextScaling(
+          child: Stack(
           children: [
             Padding(
               padding: const EdgeInsets.all(16),
@@ -466,6 +470,7 @@ class _LivePreview extends StatelessWidget {
               ),
             ),
           ],
+        ),
         ),
       ),
     );

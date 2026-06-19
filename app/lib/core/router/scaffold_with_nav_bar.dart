@@ -65,7 +65,8 @@ class ScaffoldWithNavBar extends StatelessWidget {
             ),
             indicatorColor: colorScheme.primary.withValues(alpha: 0.15),
             backgroundColor: colorScheme.surface,
-            elevation: 0,
+            // NB: NavigationRail требует elevation == null || > 0 (assert в
+            // navigation_rail.dart). НЕ ставить 0 — крашит широкий layout.
             leading: Padding(
               padding: const EdgeInsets.symmetric(vertical: 8),
               child: const ProfileAvatarButton(),

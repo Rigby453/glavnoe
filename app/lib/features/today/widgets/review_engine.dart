@@ -73,12 +73,14 @@ List<PlanVariant> buildVariants(
   final free = freeSlots(day, occupied);
   if (free.isEmpty) return [];
 
+  // Метки и обоснования — ключи локализации; разрешаются в ReviewVariantCard.
   final variants = <PlanVariant?>[
-    _assign('Front-loaded', 'Earliest free slots, important first', movable, free),
-    _assign('Spread out', 'More breathing room between tasks', movable,
+    _assign(
+        'variant.frontloaded', 'variant.frontloaded_reason', movable, free),
+    _assign('variant.spread_out', 'variant.spread_out_reason', movable,
         [for (var i = 0; i < free.length; i += 2) free[i]]),
-    _assign('Afternoon start', 'Ease in, tackle them after noon', movable,
-        free.where((s) => s.hour >= 14).toList()),
+    _assign('variant.afternoon_start', 'variant.afternoon_start_reason',
+        movable, free.where((s) => s.hour >= 14).toList()),
   ];
   return variants.whereType<PlanVariant>().toList();
 }

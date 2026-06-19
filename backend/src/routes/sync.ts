@@ -218,7 +218,7 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
             // Если нет обязательных полей — пропускаем некорректный item
           }
         }
-      });
+      }, { maxWait: 15000, timeout: 60000 });
 
       // После коммита пересчитываем серию по затронутым дням (rule-based, без AI).
       // Дедуплицируем по UTC-дню и идём по возрастанию, чтобы backlog (вчера→сегодня)
@@ -263,7 +263,7 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
               },
             });
           }
-        });
+        }, { maxWait: 15000, timeout: 60000 });
       }
 
       // FoodLog — append-only (ADR-024): создаём отсутствующие, существующие
@@ -293,7 +293,7 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
               },
             });
           }
-        });
+        }, { maxWait: 15000, timeout: 60000 });
       }
 
       // DayLog — одна запись на (userId, date); last-write-wins по updated_at.

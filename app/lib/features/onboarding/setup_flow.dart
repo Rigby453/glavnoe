@@ -99,9 +99,11 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     final weightText = _weightController.text.trim();
     final weight = double.tryParse(weightText);
     if (weight == null || weight <= 0) return;
+    final height = double.tryParse(_heightController.text.trim());
     final recommended = recommendedWaterMl(
       weightKg: weight,
       activity: _activity,
+      heightCm: height,
     );
     setState(() => _waterGoal = recommended);
   }
@@ -499,7 +501,11 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     final hasValidWeight = weightVal != null && weightVal > 0;
 
     final recommended = hasValidWeight
-        ? recommendedWaterMl(weightKg: weightVal, activity: _activity)
+        ? recommendedWaterMl(
+            weightKg: weightVal,
+            activity: _activity,
+            heightCm: double.tryParse(_heightController.text.trim()),
+          )
         : null;
 
     return _step(

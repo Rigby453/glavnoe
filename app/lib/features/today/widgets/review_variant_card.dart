@@ -21,8 +21,12 @@ class ReviewVariantCard extends StatelessWidget {
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: ListTile(
-        title: Text(variant.label),
-        subtitle: variant.reason.isEmpty ? null : Text(variant.reason),
+        // Разрешаем ключ локализации; если ключа нет (AI-вариант) — S.of вернёт
+        // исходную строку как fallback, что именно и нужно.
+        title: Text(context.s(variant.label)),
+        subtitle: variant.reason.isEmpty
+            ? null
+            : Text(context.s(variant.reason)),
         trailing: TextButton(
           onPressed: onApply,
           child: Text(context.s('today.apply_btn')),

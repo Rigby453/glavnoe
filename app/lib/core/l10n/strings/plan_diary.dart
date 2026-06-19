@@ -252,6 +252,35 @@ const Map<String, Map<String, String>> planDiaryStrings = {
     'de': 'Lebenseinblicke',
   },
 
+  // Diary — строки жизненных инсайтов (сон + вода)
+  // {avg} заменяется на строку с одним знаком после запятой (avgSleep.toStringAsFixed(1))
+  'diary.insight_sleep_low': {
+    'en': '😴 You averaged {avg}h sleep — try going to bed 30 min earlier.',
+    'ru': '😴 В среднем {avg}ч сна — попробуй ложиться на 30 мин раньше.',
+    'de': '😴 Du hast durchschnittlich {avg}h geschlafen — versuche 30 Min früher ins Bett.',
+  },
+  'diary.insight_sleep_good': {
+    'en': '✅ Great sleep this week — {avg}h avg!',
+    'ru': '✅ Отличный сон на этой неделе — {avg}ч в среднем!',
+    'de': '✅ Super Schlaf diese Woche — {avg}h im Durchschnitt!',
+  },
+  // {n} заменяется на число дней, когда цель была выполнена
+  'diary.insight_water_perfect': {
+    'en': '💧 Perfect hydration week — goal met every day!',
+    'ru': '💧 Идеальная неделя по воде — цель выполнена каждый день!',
+    'de': '💧 Perfekte Hydrationswoche — Ziel jeden Tag erreicht!',
+  },
+  'diary.insight_water_low': {
+    'en': '💧 Only {n}/7 days met your water goal this week. Try keeping a bottle nearby.',
+    'ru': '💧 Только {n}/7 дней выполнена норма воды. Держи бутылку под рукой.',
+    'de': '💧 Nur {n}/7 Tage Wasserziel erreicht. Halte eine Flasche in der Nähe.',
+  },
+  'diary.insight_no_data': {
+    'en': '📊 Track sleep and water consistently to see personal insights here.',
+    'ru': '📊 Регулярно записывай сон и воду — здесь появятся личные наблюдения.',
+    'de': '📊 Erfasse Schlaf und Wasser regelmäßig, um persönliche Einblicke zu sehen.',
+  },
+
   // ---------------------------------------------------------------------------
   // Diary History
   // ---------------------------------------------------------------------------
