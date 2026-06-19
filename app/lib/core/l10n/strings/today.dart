@@ -133,4 +133,119 @@ const Map<String, Map<String, String>> todayStrings = {
   // Строка streak — «день/дней»
   'today.streak_day': {'en': 'day', 'ru': 'день', 'de': 'Tag'},
   'today.streak_days': {'en': 'days', 'ru': 'дн.', 'de': 'Tage'},
+
+  // ---------------------------------------------------------------------------
+  // ToneCopy: Kai говорит эти строки в речевом пузыре (MASCOT.md §4, SPEC B6).
+  // Gentle / harsh варианты; интерполированные строки через {count}.
+  // ---------------------------------------------------------------------------
+
+  // Утренний разбор (gentle)
+  'kai.morning_review_gentle_one': {
+    'en': 'Yesterday left 1 loose end — let\'s tuck it into today.',
+    'ru': 'Вчера осталось одно незавершённое — разберёмся сегодня.',
+    'de': 'Gestern blieb 1 offener Punkt — lass uns das heute lösen.',
+  },
+  'kai.morning_review_gentle_many': {
+    'en': 'Yesterday left {count} loose ends — let\'s fit them around what matters.',
+    'ru': 'Вчера осталось {count} незавершённых — впишем их вокруг главного.',
+    'de': 'Gestern blieben {count} offene Punkte — lass uns sie einplanen.',
+  },
+
+  // Утренний разбор (harsh)
+  'kai.morning_review_harsh_one': {
+    'en': '1 task ghosted you. Sort it before it piles up.',
+    'ru': '1 задача тебя обошла. Разберись, пока не накопилось.',
+    'de': '1 Aufgabe hat dich verpasst. Löse es, bevor es sich häuft.',
+  },
+  'kai.morning_review_harsh_many': {
+    'en': '{count} tasks ghosted you. I lined them up — don\'t ghost them again.',
+    'ru': '{count} задач тебя обошли. Я их выстроил — не игнорируй снова.',
+    'de': '{count} Aufgaben haben dich verpasst. Ich habe sie aufgelistet — ignoriere sie nicht wieder.',
+  },
+
+  // Всё выполнено (gentle)
+  'kai.all_done_gentle': {
+    'en': 'Everything that mattered — done. Proud of you.',
+    'ru': 'Всё главное — сделано. Горжусь тобой.',
+    'de': 'Alles Wichtige — erledigt. Stolz auf dich.',
+  },
+
+  // Всё выполнено (harsh)
+  'kai.all_done_harsh': {
+    'en': 'Everything done. Don\'t get cocky.',
+    'ru': 'Всё сделано. Не расслабляйся.',
+    'de': 'Alles erledigt. Werd nicht übermütig.',
+  },
+
+  // Вечерний разбор (gentle, нет незавершённых)
+  'kai.evening_none_gentle': {
+    'en': 'Want tomorrow handled? I\'ve got a plan ready.',
+    'ru': 'Хочешь, чтобы завтра было под контролем? Есть план.',
+    'de': 'Soll morgen alles klappen? Ich habe einen Plan.',
+  },
+
+  // Вечерний разбор (gentle, есть незавершённые)
+  'kai.evening_pending_gentle': {
+    'en': '{count} unfinished today — want me to fit them into tomorrow?',
+    'ru': '{count} незавершённых сегодня — вписать их в завтра?',
+    'de': '{count} heute unfertig — soll ich sie für morgen einplanen?',
+  },
+
+  // Вечерний разбор (harsh, нет незавершённых)
+  'kai.evening_none_harsh': {
+    'en': 'Plan tomorrow now, or wing it and panic. Your call.',
+    'ru': 'Планируй завтра сейчас, или потом паникуй. Твой выбор.',
+    'de': 'Plane morgen jetzt, oder improvisiere und panik. Deine Wahl.',
+  },
+
+  // Вечерний разбор (harsh, есть незавершённые)
+  'kai.evening_pending_harsh': {
+    'en': '{count} left over today. Plan tomorrow now or wing it and panic.',
+    'ru': '{count} осталось сегодня. Планируй завтра сейчас или паникуй.',
+    'de': '{count} heute übrig. Plane morgen jetzt oder improvisiere und panik.',
+  },
+
+  // Kai — пустой день / ничего не запланировано
+  'kai.empty_day_gentle': {
+    'en': 'Nothing planned yet. Add something that matters.',
+    'ru': 'Ничего не запланировано. Добавь то, что важно.',
+    'de': 'Noch nichts geplant. Füge etwas Wichtiges hinzu.',
+  },
+  'kai.empty_day_harsh': {
+    'en': 'Empty day. That\'s on you.',
+    'ru': 'Пустой день. Ну и кто виноват?',
+    'de': 'Leerer Tag. Das liegt bei dir.',
+  },
+
+  // Kai — нейтральное приветствие (idle, несколько задач)
+  'kai.idle_morning_gentle': {
+    'en': 'Ready when you are.',
+    'ru': 'Готов, когда ты.',
+    'de': 'Bereit, wenn du es bist.',
+  },
+  'kai.idle_afternoon_gentle': {
+    'en': 'Keep going — you\'re doing great.',
+    'ru': 'Продолжай — всё идёт хорошо.',
+    'de': 'Weiter so — du machst das gut.',
+  },
+  'kai.idle_evening_gentle': {
+    'en': 'Almost there. Finish strong.',
+    'ru': 'Почти финиш. Закончи сильно.',
+    'de': 'Fast geschafft. Stark zu Ende.',
+  },
+  'kai.idle_morning_harsh': {
+    'en': 'Stop reading this. Start working.',
+    'ru': 'Хватит читать. Начинай работать.',
+    'de': 'Hör auf zu lesen. Fang an zu arbeiten.',
+  },
+  'kai.idle_afternoon_harsh': {
+    'en': 'Time is ticking. Focus.',
+    'ru': 'Время идёт. Сосредоточься.',
+    'de': 'Die Zeit läuft. Fokus.',
+  },
+  'kai.idle_evening_harsh': {
+    'en': 'Don\'t let the day slip. Finish it.',
+    'ru': 'Не упусти день. Заверши его.',
+    'de': 'Lass den Tag nicht gleiten. Beende ihn.',
+  },
 };

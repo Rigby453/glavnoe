@@ -330,16 +330,21 @@ class _CelebrationOverlayState extends ConsumerState<CelebrationOverlay>
       child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          // Kai в режиме «success»: появляется вместе с галочкой,
-          // уже пружинит к кругу (виджет делает это сам для KaiEmotion.success).
-          // Размер 72dp по 04-kai.md §1.2 (focal point, T7).
+          // Kai в режиме «success» (gentle) или нейтральный (harsh — сдержанный кивок,
+          // MASCOT.md §6: при harsh нет сальто/кружка, только тихий выход).
+          // Размер 96dp — увеличен для prominence в celebration-оверлее.
           if (showKai) ...[
             Opacity(
               opacity: checkScaleVal.clamp(0.0, 1.0),
-              child: KaiMascot(
-                size: 72,
-                emotion: KaiEmotion.success,
-                isHarsh: isHarsh,
+              child: Transform.scale(
+                // Harsh: нет spring-scale-эффекта — Kai появляется просто fade-in
+                scale: isHarsh ? 1.0 : (0.6 + checkScaleVal * 0.4).clamp(0.0, 1.0),
+                child: KaiMascot(
+                  size: 96,
+                  // Harsh: нейтральная эмоция (сдержанный «кивок», не радость)
+                  emotion: isHarsh ? KaiEmotion.neutral : KaiEmotion.success,
+                  isHarsh: isHarsh,
+                ),
               ),
             ),
             const SizedBox(height: 12),

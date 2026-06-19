@@ -3,10 +3,13 @@
 // поэтому здесь вложенный Scaffold без AppBar (нужен только ради FAB),
 // а приветствие и дата вынесены в шапку тела.
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 
+import '../../core/animations/constants.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
@@ -17,6 +20,7 @@ import '../../core/utils/breakpoints.dart';
 import '../../core/widgets/collapsing_fab.dart';
 import '../../core/widgets/kai_loader.dart';
 import '../../features/mascot/kai_mascot.dart';
+import '../../features/mascot/kai_speech_bubble.dart';
 import '../../services/streak/streak_service.dart';
 import '../../services/widget/widget_service.dart';
 import 'widgets/add_task_sheet.dart';
@@ -66,12 +70,10 @@ class TodayScreen extends ConsumerWidget {
     //
     // Приоритет проверок (сверху вниз — первое совпавшее побеждает):
     //   1. success  — все главные задачи закрыты.
-    //   2. anxious  — есть просроченные pending main/important задачи СЕГОДНЯ
-    //                 (scheduledAt в прошлом, статус pending, приоритет main|important).
-    //   3. thinking — есть карточка утреннего разбора (overdue != empty, т.е.
-    //                 MorningReviewCard сейчас показана) и главные задачи ещё не начаты,
-    //                 ИЛИ показана карточка вечернего разбора (час >= 17).
-    //   4. neutral  — иначе.
+    //   2. away     — ничего не запланировано на сегодня (empty day, пустой список).
+    //   3. anxious  — есть просроченные pending main/important задачи СЕГОДНЯ.
+    //   4. thinking — показан утренний/вечерний разбор.
+    //   5. neutral  — иначе.
     final showKai = ref.watch(showKaiProvider);
     final overdueItems = ref.watch(overduePendingProvider).valueOrNull ??
         const <ItemsTableData>[];
@@ -89,10 +91,15 @@ class TodayScreen extends ConsumerWidget {
     final morningReviewVisible = overdueItems.isNotEmpty;
     // Показан ли вечерний разбор (время >= 17:00)?
     final eveningReviewVisible = now.hour >= 17;
+    // Пустой день — данные загрузились, но задач нет совсем
+    final isEmptyDay = itemsAsync.hasValue && allItems.isEmpty;
 
     final KaiEmotion kaiEmotion;
     if (allMainDone) {
       kaiEmotion = KaiEmotion.success;
+    } else if (isEmptyDay) {
+      // away = «давно не заходил» / «день пуст» — глаза-нитки (MASCOT.md §6)
+      kaiEmotion = KaiEmotion.away;
     } else if (overdueToday.isNotEmpty) {
       kaiEmotion = KaiEmotion.anxious;
     } else if (morningReviewVisible ||
@@ -106,17 +113,22 @@ class TodayScreen extends ConsumerWidget {
     final isTablet = MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
     if (isTablet) {
       return _buildTabletLayout(
-          context, itemsAsync, mainItems, tone, allMainDone, now,
-          showKai: showKai, kaiEmotion: kaiEmotion);
+          context, ref, itemsAsync, mainItems, tone, allMainDone, now,
+          showKai: showKai, kaiEmotion: kaiEmotion,
+          isEmptyDay: isEmptyDay, morningReviewVisible: morningReviewVisible,
+          eveningReviewVisible: eveningReviewVisible, overdueItems: overdueItems);
     }
     return _buildMobileLayout(
-        context, itemsAsync, mainItems, tone, allMainDone, now,
-        showKai: showKai, kaiEmotion: kaiEmotion);
+        context, ref, itemsAsync, mainItems, tone, allMainDone, now,
+        showKai: showKai, kaiEmotion: kaiEmotion,
+        isEmptyDay: isEmptyDay, morningReviewVisible: morningReviewVisible,
+        eveningReviewVisible: eveningReviewVisible, overdueItems: overdueItems);
   }
 
   /// Мобильный макет — одна колонка, оригинальный вид.
   Widget _buildMobileLayout(
     BuildContext context,
+    WidgetRef ref,
     AsyncValue<List<ItemsTableData>> itemsAsync,
     List<ItemsTableData> mainItems,
     AppTone tone,
@@ -124,15 +136,16 @@ class TodayScreen extends ConsumerWidget {
     DateTime now, {
     required bool showKai,
     required KaiEmotion kaiEmotion,
+    required bool isEmptyDay,
+    required bool morningReviewVisible,
+    required bool eveningReviewVisible,
+    required List<ItemsTableData> overdueItems,
   }) {
 
     return Stack(
       children: [
         Scaffold(
           // CollapsingFab: развёрнут «+ Add» в покое, сворачивается при скролле вниз.
-          // Зазор ≥16dp над таб-баром обеспечивается стандартным FAB-отступом Flutter
-          // (16dp от нижней границы SafeArea); extraBottomMargin не нужен, т.к.
-          // ScaffoldWithNavBar уже корректирует MediaQuery.padding для вложенных Scaffold.
           floatingActionButton: CollapsingFab(
             onPressed: () => showAddTaskSheet(context, day: now),
             icon: const Icon(Icons.add),
@@ -149,19 +162,21 @@ class TodayScreen extends ConsumerWidget {
                 // 24dp горизонтальный отступ экрана (02-type-space.md §4.1: lg=24)
                 padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
                 children: [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _Header(now: now)),
-                      if (showKai) ...[
-                        const SizedBox(width: 8),
-                        _KaiHeader(
-                          emotion: kaiEmotion,
-                          isHarsh: tone == AppTone.harsh,
-                        ),
-                      ],
-                      const _ToneToggle(),
-                    ],
+                  // Kai-шапка: маскот + приветствие + тумблер тона
+                  _KaiHeaderSection(
+                    now: now,
+                    tone: tone,
+                    showKai: showKai,
+                    emotion: kaiEmotion,
+                    isHarsh: tone == AppTone.harsh,
+                    isEmptyDay: isEmptyDay,
+                    morningReviewVisible: morningReviewVisible,
+                    eveningReviewVisible: eveningReviewVisible,
+                    overdueCount: overdueItems.length,
+                    pendingCount: mainItems
+                        .where((i) => i.status == 'pending')
+                        .length,
+                    allMainDone: allMainDone,
                   ),
                   // xl=32 между шапкой и кольцом (02-type-space.md §4.1)
                   const SizedBox(height: 32),
@@ -169,21 +184,6 @@ class TodayScreen extends ConsumerWidget {
                   // xl=32 между кольцом и streak-строкой
                   const SizedBox(height: 32),
                   const StreakRow(),
-                  if (allMainDone) ...[
-                    const SizedBox(height: 16),
-                    Center(
-                      child: Text(
-                        ToneCopy.allDone(tone),
-                        textAlign: TextAlign.center,
-                        // success-цвет через ThemeExtension (не accent — это позитивный фидбэк)
-                        style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                              color: Theme.of(context)
-                                  .extension<FocusThemeExtension>()
-                                  ?.success,
-                            ),
-                      ),
-                    ),
-                  ],
                   // Карточки обзора — после streak, с разделителем xl=32
                   const SizedBox(height: 32),
                   const MorningReviewCard(),
@@ -201,10 +201,9 @@ class TodayScreen extends ConsumerWidget {
   }
 
   /// Планшетный макет ≥600px — две колонки равной ширины.
-  /// Левая: шапка + ProgressRing + StreakRow + карточки обзора.
-  /// Правая: список задач.
   Widget _buildTabletLayout(
     BuildContext context,
+    WidgetRef ref,
     AsyncValue<List<ItemsTableData>> itemsAsync,
     List<ItemsTableData> mainItems,
     AppTone tone,
@@ -212,16 +211,16 @@ class TodayScreen extends ConsumerWidget {
     DateTime now, {
     required bool showKai,
     required KaiEmotion kaiEmotion,
+    required bool isEmptyDay,
+    required bool morningReviewVisible,
+    required bool eveningReviewVisible,
+    required List<ItemsTableData> overdueItems,
   }) {
     final items = itemsAsync.valueOrNull ?? const <ItemsTableData>[];
 
     return Stack(
       children: [
         Scaffold(
-          // Планшет: collapse-on-scroll не применяем — две независимые колонки
-          // прокручиваются отдельно, поэтому CollapsingFab будет реагировать
-          // только на одну из них непредсказуемо. Используем обычный extended FAB
-          // с корректным зазором через стандартный отступ Flutter.
           floatingActionButton: FloatingActionButton.extended(
             onPressed: () => showAddTaskSheet(context, day: now),
             icon: const Icon(Icons.add),
@@ -237,42 +236,25 @@ class TodayScreen extends ConsumerWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Expanded(child: _Header(now: now)),
-                            if (showKai) ...[
-                              const SizedBox(width: 8),
-                              _KaiHeader(
-                                emotion: kaiEmotion,
-                                isHarsh: tone == AppTone.harsh,
-                              ),
-                            ],
-                            const _ToneToggle(),
-                          ],
+                        _KaiHeaderSection(
+                          now: now,
+                          tone: tone,
+                          showKai: showKai,
+                          emotion: kaiEmotion,
+                          isHarsh: tone == AppTone.harsh,
+                          isEmptyDay: isEmptyDay,
+                          morningReviewVisible: morningReviewVisible,
+                          eveningReviewVisible: eveningReviewVisible,
+                          overdueCount: overdueItems.length,
+                          pendingCount: mainItems
+                              .where((i) => i.status == 'pending')
+                              .length,
+                          allMainDone: allMainDone,
                         ),
                         const SizedBox(height: 32),
                         Center(child: ProgressRing(items: mainItems)),
                         const SizedBox(height: 32),
                         const StreakRow(),
-                        if (allMainDone) ...[
-                          const SizedBox(height: 16),
-                          Center(
-                            child: Text(
-                              ToneCopy.allDone(tone),
-                              textAlign: TextAlign.center,
-                              // success-цвет через ThemeExtension
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .titleMedium
-                                  ?.copyWith(
-                                    color: Theme.of(context)
-                                        .extension<FocusThemeExtension>()
-                                        ?.success,
-                                  ),
-                            ),
-                          ),
-                        ],
                         const SizedBox(height: 32),
                         const MorningReviewCard(),
                         const EveningReviewCard(),
@@ -296,6 +278,119 @@ class TodayScreen extends ConsumerWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// _KaiHeaderSection — главная «лицевая» секция экрана Today.
+// Kai увеличен до 104dp, центрирован над приветствием, речевой пузырь ниже.
+// Тумблер тона — в углу строки, не мешает взгляду.
+// ---------------------------------------------------------------------------
+
+/// Полная шапка Today: Kai + речевой пузырь + приветствие + дата + тумблер тона.
+///
+/// Kai — визуальный «якорь» экрана (104dp); пузырь под ним транслирует текущий
+/// контекст (KaiCopy по тону/состоянию). Приветствие + дата — слева, тумблер тона — справа.
+class _KaiHeaderSection extends StatelessWidget {
+  const _KaiHeaderSection({
+    required this.now,
+    required this.tone,
+    required this.showKai,
+    required this.emotion,
+    required this.isHarsh,
+    required this.isEmptyDay,
+    required this.morningReviewVisible,
+    required this.eveningReviewVisible,
+    required this.overdueCount,
+    required this.pendingCount,
+    required this.allMainDone,
+  });
+
+  final DateTime now;
+  final AppTone tone;
+  final bool showKai;
+  final KaiEmotion emotion;
+  final bool isHarsh;
+  final bool isEmptyDay;
+  final bool morningReviewVisible;
+  final bool eveningReviewVisible;
+  final int overdueCount;
+  final int pendingCount;
+  final bool allMainDone;
+
+  /// Строка для речевого пузыря в зависимости от контекста.
+  String _bubbleMessage(BuildContext context) {
+    if (allMainDone) return KaiCopy.allDone(context, tone);
+    if (isEmptyDay) return KaiCopy.emptyDay(context, tone);
+    if (morningReviewVisible) {
+      return KaiCopy.morningReview(context, tone, overdueCount);
+    }
+    if (eveningReviewVisible && pendingCount > 0) {
+      return KaiCopy.eveningReview(context, tone, pendingCount);
+    }
+    if (eveningReviewVisible && pendingCount == 0) {
+      return KaiCopy.eveningReview(context, tone, 0);
+    }
+    return KaiCopy.idle(context, tone, now);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final message = _bubbleMessage(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Верхняя строка: приветствие слева, тумблер тона справа
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(child: _Header(now: now)),
+            const _ToneToggle(),
+          ],
+        ),
+
+        const SizedBox(height: 20),
+
+        // Kai — центральный, большой (104dp), с анимацией внимания
+        if (showKai) ...[
+          Center(
+            child: _KaiHeader(
+              emotion: emotion,
+              isHarsh: isHarsh,
+            ),
+          ),
+          // Речевой пузырь под Kai (tail снизу → хвостик указывает на Kai выше)
+          const SizedBox(height: 4),
+          Center(
+            child: KaiSpeechBubble(
+              message: message,
+              animate: true,
+              tail: KaiBubbleTail.bottomCenter,
+              maxWidth: 260,
+            ),
+          ),
+        ] else ...[
+          // Kai отключён — пузырь всё равно показываем как обычный текст
+          Center(
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 8),
+              child: Text(
+                message,
+                textAlign: TextAlign.center,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.65),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _Header — приветствие + дата
+// ---------------------------------------------------------------------------
 
 /// Приветствие, зависящее от времени суток, + сегодняшняя дата
 class _Header extends StatelessWidget {
@@ -330,6 +425,10 @@ class _Header extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// _ToneToggle — маленький тумблер тона gentle/harsh в углу шапки
+// ---------------------------------------------------------------------------
+
 /// Маленький тумблер тона gentle/harsh в шапке Today.
 class _ToneToggle extends ConsumerWidget {
   const _ToneToggle();
@@ -346,14 +445,18 @@ class _ToneToggle extends ConsumerWidget {
   }
 }
 
-/// Маскот Kai в шапке Today — 56×56, вертикально выровнен по центру.
-/// Виден только если showKaiProvider == true (условие проверяется в _buildMobileLayout
-/// и _buildTabletLayout, сюда попадаем уже внутри if-блока).
+// ---------------------------------------------------------------------------
+// _KaiHeader — маскот 104dp с анимацией «внимания» каждые ~6–10с
+// ---------------------------------------------------------------------------
+
+/// Большой Kai в шапке Today (104dp).
 ///
-/// Tap micro-interaction (04-kai.md §3.4):
-///   Tap циклически переключает _tapOverride через neutral → success → thinking → null
-///   (возврат к app-state-driven emotion через 3 секунды).
-///   Только если emotion не блокирует смысловой onTap снаружи.
+/// Помимо idle-анимации самого KaiMascot (дыхание / моргание / look),
+/// здесь добавлена «attention» анимация: каждые 6–10 секунд Kai делает
+/// небольшой bounce (вертикальный сдвиг −8px + обратно, 400мс, elasticOut).
+/// Reduce-motion: attention bounce пропускается.
+///
+/// Tap micro-interaction: cycle neutral → success → thinking → сброс через 3 с.
 class _KaiHeader extends StatefulWidget {
   const _KaiHeader({
     required this.emotion,
@@ -367,41 +470,88 @@ class _KaiHeader extends StatefulWidget {
   State<_KaiHeader> createState() => _KaiHeaderState();
 }
 
-class _KaiHeaderState extends State<_KaiHeader> {
-  // null = показываем реальную app-state emotion; non-null = tap-overide
+class _KaiHeaderState extends State<_KaiHeader>
+    with SingleTickerProviderStateMixin {
+  // --- Tap-override (cycle by tap) ---
   KaiEmotion? _tapOverride;
-  int _tapCycleIndex = 0; // индекс внутри цикла
-  // Таймер сброса override после 3 секунд
-  dynamic _resetTimer; // Timer, но import dart:async не нужен — используем Future+bool
+  int _tapCycleIndex = 0;
+  Object? _resetToken; // маркер последнего тапа для сброса
 
-  // Порядок цикла по 04-kai.md §3.4
+  // --- Attention bounce ---
+  late final AnimationController _attentionCtrl;
+  late final Animation<double> _attentionY; // значение смещения Y (px)
+  Timer? _attentionTimer;
+
+  // Порядок цикла (MASCOT.md §5: тапабельно для смены выражений)
   static const _tapCycle = [
     KaiEmotion.neutral,
     KaiEmotion.success,
     KaiEmotion.thinking,
   ];
 
+  // Размер маскота в шапке — видный, выраженный
+  static const double _kaiSize = 104;
+
+  @override
+  void initState() {
+    super.initState();
+    _attentionCtrl = AnimationController(
+      vsync: this,
+      // Slow (~400ms) — но это не UI-переход, а деко-движение, за пределами правила 300мс
+      duration: const Duration(milliseconds: 420),
+    );
+    // Bounce вверх на 8px (отрицательный Y = вверх) и обратно через elasticOut
+    _attentionY = Tween<double>(begin: 0, end: -8).animate(
+      CurvedAnimation(parent: _attentionCtrl, curve: Curves.elasticOut),
+    );
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _scheduleAttention();
+  }
+
   @override
   void dispose() {
-    // Отменяем ожидающий сброс при удалении виджета
-    _resetTimer = null; // флаг: callback не выполняется
+    _attentionTimer?.cancel();
+    _attentionCtrl.dispose();
     super.dispose();
   }
 
+  /// Планирует следующий attention bounce через псевдослучайный интервал 6000–10000мс.
+  void _scheduleAttention() {
+    _attentionTimer?.cancel();
+    // Детерминированный «случайный» интервал: зависит от текущего времени
+    final phase = DateTime.now().millisecondsSinceEpoch & 0x3FFF;
+    final delayMs = 6000 + (phase % 4000); // 6000–9999 мс
+    _attentionTimer = Timer(Duration(milliseconds: delayMs), _doAttention);
+  }
+
+  /// Проигрывает один attention bounce: вверх → обратно, затем планирует следующий.
+  Future<void> _doAttention() async {
+    if (!mounted) return;
+    final reduce = reduceMotionOf(context);
+    if (!reduce) {
+      // forward (0→1): идём вверх с elasticOut (перелёт + возврат встроен в кривую)
+      await _attentionCtrl.forward(from: 0);
+      await _attentionCtrl.reverse();
+    }
+    if (mounted) _scheduleAttention();
+  }
+
   void _handleTap() {
-    // Отменяем предыдущий таймер (через флаг)
-    final resetId = Object(); // уникальный токен для каждого тапа
-    _resetTimer = resetId;
+    final token = Object();
+    _resetToken = token;
 
     setState(() {
       _tapOverride = _tapCycle[_tapCycleIndex % _tapCycle.length];
       _tapCycleIndex++;
     });
 
-    // Сбрасываем override через 3 секунды
     Future.delayed(const Duration(seconds: 3), () {
       if (!mounted) return;
-      if (_resetTimer != resetId) return; // был ещё один тап — не сбрасываем
+      if (_resetToken != token) return; // был ещё один тап
       setState(() {
         _tapOverride = null;
         _tapCycleIndex = 0;
@@ -411,12 +561,16 @@ class _KaiHeaderState extends State<_KaiHeader> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      // top: 4 — оптическое выравнивание с базовой линией двустрочного заголовка
-      // (04-kai.md §1.3)
-      padding: const EdgeInsets.only(top: 4),
+    return AnimatedBuilder(
+      animation: _attentionY,
+      builder: (context, child) {
+        return Transform.translate(
+          offset: Offset(0, _attentionY.value),
+          child: child,
+        );
+      },
       child: KaiMascot(
-        size: 56,
+        size: _kaiSize,
         emotion: _tapOverride ?? widget.emotion,
         isHarsh: widget.isHarsh,
         onTap: _handleTap,
