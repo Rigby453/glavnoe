@@ -1,11 +1,18 @@
-// Обновление домашнего виджета (Android) без сторонних плагинов.
-// Dart по MethodChannel передаёт поля в нативный MainActivity, который пишет их
-// в SharedPreferences и шлёт broadcast виджету. Так виджет показывает актуальные
-// данные даже когда приложение закрыто (значения сохранены).
+// Обновление домашнего виджета: Android + iOS.
 //
-// Расширение data-bridge по §8 WIDGET.md: добавлены next_items, main_done,
-// main_total, kai_emotion, is_harsh, theme_*, last_opened_at.
-// Старый ключ main_progress сохранён для обратной совместимости с текущим native.
+// Android: Dart → MethodChannel('kaizen/widget') → MainActivity → SharedPreferences
+//          → broadcast виджету (AppWidgetManager).
+// iOS:     Dart → MethodChannel('kaizen/widget') → AppDelegate → App Group
+//          UserDefaults(suiteName: "group.com.kaizen.app") → WidgetKit timeline reload.
+//
+// Расширение data-bridge по §8 WIDGET.md: next_items, main_done, main_total,
+// kai_emotion, is_harsh, theme_*, last_opened_at.
+// Старый ключ main_progress сохранён для обратной совместимости (Android native).
+//
+// НЕ ПРОВЕРЕНО на iOS без Mac/Xcode — помечено комментарием [iOS-UNVERIFIED].
+// iOS-сторона использует тот же MethodChannel 'kaizen/widget', метод 'updateWidget'.
+// Swift-обработчик в AppDelegate.swift пишет в App Group UserDefaults,
+// затем вызывает WidgetCenter.shared.reloadAllTimelines().
 
 import 'dart:convert';
 
@@ -56,7 +63,11 @@ Future<void> saveLastOpenedAt() async {
 
 /// Считывает прогресс по main-задачам на сегодня, ближайшие предстоящие
 /// пункты, серию, эмоцию Kai и цвета темы — передаёт виджету по MethodChannel.
-/// Только Android; на web/desktop/iOS — no-op.
+/// Android + iOS; на web/desktop — no-op.
+///
+/// iOS [iOS-UNVERIFIED]: тот же MethodChannel 'kaizen/widget', метод 'updateWidget'.
+/// Swift-обработчик в AppDelegate.swift пишет значения в App Group UserDefaults
+/// (suiteName "group.com.kaizen.app") и вызывает WidgetCenter.reloadAllTimelines().
 ///
 /// Параметры:
 /// - [itemsDao], [streakDao] — DAO для чтения из Drift.
@@ -67,7 +78,12 @@ Future<void> refreshHomeWidget({
   required StreakDao streakDao,
   SharedPreferences? prefs,
 }) async {
-  if (kIsWeb || defaultTargetPlatform != TargetPlatform.android) return;
+  // Только мобильные платформы; web/desktop не поддерживают ОС-виджеты.
+  if (kIsWeb) return;
+  final isSupported =
+      defaultTargetPlatform == TargetPlatform.android ||
+      defaultTargetPlatform == TargetPlatform.iOS;
+  if (!isSupported) return;
 
   try {
     final now = DateTime.now();
@@ -148,24 +164,33 @@ Future<void> refreshHomeWidget({
     // --- Обновляем last_opened_at перед отправкой (виджет увидит актуальный ts) ---
     final lastOpenedIso = lastOpenedAt?.toIso8601String() ?? now.toIso8601String();
 
-    await _channel.invokeMethod<void>('updateWidget', {
-      // Обратная совместимость (текущий native читает эти ключи)
+    // Формируем payload единожды — одинаков для Android и iOS.
+    // Android: MainActivity читает ключи из аргументов и пишет в SharedPreferences.
+    // iOS [iOS-UNVERIFIED]: AppDelegate.swift читает аргументы и пишет в
+    //   UserDefaults(suiteName: "group.com.kaizen.app"), затем
+    //   WidgetCenter.shared.reloadAllTimelines() перезапускает timeline виджета.
+    final payload = <String, dynamic>{
+      // Обратная совместимость Android (текущий native читает эти ключи)
       'main_progress': progress,
       'streak': streakVal.toString(),
 
-      // Новые поля §8 WIDGET.md
+      // Поля §8 WIDGET.md (Android + iOS)
       'next_items': jsonEncode(nextItems),
       'main_done': mainDone,
       'main_total': mainTotal,
       'kai_emotion': kaiEmotion,
-      'is_harsh': isHarsh,
+      // is_harsh: передаём как int (1/0), безопасно для обоих платформ.
+      // Swift-обработчик проверяет оба типа (Bool и Int).
+      'is_harsh': isHarsh ? 1 : 0,
       'theme_accent': themeAccent,
       'theme_bg': themeBg,
       'theme_surface': themeSurface,
       'theme_text': themeText,
       'theme_text_muted': themeTextMuted,
       'last_opened_at': lastOpenedIso,
-    });
+    };
+
+    await _channel.invokeMethod<void>('updateWidget', payload);
   } catch (_) {
     // Виджет — вторичен; ошибки не должны влиять на приложение.
   }

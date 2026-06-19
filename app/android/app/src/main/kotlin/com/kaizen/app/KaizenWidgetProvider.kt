@@ -155,7 +155,7 @@ class KaizenWidgetProvider : AppWidgetProvider() {
             v.setTextViewText(R.id.small_title, first.title)
         } else {
             v.setTextViewText(R.id.small_time, "")
-            v.setTextViewText(R.id.small_title, "Nothing today")
+            v.setTextViewText(R.id.small_title, context.getString(R.string.widget_nothing_today))
         }
         v.setTextColor(R.id.small_time, textColor)
         v.setTextColor(R.id.small_title, textColor)
@@ -211,7 +211,7 @@ class KaizenWidgetProvider : AppWidgetProvider() {
             v.setViewVisibility(R.id.medium_row1, View.VISIBLE)
             v.setTextViewText(R.id.medium_time1, "")
             v.setTextViewText(R.id.medium_icon1, "")
-            v.setTextViewText(R.id.medium_title1, "Nothing today")
+            v.setTextViewText(R.id.medium_title1, context.getString(R.string.widget_nothing_today))
             v.setTextColor(R.id.medium_title1, mutedColor)
         }
 

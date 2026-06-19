@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Kaizen</string>
+
+    <!-- Строки виджета домашнего экрана -->
+    <string name="widget_up_next">Up next</string>
+    <string name="widget_today">Today</string>
+    <string name="widget_nothing_today">Nothing today</string>
+    <string name="widget_nothing_scheduled">Nothing scheduled</string>
+</resources>

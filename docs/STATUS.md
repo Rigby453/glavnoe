@@ -4,7 +4,7 @@
 > *Что обещали* (продукт) — в `docs/SPEC.md`. Архитектурные решения — в `docs/decisions.md`.
 > Статусы задач в журнале ниже: `[ ]` todo · `[~]` в работе · `[x]` сделано · `[!]` заблокировано.
 
-## Сводка для пользователя (обновлено 2026-06-19)
+## Сводка для пользователя (обновлено 2026-06-20)
 
 ### ✅ Готово (работает, под тестами)
 - **MVP целиком** — аккаунты + синхронизация (офлайн-первый), Today/Plan/Diary, rule-разборы утро/вечер, импорт расписания (текст / клон недели / фото-AI), стрики + заморозка, онбординг (расчёт воды по весу/росту, кнопка «Назад»), 5 тем, Android-виджет, локальные уведомления, все MVP-анимации (≤300 мс).
@@ -19,7 +19,7 @@
 
 ### ⏸ Осталось — упирается в тебя / железо / аккаунты (не в код)
 - **Health Connect / Apple Health** — нет устройств для проверки.
-- **iOS-сборка и iOS-виджет** — нужен Mac.
+- **iOS-виджет — код готов, нужна сборка на Mac.** Swift-исходники (`KaizenWidget/`) и AppDelegate-обработчик написаны, `widget_service.dart` обновлён (iOS-ветка). Осталось: создать Widget Extension target в Xcode, добавить App Group capability, скопировать Kai PNG в Asset Catalog. Подробно: `docs/SETUP-ios-widget.md`.
 - **Реальные платежи — пейвол ни к чему НЕ подключён (важно, ADR-039).** Экран `/paywall` и кнопка «Start free» сейчас зовут `StubPurchaseService` — это заглушка: в debug она просто включает premium (`dev-upgrade`), в release возвращает «недоступно». **Настоящего списания нет ни на одной платформе.** Реальный путь: iOS → App Store IAP, Android → Google Play Billing (оба через **RevenueCat**, замена одной строки в `purchase_service.dart`); **веб → отдельный процессор (Stripe / RevenueCat Web Billing) — для веба RevenueCat сторовый биллинг не работает**. Нужны: аккаунты Apple/Google, проект RevenueCat + ключи, (для веба) Stripe-аккаунт. Это твоя зона — код-абстракция готова, подключение = ключи.
 - **Умные часы [Ф4]** — Wear OS / watchOS; нужны часы + Apple Developer Account.
 - **Реклама на free-тарифе** — нужны рекламные аккаунты (осознанно отложено).
@@ -48,6 +48,10 @@
 ---
 
 ## Журнал работ (хронология сделанного по блокам)
+
+- [x] **iOS WidgetKit Extension — исходники + гайд (2026-06-20, ветка design-kai):** Созданы 4 Swift-файла в `app/ios/KaizenWidget/`: `KaizenWidget.swift` (`@main WidgetBundle`, `StaticConfiguration`, `.systemSmall/.systemMedium/.systemLarge`), `Provider.swift` (`TimelineProvider` — читает App Group UserDefaults `group.com.kaizen.app`, строит Timeline с записями на +1h/+24h/+48h для away-эмоции без запуска приложения), `KaizenEntry.swift` (модель данных + `Color(hex:)` хелпер + placeholder/empty), `KaizenWidgetView.swift` (SwiftUI-вьюхи трёх размеров: `SmallWidgetView`/`MediumWidgetView`/`LargeWidgetView` + `KaiPeekView` — PNG с `.renderingMode(.template).foregroundColor(accent)`). Создан `Assets.xcassets` с 8 imageset-заглушками (Contents.json, rendering-intent=template; PNG копируются вручную на Mac). `app/ios/Runner/AppDelegate.swift` расширен: MethodChannel `kaizen/widget` → `handleUpdateWidget` → App Group UserDefaults + `WidgetCenter.shared.reloadAllTimelines()`. `app/lib/services/widget/widget_service.dart` обновлён: `if (kIsWeb) return` заменён на проверку `android || iOS`; payload без изменений (тот же MethodChannel). Гайд `docs/SETUP-ios-widget.md` — 10 шагов для Mac/Xcode (target, App Groups, PNG в Asset Catalog, URL scheme, минимум iOS 14). `flutter analyze` 0. Сборка/проверка невозможна без Mac.
+
+- [x] **Локализация виджета Android (2026-06-20, ветка design-kai):** Нативные Android string resources для домашнего виджета. Создан `res/values/strings.xml` (EN, дефолт) с ключами `widget_up_next`, `widget_today`, `widget_nothing_today`, `widget_nothing_scheduled` + `app_name`. Созданы `res/values-ru/strings.xml` (RU) и `res/values-de/strings.xml` (DE). В `KaizenWidgetProvider.kt` заменены захардкоженные литералы `"Nothing today"` (buildSmallViews, buildMediumViews) на `context.getString(R.string.widget_nothing_today)`. В layout XML заменены: `"Today"` → `@string/widget_today` (kaizen_widget_large.xml), `"Nothing scheduled"` → `@string/widget_nothing_scheduled` (kaizen_widget_large.xml), `"Up next"` → `@string/widget_up_next` (kaizen_widget_medium.xml), `"Nothing today"` → `@string/widget_nothing_today` (kaizen_widget_small.xml). Сборка: `gradlew :app:mergeDebugResources :app:compileDebugKotlin` → **BUILD SUCCESSFUL** (21s, 135 tasks: 10 executed, 125 up-to-date).
 
 - [x] **Kai PNG-ассеты для нативного виджета (2026-06-19, ветка design-kai):** Добавлена публичная функция `renderKaiPng(...)` в `app/lib/features/mascot/kai_mascot.dart` — рендерит статичный кадр Kai через `PictureRecorder`+`_KaiPainter` без виджет-дерева (статичные параметры: дыхание=0.5, моргание=0, взгляд=0, jitter=0, thinkPulse=0). Скрипт генерации `app/test/generate_kai_assets_test.dart` (`flutter test test/generate_kai_assets_test.dart`) создаёт **48 PNG** (4 эмоции × 2 harsh-варианта × 5 плотностей) с белыми глазами (accent накладывается native через `setImageTintList`/`ColorFilter`) и прозрачным фоном: `drawable-{mdpi/hdpi/xhdpi/xxhdpi/xxxhdpi}/kai_{neutral,success,anxious,away}[_harsh].png` + копия xxxhdpi в `assets/kai_widget/` для iOS. Папка `assets/kai_widget/` зарегистрирована в `pubspec.yaml`. `flutter analyze` 0. Повторная генерация: `flutter test test/generate_kai_assets_test.dart`.
 
