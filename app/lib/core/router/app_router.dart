@@ -7,7 +7,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
-import '../animations/constants.dart'; // effectiveDuration
 
 import '../theme/theme_provider.dart'; // sharedPreferencesProvider
 import '../../features/auth/auth_controller.dart';
@@ -125,25 +124,22 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state, navigationShell) =>
             ScaffoldWithNavBar(navigationShell: navigationShell),
         navigatorContainerBuilder: (context, navigationShell, children) {
-          // 150ms — ANIMATIONS.md §8.1
-          const kTabCrossfade = Duration(milliseconds: 150);
-          final duration = effectiveDuration(context, kTabCrossfade);
+          // Неактивные вкладки — Offstage: состояние ветки сохраняется, но они
+          // НЕ рисуются. Раньше использовался AnimatedOpacity внутри
+          // TickerMode(enabled:active) — тикер неактивной ветки замораживался,
+          // её затухание не доходило до 0, и прозрачные экраны (Health/Diary,
+          // без своего фона) показывали предыдущую вкладку сквозь себя.
           final activeIndex = navigationShell.currentIndex;
 
           return Stack(
             fit: StackFit.expand,
             children: List.generate(children.length, (i) {
               final active = i == activeIndex;
-              return IgnorePointer(
-                ignoring: !active,
+              return Offstage(
+                offstage: !active,
                 child: TickerMode(
                   enabled: active,
-                  child: AnimatedOpacity(
-                    opacity: active ? 1.0 : 0.0,
-                    duration: duration,
-                    curve: Curves.easeOut,
-                    child: children[i],
-                  ),
+                  child: children[i],
                 ),
               );
             }),
