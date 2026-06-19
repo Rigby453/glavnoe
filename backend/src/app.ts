@@ -12,6 +12,7 @@ import syncRoutes from "./routes/sync.js";
 import redistributeRoutes from "./routes/redistribute.js";
 import aiRoutes from "./routes/ai.js";
 import subscriptionRoutes from "./routes/subscription.js";
+import billingRoutes from "./routes/billing.js";
 import foodRoutes from "./routes/food.js";
 import shareRoutes from "./routes/share.js";
 import authResetRoutes from "./routes/auth-reset.js";
@@ -80,8 +81,11 @@ export async function buildServer(): Promise<FastifyInstance> {
   // Регистрируем AI-маршруты (Phase 1, premium): фото-импорт расписания
   await fastify.register(aiRoutes);
 
-  // Регистрируем маршруты подписки (dev-upgrade; реальные платежи — Phase 1)
+  // Регистрируем маршруты подписки (dev-upgrade + GET /status; реальные платежи — Phase 1)
   await fastify.register(subscriptionRoutes);
+
+  // Регистрируем заглушки вебхуков биллинга (ADR-041; без проверки подписи — TODO при наличии ключей)
+  await fastify.register(billingRoutes);
 
   // Регистрируем маршруты Food (Open Food Facts: barcode/search)
   await fastify.register(foodRoutes);

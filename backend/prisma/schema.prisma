@@ -14,6 +14,9 @@ model User {
   passwordHash     String
   name             String
   subscriptionTier String           @default("free")
+  // ADR-041: серверный entitlement — подписка с истечением и источник оплаты
+  premiumUntil     DateTime?        // null = нет срочной подписки
+  premiumSource    String?          // apple|google|rustore|stripe|yookassa|dev
   theme            String           @default("focus")
   tonePreference   String           @default("gentle")
   createdAt        DateTime         @default(now())

@@ -21,6 +21,8 @@ tags:
   - name: Engine
   - name: AI (Phase 1)
   - name: Share
+  - name: Subscription
+  - name: Billing
 
 security:
   - bearerAuth: []
@@ -581,6 +583,182 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Not available (production) }
 
+  /api/v1/subscription/status:
+    get:
+      tags: [Subscription]
+      summary: Get the current user's premium entitlement status (ADR-041)
+      description: >
+        Single source of truth for "am I premium?" — works regardless of
+        the billing channel (Apple IAP / Google Play / RuStore / Stripe /
+        YooKassa / dev-upgrade). Uses server-side resolveEntitlement:
+        isPremium = subscriptionTier="premium" OR (premiumUntil != null AND
+        premiumUntil > now). The app calls this on startup and after any
+        purchase attempt.
+      responses:
+        '200':
+          description: Entitlement status
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [is_premium]
+                properties:
+                  is_premium:
+                    type: boolean
+                    description: True if the user has an active premium subscription.
+                  premium_until:
+                    type: string
+                    format: date-time
+                    nullable: true
+                    description: >
+                      Expiry of the timed subscription (null for legacy
+                      lifetime premium or if no subscription is active).
+                  source:
+                    type: string
+                    nullable: true
+                    enum: [apple, google, rustore, stripe, yookassa, dev, null]
+                    description: Billing channel that granted premium.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/billing/webhook/apple:
+    post:
+      tags: [Billing]
+      summary: Apple App Store webhook stub (ADR-041)
+      description: >
+        Stub webhook — sets premiumUntil / premiumSource for the user.
+        Real implementation requires App Store Server Notifications V2 JWS
+        signature verification (TODO when Apple Developer account is available).
+        If BILLING_WEBHOOK_SECRET env is set, requires x-webhook-secret header.
+      parameters:
+        - in: header
+          name: x-webhook-secret
+          schema: { type: string }
+          description: Required if BILLING_WEBHOOK_SECRET env is set.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingWebhookRequest' }
+      responses:
+        '200':
+          description: Entitlement updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingWebhookResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/billing/webhook/google:
+    post:
+      tags: [Billing]
+      summary: Google Play Billing webhook stub (ADR-041)
+      description: >
+        Stub webhook. Real implementation requires JWT verification with
+        Google service account key (TODO).
+        If BILLING_WEBHOOK_SECRET env is set, requires x-webhook-secret header.
+      parameters:
+        - in: header
+          name: x-webhook-secret
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingWebhookRequest' }
+      responses:
+        '200':
+          description: Entitlement updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingWebhookResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/billing/webhook/rustore:
+    post:
+      tags: [Billing]
+      summary: RuStore Billing webhook stub (ADR-041)
+      description: >
+        Stub webhook. Real implementation requires HMAC verification with
+        BILLING_RUSTORE_SECRET (TODO).
+        If BILLING_WEBHOOK_SECRET env is set, requires x-webhook-secret header.
+      parameters:
+        - in: header
+          name: x-webhook-secret
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingWebhookRequest' }
+      responses:
+        '200':
+          description: Entitlement updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingWebhookResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/billing/webhook/stripe:
+    post:
+      tags: [Billing]
+      summary: Stripe webhook stub (ADR-041)
+      description: >
+        Stub webhook. Real implementation requires Stripe-Signature header
+        verification via stripe.webhooks.constructEvent (TODO when Stripe
+        account is available).
+        If BILLING_WEBHOOK_SECRET env is set, requires x-webhook-secret header.
+      parameters:
+        - in: header
+          name: x-webhook-secret
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingWebhookRequest' }
+      responses:
+        '200':
+          description: Entitlement updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingWebhookResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/billing/webhook/yookassa:
+    post:
+      tags: [Billing]
+      summary: YooKassa webhook stub (ADR-041)
+      description: >
+        Stub webhook. Real implementation requires IP allowlist check +
+        SHA-1 signature verification (TODO when YooKassa account is available).
+        If BILLING_WEBHOOK_SECRET env is set, requires x-webhook-secret header.
+      parameters:
+        - in: header
+          name: x-webhook-secret
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BillingWebhookRequest' }
+      responses:
+        '200':
+          description: Entitlement updated
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BillingWebhookResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/share:
     post:
       tags: [Share]
@@ -795,10 +973,50 @@ components:
         phone: { type: string, nullable: true, description: 'Russian phone, E.164: +7XXXXXXXXXX' }
         name: { type: string }
         subscription_tier: { type: string, enum: [free, premium] }
+        is_premium:
+          type: boolean
+          description: >
+            Resolved entitlement (ADR-041): true if subscriptionTier="premium"
+            (legacy) OR (premiumUntil is set AND premiumUntil > now).
+        premium_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: Expiry of the timed subscription; null for legacy lifetime or no subscription.
+        premium_source:
+          type: string
+          nullable: true
+          enum: [apple, google, rustore, stripe, yookassa, dev, null]
+          description: Billing channel that granted premium.
         theme: { type: string, enum: [focus, calm, black, white, contrast] }
         tone_preference: { $ref: '#/components/schemas/Tone' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
+
+    BillingWebhookRequest:
+      type: object
+      required: [user_id, expires_at]
+      description: >
+        Stub payload accepted by all billing webhook endpoints (ADR-041).
+        In real integrations the provider sends its own envelope; this stub
+        provides a uniform dev/test surface. All fields are snake_case.
+      properties:
+        user_id:
+          type: string
+          description: The Kaizen user ID to update (uuid).
+        product_id:
+          type: string
+          description: Optional SKU / product identifier for logging.
+        expires_at:
+          type: string
+          format: date-time
+          description: ISO 8601 expiry timestamp for the subscription.
+
+    BillingWebhookResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean, example: true }
 
     Item:
       type: object

@@ -11,6 +11,7 @@ import { generateWrappedSummary } from "../ai/wrappedSummary.js";
 import { buildMenu } from "../ai/menuBuild.js";
 import { searchProducts } from "../food/openFoodFacts.js";
 import type { FoodProduct } from "../food/openFoodFacts.js";
+import { resolveEntitlement } from "../models/entitlement.js";
 
 /**
  * Маппинг Accept-Language заголовка (двухбуквенный тег) в имя языка для промптов.
@@ -144,6 +145,8 @@ function serializeProduct(p: FoodProduct) {
 /**
  * Premium-гейт: AI — платные фичи. Возвращает true, если можно продолжать;
  * иначе сам отправляет 403/404 и возвращает false.
+ * ADR-041: использует resolveEntitlement — учитывает и legacy subscriptionTier="premium",
+ * и срочные подписки (premiumUntil > now) от любого billing-канала.
  */
 async function ensurePremium(
   request: FastifyRequest,
@@ -151,13 +154,14 @@ async function ensurePremium(
 ): Promise<boolean> {
   const user = await prisma.user.findUnique({
     where: { id: request.user.userId },
-    select: { subscriptionTier: true },
+    select: { subscriptionTier: true, premiumUntil: true, premiumSource: true },
   });
   if (!user) {
     await reply.status(404).send({ error: "Not found" });
     return false;
   }
-  if (user.subscriptionTier !== "premium") {
+  const { isPremium } = resolveEntitlement(user);
+  if (!isPremium) {
     await reply
       .status(403)
       .send({ error: "Premium feature — upgrade to use AI" });

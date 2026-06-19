@@ -9,6 +9,8 @@
 | password_hash     | string   | bcrypt                                  |
 | name              | string   |                                         |
 | subscription_tier | enum     | free / premium                          |
+| premium_until     | timestamp| **nullable** (ADR-041); срочная подписка — active if > now |
+| premium_source    | string   | **nullable** (ADR-041); apple\|google\|rustore\|stripe\|yookassa\|dev |
 | theme             | enum     | focus / calm / black / white / contrast |
 | tone_preference   | enum     | gentle / harsh                          |
 | created_at        | timestamp|                                         |
@@ -112,6 +114,8 @@ model User {
   passwordHash     String
   name             String
   subscriptionTier String     @default("free")
+  premiumUntil     DateTime?  // ADR-041: nullable, срочная подписка
+  premiumSource    String?    // ADR-041: apple|google|rustore|stripe|yookassa|dev
   theme            String     @default("focus")
   tonePreference   String     @default("gentle")
   createdAt        DateTime   @default(now())

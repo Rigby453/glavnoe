@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from "fastify";
 import { z } from "zod";
 import prisma from "../models/prisma.js";
 import { serializeUser } from "../models/user.js";
+import { resolveEntitlement } from "../models/entitlement.js";
 import { requireAuth } from "./middleware/auth.js";
 
 // DEV-переключение тарифа без реальной оплаты. Реальные платежи (RevenueCat)
@@ -12,6 +13,7 @@ const devUpgradeSchema = z.object({
 });
 
 const subscriptionRoutes: FastifyPluginAsync = async (fastify) => {
+  // DEV-only: переключение тарифа без реальной оплаты (ADR-018).
   fastify.post(
     "/api/v1/subscription/dev-upgrade",
     { preHandler: requireAuth },
@@ -34,6 +36,34 @@ const subscriptionRoutes: FastifyPluginAsync = async (fastify) => {
       });
 
       return reply.status(200).send(serializeUser(updated));
+    }
+  );
+
+  // ADR-041: GET /subscription/status — единый «am I premium?» эндпоинт.
+  // Приложение вызывает при старте и после попытки покупки.
+  // Не зависит от канала оплаты: смотрит через resolveEntitlement.
+  fastify.get(
+    "/api/v1/subscription/status",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const user = await prisma.user.findUnique({
+        where: { id: request.user.userId },
+        select: {
+          subscriptionTier: true,
+          premiumUntil: true,
+          premiumSource: true,
+        },
+      });
+      if (!user) {
+        return reply.status(404).send({ error: "Not found" });
+      }
+
+      const { isPremium, premiumUntil, source } = resolveEntitlement(user);
+      return reply.status(200).send({
+        is_premium: isPremium,
+        premium_until: premiumUntil ? premiumUntil.toISOString() : null,
+        source,
+      });
     }
   );
 };
