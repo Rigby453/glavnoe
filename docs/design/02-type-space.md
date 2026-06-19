@@ -7,13 +7,17 @@
 
 ## 1. Universal Type Scale
 
+> **Bold restyle 2026-06-19**: displayLarge pushed to 56, headlineLarge to 40, headlineMedium to 32. All display/headline slots use the theme's expressive display font (Fraunces/Newsreader/Instrument Serif/Schibsted/Atkinson). Body/title/label roles keep the body font. labelLarge bumped to w600 to match filled-button weight.
+
 One scale, shared across all five themes. Theme personality comes from the font pairing (section 2), not from different sizes. All sizes are in logical pixels (sp/dp).
 
 | Role | Flutter TextTheme slot | fontSize | fontWeight | lineHeight (height×) | letterSpacing | Usage |
 |---|---|---|---|---|---|---|
-| **display** | `displayLarge` | 48 | 700 | 1.05 | -0.5 | Hero numbers, splash figures, wrapped stats |
-| **headlineLarge** | `headlineLarge` | 34 | 700 | 1.10 | -0.3 | Screen-level titles (Today greeting, Plan month header) |
-| **headlineMedium** | `headlineMedium` | 28 | 700 | 1.12 | -0.2 | Section headers, modal titles |
+| **displayLarge** | `displayLarge` | **56** | 700 | **1.00** | **-0.8** | Hero numbers, splash figures, wrapped stats |
+| **displayMedium** | `displayMedium` | **40** | 700 | **1.05** | **-0.5** | Large contextual number/stat |
+| **displaySmall** | `displaySmall` | **32** | 700 | **1.08** | **-0.3** | Supporting hero copy |
+| **headlineLarge** | `headlineLarge` | **40** | 700 | **1.05** | **-0.5** | Screen-level titles (Today greeting, Plan month header) |
+| **headlineMedium** | `headlineMedium` | **32** | 700 | **1.08** | **-0.3** | Section headers, modal titles |
 | **headlineSmall** | `headlineSmall` | 22 | 600 | 1.15 | -0.1 | Card headings, sheet titles |
 | **titleLarge** | `titleLarge` | 18 | 600 | 1.20 | 0.0 | AppBar title, list section labels |
 | **titleMedium** | `titleMedium` | 16 | 600 | 1.25 | 0.0 | Task titles (priority=main), dialog headings |
@@ -21,7 +25,7 @@ One scale, shared across all five themes. Theme personality comes from the font 
 | **bodyLarge** | `bodyLarge` | 16 | 400 | 1.50 | 0.0 | Primary body copy, diary entry text |
 | **bodyMedium** | `bodyMedium` | 14 | 400 | 1.50 | 0.0 | Secondary body copy, date strings, descriptions |
 | **bodySmall** | `bodySmall` | 12 | 400 | 1.45 | 0.1 | Supporting text, metadata, subtitles |
-| **labelLarge** | `labelLarge` | 14 | 500 | 1.20 | 0.5 | Buttons (filled, outlined), primary CTAs |
+| **labelLarge** | `labelLarge` | 14 | **600** | 1.20 | **0.4** | Buttons (filled, outlined), primary CTAs |
 | **labelMedium** | `labelMedium` | 12 | 500 | 1.20 | 0.4 | Secondary buttons, pill chips |
 | **labelSmall** | `labelSmall` | 10 | 500 | 1.20 | 0.6 | Badges, micro-labels, timestamps |
 | **caption** | `labelSmall` (override) | 11 | 400 | 1.35 | 0.3 | Muted inline notes, form helper text |
@@ -29,11 +33,12 @@ One scale, shared across all five themes. Theme personality comes from the font 
 ### Scale design rationale
 
 The jumps are intentional and significant:
-- 10 → 11 → 12 → 14 → 16 → 18 → 22 → 28 → 34 → 48
-- From `titleMedium` (16) to `headlineSmall` (22) is a 37.5% jump — enough to clearly separate screen structure from content without going gigantic.
-- From `headlineMedium` (28) to `headlineLarge` (34) to `display` (48) creates a confident poster-weight top tier that makes the greeting and stats feel premium.
-- `display` uses height 1.05 (tight) because these are always short strings (1–3 words). All body roles use 1.45–1.50 (generous) for readability.
-- `labelLarge` uses letterSpacing 0.5 to give buttons an airy, confident feel at 14px rather than cramped.
+- 10 → 12 → 14 → 16 → 18 → 22 → **32 → 40 → 56**
+- From `headlineSmall` (22) to `headlineMedium` (32) is a 45% jump — an unmistakable editorial leap that separates screen structure at a glance.
+- From `headlineMedium` (32) to `headlineLarge` (40) to `displayLarge` (56) creates a three-step poster tier that makes greetings and stats feel premium and confident.
+- `displayLarge` uses height 1.00 (maximum tightness) — appropriate only for very short display strings (1–3 words). The display font sets much better tight at this size.
+- `labelLarge` bumped to w600 (was w500) and letterSpacing reduced to 0.4 (was 0.5) — the heavier weight reads more confidently on filled buttons without needing as much tracking.
+- All display/headline slots (displayLarge through headlineSmall) use the theme's expressive display font. Title/body/label keep the body font. This is the single biggest visual shift — greetings and screen titles now feel editorial rather than system-UI.
 
 ---
 
@@ -67,13 +72,15 @@ All fonts listed here are available via the `google_fonts` package as of mid-202
 
 The contrast theme uses `font_scale.contrast = 1.15` from design-tokens.json. This is applied as `MediaQuery.textScaler` at the app root (currently in `main.dart`), not inside TextTheme — that approach is correct and must be preserved.
 
-### What 1.15× produces from the base scale
+### What 1.15× produces from the bold restyle base scale
 
 | Role | Base fontSize | ×1.15 result | Rounded implementation |
 |---|---|---|---|
-| display | 48 | 55.2 | **55** |
-| headlineLarge | 34 | 39.1 | **39** |
-| headlineMedium | 28 | 32.2 | **32** |
+| displayLarge | **56** | 64.4 | **64** |
+| displayMedium | **40** | 46.0 | **46** |
+| displaySmall | **32** | 36.8 | **37** |
+| headlineLarge | **40** | 46.0 | **46** |
+| headlineMedium | **32** | 36.8 | **37** |
 | headlineSmall | 22 | 25.3 | **25** |
 | titleLarge | 18 | 20.7 | **21** |
 | titleMedium | 16 | 18.4 | **18** |
@@ -201,7 +208,7 @@ The following concrete changes flow from this spec and should be applied to `/ap
 
 ## Summary
 
-The key typography moves are: replacing the inherited Material 3 default sizes with a deliberately stepped scale that makes a confident 34→28→22 headline cascade, so screen structure reads at a glance without the user needing to hunt for hierarchy; and pairing that with a screen margin promotion from 16dp to 24dp throughout — the same air that makes Linear, Nothing OS, and Things 3 feel premium is just one spacing-token step, applied consistently.
+The bold restyle (2026-06-19) pushes the top tier dramatically: displayLarge 48→56, headlineLarge 34→40, headlineMedium 28→32. All display/headline slots now use the theme's expressive display font (Fraunces for Focus, Newsreader for Calm, Instrument Serif for White, Schibsted Grotesk for Black, Atkinson for Contrast) while title/body/label roles stay on the body font — this pairing contrast is the single biggest visual shift. Letter-spacing goes more negative at the top (-0.8 for displayLarge) so the serif sets tight and editorial. labelLarge bumped to w600 to match filled-button presence. Buttons grow to 52dp height with 28dp horizontal padding. The 24dp screen margin is applied per-screen; component-level breathing room is raised via input padding (16dp V) and list tile vertical padding (8dp V, 12dp minVertical). Card borders use 0.5dp hairline; focused inputs use borderStrong instead of accent for a more structural feel.
 
 ---
 

@@ -262,43 +262,47 @@ class AppTheme {
     final double contrastBodyLetterSpacing = isContrast ? 0.2 : bodyLetterSpacing;
 
     final TextTheme mergedTextTheme = baseTextTheme.copyWith(
-      // display
+      // --- display (BOLD RESTYLE: 48→56, tight -0.8 tracking) ---
       displayLarge: display(baseTextTheme.displayLarge)?.copyWith(
-        fontSize: 48,
+        fontSize: 56,
+        fontWeight: displayWeight,
+        height: 1.00,
+        letterSpacing: -0.8,
+        color: p.text,
+      ),
+      // displayMedium / displaySmall — промежуточные ступени дисплея
+      displayMedium: display(baseTextTheme.displayMedium)?.copyWith(
+        fontSize: 40,
         fontWeight: displayWeight,
         height: 1.05,
         letterSpacing: -0.5,
         color: p.text,
       ),
-      // headline slots — используем display шрифт для headlineLarge/Medium
-      displayMedium: display(baseTextTheme.displayMedium)?.copyWith(
-        fontSize: 34,
-        fontWeight: displayWeight,
-        height: 1.10,
-        letterSpacing: -0.3,
-        color: p.text,
-      ),
       displaySmall: display(baseTextTheme.displaySmall)?.copyWith(
-        fontSize: 28,
+        fontSize: 32,
         fontWeight: displayWeight,
-        height: 1.12,
-        letterSpacing: -0.2,
-        color: p.text,
-      ),
-      headlineLarge: display(baseTextTheme.headlineLarge)?.copyWith(
-        fontSize: 34,
-        fontWeight: displayWeight,
-        height: 1.10,
+        height: 1.08,
         letterSpacing: -0.3,
         color: p.text,
       ),
-      headlineMedium: display(baseTextTheme.headlineMedium)?.copyWith(
-        fontSize: 28,
+      // --- headline slots — display font, BOLD RESTYLE ---
+      // headlineLarge 34→40 (экранные заголовки — Today greeting, Plan month header)
+      headlineLarge: display(baseTextTheme.headlineLarge)?.copyWith(
+        fontSize: 40,
         fontWeight: displayWeight,
-        height: 1.12,
-        letterSpacing: -0.2,
+        height: 1.05,
+        letterSpacing: -0.5,
         color: p.text,
       ),
+      // headlineMedium 28→32 (секционные заголовки, заголовки модалок)
+      headlineMedium: display(baseTextTheme.headlineMedium)?.copyWith(
+        fontSize: 32,
+        fontWeight: displayWeight,
+        height: 1.08,
+        letterSpacing: -0.3,
+        color: p.text,
+      ),
+      // headlineSmall 22 → остаётся, но тоже display font
       headlineSmall: display(baseTextTheme.headlineSmall)?.copyWith(
         fontSize: 22,
         fontWeight: headlineSmallWeight,
@@ -306,7 +310,7 @@ class AppTheme {
         letterSpacing: -0.1,
         color: p.text,
       ),
-      // title roles — body font
+      // --- title roles — body font (без изменений в размерах) ---
       titleLarge: baseTextTheme.titleLarge?.copyWith(
         fontSize: 18,
         fontWeight: FontWeight.w600,
@@ -328,7 +332,7 @@ class AppTheme {
         letterSpacing: 0.1,
         color: p.text,
       ),
-      // body roles — body font
+      // --- body roles — body font (без изменений) ---
       bodyLarge: baseTextTheme.bodyLarge?.copyWith(
         fontSize: 16,
         fontWeight: FontWeight.w400,
@@ -350,12 +354,12 @@ class AppTheme {
         letterSpacing: isContrast ? 0.3 : 0.1,
         color: p.textMuted,
       ),
-      // label roles — body font
+      // --- label roles — body font; labelLarge w500→w600 для кнопок ---
       labelLarge: baseTextTheme.labelLarge?.copyWith(
         fontSize: 14,
-        fontWeight: FontWeight.w500,
+        fontWeight: FontWeight.w600,
         height: 1.20,
-        letterSpacing: 0.5,
+        letterSpacing: 0.4,
         color: p.text,
       ),
       labelMedium: baseTextTheme.labelMedium?.copyWith(
@@ -396,7 +400,7 @@ class AppTheme {
       colorScheme: colorScheme,
       textTheme: mergedTextTheme,
 
-      // --- AppBar ---
+      // --- AppBar (display font, чуть крупнее для editorial feel) ---
       appBarTheme: AppBarTheme(
         backgroundColor: p.bg,
         foregroundColor: p.text,
@@ -404,7 +408,7 @@ class AppTheme {
         scrolledUnderElevation: 0,
         centerTitle: true,
         titleTextStyle: display(
-          const TextStyle(fontSize: 20, fontWeight: FontWeight.w600),
+          const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
         )?.copyWith(color: p.text),
       ),
 
@@ -433,26 +437,26 @@ class AppTheme {
             mergedTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
       ),
 
-      // --- Filled Button (primary CTA) ---
+      // --- Filled Button (primary CTA): h 48→52, горизонтальный отступ 24→28 ---
       // RECONCILIATION: 12dp radius per orchestrator override (not pill/stadium)
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          minimumSize: const Size(64, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 24),
+          minimumSize: const Size(64, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 28),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          textStyle:
-              mergedTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+          // labelLarge уже w600 в mergedTextTheme — берём напрямую
+          textStyle: mergedTextTheme.labelLarge,
         ),
       ),
 
-      // --- Outlined Button ---
+      // --- Outlined Button: h 48→52, боковой бордер — border (не borderStrong) ---
       // RECONCILIATION: 12dp radius per orchestrator override (not pill/stadium)
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
-          minimumSize: const Size(64, 48),
-          padding: const EdgeInsets.symmetric(horizontal: 20),
+          minimumSize: const Size(64, 52),
+          padding: const EdgeInsets.symmetric(horizontal: 24),
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
@@ -463,7 +467,7 @@ class AppTheme {
         ),
       ),
 
-      // --- Text Button ---
+      // --- Text Button (лёгкие действия): w400 для контраста с filled ---
       // RECONCILIATION: 12dp radius per orchestrator override (not 8dp from spec, matching buttons)
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
@@ -473,7 +477,8 @@ class AppTheme {
             borderRadius: BorderRadius.circular(12),
           ),
           foregroundColor: p.textMuted,
-          textStyle: mergedTextTheme.labelLarge,
+          textStyle:
+              mergedTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.w400),
         ),
       ),
 
@@ -485,7 +490,7 @@ class AppTheme {
         space: 1,
       ),
 
-      // --- Card ---
+      // --- Card: hairline border 0.5dp для лучшей структуры на тёмных темах ---
       cardColor: p.surface,
       cardTheme: CardThemeData(
         color: p.surface,
@@ -495,7 +500,7 @@ class AppTheme {
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: p.border),
+          side: BorderSide(color: p.border, width: 0.5),
         ),
       ),
 
@@ -514,12 +519,12 @@ class AppTheme {
         showCheckmark: false,
       ),
 
-      // --- Input Decoration ---
+      // --- Input Decoration: padding 14→16v, border strong on focus (borderStrong) ---
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: p.surface,
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
           borderSide: BorderSide(color: p.border),
@@ -530,7 +535,7 @@ class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: p.accent, width: 1.5),
+          borderSide: BorderSide(color: p.borderStrong, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
@@ -609,11 +614,11 @@ class AppTheme {
         ),
       ),
 
-      // --- List Tile ---
+      // --- List Tile: больше воздуха — vertical 4→8, minVerticalPadding 8→12 ---
       listTileTheme: ListTileThemeData(
         contentPadding:
-            const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-        minVerticalPadding: 8,
+            const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        minVerticalPadding: 12,
         minLeadingWidth: 24,
         iconColor: p.textMuted,
         titleTextStyle: mergedTextTheme.bodyLarge?.copyWith(color: p.text),

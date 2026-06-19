@@ -16,6 +16,38 @@
   "spacing": { "xs": 4, "sm": 8, "md": 16, "lg": 24, "xl": 32, "xxl": 48 },
   "radius": { "sm": 8, "md": 16, "lg": 24, "pill": 999 },
   "font_scale": { "default": 1.0, "contrast": 1.15 },
+  "type_scale": {
+    "_note": "Bold restyle 2026-06-19. displayLarge 48→56, headlineLarge 34→40, headlineMedium 28→32. Source of truth: docs/design/02-type-space.md",
+    "displayLarge":   { "fontSize": 56, "fontWeight": 700, "height": 1.00, "letterSpacing": -0.8 },
+    "displayMedium":  { "fontSize": 40, "fontWeight": 700, "height": 1.05, "letterSpacing": -0.5 },
+    "displaySmall":   { "fontSize": 32, "fontWeight": 700, "height": 1.08, "letterSpacing": -0.3 },
+    "headlineLarge":  { "fontSize": 40, "fontWeight": 700, "height": 1.05, "letterSpacing": -0.5 },
+    "headlineMedium": { "fontSize": 32, "fontWeight": 700, "height": 1.08, "letterSpacing": -0.3 },
+    "headlineSmall":  { "fontSize": 22, "fontWeight": 600, "height": 1.15, "letterSpacing": -0.1 },
+    "titleLarge":     { "fontSize": 18, "fontWeight": 600, "height": 1.20, "letterSpacing": 0.0 },
+    "titleMedium":    { "fontSize": 16, "fontWeight": 600, "height": 1.25, "letterSpacing": 0.0 },
+    "titleSmall":     { "fontSize": 14, "fontWeight": 600, "height": 1.25, "letterSpacing": 0.1 },
+    "bodyLarge":      { "fontSize": 16, "fontWeight": 400, "height": 1.50, "letterSpacing": 0.0 },
+    "bodyMedium":     { "fontSize": 14, "fontWeight": 400, "height": 1.50, "letterSpacing": 0.0 },
+    "bodySmall":      { "fontSize": 12, "fontWeight": 400, "height": 1.45, "letterSpacing": 0.1 },
+    "labelLarge":     { "fontSize": 14, "fontWeight": 600, "height": 1.20, "letterSpacing": 0.4 },
+    "labelMedium":    { "fontSize": 12, "fontWeight": 500, "height": 1.20, "letterSpacing": 0.4 },
+    "labelSmall":     { "fontSize": 10, "fontWeight": 500, "height": 1.20, "letterSpacing": 0.6 }
+  },
+  "component_bold": {
+    "_note": "Bold restyle component overrides 2026-06-19",
+    "button_min_height": 52,
+    "button_radius": 12,
+    "button_padding_h_filled": 28,
+    "button_padding_h_outlined": 24,
+    "input_padding_v": 16,
+    "input_padding_h": 16,
+    "card_border_width": 0.5,
+    "list_tile_padding_v": 8,
+    "list_tile_min_vertical_padding": 12,
+    "appbar_title_size": 22,
+    "appbar_title_weight": 700
+  },
   "themes": {
     "focus": {
       "label": "Focus (warm dark, default)",
