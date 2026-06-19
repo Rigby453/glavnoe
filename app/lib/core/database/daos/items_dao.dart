@@ -202,6 +202,42 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
     return rowsAffected > 0;
   }
 
+  /// Ближайшие предстоящие пункты на СЕГОДНЯ от текущего момента.
+  /// scheduledAt >= now и в пределах сегодняшнего UTC-дня, статус pending,
+  /// сортировка по времени, лимит 4. Используется data-bridge виджета (§8 WIDGET.md).
+  Future<List<ItemsTableData>> upcomingTodayItems(DateTime now) {
+    final dayEnd = DateTime.utc(now.year, now.month, now.day + 1);
+    // Приводим «сейчас» к UTC, чтобы сравнение шло с теми же UTC-значениями
+    final nowUtc = now.toUtc();
+
+    return (select(itemsTable)
+          ..where(
+            (t) =>
+                t.scheduledAt.isBiggerOrEqualValue(nowUtc) &
+                t.scheduledAt.isSmallerThanValue(dayEnd) &
+                t.status.equals('pending'),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)])
+          ..limit(4))
+        .get();
+  }
+
+  /// Есть ли просроченные (незавершённые) пункты на СЕГОДНЯ до текущего момента
+  /// или из прошлых дней со статусом pending. Используется для вычисления
+  /// эмоции Kai в виджете (anxious при наличии просрочки).
+  Future<bool> hasOverdueItems(DateTime now) async {
+    final nowUtc = now.toUtc();
+    final rows = await (select(itemsTable)
+          ..where(
+            (t) =>
+                t.scheduledAt.isSmallerThanValue(nowUtc) &
+                t.status.equals('pending'),
+          )
+          ..limit(1))
+        .get();
+    return rows.isNotEmpty;
+  }
+
   /// Количество MAIN-задач на конкретный день (для проверки лимита 3).
   /// Получаем список и считаем длину — простой и надёжный подход.
   Future<int> countMainItems(DateTime date) async {

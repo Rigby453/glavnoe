@@ -15,6 +15,7 @@
 
 import 'dart:async';
 import 'dart:math' as math;
+import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
@@ -32,6 +33,75 @@ enum KaiEmotion {
   harsh,
   anxious,
   away,
+}
+
+// ---------------------------------------------------------------------------
+// Рендер в PNG (для нативного виджета — WIDGET.md §6)
+// ---------------------------------------------------------------------------
+
+/// Рендерит статичный кадр Kai в PNG-байты без виджет-дерева и без анимаций.
+///
+/// Используется скриптом генерации ассетов (test/generate_kai_assets_test.dart)
+/// для создания PNG-кадров, которые кладутся в Android `drawable-{density}/`
+/// и assets/kai_widget/ (iOS). Flutter/CustomPainter/Rive недоступны в нативном
+/// виджете, поэтому заранее рендерим статичные PNG (WIDGET.md §6).
+///
+/// Параметры:
+///   [emotion]     — одно из выражений [KaiEmotion].
+///   [isHarsh]     — жёсткий тон (глаза уже, брови, ember-цвет).
+///   [eyeColor]    — цвет глаз (= accent темы; для белых нейтральных глаз — Colors.white).
+///   [bodyColor]   — цвет тела squircle (полупрозрачный тёмный для тёмных тем).
+///   [borderColor] — цвет обводки (полупрозрачный, обычно совпадает с bodyColor).
+///   [size]        — логический размер (в dp/pt), обычно 96.
+///   [pixelRatio]  — плотность пикселей (1.0 = mdpi, 2.0 = xhdpi, 4.0 = xxxhdpi).
+///
+/// Возвращает PNG-байты с прозрачным фоном.
+/// Анимационные параметры зафиксированы в «покое»:
+///   дыхание = 0.5 (середина), моргание = 0 (глаза открыты),
+///   взгляд = 0 (по центру), jitter = 0, thinkPulse = 0.
+Future<List<int>> renderKaiPng({
+  required KaiEmotion emotion,
+  required bool isHarsh,
+  required Color eyeColor,
+  required Color bodyColor,
+  required Color borderColor,
+  required double size,
+  double pixelRatio = 1.0,
+}) async {
+  // Реальный размер в физических пикселях
+  final pxSize = size * pixelRatio;
+  final canvasSize = ui.Size(pxSize, pxSize);
+
+  // Вычисляем статичное состояние (без интерполяции, в «покое» для эмоции)
+  final kaiState = _stateFor(emotion, isHarsh);
+
+  final recorder = ui.PictureRecorder();
+  final canvas = Canvas(recorder, Offset.zero & canvasSize);
+
+  final painter = _KaiPainter(
+    state: kaiState,
+    eyeColor: eyeColor,
+    bodyColor: bodyColor,
+    borderColor: borderColor,
+    breathValue: 0.5,   // середина цикла дыхания — нейтральный масштаб
+    jitterOffset: 0.0,  // нет дёргания
+    blinkT: 0.0,        // глаза открыты
+    microShiftX: 0.0,   // взгляд по центру
+    thinkPulseValue: 0.0, // нет пульса
+  );
+
+  painter.paint(canvas, canvasSize);
+
+  final picture = recorder.endRecording();
+  final image = await picture.toImage(pxSize.round(), pxSize.round());
+  final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
+
+  if (byteData == null) {
+    throw StateError('renderKaiPng: toByteData вернул null для $emotion');
+  }
+
+  // Возвращаем Uint8List как List<int> (совместимо с dart:io File.writeAsBytes)
+  return byteData.buffer.asUint8List().toList();
 }
 
 // ---------------------------------------------------------------------------

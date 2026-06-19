@@ -18,7 +18,7 @@ import 'features/onboarding/setup_flow.dart';
 import 'services/api/api_client.dart';
 import 'services/notifications/notification_service.dart';
 import 'services/sync/sync_service.dart';
-import 'services/widget/widget_service.dart';
+import 'services/widget/widget_service.dart' show refreshHomeWidget, saveLastOpenedAt;
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -57,10 +57,16 @@ class _KaizenAppState extends ConsumerState<KaizenApp> {
     // сбрасываем auth-состояние, чтобы роутер увёл пользователя на /auth.
     ref.read(apiClientProvider).onUnauthorized =
         () => ref.read(authControllerProvider.notifier).refreshAuthState();
+
+    // Записываем timestamp первого открытия (для «дней без захода» в виджете).
+    saveLastOpenedAt();
+
     // Запускаем синхронизацию при возврате приложения на передний план.
     // Ошибки поглощаются внутри syncNow — UI не затрагивается.
     _lifecycleListener = AppLifecycleListener(
       onResume: () {
+        // Обновляем last_opened_at при каждом возврате приложения на передний план.
+        saveLastOpenedAt();
         ref.read(syncServiceProvider).syncNow();
         refreshHomeWidget(
           itemsDao: ref.read(itemsDaoProvider),
