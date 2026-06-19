@@ -488,11 +488,88 @@ const Map<String, Map<String, String>> profilePaywallStrings = {
     'ru': 'Главное — спланировано за тебя.',
     'de': 'Das Wichtige, für dich geplant.',
   },
+
+  // Речевой пузырь Kai — тёплый, ненавязчивый
+  'paywall.kai_bubble': {
+    'en': 'I can help you plan smarter.',
+    'ru': 'Я помогу планировать умнее.',
+    'de': 'Ich helfe dir, smarter zu planen.',
+  },
+
+  // Строки планов
+  'paywall.plan_monthly': {
+    'en': 'Monthly',
+    'ru': 'Ежемесячно',
+    'de': 'Monatlich',
+  },
+  'paywall.plan_yearly': {
+    'en': 'Yearly',
+    'ru': 'Ежегодно',
+    'de': 'Jährlich',
+  },
   'paywall.per_month': {
-    'en': ' / month',
+    'en': ' / mo',
     'ru': ' / мес',
     'de': ' / Monat',
   },
+  'paywall.per_year': {
+    'en': ' / yr',
+    'ru': ' / год',
+    'de': ' / Jahr',
+  },
+  // {pct} — процент экономии, подставляется в коде
+  'paywall.save_badge': {
+    'en': 'save {pct}%',
+    'ru': 'экономия {pct}%',
+    'de': '{pct}% sparen',
+  },
+  // {price} — месячный эквивалент годовой цены, подставляется в коде
+  'paywall.yearly_per_month': {
+    'en': '{price} / mo billed yearly',
+    'ru': '{price} / мес при оплате за год',
+    'de': '{price} / Monat bei Jahreszahlung',
+  },
+
+  // Что входит бесплатно (краткая строка под списком функций)
+  'paywall.free_includes': {
+    'en': 'Free keeps: tasks, streaks, rule-based daily plan, water & diary.',
+    'ru': 'Бесплатно: задачи, стрики, правила планирования, вода и дневник.',
+    'de': 'Kostenlos: Aufgaben, Serien, regelbasierter Tagesplan, Wasser & Tagebuch.',
+  },
+
+  // Основная CTA
+  'paywall.cta_start_free': {
+    'en': 'Start free',
+    'ru': 'Начать бесплатно',
+    'de': 'Kostenlos starten',
+  },
+
+  // Disclosure под CTA (обязательный Apple/EU текст).
+  // {n} = число дней пробного периода, {price} = цена+период, {date} = дата окончания пробного
+  'paywall.disclosure': {
+    'en': '{n} days free, then {price}. '
+        "You'll be charged on {date}. "
+        'Cancel anytime in Settings.',
+    'ru': '{n} дней бесплатно, затем {price}. '
+        'Оплата спишется {date}. '
+        'Отмени в любой момент в Настройках.',
+    'de': '{n} Tage kostenlos, dann {price}. '
+        'Du wirst am {date} belastet. '
+        'Jederzeit in den Einstellungen kündbar.',
+  },
+
+  // Ссылки нижнего ряда
+  'paywall.link_terms': {
+    'en': 'Terms',
+    'ru': 'Условия',
+    'de': 'Nutzungsbedingungen',
+  },
+  'paywall.link_privacy': {
+    'en': 'Privacy',
+    'ru': 'Конфиденциальность',
+    'de': 'Datenschutz',
+  },
+
   'paywall.sign_in_hint': {
     'en': 'Sign in to subscribe and sync premium across devices.',
     'ru': 'Войди, чтобы подписаться и синхронизировать Premium на всех устройствах.',
@@ -554,7 +631,69 @@ const Map<String, Map<String, String>> profilePaywallStrings = {
     'de': 'Upgraden',
   },
 
-  // ---- Paywall: преимущества ----
+  // ---- Paywall: список premium-функций (обновлён под compliance) ----
+
+  // 1. AI smart reschedule
+  'paywall.benefit_reschedule_title': {
+    'en': 'AI smart reschedule',
+    'ru': 'Умный перенос задач с ИИ',
+    'de': 'KI-Neuplanung',
+  },
+  'paywall.benefit_reschedule_subtitle': {
+    'en': 'AI rebuilds your day around what matters — morning & evening.',
+    'ru': 'ИИ перестраивает твой день вокруг главного — утром и вечером.',
+    'de': 'KI baut deinen Tag rund um das Wesentliche neu auf — morgens & abends.',
+  },
+
+  // 2. AI menu tuned to calories/macros
+  'paywall.benefit_menu_title': {
+    'en': 'AI menu for your goals',
+    'ru': 'ИИ-меню под твои цели',
+    'de': 'KI-Menü für deine Ziele',
+  },
+  'paywall.benefit_menu_subtitle': {
+    'en': 'Meal plans tuned to your calorie and macro targets.',
+    'ru': 'Меню, подобранное под твои калории и КБЖУ.',
+    'de': 'Mahlzeitenpläne abgestimmt auf Kalorien- und Makroziele.',
+  },
+
+  // 3. Photo recognition (food + schedule)
+  'paywall.benefit_photo_title': {
+    'en': 'Photo recognition',
+    'ru': 'Распознавание по фото',
+    'de': 'Foto-Erkennung',
+  },
+  'paywall.benefit_photo_subtitle': {
+    'en': 'Snap food or your timetable — AI logs it instantly.',
+    'ru': 'Сфотографируй еду или расписание — ИИ добавит всё сам.',
+    'de': 'Fotografiere Essen oder Stundenplan — KI erfasst es sofort.',
+  },
+
+  // 4. Voice input
+  'paywall.benefit_voice_title': {
+    'en': 'Voice input',
+    'ru': 'Голосовой ввод',
+    'de': 'Spracheingabe',
+  },
+  'paywall.benefit_voice_subtitle': {
+    'en': 'Add tasks and food by speaking — hands-free.',
+    'ru': 'Добавляй задачи и еду голосом — без рук.',
+    'de': 'Aufgaben und Essen per Sprache hinzufügen — freihändig.',
+  },
+
+  // 5. AI Wrapped weekly/monthly
+  'paywall.benefit_wrapped_title': {
+    'en': 'AI Wrapped',
+    'ru': 'AI Wrapped',
+    'de': 'AI Wrapped',
+  },
+  'paywall.benefit_wrapped_subtitle': {
+    'en': 'Weekly & monthly insight: why plans slip and how to fix it.',
+    'ru': 'Еженедельный и ежемесячный анализ: почему срываются планы и что делать.',
+    'de': 'Wöchentliche & monatliche Auswertung: Warum Pläne scheitern und wie man es behebt.',
+  },
+
+  // Устаревшие ключи (сохранены для обратной совместимости — тест и другие экраны могут ссылаться)
   'paywall.benefit_smarter_title': {
     'en': 'Smarter plans',
     'ru': 'Умнее планировать',
@@ -584,16 +723,6 @@ const Map<String, Map<String, String>> profilePaywallStrings = {
     'en': 'Understand why plans slip, beyond the free weekly summary.',
     'ru': 'Узнай, почему срываются планы — больше, чем бесплатная недельная сводка.',
     'de': 'Verstehe, warum Pläne scheitern — über die kostenlose Wochenzusammenfassung hinaus.',
-  },
-  'paywall.benefit_photo_title': {
-    'en': 'Photo schedule import',
-    'ru': 'Импорт расписания по фото',
-    'de': 'Stundenplan per Foto importieren',
-  },
-  'paywall.benefit_photo_subtitle': {
-    'en': 'Snap your timetable — AI turns it into tasks.',
-    'ru': 'Сфотографируй расписание — ИИ превратит его в задачи.',
-    'de': 'Fotografiere deinen Stundenplan — KI wandelt ihn in Aufgaben um.',
   },
   'paywall.benefit_noads_title': {
     'en': 'No ads',
