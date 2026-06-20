@@ -632,54 +632,59 @@ class _PlanCard extends StatelessWidget {
               ),
             ),
 
-            // Цена справа
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                RichText(
-                  text: TextSpan(
-                    children: [
-                      TextSpan(
-                        text: price,
-                        style: textTheme.titleMedium?.copyWith(
-                          color: isSelected
-                              ? colorScheme.primary
-                              : Theme.of(context).colorScheme.onSurface,
-                          fontWeight: FontWeight.w700,
+            // Цена справа — Flexible чтобы не переполнять Row на узких экранах
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  RichText(
+                    textAlign: TextAlign.end,
+                    text: TextSpan(
+                      children: [
+                        TextSpan(
+                          text: price,
+                          style: textTheme.titleMedium?.copyWith(
+                            color: isSelected
+                                ? colorScheme.primary
+                                : Theme.of(context).colorScheme.onSurface,
+                            fontWeight: FontWeight.w700,
+                          ),
                         ),
-                      ),
-                      TextSpan(
-                        text: priceSuffix,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: ext.textMuted,
+                        TextSpan(
+                          text: priceSuffix,
+                          style: textTheme.bodySmall?.copyWith(
+                            color: ext.textMuted,
+                          ),
                         ),
-                      ),
-                    ],
-                  ),
-                ),
-                // Бейдж «save N%» — только на выбранном/yearly
-                if (badge != null)
-                  Container(
-                    margin: const EdgeInsets.only(top: 3),
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 6, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? colorScheme.primary
-                          : ext.border,
-                      borderRadius: BorderRadius.circular(6),
+                      ],
                     ),
-                    child: Text(
-                      badge!,
-                      style: textTheme.labelSmall?.copyWith(
+                  ),
+                  // Бейдж «save N%» — только на выбранном/yearly
+                  if (badge != null)
+                    Container(
+                      margin: const EdgeInsets.only(top: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 6, vertical: 2),
+                      decoration: BoxDecoration(
                         color: isSelected
-                            ? colorScheme.onPrimary
-                            : ext.textMuted,
-                        fontWeight: FontWeight.w600,
+                            ? colorScheme.primary
+                            : ext.border,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        badge!,
+                        style: textTheme.labelSmall?.copyWith(
+                          color: isSelected
+                              ? colorScheme.onPrimary
+                              : ext.textMuted,
+                          fontWeight: FontWeight.w600,
+                        ),
+                        softWrap: false,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                  ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -689,6 +694,8 @@ class _PlanCard extends StatelessWidget {
 }
 
 /// Нижний ряд ссылок: Terms · Privacy · Restore.
+/// Wrap вместо Row — на узких экранах / крупном textScaler переносится
+/// без горизонтального переполнения.
 class _LinksRow extends StatelessWidget {
   const _LinksRow({required this.onRestore});
   final VoidCallback? onRestore;
@@ -700,37 +707,33 @@ class _LinksRow extends StatelessWidget {
           color: ext.textMuted,
         );
 
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
+    // Стиль кнопок с минимальными паддингами (touch target 48dp через tapTargetSize)
+    final btnStyle = TextButton.styleFrom(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      minimumSize: Size.zero,
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
+
+    return Wrap(
+      alignment: WrapAlignment.center,
+      crossAxisAlignment: WrapCrossAlignment.center,
       children: [
         TextButton(
           onPressed: () => context.push('/terms'),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
+          style: btnStyle,
           child: Text(context.s('paywall.link_terms'), style: style),
         ),
         Text(' · ', style: style),
         TextButton(
           // Privacy — в том же /terms экране (TermsScreen содержит оба раздела)
           onPressed: () => context.push('/terms'),
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
+          style: btnStyle,
           child: Text(context.s('paywall.link_privacy'), style: style),
         ),
         Text(' · ', style: style),
         TextButton(
           onPressed: onRestore,
-          style: TextButton.styleFrom(
-            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-            minimumSize: Size.zero,
-            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-          ),
+          style: btnStyle,
           child: Text(context.s('paywall.restore'), style: style),
         ),
       ],

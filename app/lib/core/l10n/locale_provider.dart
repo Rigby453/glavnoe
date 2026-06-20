@@ -56,19 +56,24 @@ class LocaleEntry {
   final String displayName;
 }
 
+/// Список локалей отсортирован по displayName (String.compareTo):
+/// латиница A→Z, затем кириллица/деванагари/CJK.
+/// Ожидаемый порядок: Bahasa Indonesia, Deutsch, English,
+/// Español (España), Español (Latinoamérica), Français, Italiano,
+/// Português (Brasil), Русский, हिन्दी, 日本語, 한국어.
 const List<LocaleEntry> localeEntries = [
-  LocaleEntry(Locale('en'), 'English'),
-  LocaleEntry(Locale('ru'), 'Русский'),
+  LocaleEntry(Locale('id'), 'Bahasa Indonesia'),
   LocaleEntry(Locale('de'), 'Deutsch'),
+  LocaleEntry(Locale('en'), 'English'),
+  LocaleEntry(Locale('es', 'ES'), 'Español (España)'),
+  LocaleEntry(Locale('es'), 'Español (Latinoamérica)'),
   LocaleEntry(Locale('fr'), 'Français'),
   LocaleEntry(Locale('it'), 'Italiano'),
   LocaleEntry(Locale('pt', 'BR'), 'Português (Brasil)'),
-  LocaleEntry(Locale('id'), 'Bahasa Indonesia'),
+  LocaleEntry(Locale('ru'), 'Русский'),
   LocaleEntry(Locale('hi'), 'हिन्दी'),
   LocaleEntry(Locale('ja'), '日本語'),
   LocaleEntry(Locale('ko'), '한국어'),
-  LocaleEntry(Locale('es'), 'Español (Latinoamérica)'),
-  LocaleEntry(Locale('es', 'ES'), 'Español (España)'),
 ];
 
 /// Канонический тег для Locale: 'pt-BR', 'es-ES', 'en', 'ru' и т.д.
