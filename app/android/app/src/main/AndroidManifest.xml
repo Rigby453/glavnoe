@@ -37,7 +37,7 @@
             android:name="flutterEmbedding"
             android:value="2" />
 
-        <!-- Домашний виджет Kaizen -->
+        <!-- Домашний виджет Kaizen — task-focused (phase 2) -->
         <receiver
             android:name=".KaizenWidgetProvider"
             android:exported="true"
@@ -48,6 +48,19 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/kaizen_widget_info" />
+        </receiver>
+
+        <!-- Второй виджет Kaizen — Kai-дашборд (ретеншн, §3/§10.4 WIDGET.md) -->
+        <receiver
+            android:name=".KaizenKaiWidgetProvider"
+            android:exported="false"
+            android:label="Kai">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/kai_widget_info" />
         </receiver>
     </application>
     <!-- Required to query activities that can process text, see:

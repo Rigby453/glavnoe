@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Kai-дашборд виджет — «ретеншн»-виджет.
+    Kai КРУПНЫЙ по центру, под ним стрик и X/Y главных.
+    Тап на весь виджет → open_today.
+    Один размер ~3×3, скругление 24dp как у основного виджета.
+-->
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/kai_widget_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="16dp"
+    android:background="@drawable/widget_bg">
+
+    <!-- Kai крупный по центру: 96dp → хорошо читается на 3×3 -->
+    <ImageView
+        android:id="@+id/kai_dashboard_image"
+        android:layout_width="96dp"
+        android:layout_height="96dp"
+        android:scaleType="fitCenter"
+        android:src="@drawable/kai_neutral"
+        android:contentDescription="Kai" />
+
+    <!-- Стрик: нейтральный цвет, не accent -->
+    <TextView
+        android:id="@+id/kai_dashboard_streak"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="10dp"
+        android:text="🔥 0d"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="#9E9070" />
+
+    <!-- X/Y главных, мелко -->
+    <TextView
+        android:id="@+id/kai_dashboard_main_progress"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="0/0"
+        android:textSize="13sp"
+        android:textColor="#F6EFE1" />
+
+</LinearLayout>

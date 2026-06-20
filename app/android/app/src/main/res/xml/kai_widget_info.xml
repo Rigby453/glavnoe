@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+    Конфиг Kai-дашборд виджета.
+    updatePeriodMillis=1800000 (30 мин — системный минимум), совпадает с основным.
+    minWidth/minHeight ≈ 3×3 (110×110dp минимум, targetCell=3×3).
+    previewLayout → kai_widget.
+    resizeMode = horizontal|vertical.
+-->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="110dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="3"
+    android:updatePeriodMillis="1800000"
+    android:initialLayout="@layout/kai_widget"
+    android:previewLayout="@layout/kai_widget"
+    android:resizeMode="horizontal|vertical"
+    android:widgetCategory="home_screen" />
