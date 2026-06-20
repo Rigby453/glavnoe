@@ -658,6 +658,82 @@ const Map<String, Map<String, String>> healthAStrings = {
     'ko': '나',
   },
 
+  // Ошибка поиска друга при добавлении. {email} — почта, не переводится.
+  'costudy.not_found_email': {
+    'en': 'Not found: {email}',
+    'ru': 'Не найден: {email}',
+    'de': 'Nicht gefunden: {email}',
+    'fr': 'Introuvable : {email}',
+    'it': 'Non trovato: {email}',
+    'pt': 'Não encontrado: {email}',
+    'es': 'No encontrado: {email}',
+    'id': 'Tidak ditemukan: {email}',
+    'hi': 'नहीं मिला: {email}',
+    'ja': '見つかりません: {email}',
+    'ko': '찾을 수 없음: {email}',
+  },
+
+  // Уведомление: 1 друг сейчас учится. {name} — имя друга.
+  'costudy.friends_studying_one': {
+    'en': '{name} is studying now!',
+    'ru': '{name} сейчас учится!',
+    'de': '{name} lernt gerade!',
+    'fr': '{name} étudie en ce moment !',
+    'it': '{name} sta studiando adesso!',
+    'pt': '{name} está estudando agora!',
+    'es': '¡{name} está estudiando ahora!',
+    'id': '{name} sedang belajar sekarang!',
+    'hi': '{name} अभी पढ़ रहा है!',
+    'ja': '{name}が今勉強中です！',
+    'ko': '{name}이(가) 지금 공부 중이에요!',
+  },
+
+  // Уведомление: несколько друзей сейчас учатся. {names} — список имён.
+  'costudy.friends_studying_many': {
+    'en': '{names} are studying now!',
+    'ru': '{names} сейчас учатся!',
+    'de': '{names} lernen gerade!',
+    'fr': '{names} étudient en ce moment !',
+    'it': '{names} stanno studiando adesso!',
+    'pt': '{names} estão estudando agora!',
+    'es': '¡{names} están estudiando ahora!',
+    'id': '{names} sedang belajar sekarang!',
+    'hi': '{names} अभी पढ़ रहे हैं!',
+    'ja': '{names}が今勉強中です！',
+    'ko': '{names}이(가) 지금 공부 중이에요!',
+  },
+
+  // Статус друга в сессии: «Studying · 15m» (метка активного состояния).
+  // {minutes} — число минут (необязательно; если 0 — только слово «Studying»).
+  'costudy.studying_label': {
+    'en': 'Studying',
+    'ru': 'Учится',
+    'de': 'Lernt',
+    'fr': 'En cours d\'étude',
+    'it': 'In studio',
+    'pt': 'Estudando',
+    'es': 'Estudiando',
+    'id': 'Sedang belajar',
+    'hi': 'पढ़ रहा है',
+    'ja': '学習中',
+    'ko': '공부 중',
+  },
+
+  // Подсказка для поля ввода кода сессии — нейтральный пример кода.
+  'costudy.session_code_eg': {
+    'en': 'e.g. a1b2c3d4',
+    'ru': 'напр. a1b2c3d4',
+    'de': 'z. B. a1b2c3d4',
+    'fr': 'ex. a1b2c3d4',
+    'it': 'es. a1b2c3d4',
+    'pt': 'ex: a1b2c3d4',
+    'es': 'ej. a1b2c3d4',
+    'id': 'mis. a1b2c3d4',
+    'hi': 'जैसे a1b2c3d4',
+    'ja': '例: a1b2c3d4',
+    'ko': '예: a1b2c3d4',
+  },
+
   // ---------------------------------------------------------------------------
   // Habits screen
   // ---------------------------------------------------------------------------

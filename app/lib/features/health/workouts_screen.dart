@@ -109,12 +109,12 @@ class WorkoutsScreen extends ConsumerWidget {
       ),
       body: workoutsAsync.when(
         // KaiLoader вместо CircularProgressIndicator
-        loading: () => const Center(
-          child: KaiLoader(label: 'Loading workouts…'),
+        loading: () => Center(
+          child: KaiLoader(label: context.s('loading.workouts')),
         ),
         error: (e, _) => Center(
           child: Text(
-            'Error loading workouts',
+            context.s('error.loading_workouts'),
             style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
           ),
         ),

@@ -35,10 +35,10 @@ class HabitsScreen extends ConsumerWidget {
       ),
       body: habitsAsync.when(
         // KaiLoader вместо базового CircularProgressIndicator
-        loading: () => const Center(child: KaiLoader(label: 'Loading habits…')),
+        loading: () => Center(child: KaiLoader(label: context.s('loading.habits'))),
         error: (e, _) => Center(
           child: Text(
-            'Error: $e',
+            context.s('error.generic').replaceFirst('{err}', '$e'),
             style: textTheme.bodyMedium?.copyWith(color: ext.ember),
           ),
         ),

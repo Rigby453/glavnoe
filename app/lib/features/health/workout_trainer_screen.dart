@@ -264,7 +264,7 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
     if (workout == null || exercises == null) {
       return Scaffold(
         appBar: AppBar(),
-        body: const Center(child: KaiLoader(label: 'Loading workout…')),
+        body: Center(child: KaiLoader(label: context.s('loading.workout'))),
       );
     }
 

@@ -68,7 +68,11 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
           final names = studying.map((f) => (f['email'] as String).split('@').first).join(', ');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('$names ${studying.length == 1 ? 'is' : 'are'} studying now!'),
+              content: Text(
+                studying.length == 1
+                    ? context.s('costudy.friends_studying_one').replaceFirst('{name}', names)
+                    : context.s('costudy.friends_studying_many').replaceFirst('{names}', names),
+              ),
               action: SnackBarAction(
                 label: context.s('costudy.start_too'),
                 onPressed: _startSession,
@@ -114,7 +118,11 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
     } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Not found: $email')),
+          SnackBar(
+            content: Text(
+              context.s('costudy.not_found_email').replaceFirst('{email}', email),
+            ),
+          ),
         );
       }
     }
@@ -142,7 +150,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
           controller: ctrl,
           decoration: InputDecoration(
             labelText: ctx.s('costudy.session_code_hint_label'),
-            hintText: 'e.g. a1b2c3d4',
+            hintText: ctx.s('costudy.session_code_eg'),
           ),
           autofocus: true,
           maxLength: 8,
@@ -346,7 +354,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
             const SizedBox(height: 8),
             if (_loadingFriends)
               // KaiLoader заменяет CircularProgressIndicator
-              const Center(child: KaiLoader(label: 'Loading buddies…'))
+              Center(child: KaiLoader(label: context.s('loading.buddies')))
             else if (_friends.isEmpty)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 12),
@@ -418,7 +426,7 @@ class _FriendTile extends StatelessWidget {
       subtitle: inSession
           ? Text(
               // "Studying · Xm" — accent color для активного состояния (единственный)
-              'Studying${minutes != null && minutes > 0 ? ' · ${minutes}m' : ''}',
+              '${context.s('costudy.studying_label')}${minutes != null && minutes > 0 ? ' · ${minutes}m' : ''}',
               style: Theme.of(context).textTheme.bodySmall?.copyWith(
                     color: Theme.of(context).colorScheme.primary,
                   ),

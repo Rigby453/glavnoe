@@ -73,7 +73,9 @@ class GoalsScreen extends ConsumerWidget {
       body: goalsAsync.when(
         // KaiLoader вместо CircularProgressIndicator (kai_loader.dart)
         loading: () => const Center(child: KaiLoader()),
-        error: (e, _) => Center(child: Text('Error: $e')),
+        error: (e, _) => Center(
+          child: Text(context.s('error.generic').replaceFirst('{err}', '$e')),
+        ),
         data: (goals) {
           if (goals.isEmpty) {
             return _EmptyState();

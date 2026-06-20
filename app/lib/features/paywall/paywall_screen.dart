@@ -95,7 +95,9 @@ const List<({IconData icon, String titleKey, String subtitleKey})> _benefits = [
 void showPremiumUpsell(BuildContext context, String feature) {
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
-      content: Text('Premium feature — upgrade for $feature'),
+      content: Text(
+        context.s('paywall.premium_feature_upsell').replaceFirst('{feature}', feature),
+      ),
       action: SnackBarAction(
         label: context.s('paywall.upgrade'),
         onPressed: () => context.push('/paywall'),
@@ -278,7 +280,7 @@ class _PaywallScreenState extends ConsumerState<PaywallScreen> {
           children: [
             // ---- Основной контент ----
             _working
-                ? const Center(child: KaiLoader(label: 'Processing…'))
+                ? Center(child: KaiLoader(label: context.s('loading.processing')))
                 : ListView(
                     padding: const EdgeInsets.fromLTRB(24, 56, 24, 32),
                     children: [

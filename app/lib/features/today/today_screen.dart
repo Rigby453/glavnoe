@@ -156,7 +156,11 @@ class TodayScreen extends ConsumerWidget {
             loading: () => Center(
               child: KaiLoader(label: context.s('loading.tasks')),
             ),
-            error: (err, _) => Center(child: Text('Failed to load tasks: $err')),
+            error: (err, _) => Center(
+              child: Text(
+                context.s('today.failed_to_load').replaceFirst('{err}', '$err'),
+              ),
+            ),
             data: (items) {
               return ListView(
                 // 24dp горизонтальный отступ экрана (02-type-space.md §4.1: lg=24)

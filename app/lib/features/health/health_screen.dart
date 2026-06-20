@@ -708,10 +708,10 @@ class _SleepCard extends ConsumerWidget {
             const SizedBox(height: 12),
             openAsync.when(
               // Async spinner → KaiLoader (заменяет базовый CircularProgressIndicator)
-              loading: () => const Center(
+              loading: () => Center(
                 child: Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: KaiLoader(label: 'Loading sleep data…'),
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  child: KaiLoader(label: context.s('loading.sleep')),
                 ),
               ),
               error: (_, e) => const SizedBox.shrink(),

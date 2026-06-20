@@ -1364,4 +1364,19 @@ const Map<String, Map<String, String>> todayStrings = {
     'ja': '今日を無駄にするな。やり切れ。',
     'ko': '오늘 그냥 흘려보내지 마. 끝내.',
   },
+
+  // Ошибка загрузки задач. {err} — текст исключения, не переводится.
+  'today.failed_to_load': {
+    'en': 'Failed to load tasks: {err}',
+    'ru': 'Не удалось загрузить задачи: {err}',
+    'de': 'Aufgaben konnten nicht geladen werden: {err}',
+    'fr': 'Impossible de charger les tâches : {err}',
+    'it': 'Impossibile caricare le attività: {err}',
+    'pt': 'Falha ao carregar tarefas: {err}',
+    'es': 'Error al cargar tareas: {err}',
+    'id': 'Gagal memuat tugas: {err}',
+    'hi': 'टास्क लोड करने में विफल: {err}',
+    'ja': 'タスクの読み込みに失敗しました: {err}',
+    'ko': '할 일 불러오기 실패: {err}',
+  },
 };

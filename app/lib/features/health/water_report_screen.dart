@@ -83,13 +83,15 @@ class WaterReportScreen extends ConsumerWidget {
                           ext,
                         ),
                         // KaiLoader вместо пустого SizedBox (п. 6)
-                        loading: () => const Center(
+                        loading: () => Center(
                           child: Padding(
-                            padding: EdgeInsets.all(24),
-                            child: KaiLoader(label: 'Loading…'),
+                            padding: const EdgeInsets.all(24),
+                            child: KaiLoader(label: context.s('loading.generic')),
                           ),
                         ),
-                        error: (err, st) => Text('Error: $err'),
+                        error: (err, st) => Text(
+                          context.s('error.generic').replaceFirst('{err}', '$err'),
+                        ),
                       ),
                       const SizedBox(height: 24),
 
@@ -126,13 +128,15 @@ class WaterReportScreen extends ConsumerWidget {
                 ),
               ),
               // KaiLoader заменяет CircularProgressIndicator (п. 6)
-              loading: () => const Center(
+              loading: () => Center(
                 child: Padding(
-                  padding: EdgeInsets.all(48),
-                  child: KaiLoader(label: 'Loading water data…'),
+                  padding: const EdgeInsets.all(48),
+                  child: KaiLoader(label: context.s('loading.water')),
                 ),
               ),
-              error: (err, st) => Center(child: Text('Error: $err')),
+              error: (err, st) => Center(
+                child: Text(context.s('error.generic').replaceFirst('{err}', '$err')),
+              ),
             ),
           ),
         ],

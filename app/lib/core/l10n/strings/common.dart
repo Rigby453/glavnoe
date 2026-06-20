@@ -771,4 +771,34 @@ const Map<String, Map<String, String>> commonStrings = {
     'ja': '元に戻す',
     'ko': '실행 취소',
   },
+
+  // Обобщённые ошибки загрузки данных (Error: {err} — {err} не переводится).
+  'error.generic': {
+    'en': 'Error: {err}',
+    'ru': 'Ошибка: {err}',
+    'de': 'Fehler: {err}',
+    'fr': 'Erreur : {err}',
+    'it': 'Errore: {err}',
+    'pt': 'Erro: {err}',
+    'es': 'Error: {err}',
+    'id': 'Error: {err}',
+    'hi': 'त्रुटि: {err}',
+    'ja': 'エラー: {err}',
+    'ko': '오류: {err}',
+  },
+
+  // Ошибка загрузки тренировок
+  'error.loading_workouts': {
+    'en': 'Could not load workouts',
+    'ru': 'Не удалось загрузить тренировки',
+    'de': 'Trainings konnten nicht geladen werden',
+    'fr': 'Impossible de charger les entraînements',
+    'it': 'Impossibile caricare gli allenamenti',
+    'pt': 'Não foi possível carregar os treinos',
+    'es': 'No se pudieron cargar los entrenamientos',
+    'id': 'Gagal memuat sesi olahraga',
+    'hi': 'वर्कआउट लोड नहीं हो सके',
+    'ja': 'トレーニングを読み込めませんでした',
+    'ko': '운동 목록을 불러올 수 없어요',
+  },
 };

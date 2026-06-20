@@ -192,13 +192,15 @@ class SleepReportScreen extends ConsumerWidget {
           ),
         ),
         // KaiLoader заменяет CircularProgressIndicator (п. 6)
-        loading: () => const Center(
+        loading: () => Center(
           child: Padding(
-            padding: EdgeInsets.all(48),
-            child: KaiLoader(label: 'Loading sleep data…'),
+            padding: const EdgeInsets.all(48),
+            child: KaiLoader(label: context.s('loading.sleep')),
           ),
         ),
-        error: (err, st) => Center(child: Text('Error: $err')),
+        error: (err, st) => Center(
+          child: Text(context.s('error.generic').replaceFirst('{err}', '$err')),
+        ),
       ),
     );
   }

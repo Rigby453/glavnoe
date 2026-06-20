@@ -159,12 +159,12 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
             child: dayLog.when(
               data: (log) => _buildDayContent(context, log, textTheme, ext),
               // KaiLoader вместо стандартного спиннера (spec §6)
-              loading: () => const Center(
-                child: KaiLoader(label: 'Loading…'),
+              loading: () => Center(
+                child: KaiLoader(label: context.s('loading.generic')),
               ),
               error: (err, st) => Center(
                 child: Text(
-                  'Error: $err',
+                  context.s('error.generic').replaceFirst('{err}', '$err'),
                   style: textTheme.bodyMedium?.copyWith(color: ext.ember),
                 ),
               ),

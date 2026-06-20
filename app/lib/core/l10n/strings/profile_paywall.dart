@@ -1886,4 +1886,20 @@ const Map<String, Map<String, String>> profilePaywallStrings = {
     'ja': '穏やか、集中、広告ゼロ。',
     'ko': '조용하고, 집중되고, 광고 없음.',
   },
+
+  // Апселл-снэкбар при обращении к premium-функции.
+  // {feature} — название функции, подставляется в коде.
+  'paywall.premium_feature_upsell': {
+    'en': 'Premium feature — upgrade for {feature}',
+    'ru': 'Premium-функция — открой за {feature}',
+    'de': 'Premium-Funktion — upgrade für {feature}',
+    'fr': 'Fonctionnalité Premium — abonnez-vous pour {feature}',
+    'it': 'Funzione Premium — abbonati per {feature}',
+    'pt': 'Função Premium — assine para {feature}',
+    'es': 'Función Premium — actualiza para {feature}',
+    'id': 'Fitur Premium — upgrade untuk {feature}',
+    'hi': 'Premium फीचर — {feature} के लिए अपग्रेड करो',
+    'ja': 'Premium機能 — {feature}のためにアップグレード',
+    'ko': 'Premium 기능 — {feature}을(를) 위해 업그레이드',
+  },
 };
