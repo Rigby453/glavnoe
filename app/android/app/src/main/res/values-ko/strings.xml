@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget strings — 한국어 -->
+    <string name="widget_up_next">다음 일정</string>
+    <string name="widget_today">오늘</string>
+    <string name="widget_nothing_today">오늘 일정 없음</string>
+    <string name="widget_nothing_scheduled">예정된 일정 없음</string>
+</resources>

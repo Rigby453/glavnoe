@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget strings — हिन्दी -->
+    <string name="widget_up_next">आगे</string>
+    <string name="widget_today">आज</string>
+    <string name="widget_nothing_today">आज कुछ नहीं</string>
+    <string name="widget_nothing_scheduled">कुछ भी निर्धारित नहीं</string>
+</resources>

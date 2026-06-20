@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget strings — Bahasa Indonesia (Android locale qualifier "in") -->
+    <string name="widget_up_next">Berikutnya</string>
+    <string name="widget_today">Hari ini</string>
+    <string name="widget_nothing_today">Tidak ada hari ini</string>
+    <string name="widget_nothing_scheduled">Tidak ada jadwal</string>
+</resources>

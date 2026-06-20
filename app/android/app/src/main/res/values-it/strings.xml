@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget strings — Italiano -->
+    <string name="widget_up_next">Prossimo</string>
+    <string name="widget_today">Oggi</string>
+    <string name="widget_nothing_today">Niente oggi</string>
+    <string name="widget_nothing_scheduled">Niente in programma</string>
+</resources>

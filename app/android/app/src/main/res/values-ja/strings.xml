@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Widget strings — 日本語 -->
+    <string name="widget_up_next">次の予定</string>
+    <string name="widget_today">今日</string>
+    <string name="widget_nothing_today">今日は予定なし</string>
+    <string name="widget_nothing_scheduled">予定なし</string>
+</resources>
