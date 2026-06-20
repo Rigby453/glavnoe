@@ -1068,6 +1068,7 @@ components:
         longest: { type: integer }
         last_completed_date: { type: string, format: date, nullable: true }
         freeze_count: { type: integer }
+        last_freeze_accrual_at: { type: string, format: date-time, nullable: true, description: "LWW cursor for freeze accrual sync (ADR-044); null if never accrued on server." }
 
     WaterLog:
       type: object
@@ -1153,6 +1154,13 @@ components:
           type: array
           description: Optional. Item ids deleted locally; the server deletes them (owner only).
           items: { type: string, format: uuid }
+        streak:
+          type: object
+          description: "Optional. Client-side freeze state for LWW merge (ADR-044). Server applies if last_freeze_accrual_at is newer than server cursor."
+          properties:
+            freeze_count: { type: integer, minimum: 0 }
+            last_freeze_accrual_at: { type: string, format: date-time, nullable: true }
+          required: [freeze_count, last_freeze_accrual_at]
         last_sync_at: { type: string, format: date-time }
 
     SyncResponse:
@@ -1177,6 +1185,11 @@ components:
           type: array
           description: Item ids deleted on other devices since last_sync_at (apply locally).
           items: { type: string, format: uuid }
+        streak:
+          nullable: true
+          description: "Current streak state after sync (freeze_count + last_freeze_accrual_at included). Null if user has no streak record yet."
+          allOf:
+            - $ref: '#/components/schemas/Streak'
 
     ShareResponse:
       type: object

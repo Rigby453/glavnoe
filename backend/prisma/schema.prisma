@@ -50,13 +50,15 @@ model Item {
 }
 
 model Streak {
-  id                String    @id @default(uuid())
-  userId            String    @unique
-  user              User      @relation(fields: [userId], references: [id])
-  current           Int       @default(0)
-  longest           Int       @default(0)
-  lastCompletedDate DateTime?
-  freezeCount       Int       @default(0)
+  id                   String    @id @default(uuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id])
+  current              Int       @default(0)
+  longest              Int       @default(0)
+  lastCompletedDate    DateTime?
+  freezeCount          Int       @default(0)
+  // Курсор последнего начисления заморозок (LWW-ключ для sync — ADR-044)
+  lastFreezeAccrualAt  DateTime?
 }
 
 model DayLog {

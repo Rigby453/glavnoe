@@ -5,6 +5,7 @@ import { serializeItem } from "../models/item.js";
 import { serializeWaterLog } from "../models/waterLog.js";
 import { serializeFoodLog } from "../models/foodLog.js";
 import { serializeDayLog } from "../models/dayLog.js";
+import { serializeStreak } from "../models/streak.js";
 import { requireAuth } from "./middleware/auth.js";
 import { checkAndUpdateStreak } from "../engine/streaks.js";
 
@@ -65,6 +66,12 @@ const syncDayLogSchema = z.object({
   updated_at: z.string().datetime({ offset: true }),
 });
 
+// Zod-схема для заморозок стрика в теле sync-запроса (ADR-044, LWW по last_freeze_accrual_at)
+const syncStreakSchema = z.object({
+  freeze_count: z.number().int().min(0),
+  last_freeze_accrual_at: z.string().datetime({ offset: true }).nullable(),
+});
+
 // Zod-схема для тела sync-запроса
 const syncRequestSchema = z.object({
   items: z.array(syncItemSchema),
@@ -73,6 +80,8 @@ const syncRequestSchema = z.object({
   day_logs: z.array(syncDayLogSchema).optional(),
   // id задач, удалённых на клиенте (offline-first tombstones) — сервер их удаляет
   deleted_item_ids: z.array(z.string().uuid()).optional(),
+  // Опциональный блок заморозок стрика для LWW-мерджа (ADR-044)
+  streak: syncStreakSchema.optional(),
   last_sync_at: z.string().datetime({ offset: true }),
 });
 
@@ -95,6 +104,7 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         food_logs: incomingFood,
         day_logs: incomingDayLogs,
         deleted_item_ids: deletedItemIds,
+        streak: incomingStreak,
         last_sync_at,
       } = parsed.data;
       const userId = request.user.userId;
@@ -246,6 +256,47 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
+      // LWW-мердж заморозок стрика (ADR-044).
+      // Применяем клиентский freeze_count, если курсор начисления новее серверного.
+      // Нюанс: клиентский freeze_count может перетереть серверную трату при более
+      // новом курсоре — допустимо, т.к. клиент зеркалит правила стрика офлайн.
+      if (incomingStreak !== undefined) {
+        const clientAccrualAt = incomingStreak.last_freeze_accrual_at
+          ? new Date(incomingStreak.last_freeze_accrual_at)
+          : null;
+
+        const serverStreak = await prisma.streak.findUnique({ where: { userId } });
+        const serverAccrualAt = serverStreak?.lastFreezeAccrualAt ?? null;
+
+        // Применяем клиентский курсор, если он новее или сервер ещё не имеет курсора
+        const shouldMerge =
+          clientAccrualAt !== null &&
+          (serverAccrualAt === null || clientAccrualAt > serverAccrualAt);
+
+        if (shouldMerge) {
+          if (serverStreak) {
+            await prisma.streak.update({
+              where: { userId },
+              data: {
+                freezeCount: incomingStreak.freeze_count,
+                lastFreezeAccrualAt: clientAccrualAt,
+              },
+            });
+          } else {
+            // Стрик ещё не создан — создаём с клиентскими данными
+            await prisma.streak.create({
+              data: {
+                userId,
+                current: 0,
+                longest: 0,
+                freezeCount: incomingStreak.freeze_count,
+                lastFreezeAccrualAt: clientAccrualAt,
+              },
+            });
+          }
+        }
+      }
+
       // WaterLog — append-only: создаём отсутствующие, существующие не трогаем.
       if (incomingWater && incomingWater.length > 0) {
         await prisma.$transaction(async (tx) => {
@@ -389,12 +440,16 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
         .map((t) => t.itemId)
         .filter((id) => !incomingDeleteSet.has(id));
 
+      // Возвращаем актуальный стрик (с freeze_count и last_freeze_accrual_at) — ADR-044
+      const finalStreak = await prisma.streak.findUnique({ where: { userId } });
+
       return reply.status(200).send({
         updated_items: serverUpdated.map(serializeItem),
         updated_water_logs: serverUpdatedWater.map(serializeWaterLog),
         updated_food_logs: serverUpdatedFood.map(serializeFoodLog),
         updated_day_logs: serverUpdatedDayLogs.map(serializeDayLog),
         deleted_item_ids: deletedToReturn,
+        streak: finalStreak !== null ? serializeStreak(finalStreak) : null,
       });
     }
   );

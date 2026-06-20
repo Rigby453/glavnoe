@@ -8,6 +8,7 @@ export interface SerializedStreak {
   longest: number;
   last_completed_date: string | null; // формат YYYY-MM-DD или null
   freeze_count: number;
+  last_freeze_accrual_at: string | null; // ISO datetime или null (ADR-044)
 }
 
 /**
@@ -21,6 +22,7 @@ function toDateString(date: Date): string {
 /**
  * Преобразует Prisma Streak (camelCase) в snake_case ответ API.
  * last_completed_date — только дата "YYYY-MM-DD", не datetime.
+ * last_freeze_accrual_at — ISO timestamp или null (LWW-курсор заморозок, ADR-044).
  */
 export function serializeStreak(streak: Streak): SerializedStreak {
   return {
@@ -33,5 +35,9 @@ export function serializeStreak(streak: Streak): SerializedStreak {
         ? toDateString(streak.lastCompletedDate)
         : null,
     freeze_count: streak.freezeCount,
+    last_freeze_accrual_at:
+      streak.lastFreezeAccrualAt != null
+        ? streak.lastFreezeAccrualAt.toISOString()
+        : null,
   };
 }

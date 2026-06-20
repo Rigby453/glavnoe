@@ -596,3 +596,155 @@ test('DELETE /items/:id creates a tombstone returned by sync', async () => {
   });
   expect(res.json<{ deleted_item_ids: string[] }>().deleted_item_ids).toContain(item.id);
 });
+
+// --- Freeze sync (ADR-044): LWW по last_freeze_accrual_at ---
+
+async function syncWithStreak(
+  token: string,
+  streakPayload: { freeze_count: number; last_freeze_accrual_at: string | null }
+) {
+  return app.inject({
+    method: 'POST',
+    url: '/api/v1/sync',
+    headers: { Authorization: `Bearer ${token}` },
+    payload: { items: [], streak: streakPayload, last_sync_at: EPOCH },
+  });
+}
+
+test('freeze sync: newer client cursor → server adopts freeze_count and last_freeze_accrual_at', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+
+  const clientAccrualAt = '2026-06-21T10:00:00.000Z';
+  const res = await syncWithStreak(user.token, {
+    freeze_count: 3,
+    last_freeze_accrual_at: clientAccrualAt,
+  });
+  expect(res.statusCode).toBe(200);
+
+  const streak = res.json<{ streak: { freeze_count: number; last_freeze_accrual_at: string | null } }>().streak;
+  expect(streak).toBeDefined();
+  expect(streak.freeze_count).toBe(3);
+  expect(streak.last_freeze_accrual_at).toBe(clientAccrualAt);
+});
+
+test('freeze sync: older client cursor → server freeze_count NOT overwritten', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+
+  // Устанавливаем серверный курсор через первый sync
+  await syncWithStreak(user.token, {
+    freeze_count: 5,
+    last_freeze_accrual_at: '2026-06-21T12:00:00.000Z',
+  });
+
+  // Второй sync с более старым курсором — должен быть отвергнут
+  const res = await syncWithStreak(user.token, {
+    freeze_count: 1,
+    last_freeze_accrual_at: '2026-06-20T00:00:00.000Z', // старше
+  });
+  expect(res.statusCode).toBe(200);
+
+  const streak = res.json<{ streak: { freeze_count: number; last_freeze_accrual_at: string | null } }>().streak;
+  // Серверное значение должно остаться
+  expect(streak.freeze_count).toBe(5);
+  expect(streak.last_freeze_accrual_at).toBe('2026-06-21T12:00:00.000Z');
+});
+
+test('freeze sync: equal client cursor → server value kept (not overwritten)', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+
+  const accrualAt = '2026-06-21T08:00:00.000Z';
+
+  // Первый sync
+  await syncWithStreak(user.token, { freeze_count: 4, last_freeze_accrual_at: accrualAt });
+
+  // Второй sync с тем же курсором, но другим счётчиком
+  const res = await syncWithStreak(user.token, { freeze_count: 99, last_freeze_accrual_at: accrualAt });
+  expect(res.statusCode).toBe(200);
+
+  const streak = res.json<{ streak: { freeze_count: number } }>().streak;
+  // Курсор равен — обновление не должно происходить
+  expect(streak.freeze_count).toBe(4);
+});
+
+test('freeze sync: server cursor null → client cursor always accepted', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+
+  // Нет предыдущего streak у пользователя → серверный курсор null
+  const res = await syncWithStreak(user.token, {
+    freeze_count: 7,
+    last_freeze_accrual_at: '2026-06-01T00:00:00.000Z',
+  });
+  expect(res.statusCode).toBe(200);
+
+  const streak = res.json<{ streak: { freeze_count: number; last_freeze_accrual_at: string | null } }>().streak;
+  expect(streak.freeze_count).toBe(7);
+  expect(streak.last_freeze_accrual_at).toBe('2026-06-01T00:00:00.000Z');
+});
+
+test('freeze sync: null client last_freeze_accrual_at → server keeps existing state', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+
+  // Устанавливаем начальное состояние
+  await syncWithStreak(user.token, {
+    freeze_count: 2,
+    last_freeze_accrual_at: '2026-06-15T00:00:00.000Z',
+  });
+
+  // Клиент шлёт null курсор — сервер НЕ должен трогать freeze_count
+  const res = await syncWithStreak(user.token, {
+    freeze_count: 99,
+    last_freeze_accrual_at: null,
+  });
+  expect(res.statusCode).toBe(200);
+
+  const streak = res.json<{ streak: { freeze_count: number } }>().streak;
+  expect(streak.freeze_count).toBe(2); // серверное значение сохранено
+});
+
+test('sync response contains last_freeze_accrual_at field (always)', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+
+  // Sync без streak-блока — ответ всё равно должен содержать last_freeze_accrual_at (null)
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/sync',
+    headers: { Authorization: `Bearer ${user.token}` },
+    payload: { items: [], last_sync_at: EPOCH },
+  });
+  expect(res.statusCode).toBe(200);
+
+  // streak может быть null если у пользователя нет записи
+  const body = res.json<{ streak: null | { last_freeze_accrual_at: string | null } }>();
+  // Если streak есть — поле last_freeze_accrual_at должно присутствовать
+  if (body.streak !== null) {
+    expect('last_freeze_accrual_at' in body.streak).toBe(true);
+  }
+});
+
+test('GET /streaks returns last_freeze_accrual_at field', async () => {
+  const user = await registerUser(app);
+  userIds.push(user.userId);
+
+  // Сначала устанавливаем заморозки через sync
+  await syncWithStreak(user.token, {
+    freeze_count: 2,
+    last_freeze_accrual_at: '2026-06-10T00:00:00.000Z',
+  });
+
+  const res = await app.inject({
+    method: 'GET',
+    url: '/api/v1/streaks',
+    headers: { Authorization: `Bearer ${user.token}` },
+  });
+  expect(res.statusCode).toBe(200);
+
+  const streak = res.json<{ freeze_count: number; last_freeze_accrual_at: string | null }>();
+  expect(streak.freeze_count).toBe(2);
+  expect(streak.last_freeze_accrual_at).toBe('2026-06-10T00:00:00.000Z');
+});

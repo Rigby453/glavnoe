@@ -33,14 +33,15 @@
 | updated_at       | timestamp|                                       |
 
 ## Streaks
-| Column              | Type     | Notes          |
-|---------------------|----------|----------------|
-| id                  | uuid PK  |                |
-| user_id             | uuid FK  | -> users.id    |
-| current             | integer  | default 0      |
-| longest             | integer  | default 0      |
-| last_completed_date | date     | nullable       |
-| freeze_count        | integer  | default 0      |
+| Column                  | Type      | Notes                                      |
+|-------------------------|-----------|---------------------------------------------|
+| id                      | uuid PK   |                                             |
+| user_id                 | uuid FK   | -> users.id                                 |
+| current                 | integer   | default 0                                   |
+| longest                 | integer   | default 0                                   |
+| last_completed_date     | date      | nullable                                    |
+| freeze_count            | integer   | default 0                                   |
+| last_freeze_accrual_at  | timestamp | nullable; LWW cursor for freeze sync (ADR-044) |
 
 ## DayLogs
 | Column     | Type     | Notes          |
