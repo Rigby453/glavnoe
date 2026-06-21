@@ -513,10 +513,17 @@ class ApiClient {
   /// передаётся в тело запроса как health_profile ТОЛЬКО когда непустой.
   /// [foodPrefs] — опциональные пищевые предпочтения (диета/цель/лайки/дизлайки);
   /// передаётся как food_prefs ТОЛЬКО когда непустой (isEmpty == false).
+  /// [fatGoalG]/[carbsGoalG]/[sugarMaxG]/[fiberMinG] — опциональные цели по
+  /// БЖУ/сахару/клетчатке (snake_case в теле; отправляются только если не null).
+  /// Бэкенд старается уложиться в них (ADR-046); back-compat — все nullable.
   Future<Map<String, dynamic>> aiMenuBuild({
     required List<Map<String, dynamic>> candidates,
     required int calorieGoal,
     required int proteinGoalG,
+    int? fatGoalG,
+    int? carbsGoalG,
+    int? sugarMaxG,
+    int? fiberMinG,
     List<String> meals = const ['breakfast', 'lunch', 'dinner'],
     required String tone,
     Map<String, String>? healthProfile,
@@ -527,6 +534,12 @@ class ApiClient {
         'candidates': candidates,
         'calorie_goal': calorieGoal,
         'protein_goal_g': proteinGoalG,
+        // Полные цели БЖУ передаём только если заданы (опционально, back-compat).
+        // null-aware элемент (?value) опускает пару, когда значение null.
+        'fat_goal_g': ?fatGoalG,
+        'carbs_goal_g': ?carbsGoalG,
+        'sugar_max_g': ?sugarMaxG,
+        'fiber_min_g': ?fiberMinG,
         'meals': meals,
         'tone': tone,
       };

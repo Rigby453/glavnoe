@@ -79,12 +79,31 @@ class _AiMenuSheet extends ConsumerStatefulWidget {
   ConsumerState<_AiMenuSheet> createState() => _AiMenuSheetState();
 }
 
+/// Строит массив названий приёмов пищи нужной длины для запроса /ai/menu-build.
+/// Бэкенд читает meals как источник истины по числу и названиям слотов, поэтому
+/// от mealsPerDay (foodPrefs, по умолчанию 3) зависит, сколько приёмов соберёт ИИ.
+List<String> mealsForCount(int mealsPerDay) {
+  // Базовые слоты в логичном порядке; перекусы добавляем при необходимости.
+  const base = ['breakfast', 'lunch', 'dinner'];
+  final n = mealsPerDay.clamp(1, 6);
+  if (n <= base.length) return base.sublist(0, n);
+  // 4-й и далее — перекусы (snack), уникальные ключи snack/snack2/...
+  final result = <String>[...base];
+  for (var i = base.length; i < n; i++) {
+    final idx = i - base.length; // 0,1,2...
+    result.add(idx == 0 ? 'snack' : 'snack${idx + 1}');
+  }
+  return result;
+}
+
 class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
   bool _loading = true;
   String? _error;
   List<ProposedMeal> _meals = const [];
   String _note = '';
   bool _applying = false;
+  // true, если бэкенд сообщил, что меню не уложилось в заданные БЖУ.
+  bool _offTarget = false;
 
   @override
   void initState() {
@@ -92,10 +111,17 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
     _build();
   }
 
+  /// Генерирует/пересобирает меню. Каждый вызов начинает с ЧИСТОГО состояния:
+  /// _meals/_note/_offTarget сбрасываются, итог ответа ЗАМЕНЯЕТ предыдущий
+  /// (не дополняет) — и для первой генерации, и для «Пересобрать».
   Future<void> _build() async {
     setState(() {
       _loading = true;
       _error = null;
+      // Сброс прошлого результата, чтобы пересборка заменяла, а не накапливала.
+      _meals = const [];
+      _note = '';
+      _offTarget = false;
     });
     try {
       final tone =
@@ -104,6 +130,10 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
       final hp = ref.read(healthProfileProvider);
       // Пищевые предпочтения: передаются только если непустые.
       final fp = ref.read(foodPreferencesProvider);
+      // Полные дневные нормы: ккал/белок + жиры/углеводы/клетчатка/сахар.
+      final targets = ref.read(nutritionTargetsProvider);
+      // Число приёмов пищи задаёт пользователь (foodPrefs, по умолчанию 3).
+      final mealsPerDay = ref.read(foodPreferencesProvider).mealsPerDay;
       final response = await ref.read(apiClientProvider).aiMenuBuild(
             candidates: widget.candidates
                 .map((c) => {
@@ -118,20 +148,27 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
                       },
                     })
                 .toList(),
-            calorieGoal: ref.read(nutritionTargetsProvider).kcal,
-            proteinGoalG: ref.read(nutritionTargetsProvider).proteinG,
+            calorieGoal: targets.kcal,
+            proteinGoalG: targets.proteinG,
+            fatGoalG: targets.fatG,
+            carbsGoalG: targets.carbsG,
+            sugarMaxG: targets.sugarMaxG,
+            fiberMinG: targets.fiberG,
+            meals: mealsForCount(mealsPerDay),
             tone: tone,
             healthProfile: hp.isEmpty ? null : hp.toApiMap(),
             foodPrefs: fp.isEmpty ? null : fp.toApiMap(),
           );
-      final meals = parseProposedMenu(response, widget.candidates);
+      final parsed = parseMenuResponse(response, widget.candidates);
       if (!mounted) return;
       setState(() {
-        _meals = meals;
-        _note = (response['note'] as String?) ?? '';
+        // ЗАМЕНА состояния свежим ответом (никакого append).
+        _meals = parsed.meals;
+        _note = parsed.note;
+        _offTarget = parsed.offTarget;
         _loading = false;
         // Ключ локализации; резолвится в build через context.s()
-        if (meals.isEmpty) _error = 'food.ai_empty_menu';
+        if (parsed.meals.isEmpty) _error = 'food.ai_empty_menu';
       });
     } on ApiException catch (e) {
       if (mounted) {
@@ -234,6 +271,11 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
                       Text(_note, style: textTheme.bodyMedium),
                       const SizedBox(height: 12),
                     ],
+                    // Не блокирующее предупреждение: меню не уложилось в БЖУ.
+                    if (_offTarget) ...[
+                      _OffTargetWarning(mutedColor: mutedColor),
+                      const SizedBox(height: 12),
+                    ],
                     ..._meals.map((m) => _MealBlock(meal: m)),
                     const SizedBox(height: 8),
                     // Итоги дня — titleSmall, калории accent
@@ -285,6 +327,43 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
   }
 }
 
+/// Небольшая не блокирующая карточка-предупреждение: меню не уложилось в БЖУ.
+/// Текст из l10n (food.menu_off_target), цвет — ember темы (предупреждение).
+class _OffTargetWarning extends StatelessWidget {
+  const _OffTargetWarning({required this.mutedColor});
+
+  final Color mutedColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final ember = ext?.ember ?? Theme.of(context).colorScheme.error;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: ember.withAlpha(20),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: ember.withAlpha(60)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(Icons.info_outline, size: 18, color: ember),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              context.s('food.menu_off_target'),
+              style: textTheme.bodyMedium?.copyWith(color: mutedColor),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 /// Маппинг ключа приёма пищи (backend) → ключ локализации для ОТОБРАЖЕНИЯ.
 /// Бэкенду всегда отправляем оригинальный английский ключ (breakfast/lunch/...).
 String _mealL10nKey(String meal) {
@@ -298,6 +377,8 @@ String _mealL10nKey(String meal) {
     case 'snack':
       return 'food.meal_snack';
     default:
+      // Дополнительные перекусы (snack2, snack3…) показываем как «перекус».
+      if (meal.startsWith('snack')) return 'food.meal_snack';
       // Неизвестный приём — показываем ключ через S (откат на en → на сам ключ)
       return meal;
   }

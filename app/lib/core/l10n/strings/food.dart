@@ -730,6 +730,20 @@ const Map<String, Map<String, String>> foodStrings = {
     'ja': 'すべて記録',
     'ko': '전부 기록',
   },
+  // Предупреждение, когда меню не уложилось в заданные БЖУ (off_target=true)
+  'food.menu_off_target': {
+    'en': 'Couldn\'t hit your macros exactly — you can rebuild.',
+    'ru': 'Не удалось точно попасть в БЖУ — можно пересобрать.',
+    'de': 'Deine Makros wurden nicht genau getroffen — du kannst neu erstellen.',
+    'fr': 'Impossible d\'atteindre exactement tes macros — tu peux reconstruire.',
+    'it': 'Non siamo riusciti a centrare i macro — puoi ricostruire.',
+    'pt': 'Não foi possível atingir os macros exatos — você pode reconstruir.',
+    'es': 'No se pudieron alcanzar tus macros con exactitud — puedes rehacerlo.',
+    'id': 'Makro tidak tepat sasaran — kamu bisa menyusun ulang.',
+    'hi': 'मैक्रोज़ बिल्कुल सही नहीं बैठे — आप फिर से बना सकते हैं।',
+    'ja': '栄養バランスを正確に合わせられませんでした — 再構成できます。',
+    'ko': '영양소를 정확히 맞추지 못했어요 — 다시 구성할 수 있어요.',
+  },
   'food.menu_logged': {
     'en': 'Menu logged — enjoy your day!',
     'ru': 'Меню записано — хорошего дня!',

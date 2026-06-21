@@ -4,6 +4,7 @@
 
 import '../../core/database/database.dart';
 import 'food_nutrition.dart';
+import 'whole_food_staples.dart';
 
 /// Кандидат для меню: имя + КБЖУ на 100 г. Источники: рецепты пользователя
 /// и недавние продукты из дневника еды.
@@ -36,8 +37,12 @@ Nutrition? per100gFromLog(FoodLogsTableData log) {
   );
 }
 
-/// Собирает список кандидатов: сначала рецепты, затем недавние продукты
-/// (дедупликация по имени, регистронезависимо; cap [kMenuCandidatesMax]).
+/// Собирает список кандидатов: сначала рецепты, затем недавние продукты,
+/// затем курируемая база цельных продуктов (kWholeFoodStaples).
+/// Дедупликация по имени (регистронезависимо): продукты пользователя (рецепты
+/// и логи) добавляются ПЕРВЫМИ, поэтому при совпадении имени они побеждают —
+/// «основы» только дополняют список реальной едой, чтобы ИИ мог собрать
+/// сбалансированное меню (cap [kMenuCandidatesMax]).
 List<MenuCandidate> buildMenuCandidates({
   required List<({String name, Nutrition per100g})> recipes,
   required List<FoodLogsTableData> recentLogs,
@@ -59,6 +64,12 @@ List<MenuCandidate> buildMenuCandidates({
   for (final log in recentLogs) {
     final per = per100gFromLog(log);
     if (per != null) add(log.name, per);
+  }
+  // Мерджим цельные продукты ПОСЛЕ продуктов пользователя: дедуп по имени
+  // оставляет пользовательские записи (они уже в seen), а «основы» лишь
+  // добавляют недостающую здоровую еду для баланса меню.
+  for (final staple in kWholeFoodStaples) {
+    add(staple.name, staple.per100g);
   }
   return result;
 }
@@ -124,5 +135,36 @@ List<ProposedMeal> parseProposedMenu(
 Nutrition proposedMenuTotal(List<ProposedMeal> meals) {
   return sumNutrition(
     meals.expand((m) => m.items).map((i) => i.nutrition),
+  );
+}
+
+/// Разобранный ответ /ai/menu-build: меню + флаг off_target.
+/// off_target == true означает, что меню не уложилось в заданные БЖУ после
+/// ограниченного цикла валидации на бэкенде — клиент должен предупредить
+/// пользователя (числа всё равно считает код, не модель).
+class ParsedMenuResponse {
+  const ParsedMenuResponse({
+    required this.meals,
+    required this.note,
+    required this.offTarget,
+  });
+
+  final List<ProposedMeal> meals;
+  final String note;
+  final bool offTarget;
+}
+
+/// Разбирает полный ответ /ai/menu-build: меню (через [parseProposedMenu]),
+/// заметку и флаг off_target. Поле totals из ответа НЕ используется для
+/// отображения — клиент пересчитывает итоги локально (proposedMenuTotal),
+/// чтобы числа всегда были кодом, а не от модели.
+ParsedMenuResponse parseMenuResponse(
+  Map<String, dynamic> response,
+  List<MenuCandidate> candidates,
+) {
+  return ParsedMenuResponse(
+    meals: parseProposedMenu(response, candidates),
+    note: (response['note'] as String?) ?? '',
+    offTarget: (response['off_target'] as bool?) ?? false,
   );
 }
