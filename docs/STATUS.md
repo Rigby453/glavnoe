@@ -38,6 +38,7 @@
 - **Перевод RU — остаток (2026-06-19):** основные пропуски устранены sweep-ом (51 ключ, см. блок выше). Обоснованно пропущено: `ToneCopy.*` строки в `tone_provider.dart` (нет BuildContext, строки tone-aware — риск рефактора), `screen_time_provider.dart` (данные провайдера без context), числовые plural-формы («$n min», «$missed workout(s)», счётчик упражнений) — без plural-библиотеки опасно для RU падежей, `'$type'` лейбл в shared-plan viewer, debug-строки `'Error: $err'`.
 
 ### 🙋 Нужна твоя помощь (без тебя не двинется)
+0. **Деплой веб — готов turnkey (2026-06-21), нужны твои клики.** Бэкенд → Render (`render.yaml`, CORS-allowlist ADR-045), веб → GitHub Pages (`.github/workflows/deploy-web.yml`: лендинг на `/glavnoe/`, веб-апп на `/glavnoe/app/`). Кнопка «Open Web App» уже ведёт на `app/`. Осталось: создать аккаунт Render + ввести секреты (DATABASE_URL/JWT_SECRET/GEMINI_API_KEY/`ALLOWED_ORIGINS=https://rigby453.github.io`), задать GitHub Variable `API_BASE_URL`, включить Pages (Source: GitHub Actions). Полная пошаговая инструкция: `docs/SETUP-DEPLOY.md`.
 1. **Телефон + `run-phone.ps1`** — проверить голос, сканер, уведомления, премиум.
 2. **Аккаунты** — Google Play / App Store (OAuth, RevenueCat, публикация), Firebase (пуши), рекламная сеть (free).
 3. **Правки ТЗ** — если хочешь что-то поменять: пиши списком, внесу в `SPEC.md` через ADR и пересоберу бэклог.
