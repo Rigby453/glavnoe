@@ -266,6 +266,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               trailing: DropdownButton<String>(
                 value: currentTag,
                 underline: const SizedBox.shrink(),
+                // Непрозрачный фон меню (иначе контент страницы просвечивает).
+                // DropdownButton не читает popupMenuTheme — задаём явно.
+                dropdownColor: ext.surfaceElevated,
                 items: localeEntries
                     .map((e) => DropdownMenuItem(
                           value: localeTag(e.locale),

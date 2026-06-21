@@ -703,6 +703,27 @@ class AppTheme {
         selectedTileColor: effective.accent.withValues(alpha: 0.08),
       ),
 
+      // --- Popup Menu (PopupMenuButton): непрозрачный фон, иначе контент просвечивает ---
+      // Берём elevated-поверхность (модалки/дропдауны), как у карточек/боттом-шитов.
+      popupMenuTheme: PopupMenuThemeData(
+        color: effective.surfaceElevated,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        textStyle: mergedTextTheme.bodyMedium?.copyWith(color: effective.text),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: effective.border),
+        ),
+      ),
+
+      // --- Dropdown Menu (DropdownMenu, Material 3): тот же непрозрачный фон ---
+      dropdownMenuTheme: DropdownMenuThemeData(
+        menuStyle: MenuStyle(
+          backgroundColor: WidgetStatePropertyAll(effective.surfaceElevated),
+          surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
+        ),
+      ),
+
       extensions: [
         FocusThemeExtension(
           textMuted: effective.textMuted,
