@@ -1177,6 +1177,20 @@ const Map<String, Map<String, String>> planDiaryStrings = {
     'ja': '💧 今週は{n}/7日しか水分目標を達成できませんでした。近くにボトルを置いてみて。',
     'ko': '💧 이번 주 {n}/7일만 물 목표를 달성했어요. 가까이에 물병을 두어보세요.',
   },
+  // {avg} — среднее за день выпитой воды (мл) за последние 7 дней
+  'diary.insight_water_avg': {
+    'en': '💧 You drank {avg} ml of water per day on average this week.',
+    'ru': '💧 В среднем ты выпивал {avg} мл воды в день за эту неделю.',
+    'de': '💧 Diese Woche hast du im Schnitt {avg} ml Wasser pro Tag getrunken.',
+    'fr': '💧 Tu as bu en moyenne {avg} ml d\'eau par jour cette semaine.',
+    'it': '💧 Questa settimana hai bevuto in media {avg} ml di acqua al giorno.',
+    'pt': '💧 Você bebeu em média {avg} ml de água por dia esta semana.',
+    'es': '💧 Esta semana bebiste {avg} ml de agua al día en promedio.',
+    'id': '💧 Kamu minum rata-rata {avg} ml air per hari minggu ini.',
+    'hi': '💧 इस सप्ताह तुमने औसतन {avg} मिली पानी प्रतिदिन पिया।',
+    'ja': '💧 今週は1日平均{avg} mlの水を飲みました。',
+    'ko': '💧 이번 주 하루 평균 {avg} ml의 물을 마셨어요.',
+  },
   'diary.insight_no_data': {
     'en': '📊 Track sleep and water consistently to see personal insights here.',
     'ru': '📊 Регулярно записывай сон и воду — здесь появятся личные наблюдения.',

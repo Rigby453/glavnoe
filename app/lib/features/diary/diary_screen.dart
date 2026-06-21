@@ -544,6 +544,17 @@ class _LifeInsightsCard extends ConsumerWidget {
     }
 
     // Анализ воды
+    if (waterTotals.isNotEmpty) {
+      // Среднее за день, а не суммарный объём (запрос пользователя).
+      final avgWater =
+          (waterTotals.fold<int>(0, (a, b) => a + b) / waterTotals.length)
+              .round();
+      insights.add(
+        context
+            .s('diary.insight_water_avg')
+            .replaceAll('{avg}', '$avgWater'),
+      );
+    }
     if (waterTotals.length == 7 && waterGoal > 0) {
       final metGoal = waterTotals.where((t) => t >= waterGoal).length;
       if (metGoal == 7) {
