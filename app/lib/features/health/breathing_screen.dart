@@ -523,9 +523,14 @@ class _BreathingScreenState extends State<BreathingScreen>
 // Виджет круга
 // ---------------------------------------------------------------------------
 
-/// Круг, масштабируемый от 0.6 до 1.0 по фазе дыхания.
-/// Размер базового квадрата 220×220, scale применяется через Transform.scale.
-/// [child] — контент внутри круга (подпись фазы + счётчик секунд).
+/// Гид дыхания: большое ФИКСИРОВАННОЕ внешнее кольцо (цель) + внутренний
+/// заполненный круг, который растёт к кольцу на вдохе и сжимается на выдохе.
+///
+/// [scale] — значение контроллера фазы в диапазоне 0.6 (выдох) … 1.0 (вдох).
+/// Оно НЕ масштабирует весь виджет, а задаёт диаметр внутреннего круга:
+/// 0.6 → ~0.30 базового размера, 1.0 → ~0.92 (почти заполняет кольцо).
+/// Внешнее кольцо всегда базового размера 220×220 — статичный ориентир.
+/// [child] — контент по центру (подпись фазы + счётчик), НЕ масштабируется.
 class _BreathCircle extends StatelessWidget {
   const _BreathCircle({
     required this.scale,
@@ -539,37 +544,48 @@ class _BreathCircle extends StatelessWidget {
 
   static const _baseSize = 220.0;
 
+  // Диапазон диаметра внутреннего круга как доли от _baseSize.
+  static const _minInnerFraction = 0.30; // выдох (scale = 0.6)
+  static const _maxInnerFraction = 0.92; // вдох  (scale = 1.0)
+
   @override
   Widget build(BuildContext context) {
-    return Transform.scale(
-      scale: scale,
-      child: Container(
-        width: _baseSize,
-        height: _baseSize,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color.withValues(alpha: 0.20),
-          border: Border.all(
-            color: color.withValues(alpha: 0.6),
-            width: 2,
-          ),
-        ),
-        child: Stack(
-          alignment: Alignment.center,
-          children: [
-            // Внутренний кружок
-            Container(
-              width: _baseSize * 0.5,
-              height: _baseSize * 0.5,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: color.withValues(alpha: 0.35),
+    // Маппинг 0.6..1.0 → 0.30..0.92, с защитой от выхода за границы.
+    final t = ((scale - 0.6) / 0.4).clamp(0.0, 1.0);
+    final innerFraction =
+        _minInnerFraction + t * (_maxInnerFraction - _minInnerFraction);
+    final innerSize = _baseSize * innerFraction;
+
+    return SizedBox(
+      width: _baseSize,
+      height: _baseSize,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Внешнее кольцо — фиксированный ориентир (контур, не масштабируется).
+          Container(
+            width: _baseSize,
+            height: _baseSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              border: Border.all(
+                color: color.withValues(alpha: 0.6),
+                width: 2,
               ),
             ),
-            // Текст поверх кружка
-            ?child,
-          ],
-        ),
+          ),
+          // Внутренний заполненный круг — растёт/сжимается по фазе.
+          Container(
+            width: innerSize,
+            height: innerSize,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.20),
+            ),
+          ),
+          // Текст по центру — полный размер, поверх круга, без масштабирования.
+          ?child,
+        ],
       ),
     );
   }
