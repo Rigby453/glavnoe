@@ -26,6 +26,7 @@ import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/settings/swipe_hint_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../plan/widgets/recurrence_providers.dart';
 import 'add_task_sheet.dart';
 
 class TaskList extends ConsumerStatefulWidget {
@@ -212,17 +213,33 @@ class _TaskListState extends ConsumerState<TaskList>
       // а перерисуется с новым статусом из реактивного стрима.
       confirmDismiss: (direction) async {
         final dao = ref.read(itemsDaoProvider);
+        // Виртуальный повтор серии: сначала материализуем день в реальную
+        // строку с применённым статусом (анкер получает EXDATE на эту дату).
+        // Возвращённый id используем для undo (revert → pending).
+        final isVirtual = isVirtualOccurrenceId(item.id);
         if (direction == DismissDirection.startToEnd) {
-          await dao.markDone(item.id);
-          // §3.1: тост «задача выполнена» с кнопкой Undo (отмена завершения)
-          if (context.mounted) {
+          String? targetId = item.id;
+          if (isVirtual) {
+            targetId = await dao.materializeOccurrence(
+              anchorIdFromVirtual(item.id),
+              dateFromVirtual(item.id) ?? item.scheduledAt,
+              status: 'done',
+            );
+          } else {
+            await dao.markDone(item.id);
+          }
+          // §3.1: тост «задача выполнена» с кнопкой Undo (отмена завершения).
+          // Для материализованного повтора undo возвращает concrete-строку в
+          // pending (день остаётся материализованным — действие не теряется).
+          if (context.mounted && targetId != null) {
+            final undoId = targetId;
             showAppToast(
               context,
               variant: AppToastVariant.done,
               message: '"${item.title}" ${context.s('today.marked_done')}',
               onUndo: () async {
                 await ref.read(itemsDaoProvider).updateItem(
-                      item.id,
+                      undoId,
                       const ItemsTableCompanion(
                         status: Value('pending'),
                       ),
@@ -231,7 +248,15 @@ class _TaskListState extends ConsumerState<TaskList>
             );
           }
         } else {
-          await dao.markSkipped(item.id);
+          if (isVirtual) {
+            await dao.materializeOccurrence(
+              anchorIdFromVirtual(item.id),
+              dateFromVirtual(item.id) ?? item.scheduledAt,
+              status: 'skipped',
+            );
+          } else {
+            await dao.markSkipped(item.id);
+          }
           // Для skip тост не показываем
         }
         return false;

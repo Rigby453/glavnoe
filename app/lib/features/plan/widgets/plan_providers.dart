@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/theme/theme_provider.dart'; // sharedPreferencesProvider
+import 'recurrence_providers.dart';
 
 /// Режим отображения плана.
 enum PlanView { day, week, month }
@@ -51,11 +52,12 @@ class PlanLayoutNotifier extends Notifier<PlanLayout> {
 final planLayoutProvider =
     NotifierProvider<PlanLayoutNotifier, PlanLayout>(PlanLayoutNotifier.new);
 
-/// Задачи в диапазоне [from, to) реактивно. Ключ — запись (from, to)
-/// (записи в Dart 3 имеют value-equality, поэтому годятся как family-ключ).
-final rangeItemsProvider = StreamProvider.autoDispose
-    .family<List<ItemsTableData>, (DateTime, DateTime)>((ref, range) {
-  return ref.watch(itemsDaoProvider).watchItemsInRange(range.$1, range.$2);
+/// Задачи в диапазоне [from, to) реактивно — раскрытые: конкретные строки +
+/// виртуальные повторы серий. Ключ — запись (from, to) (value-equality в Dart 3).
+/// Реэкспортирует expandedRangeItemsProvider — повторы видны в недельной сетке.
+final rangeItemsProvider = Provider.autoDispose
+    .family<AsyncValue<List<ItemsTableData>>, (DateTime, DateTime)>((ref, range) {
+  return ref.watch(expandedRangeItemsProvider(range));
 });
 
 /// Видимость строки поиска на экране Plan.

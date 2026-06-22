@@ -31,11 +31,19 @@ import 'widgets/morning_review_card.dart';
 import 'widgets/progress_ring.dart';
 import 'widgets/streak_row.dart';
 import 'widgets/task_list.dart';
+import '../plan/widgets/recurrence_providers.dart';
 
-/// Все задачи на сегодня (реактивно из Drift)
+/// Все задачи на сегодня — раскрытые: конкретные строки дня + виртуальные
+/// повторы серий (recurrence_providers). Якоря-шаблоны исключены из
+/// watchTodayItems и появляются только как повторы. Реэкспортирует
+/// expandedDayItemsProvider, сохраняя AsyncValue-API для экрана.
 final todayItemsProvider =
-    StreamProvider.autoDispose<List<ItemsTableData>>((ref) {
-  return ref.watch(itemsDaoProvider).watchTodayItems(DateTime.now());
+    Provider.autoDispose<AsyncValue<List<ItemsTableData>>>((ref) {
+  // Нормализуем до даты (без времени): иначе DateTime.now() меняется на каждом
+  // ребилде и создаёт новый family-ключ → провайдер бесконечно «загружается».
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+  return ref.watch(expandedDayItemsProvider(today));
 });
 
 /// Только main-задачи на сегодня — для кольца прогресса

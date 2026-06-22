@@ -6,6 +6,7 @@ import 'package:drift/drift.dart';
 
 import '../database.dart';
 import '../../utils/id.dart';
+import '../../../features/plan/recurrence.dart';
 
 part 'items_dao.g.dart';
 
@@ -27,7 +28,11 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
           ..where(
             (t) =>
                 t.scheduledAt.isBiggerOrEqualValue(dayStart) &
-                t.scheduledAt.isSmallerThanValue(dayEnd),
+                t.scheduledAt.isSmallerThanValue(dayEnd) &
+                // Якорные строки серий (recurrenceRule != null) — это шаблоны,
+                // их не показываем как обычные задачи; повторы порождает
+                // recurrence_providers через раскрытие (expansion).
+                t.recurrenceRule.isNull(),
           )
           ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]))
         .watch();
@@ -43,7 +48,8 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
             (t) =>
                 t.scheduledAt.isBiggerOrEqualValue(dayStart) &
                 t.scheduledAt.isSmallerThanValue(dayEnd) &
-                t.priority.equals('main'),
+                t.priority.equals('main') &
+                t.recurrenceRule.isNull(),
           )
           ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]))
         .watch();
@@ -59,7 +65,8 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
           ..where(
             (t) =>
                 t.status.equals('pending') &
-                t.scheduledAt.isSmallerThanValue(todayStart),
+                t.scheduledAt.isSmallerThanValue(todayStart) &
+                t.recurrenceRule.isNull(),
           )
           ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]))
         .watch();
@@ -76,7 +83,8 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
             (t) =>
                 t.scheduledAt.isBiggerOrEqualValue(dayStart) &
                 t.scheduledAt.isSmallerThanValue(dayEnd) &
-                t.priority.equals('main'),
+                t.priority.equals('main') &
+                t.recurrenceRule.isNull(),
           ))
         .get();
   }
@@ -88,7 +96,8 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
           ..where(
             (t) =>
                 t.scheduledAt.isBiggerOrEqualValue(from) &
-                t.scheduledAt.isSmallerThanValue(to),
+                t.scheduledAt.isSmallerThanValue(to) &
+                t.recurrenceRule.isNull(),
           )
           ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]))
         .watch();
@@ -100,9 +109,26 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
           ..where(
             (t) =>
                 t.scheduledAt.isBiggerOrEqualValue(from) &
-                t.scheduledAt.isSmallerThanValue(to),
+                t.scheduledAt.isSmallerThanValue(to) &
+                t.recurrenceRule.isNull(),
           ))
         .get();
+  }
+
+  /// Все якорные строки серий (recurrenceRule != null) — шаблоны повторов.
+  /// Раскрываются в виртуальные повторы слоем recurrence_providers.
+  Stream<List<ItemsTableData>> watchSeriesAnchors() {
+    return (select(itemsTable)
+          ..where((t) => t.recurrenceRule.isNotNull())
+          ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]))
+        .watch();
+  }
+
+  /// Якорь серии по id (или null). Используется для серийных действий
+  /// (stop repeating / delete series) над виртуальным повтором.
+  Future<ItemsTableData?> getItemById(String id) {
+    return (select(itemsTable)..where((t) => t.id.equals(id)))
+        .getSingleOrNull();
   }
 
   // ---------------------------------------------------------------------------
@@ -253,5 +279,106 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
           ))
         .get();
     return rows.length;
+  }
+
+  // ---------------------------------------------------------------------------
+  // Повторяющиеся задачи (серии) — материализация одного дня
+  // ---------------------------------------------------------------------------
+
+  /// Материализует один день серии [anchorId] на дату [date].
+  ///
+  /// Это превращает виртуальный повтор в РЕАЛЬНУЮ строку, чтобы зафиксировать
+  /// действие пользователя (done/skip/edit/drag) на конкретный день:
+  ///   1. читает якорь (шаблон серии) по [anchorId];
+  ///   2. вставляет новую concrete-строку (новый uuid, recurrenceRule=null,
+  ///      scheduledAt = date + время-суток якоря, поля скопированы из шаблона
+  ///      с применёнными [overrides]/[status]);
+  ///   3. добавляет [date] в EXDATE правила якоря — раскрытие больше не
+  ///      порождает виртуальный повтор на этот день (его представляет concrete).
+  ///
+  /// Возвращает id новой concrete-строки, либо null если якорь не найден или
+  /// не является серией. Идемпотентность по EXDATE обеспечивает addExDateToRule;
+  /// при повторном вызове создастся ещё одна concrete-строка — вызывающий код
+  /// должен материализовать день не более одного раза (виртуал исчезает после
+  /// первой материализации, т.к. дата попадает в EXDATE).
+  Future<String?> materializeOccurrence(
+    String anchorId,
+    DateTime date, {
+    String? status,
+    String? title,
+    String? type,
+    String? priority,
+    DateTime? scheduledAt,
+    int? durationMinutes,
+    bool? isProtected,
+  }) async {
+    final anchor = await getItemById(anchorId);
+    if (anchor == null) return null;
+    final rule = RecurrenceRule.parse(anchor.recurrenceRule);
+    if (rule == null) return null; // не серия — нечего материализовать
+
+    // Время-суток повтора берём из якоря; дату — из [date].
+    final anchorTime = anchor.scheduledAt;
+    final occurrenceAt = scheduledAt ??
+        DateTime(
+          date.year,
+          date.month,
+          date.day,
+          anchorTime.hour,
+          anchorTime.minute,
+        );
+
+    final newId = uuidV4();
+    final now = DateTime.now();
+    await into(itemsTable).insert(
+      ItemsTableCompanion(
+        id: Value(newId),
+        userId: Value(anchor.userId),
+        title: Value(title ?? anchor.title),
+        type: Value(type ?? anchor.type),
+        priority: Value(priority ?? anchor.priority),
+        status: Value(status ?? 'pending'),
+        scheduledAt: Value(occurrenceAt),
+        durationMinutes: Value(durationMinutes ?? anchor.durationMinutes),
+        isProtected: Value(isProtected ?? anchor.isProtected),
+        // concrete-строка — НЕ серия.
+        recurrenceRule: const Value(null),
+        moduleLink: Value(anchor.moduleLink),
+        createdAt: Value(now),
+        updatedAt: Value(now),
+      ),
+    );
+
+    // Исключаем этот день из генерации виртуальных повторов.
+    final updatedRule = addExDateToRule(anchor.recurrenceRule, date);
+    await updateItem(
+      anchorId,
+      ItemsTableCompanion(
+        recurrenceRule: Value(updatedRule),
+        updatedAt: Value(now),
+      ),
+    );
+
+    return newId;
+  }
+
+  /// Останавливает серию [anchorId]: ставит UNTIL = день ПЕРЕД [day]
+  /// (сегодня и будущее перестают порождать повторы; история/материализованное
+  /// прошлое остаются). Возвращает true, если якорь найден и обновлён.
+  Future<bool> stopSeries(String anchorId, DateTime day) async {
+    final anchor = await getItemById(anchorId);
+    if (anchor == null) return false;
+    final rule = RecurrenceRule.parse(anchor.recurrenceRule);
+    if (rule == null) return false;
+    final dayBefore =
+        DateTime(day.year, day.month, day.day).subtract(const Duration(days: 1));
+    final updatedRule = setUntilOnRule(anchor.recurrenceRule, dayBefore);
+    return updateItem(
+      anchorId,
+      ItemsTableCompanion(
+        recurrenceRule: Value(updatedRule),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
   }
 }

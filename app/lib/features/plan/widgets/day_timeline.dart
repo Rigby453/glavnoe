@@ -9,19 +9,20 @@ import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/database/database.dart';
-import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/kai_loader.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import 'plan_providers.dart';
+import 'recurrence_providers.dart';
 import 'week_strip.dart';
 
-/// StreamProvider с autoDispose + family: один провайдер на каждую дату.
-/// Переиспользует watchTodayItems из ItemsDao — тот же метод, что и Today экран.
-final dayItemsProvider = StreamProvider.autoDispose
-    .family<List<ItemsTableData>, DateTime>((ref, date) {
-  return ref.watch(itemsDaoProvider).watchTodayItems(date);
+/// Задачи выбранного дня — раскрытые: конкретные строки + виртуальные повторы
+/// серий. Реэкспортирует expandedDayItemsProvider (тот же источник, что и
+/// Today-экран), поэтому повторы появляются и в списке, и в сетке Plan.
+final dayItemsProvider = Provider.autoDispose
+    .family<AsyncValue<List<ItemsTableData>>, DateTime>((ref, date) {
+  return ref.watch(expandedDayItemsProvider(date));
 });
 
 class DayTimeline extends ConsumerWidget {

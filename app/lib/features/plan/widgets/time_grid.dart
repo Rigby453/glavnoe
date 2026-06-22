@@ -22,6 +22,7 @@ import '../../../core/widgets/kai_loader.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import 'day_timeline.dart' show dayItemsProvider;
 import 'plan_providers.dart';
+import 'recurrence_providers.dart';
 import 'week_strip.dart' show selectedDayProvider;
 
 // ===========================================================================
@@ -709,7 +710,20 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
       snappedMin % 60,
     );
     if (newStart == widget.item.scheduledAt) return;
-    await ref.read(itemsDaoProvider).updateItem(
+    final dao = ref.read(itemsDaoProvider);
+    // Виртуальный повтор серии: материализуем этот день с новым временем
+    // (анкер получает EXDATE на дату), иначе updateItem по синтетическому id
+    // был бы no-op и перенос потерялся бы.
+    if (isVirtualOccurrenceId(widget.item.id)) {
+      await dao.materializeOccurrence(
+        anchorIdFromVirtual(widget.item.id),
+        dateFromVirtual(widget.item.id) ?? widget.day,
+        status: widget.item.status,
+        scheduledAt: newStart,
+      );
+      return;
+    }
+    await dao.updateItem(
           widget.item.id,
           ItemsTableCompanion(
             scheduledAt: Value(newStart),
@@ -726,7 +740,18 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
     final rawMinutes = (px / widget.hourHeight * 60).round();
     final newDuration = snapDuration(rawMinutes);
     if (newDuration == widget.item.durationMinutes) return;
-    await ref.read(itemsDaoProvider).updateItem(
+    final dao = ref.read(itemsDaoProvider);
+    // Виртуальный повтор серии: материализуем этот день с новой длительностью.
+    if (isVirtualOccurrenceId(widget.item.id)) {
+      await dao.materializeOccurrence(
+        anchorIdFromVirtual(widget.item.id),
+        dateFromVirtual(widget.item.id) ?? widget.day,
+        status: widget.item.status,
+        durationMinutes: newDuration,
+      );
+      return;
+    }
+    await dao.updateItem(
           widget.item.id,
           ItemsTableCompanion(
             durationMinutes: Value(newDuration),

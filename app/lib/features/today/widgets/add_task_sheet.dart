@@ -32,6 +32,8 @@ import '../../../core/settings/recent_subjects.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/id.dart';
 import '../../../core/utils/nl_datetime.dart';
+import '../../plan/recurrence.dart';
+import '../../plan/widgets/recurrence_providers.dart';
 import '../undo_provider.dart';
 
 const List<String> _types = ['task', 'event', 'exam', 'deadline'];
@@ -115,7 +117,35 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   // Ссылка на модуль: null = нет, или одно из значений moduleLink (локальное поле)
   String? _moduleLink;
 
+  // --- Повтор (серия) ---
+  // Включён ли ежедневный повтор для НОВОЙ задачи (None по умолчанию).
+  bool _repeatDaily = false;
+  // Необязательная дата окончания повтора (UNTIL). null = бессрочно.
+  DateTime? _repeatUntil;
+
   bool get _isEditing => widget.existing != null;
+
+  /// Редактируем виртуальный повтор серии (синтетический id с '@')?
+  bool get _isVirtualOccurrence =>
+      _isEditing && isVirtualOccurrenceId(widget.existing!.id);
+
+  /// Редактируем якорь серии напрямую (recurrenceRule != null, не виртуал)?
+  bool get _isSeriesAnchor =>
+      _isEditing &&
+      !_isVirtualOccurrence &&
+      RecurrenceRule.parse(widget.existing!.recurrenceRule) != null;
+
+  /// Это серийный элемент (якорь или виртуальный повтор) — для серийных действий.
+  bool get _isSeriesItem => _isVirtualOccurrence || _isSeriesAnchor;
+
+  /// id якоря серии для серийных действий (stop/delete). Для виртуала —
+  /// извлекаем из синтетического id; для якоря — это сам id.
+  String? get _seriesAnchorId {
+    if (!_isEditing) return null;
+    if (_isVirtualOccurrence) return anchorIdFromVirtual(widget.existing!.id);
+    if (_isSeriesAnchor) return widget.existing!.id;
+    return null;
+  }
 
   // Кэшированное число main-задач на текущий день — загружается при initState.
   int _mainCount = 0;
@@ -147,6 +177,14 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     _scheduledAt = existing?.scheduledAt ?? _defaultScheduledAt();
     _durationMinutes = existing?.durationMinutes ?? 30;
     _moduleLink = existing?.moduleLink;
+    // Инициализируем состояние повтора из существующего правила (режим
+    // редактирования якоря серии). Для виртуального повтора и обычной задачи
+    // контрол повтора не показываем, поэтому состояние остаётся дефолтным.
+    final existingRule = RecurrenceRule.parse(existing?.recurrenceRule);
+    if (existingRule != null) {
+      _repeatDaily = true;
+      _repeatUntil = existingRule.until;
+    }
     // Инициализируем поле ручного ввода текущим значением, если оно не входит
     // в стандартный список пресетов — тогда пользователь сразу видит своё число.
     final isCustom = !_durations.contains(_durationMinutes);
@@ -535,7 +573,38 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
       await ref.read(recentSubjectsProvider).add(title);
     }
 
-    if (_isEditing) {
+    // Строка правила повтора для НОВОЙ задачи: None → null, Every day → FREQ=DAILY
+    // (+UNTIL если выбрана дата окончания).
+    String? newRuleString;
+    if (_repeatDaily) {
+      var rule = RecurrenceRule(freq: RecurFreq.daily);
+      if (_repeatUntil != null) rule = rule.copyWith(until: _repeatUntil);
+      newRuleString = rule.toRuleString();
+    }
+
+    if (_isVirtualOccurrence) {
+      // Редактирование одного дня серии: материализуем его в реальную строку
+      // с применёнными правками (анкер получает EXDATE на эту дату).
+      await dao.materializeOccurrence(
+        anchorIdFromVirtual(widget.existing!.id),
+        dateFromVirtual(widget.existing!.id) ?? widget.existing!.scheduledAt,
+        title: title,
+        type: _type,
+        priority: _priority,
+        scheduledAt: _scheduledAt,
+        durationMinutes: _durationMinutes,
+        isProtected: isProtected,
+      );
+    } else if (_isEditing) {
+      // Обычное редактирование / редактирование якоря серии. Для якоря
+      // сохраняем (возможно обновлённую через UNTIL) строку правила; для
+      // обычной задачи recurrenceRule остаётся прежним (null), но если
+      // пользователь включил повтор — превращаем её в серию.
+      final ruleValue = _isSeriesAnchor
+          ? Value(newRuleString) // якорь: новое правило (None уберёт серию)
+          : (_repeatDaily
+              ? Value(newRuleString) // обычную задачу делаем серией
+              : const Value<String?>.absent()); // не трогаем
       await dao.updateItem(
         widget.existing!.id,
         ItemsTableCompanion(
@@ -545,6 +614,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           scheduledAt: Value(_scheduledAt),
           durationMinutes: Value(_durationMinutes),
           isProtected: Value(isProtected),
+          recurrenceRule: ruleValue,
           moduleLink: Value(_moduleLink), // локальное поле — не попадает в синк
           updatedAt: Value(now),
         ),
@@ -562,6 +632,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           scheduledAt: Value(_scheduledAt),
           durationMinutes: Value(_durationMinutes),
           isProtected: Value(isProtected),
+          recurrenceRule: Value(newRuleString),
           moduleLink: Value(_moduleLink), // локальное поле — не попадает в синк
           createdAt: Value(now),
           updatedAt: Value(now),
@@ -571,6 +642,61 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
       ref.read(lastUndoableActionProvider.notifier).recordAdd(newId);
     }
 
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  /// Выбор даты окончания повтора (UNTIL). Чистит при отмене не выполняется —
+  /// сброс делается отдельной кнопкой «×» рядом с датой.
+  Future<void> _pickRepeatUntil() async {
+    final base = _repeatUntil ?? _scheduledAt;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: base,
+      firstDate: DateTime(2020),
+      lastDate: DateTime(2100),
+    );
+    if (picked != null) {
+      setState(() =>
+          _repeatUntil = DateTime(picked.year, picked.month, picked.day));
+    }
+  }
+
+  /// «Stop repeating»: ставит UNTIL = вчера на якорь серии (сегодня и будущее
+  /// перестают повторяться; история и материализованное прошлое остаются).
+  Future<void> _stopRepeating() async {
+    final anchorId = _seriesAnchorId;
+    if (anchorId == null) return;
+    await ref.read(itemsDaoProvider).stopSeries(anchorId, DateTime.now());
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  /// «Delete series»: удаляет якорь серии целиком (повторы исчезнут; уже
+  /// материализованные конкретные дни остаются).
+  Future<void> _deleteSeries() async {
+    final anchorId = _seriesAnchorId;
+    if (anchorId == null) return;
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(context.s('recur.delete_series')),
+        content: Text('"${widget.existing!.title}"'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: Text(context.s('btn.cancel')),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error,
+            ),
+            onPressed: () => Navigator.of(ctx).pop(true),
+            child: Text(context.s('btn.delete')),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
+    await ref.read(itemsDaoProvider).deleteItem(anchorId);
     if (mounted) Navigator.of(context).pop();
   }
 
@@ -900,6 +1026,83 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             ),
             const SizedBox(height: 16),
 
+            // Повтор (серия). Для виртуального повтора серии контрол правила не
+            // показываем — правки одного дня материализуются, а правило меняется
+            // через серийные действия ниже.
+            if (!_isVirtualOccurrence) ...[
+              Text(context.s('addtask.repeat'), style: textTheme.labelMedium),
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 8,
+                children: [
+                  ChoiceChip(
+                    label: Text(context.s('addtask.repeat_none')),
+                    selected: !_repeatDaily,
+                    onSelected: (_) => setState(() => _repeatDaily = false),
+                  ),
+                  ChoiceChip(
+                    label: Text(context.s('addtask.repeat_daily')),
+                    selected: _repeatDaily,
+                    onSelected: (_) => setState(() => _repeatDaily = true),
+                  ),
+                ],
+              ),
+              // Дата окончания повтора (UNTIL) — показывается при включённом повторе.
+              if (_repeatDaily) ...[
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        icon: const Icon(Icons.event_busy_outlined, size: 18),
+                        label: Text(
+                          _repeatUntil == null
+                              ? context.s('addtask.repeat_until')
+                              : '${context.s('addtask.repeat_until')}: '
+                                  '${DateFormat.yMMMd().format(_repeatUntil!)}',
+                        ),
+                        onPressed: _pickRepeatUntil,
+                      ),
+                    ),
+                    if (_repeatUntil != null)
+                      IconButton(
+                        icon: const Icon(Icons.close, size: 18),
+                        tooltip: context.s('btn.cancel'),
+                        onPressed: () => setState(() => _repeatUntil = null),
+                      ),
+                  ],
+                ),
+              ],
+              const SizedBox(height: 16),
+            ],
+
+            // Серийные действия: для якоря серии или виртуального повтора.
+            if (_isSeriesItem) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.event_repeat_outlined, size: 18),
+                      label: Text(context.s('recur.stop')),
+                      onPressed: _stopRepeating,
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: OutlinedButton.icon(
+                      icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                      label: Text(context.s('recur.delete_series')),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: Theme.of(context).colorScheme.error,
+                      ),
+                      onPressed: _deleteSeries,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
+            ],
+
             // Привязка к модулю — необязательный выбор (только для task/event)
             _ModuleLinkPicker(
               value: _moduleLink,
@@ -989,7 +1192,10 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                 child: Text(_isEditing ? context.s('today.save_changes') : context.s('today.add_task_btn')),
               ),
             ),
-            if (_isEditing) ...[
+            // Кнопка обычного удаления — НЕ для серийных элементов (у них свои
+            // действия Stop/Delete series выше; обычный delete с виртуальным id
+            // был бы no-op, а у якоря — это «Delete series»).
+            if (_isEditing && !_isSeriesItem) ...[
               const SizedBox(height: 8),
               SizedBox(
                 width: double.infinity,
