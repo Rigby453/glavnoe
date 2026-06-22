@@ -31,6 +31,8 @@ model User {
   friends          Friend[]         @relation("UserFriends")
   friendOf         Friend[]         @relation("FriendOf")
   coStudySessions  CoStudySession[]
+  ownedGroups      StudyGroup[]     @relation("GroupOwner")
+  groupMemberships StudyGroupMember[]
 }
 
 model Item {
@@ -154,4 +156,33 @@ model CoStudySession {
   user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("co_study_sessions")
+}
+
+// Настоящая учебная группа (Ф3). В отличие от одиночной CoStudySession,
+// объединяет нескольких пользователей. Вступление по короткому коду с
+// модерацией владельцем (status pending → accepted).
+model StudyGroup {
+  id        String             @id @default(uuid())
+  ownerId   String
+  name      String
+  code      String             @unique
+  createdAt DateTime           @default(now())
+  owner     User               @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   StudyGroupMember[]
+
+  @@map("study_groups")
+}
+
+model StudyGroupMember {
+  id       String     @id @default(uuid())
+  groupId  String
+  userId   String
+  role     String     @default("member") // owner | member
+  status   String     @default("pending") // pending | accepted
+  joinedAt DateTime   @default(now())
+  group    StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, userId])
+  @@map("study_group_members")
 }

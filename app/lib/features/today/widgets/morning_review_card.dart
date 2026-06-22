@@ -92,6 +92,8 @@ class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
     final ext = Theme.of(context).extension<FocusThemeExtension>();
     final count = overdue.length;
     final tone = ref.watch(toneProvider);
+    // Визуалы тона: harsh даёт строгую подачу (ember-акцент, плотный заголовок).
+    final v = ToneVisuals.of(context, tone);
 
     // Показываем ли Kai (04-kai.md T13): leading slot в заголовке карточки.
     // Gated by showKaiProvider + reduce-motion. Не добавляет тапов (IgnorePointer).
@@ -118,10 +120,22 @@ class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
                     ),
                   )
                 else
-                  // ember только для иконки утреннего разбора — сигнал «есть незакрытое»
-                  Icon(Icons.wb_twilight, color: ext?.ember ?? colorScheme.secondary),
+                  // Иконка тона: gentle — рассвет, harsh — молния (ember).
+                  Icon(
+                    v.isHarsh ? Icons.bolt : Icons.wb_twilight,
+                    color: v.isHarsh
+                        ? v.accent
+                        : (ext?.ember ?? colorScheme.secondary),
+                  ),
                 const SizedBox(width: 8),
-                Text(context.s('today.morning_review'), style: textTheme.titleMedium),
+                Text(
+                  context.s('today.morning_review'),
+                  // harsh — плотный/строгий заголовок и ember-тон.
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: v.headingWeight,
+                    color: v.isHarsh ? v.accent : null,
+                  ),
+                ),
                 const Spacer(),
                 // AI-nudge кнопка: во время загрузки — пульс вместо спиннера (§7.1)
                 IconButton(

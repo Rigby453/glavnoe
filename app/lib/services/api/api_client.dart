@@ -705,6 +705,85 @@ class ApiClient {
       _throw(e);
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Study groups (Ф3) — настоящие группы поверх одиночных сессий.
+  // ---------------------------------------------------------------------------
+
+  /// Список моих групп (где я accepted). Поля: id, name, code, is_owner,
+  /// member_count, pending_count.
+  Future<List<Map<String, dynamic>>> getStudyGroups() async {
+    try {
+      final r = await _dio.get<List<dynamic>>('/api/v1/study-groups');
+      return List<Map<String, dynamic>>.from(r.data ?? []);
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// Детали группы: id, name, code, is_owner, members [{ user_id, email, role, status }].
+  Future<Map<String, dynamic>> getStudyGroup(String groupId) async {
+    try {
+      final r = await _dio.get<Map<String, dynamic>>('/api/v1/study-groups/$groupId');
+      return r.data!;
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// Создать группу. Возвращает { id, name, code, created_at }.
+  Future<Map<String, dynamic>> createStudyGroup(String name) async {
+    try {
+      final r = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/study-groups',
+        data: {'name': name},
+      );
+      return r.data!;
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// Подать заявку на вступление по коду. Возвращает { group_id, name, status }.
+  Future<Map<String, dynamic>> joinStudyGroup(String code) async {
+    try {
+      final r = await _dio.post<Map<String, dynamic>>('/api/v1/study-groups/join/$code');
+      return r.data!;
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// Владелец принимает заявку участника.
+  Future<void> acceptGroupMember(String groupId, String userId) async {
+    try {
+      await _dio.post<void>('/api/v1/study-groups/$groupId/members/$userId/accept');
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// Владелец отклоняет заявку участника.
+  Future<void> declineGroupMember(String groupId, String userId) async {
+    try {
+      await _dio.post<void>('/api/v1/study-groups/$groupId/members/$userId/decline');
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// Выйти из группы. Если выходит владелец — группа удаляется целиком.
+  /// Возвращает { deleted_group: bool }.
+  Future<Map<String, dynamic>> leaveStudyGroup(String groupId) async {
+    try {
+      final r = await _dio.delete<Map<String, dynamic>>(
+        '/api/v1/study-groups/$groupId/leave',
+      );
+      return r.data ?? <String, dynamic>{};
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
 }
 
 // ---------------------------------------------------------------------------

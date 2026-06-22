@@ -60,6 +60,8 @@ class EveningReviewCard extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
     final tone = ref.watch(toneProvider);
+    // Визуалы тона: harsh даёт строгую подачу заголовка.
+    final v = ToneVisuals.of(context, tone);
     final pending = ref.watch(_todayPendingProvider).valueOrNull ??
         const <ItemsTableData>[];
 
@@ -88,10 +90,21 @@ class EveningReviewCard extends ConsumerWidget {
                     ),
                   )
                 else
-                  // textMuted для вечерней иконки — менее срочный сигнал чем утренний
-                  Icon(Icons.bedtime_outlined, color: ext?.textMuted ?? colorScheme.secondary),
+                  // gentle — луна (textMuted, мягко), harsh — молния (ember).
+                  Icon(
+                    v.isHarsh ? Icons.bolt : Icons.bedtime_outlined,
+                    color: v.isHarsh
+                        ? v.accent
+                        : (ext?.textMuted ?? colorScheme.secondary),
+                  ),
                 const SizedBox(width: 8),
-                Text(context.s('today.plan_tomorrow'), style: textTheme.titleMedium),
+                Text(
+                  context.s('today.plan_tomorrow'),
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: v.headingWeight,
+                    color: v.isHarsh ? v.accent : null,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 8),

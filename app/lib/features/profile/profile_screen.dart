@@ -1407,10 +1407,12 @@ class _MoodKaiSectionState extends ConsumerState<_MoodKaiSection> {
           ),
 
           const SizedBox(height: 16),
-
-          // Мини-превью: маленький Kai + свотчи акцента
-          _MoodPreview(mood: mood),
         ],
+
+        // Живое превью тона: всегда видно (и в свёрнутом виде), чтобы связь
+        // «тон → оформление» читалась сразу при переключении сегмента.
+        const SizedBox(height: 12),
+        _TonePreview(tone: tone, mood: mood),
       ],
     );
   }
@@ -1477,71 +1479,100 @@ class _PresetChip extends StatelessWidget {
   }
 }
 
-/// Мини-превью настроя: маленький Kai + два свотча акцента.
-class _MoodPreview extends StatelessWidget {
-  const _MoodPreview({required this.mood});
+/// Живое превью тона: образец фразы Kai в выбранном тоне.
+///
+/// Цель — мгновенно показать связь «тон → оформление». gentle и harsh
+/// отличаются НЕ только текстом:
+///   • акцент (gentle = accent/primary, harsh = ember) — рамка, иконка, бейдж;
+///   • скругление карточки (gentle мягче, harsh резче);
+///   • иконка/эмодзи (🌿 росток / 🔥 молния);
+///   • плотность заголовка («вайб»-бейдж) и сам копирайт (мягкий/резкий);
+///   • Kai-маскот в соответствующем выражении (isHarsh).
+/// Свап между тонами анимирован (AnimatedContainer + switcher), чтобы
+/// переключение читалось как «живая» смена режима.
+class _TonePreview extends StatelessWidget {
+  const _TonePreview({required this.tone, required this.mood});
 
+  final AppTone tone;
   final EffectiveMood mood;
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final v = ToneVisuals.of(context, tone);
 
-    // Kai-эмоция для превью
-    final previewEmotion = switch (mood.level) {
-      MoodLevel.angry => KaiEmotion.harsh,
-      MoodLevel.stern => KaiEmotion.anxious,
-      MoodLevel.neutral => KaiEmotion.neutral,
-      MoodLevel.calm => KaiEmotion.neutral,
-    };
+    // Выражение Kai: harsh-тон делает его строгим, иначе ведём от настроения дня.
+    final previewEmotion = v.isHarsh
+        ? KaiEmotion.harsh
+        : switch (mood.level) {
+            MoodLevel.angry => KaiEmotion.harsh,
+            MoodLevel.stern => KaiEmotion.anxious,
+            MoodLevel.neutral => KaiEmotion.neutral,
+            MoodLevel.calm => KaiEmotion.success,
+          };
 
-    return Container(
-      padding: const EdgeInsets.all(12),
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ext.border, width: 0.5),
+        // Лёгкая заливка акцентом тона — harsh ember, gentle accent.
+        color: v.accent.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(v.cornerRadius),
+        border: Border.all(
+          color: v.accent.withValues(alpha: v.isHarsh ? 0.85 : 0.45),
+          width: v.isHarsh ? 1.5 : 1,
+        ),
       ),
       child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Маленький Kai
           KaiMascot(
             size: 48,
             emotion: previewEmotion,
-            isHarsh: mood.level == MoodLevel.angry,
+            isHarsh: v.isHarsh,
           ),
           const SizedBox(width: 12),
-          // Два свотча акцента
           Expanded(
-            child: Row(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                _ColorSwatch(color: colorScheme.primary),
-                const SizedBox(width: 8),
-                _ColorSwatch(color: ext.ember),
+                // «Вайб»-бейдж: иконка тона + одно слово, в акцентном цвете.
+                Row(
+                  children: [
+                    Icon(v.icon, size: 15, color: v.accent),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${v.emoji} ${KaiCopy.previewVibe(context, tone)}',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: v.accent,
+                        fontWeight: v.headingWeight,
+                        letterSpacing: v.isHarsh ? 0.4 : 0.0,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                // Сам образец фразы — меняется со сменой тона (с кроссфейдом).
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: Text(
+                    KaiCopy.preview(context, tone),
+                    key: ValueKey(tone),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                      // harsh — плотнее/строже, gentle — обычный.
+                      fontWeight:
+                          v.isHarsh ? FontWeight.w600 : FontWeight.w400,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-/// Маленький квадратный свотч цвета.
-class _ColorSwatch extends StatelessWidget {
-  const _ColorSwatch({required this.color});
-
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 32,
-      height: 32,
-      decoration: BoxDecoration(
-        color: color,
-        borderRadius: BorderRadius.circular(8),
       ),
     );
   }

@@ -199,6 +199,84 @@ void main() {
     });
   });
 
+  group('Compact HHMM digits (Todoist-style)', () {
+    test('"лекция 700" → today 07:00 already past → tomorrow, title "лекция"', () {
+      final r = parseNaturalDateTime('лекция 700', now);
+      // 07:00 уже прошло (now=14:30) → завтра
+      final expected = DateTime(2026, 6, 18, 7, 0);
+      expect(r.when, expected);
+      expect(r.cleanedTitle, 'лекция');
+    });
+
+    test('"700" → 07:00 (минуты 00)', () {
+      final r = parseNaturalDateTime('подъём 700', now);
+      expect(r.when, DateTime(2026, 6, 18, 7, 0)); // прошло → завтра
+      expect(r.cleanedTitle, 'подъём');
+    });
+
+    test('"730" → 07:30', () {
+      final r = parseNaturalDateTime('зарядка 730', now);
+      expect(r.when, DateTime(2026, 6, 18, 7, 30)); // прошло → завтра
+      expect(r.cleanedTitle, 'зарядка');
+    });
+
+    test('"1830" → 18:30 (future today)', () {
+      final r = parseNaturalDateTime('пара 1830', now);
+      expect(r.when, DateTime(2026, 6, 17, 18, 30));
+      expect(r.cleanedTitle, 'пара');
+    });
+
+    test('"900" → 09:00', () {
+      final r = parseNaturalDateTime('встреча 900', now);
+      expect(r.when, DateTime(2026, 6, 18, 9, 0)); // прошло → завтра
+      expect(r.cleanedTitle, 'встреча');
+    });
+
+    test('"2359" → 23:59 (future today)', () {
+      final r = parseNaturalDateTime('дедлайн 2359', now);
+      expect(r.when, DateTime(2026, 6, 17, 23, 59));
+      expect(r.cleanedTitle, 'дедлайн');
+    });
+
+    test('invalid minutes ">59" → not recognized ("760")', () {
+      final r = parseNaturalDateTime('глава 760', now);
+      expect(r.when, isNull);
+      expect(r.cleanedTitle, 'глава 760');
+    });
+
+    test('invalid hours ">23" → not recognized ("2460")', () {
+      final r = parseNaturalDateTime('код 2460', now);
+      expect(r.when, isNull);
+      expect(r.cleanedTitle, 'код 2460');
+    });
+  });
+
+  group('Compact digits — negatives (do not over-match)', () {
+    test('single short number "глава 12" → not time, unchanged', () {
+      final r = parseNaturalDateTime('глава 12', now);
+      expect(r.when, isNull);
+      expect(r.cleanedTitle, 'глава 12');
+    });
+
+    test('"задача 5" → not time, unchanged', () {
+      final r = parseNaturalDateTime('задача 5', now);
+      expect(r.when, isNull);
+      expect(r.cleanedTitle, 'задача 5');
+    });
+
+    test('5-digit number is not HHMM ("12345")', () {
+      final r = parseNaturalDateTime('счёт 12345', now);
+      expect(r.when, isNull);
+      expect(r.cleanedTitle, 'счёт 12345');
+    });
+
+    test('HH:MM still wins over compact ("встреча 17:00")', () {
+      final r = parseNaturalDateTime('встреча 17:00', now);
+      expect(r.when, DateTime(2026, 6, 17, 17, 0));
+      expect(r.cleanedTitle, 'встреча');
+    });
+  });
+
   group('Edge cases', () {
     test('already-past time "in 0 hours" stays near now', () {
       final r = parseNaturalDateTime('задача через 0 часов', now);

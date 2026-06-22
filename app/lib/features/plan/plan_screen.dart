@@ -17,6 +17,7 @@ import '../../core/widgets/collapsing_fab.dart';
 import '../import/import_sheet.dart';
 import '../today/widgets/add_task_sheet.dart';
 import 'widgets/day_timeline.dart';
+import 'widgets/expandable_week_calendar.dart';
 import 'widgets/month_view.dart';
 import 'widgets/pinned_exam_card.dart';
 import 'widgets/plan_providers.dart';
@@ -469,7 +470,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
       case PlanView.week:
         return Column(
           children: [
-            const WeekStrip(),
+            // Раскрывающийся календарь: потяни вниз — развернётся месяц.
+            const ExpandableWeekCalendar(),
             // Тонкий разделитель (02-type-space §4.3 hairline)
             Divider(height: 0.5, thickness: 0.5, color: border),
             // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
@@ -482,7 +484,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
       case PlanView.day:
         return Column(
           children: [
-            const WeekStrip(),
+            // Раскрывающийся календарь: потяни вниз — развернётся месяц.
+            const ExpandableWeekCalendar(),
             Divider(height: 0.5, thickness: 0.5, color: border),
             // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
             const PinnedExamCard(),

@@ -32,6 +32,7 @@ class NlDateTimeResult {
 ///   • "через 2 часа" / "in 2 hours" / "in 2 stunden"
 ///   • "в пятницу" / "on friday" / "am Freitag" → следующее вхождение
 ///   • голое "17:00" / "5pm" → сегодня (или завтра если уже прошло)
+///   • голое ЧЧММ "700" / "1830" (Todoist-стиль) → 7:00 / 18:30
 ///
 /// Если ничего не распознано — when=null, cleanedTitle == text.
 NlDateTimeResult parseNaturalDateTime(String text, DateTime now) {
@@ -309,5 +310,52 @@ NlDateTimeResult? _tryBareTime(String text, DateTime now) {
     }
   }
 
+  // Голое ЧЧММ: 3-4 цифры подряд в духе Todoist ("700"→7:00, "1830"→18:30).
+  // Только отдельно стоящий числовой токен (границы — пробел/пунктуация/край),
+  // не часть длинного числа и не примыкает к ':' (чтобы не пересечь HH:MM).
+  // Невалидные часы/минуты не распознаём → токен трактуется как обычный текст.
+  final compact = _tryCompactDigits(text, now);
+  if (compact != null) return compact;
+
   return null;
+}
+
+/// Парсит отдельный токен из 3-4 цифр как ЧЧММ ("700"→7:00, "1830"→18:30).
+/// Возвращает null, если такого валидного токена нет.
+NlDateTimeResult? _tryCompactDigits(String text, DateTime now) {
+  for (final m in RegExp(r'\d{3,4}').allMatches(text)) {
+    final start = m.start;
+    final end = m.end;
+    // Границы: только пробел/пунктуация по краям (не буква, не цифра, не ':').
+    final beforeOk = start == 0 || _isDigitBoundary(text[start - 1]);
+    final afterOk = end >= text.length || _isDigitBoundary(text[end]);
+    if (!beforeOk || !afterOk) continue;
+
+    final digits = m.group(0)!;
+    // ЧЧММ: последние 2 цифры — минуты, остальное — часы.
+    final hour = int.parse(digits.substring(0, digits.length - 2));
+    final minute = int.parse(digits.substring(digits.length - 2));
+    if (hour > 23 || minute > 59) continue;
+
+    var dt = _withTime(now, hour, minute);
+    dt = _futureOrTomorrow(dt, now);
+    final cleaned = _eraseSpans(text, [_Span(start, end)]);
+    return NlDateTimeResult(when: dt, cleanedTitle: cleaned);
+  }
+  return null;
+}
+
+/// Граница для числового токена: НЕ буква, НЕ цифра, НЕ ':' (двоеточие отдаём HH:MM).
+/// Иначе "12:34" или "1830x" не должны трактоваться как ЧЧММ.
+bool _isDigitBoundary(String ch) {
+  if (ch == ':') return false;
+  final code = ch.codeUnitAt(0);
+  final isDigit = code >= 0x30 && code <= 0x39;
+  if (isDigit) return false;
+  // Латиница / кириллица — считаем буквой (не граница), иначе граница.
+  final isLatin =
+      (code >= 0x41 && code <= 0x5A) || (code >= 0x61 && code <= 0x7A);
+  final isCyrillic = code >= 0x0410 && code <= 0x044F;
+  if (isLatin || isCyrillic) return false;
+  return true;
 }

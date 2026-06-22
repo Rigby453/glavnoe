@@ -6,9 +6,62 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_strings.dart';
+import '../theme/app_theme.dart'; // FocusThemeExtension (ember)
 import '../theme/theme_provider.dart'; // sharedPreferencesProvider
 
 enum AppTone { gentle, harsh }
+
+/// Визуальный «язык» тона — единый источник для оформления, чтобы связь
+/// «режим → вид» читалась мгновенно (gentle = мягко/спокойно, harsh = строго).
+///
+/// Резолвится из текущей темы (переиспользует дизайн-токены, не вводит новые
+/// цвета): gentle берёт accent (primary), harsh — ember (secondary/срочное).
+/// Используется в превью профиля и в шапках, где Kai обращается к пользователю.
+class ToneVisuals {
+  const ToneVisuals._({
+    required this.accent,
+    required this.icon,
+    required this.emoji,
+    required this.cornerRadius,
+    required this.headingWeight,
+    required this.isHarsh,
+  });
+
+  /// Акцентный цвет тона: gentle → accent (primary), harsh → ember.
+  final Color accent;
+
+  /// Иконка-маркер тона: gentle → росток, harsh → молния.
+  final IconData icon;
+
+  /// Эмодзи-маркер (для пресетов/заголовков): 🌿 / 🔥.
+  final String emoji;
+
+  /// Радиус скругления карточек: gentle мягче, harsh резче/строже.
+  final double cornerRadius;
+
+  /// Насыщенность заголовков мотивации: harsh — плотнее/жирнее.
+  final FontWeight headingWeight;
+
+  /// Удобный флаг (для KaiMascot.isHarsh и пр.).
+  final bool isHarsh;
+
+  /// Построить визуалы тона из текущего контекста темы.
+  factory ToneVisuals.of(BuildContext context, AppTone tone) {
+    final scheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final harsh = tone == AppTone.harsh;
+    return ToneVisuals._(
+      accent: harsh
+          ? (ext?.ember ?? scheme.secondary) // ember — «срочно/строго»
+          : scheme.primary, // accent — спокойный
+      icon: harsh ? Icons.bolt : Icons.spa_outlined,
+      emoji: harsh ? '🔥' : '🌿',
+      cornerRadius: harsh ? 8 : 18,
+      headingWeight: harsh ? FontWeight.w800 : FontWeight.w600,
+      isHarsh: harsh,
+    );
+  }
+}
 
 const _kToneKey = 'tone_preference';
 
@@ -74,6 +127,20 @@ class KaiCopy {
   static String emptyDay(BuildContext context, AppTone tone) {
     final key =
         tone == AppTone.harsh ? 'kai.empty_day_harsh' : 'kai.empty_day_gentle';
+    return S.of(context, key);
+  }
+
+  /// Образец сообщения для ЖИВОГО превью в Профиле — показывает, как Kai
+  /// обращается к пользователю в выбранном тоне (gentle мягко / harsh резко).
+  static String preview(BuildContext context, AppTone tone) {
+    final key = tone == AppTone.harsh ? 'kai.preview_harsh' : 'kai.preview_gentle';
+    return S.of(context, key);
+  }
+
+  /// Короткий ярлык-«вайб» тона для бейджа превью (одно слово).
+  static String previewVibe(BuildContext context, AppTone tone) {
+    final key =
+        tone == AppTone.harsh ? 'kai.vibe_harsh' : 'kai.vibe_gentle';
     return S.of(context, key);
   }
 
