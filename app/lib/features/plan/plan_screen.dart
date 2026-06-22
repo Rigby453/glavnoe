@@ -71,6 +71,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     return Scaffold(
       floatingActionButton: isTablet
           ? FloatingActionButton.extended(
+              heroTag: 'plan_add_fab_tablet',
               onPressed: () => showAddTaskSheet(context, day: selectedDay),
               icon: const Icon(Icons.add),
               label: Text(context.s('today.fab_add')),
@@ -80,6 +81,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               hoverElevation: 6,
             )
           : CollapsingFab(
+              heroTag: 'plan_add_fab_mobile',
               onPressed: () => showAddTaskSheet(context, day: selectedDay),
               icon: const Icon(Icons.add),
               label: Text(context.s('today.fab_add')),

@@ -168,6 +168,7 @@ class FoodScreen extends ConsumerWidget {
         ],
       ),
       floatingActionButton: CollapsingFab(
+        heroTag: 'food_add_fab',
         onPressed: () => _showSearchSheet(context),
         icon: const Icon(Icons.add),
         label: Text(context.s('food.add')),

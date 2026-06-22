@@ -66,6 +66,7 @@ class GoalsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.s('plan.goals_screen_title'))),
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'goals_add_fab',
         onPressed: () => _showNewGoalDialog(context, ref),
         icon: const Icon(Icons.add),
         label: Text(context.s('plan.goals_new_button')),

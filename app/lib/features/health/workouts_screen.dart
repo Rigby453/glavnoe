@@ -103,6 +103,7 @@ class WorkoutsScreen extends ConsumerWidget {
       appBar: AppBar(title: Text(context.s('workout.title'))),
       // FAB — единственное первичное действие (+ New Workout)
       floatingActionButton: FloatingActionButton.extended(
+        heroTag: 'workouts_add_fab',
         icon: const Icon(Icons.add),
         label: Text(context.s('workout.new_workout')),
         onPressed: () => _newWorkout(context, ref),

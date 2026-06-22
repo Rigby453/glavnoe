@@ -166,6 +166,7 @@ class TodayScreen extends ConsumerWidget {
               const _UndoFab(),
               const SizedBox(width: 12),
               FloatingActionButton(
+                heroTag: 'today_add_fab',
                 onPressed: () => showAddTaskSheet(context, day: now),
                 tooltip: context.s('today.add_task_btn'),
                 child: const Icon(Icons.add),
@@ -252,6 +253,7 @@ class TodayScreen extends ConsumerWidget {
               const _UndoFab(),
               const SizedBox(width: 12),
               FloatingActionButton.extended(
+                heroTag: 'today_add_fab_tablet',
                 onPressed: () => showAddTaskSheet(context, day: now),
                 icon: const Icon(Icons.add),
                 label: Text(context.s('today.fab_add')),

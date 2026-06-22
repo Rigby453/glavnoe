@@ -30,6 +30,7 @@ class HabitsScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: Text(context.s('habits.title'))),
       floatingActionButton: FloatingActionButton(
+        heroTag: 'habits_add_fab',
         onPressed: () => _showAddDialog(context, ref),
         child: const Icon(Icons.add),
       ),
@@ -142,73 +143,116 @@ class HabitsScreen extends ConsumerWidget {
   }
 
   Future<void> _showAddDialog(BuildContext context, WidgetRef ref) async {
-    final nameController = TextEditingController();
-    String type = 'good';
-    String emoji = '';
-
-    await showDialog<void>(
+    // Диалог-тело вынесено в _AddHabitDialog (StatefulWidget) — он сам владеет
+    // TextEditingController и освобождает его в своём dispose(). Здесь мы лишь
+    // ждём результат и создаём привычку. Так контроллер не используется после
+    // dispose (исходная причина red-screen).
+    final result = await showDialog<_NewHabitResult>(
       context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setState) => AlertDialog(
-          title: Text(ctx.s('habits.new_habit')),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
+      builder: (_) => const _AddHabitDialog(),
+    );
+    if (result == null) return;
+    await ref.read(habitsDaoProvider).createHabit(
+          name: result.name,
+          type: result.type,
+          emoji: result.emoji,
+        );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Диалог добавления привычки — владеет TextEditingController.
+// ---------------------------------------------------------------------------
+
+/// Результат диалога: возвращается через Navigator.pop.
+class _NewHabitResult {
+  const _NewHabitResult({
+    required this.name,
+    required this.type,
+    required this.emoji,
+  });
+  final String name;
+  final String type;
+  final String emoji;
+}
+
+class _AddHabitDialog extends StatefulWidget {
+  const _AddHabitDialog();
+
+  @override
+  State<_AddHabitDialog> createState() => _AddHabitDialogState();
+}
+
+class _AddHabitDialogState extends State<_AddHabitDialog> {
+  late final TextEditingController _nameController;
+  String _type = 'good';
+
+  @override
+  void initState() {
+    super.initState();
+    _nameController = TextEditingController();
+  }
+
+  @override
+  void dispose() {
+    _nameController.dispose();
+    super.dispose();
+  }
+
+  void _submit() {
+    final name = _nameController.text.trim();
+    // Пустое имя — ничего не делаем (валидация сохранена).
+    if (name.isEmpty) return;
+    Navigator.of(context).pop(
+      _NewHabitResult(name: name, type: _type, emoji: ''),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(context.s('habits.new_habit')),
+      content: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          TextField(
+            controller: _nameController,
+            autofocus: true,
+            onSubmitted: (_) => _submit(),
+            decoration: InputDecoration(labelText: context.s('habits.habit_name')),
+          ),
+          const SizedBox(height: 16),
+          Row(
             children: [
-              TextField(
-                controller: nameController,
-                autofocus: true,
-                decoration: InputDecoration(labelText: ctx.s('habits.habit_name')),
+              Text(context.s('habits.type_label')),
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: Text(context.s('habits.type_good')),
+                selected: _type == 'good',
+                onSelected: (_) => setState(() => _type = 'good'),
               ),
-              const SizedBox(height: 16),
-              Row(
-                children: [
-                  Text(ctx.s('habits.type_label')),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(ctx.s('habits.type_good')),
-                    selected: type == 'good',
-                    onSelected: (_) => setState(() {
-                      type = 'good';
-                      emoji = '';
-                    }),
-                  ),
-                  const SizedBox(width: 8),
-                  ChoiceChip(
-                    label: Text(ctx.s('habits.type_bad')),
-                    selected: type == 'bad',
-                    onSelected: (_) => setState(() {
-                      type = 'bad';
-                      emoji = '';
-                    }),
-                  ),
-                ],
+              const SizedBox(width: 8),
+              ChoiceChip(
+                label: Text(context.s('habits.type_bad')),
+                selected: _type == 'bad',
+                onSelected: (_) => setState(() => _type = 'bad'),
               ),
             ],
           ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(ctx.s('btn.cancel')),
-            ),
-            // FilledButton — единственное первичное действие в диалоге
-            FilledButton(
-              onPressed: () async {
-                final name = nameController.text.trim();
-                if (name.isEmpty) return;
-                await ref.read(habitsDaoProvider).createHabit(
-                      name: name,
-                      type: type,
-                      emoji: emoji,
-                    );
-                if (ctx.mounted) Navigator.of(ctx).pop();
-              },
-              child: Text(ctx.s('btn.add')),
-            ),
-          ],
-        ),
+        ],
       ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(context.s('btn.cancel')),
+        ),
+        // FilledButton — единственное первичное действие в диалоге
+        FilledButton(
+          onPressed: _submit,
+          child: Text(context.s('btn.add')),
+        ),
+      ],
     );
-    nameController.dispose();
   }
 }
 

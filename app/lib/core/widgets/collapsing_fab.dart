@@ -45,6 +45,9 @@ class CollapsingFab extends StatefulWidget {
     // Тень: переопределяет FloatingActionButtonThemeData.elevation = 0
     // — без тени FAB визуально сливается с nav-bar. 4dp — лёгкий «слой».
     this.elevation = 4.0,
+    // Уникальный hero-тег: без него FAB берёт дефолтный тег и конфликтует
+    // с другими FAB во время переходов между экранами (Hero tag collision).
+    this.heroTag,
   });
 
   final VoidCallback onPressed;
@@ -63,6 +66,10 @@ class CollapsingFab extends StatefulWidget {
 
   /// Тень FAB. Переопределяет тему, где по умолчанию elevation=0.
   final double elevation;
+
+  /// Уникальный hero-тег для внутреннего FloatingActionButton.
+  /// Предотвращает коллизию дефолтных hero-тегов при навигации.
+  final Object? heroTag;
 
   @override
   State<CollapsingFab> createState() => _CollapsingFabState();
@@ -144,6 +151,7 @@ class _CollapsingFabState extends State<CollapsingFab>
 
   Widget _buildFab(BuildContext context) {
     return FloatingActionButton.extended(
+      heroTag: widget.heroTag,
       onPressed: widget.onPressed,
       tooltip: widget.tooltip,
       // Переопределяем elevation темы (0) → задаём явно для видимой тени.

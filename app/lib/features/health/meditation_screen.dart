@@ -452,100 +452,120 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
         centerTitle: true,
       ),
       body: SafeArea(
-        child: Padding(
-          // 24dp screen margin, 16dp top — spec §4.1
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-          child: Column(
-            children: [
-              // Прогресс шагов — bodySmall + textMuted
-              Text(
-                '${context.s('meditation.step')} ${_stepIndex + 1} / $stepCount',
-                style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-              ),
-              const SizedBox(height: 8),
-              // Линейный прогресс — accent (несёт смысл прогресса)
-              LinearProgressIndicator(
-                value: (_stepIndex + 1) / stepCount,
-                minHeight: 4,
-                borderRadius: BorderRadius.circular(2),
-              ),
-              const SizedBox(height: 40),
+        // LayoutBuilder + SingleChildScrollView гарантируют, что контент НИКОГДА
+        // не переполняет экран (исходный red-screen «overflowed by 99751px»):
+        // при достатке места колонка растягивается на всю высоту (minHeight),
+        // при нехватке — скроллится. Текст шага получает гибкую (Flexible)
+        // высоту вместо Expanded, который ломался под неограниченной высотой.
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            return SingleChildScrollView(
+              // 24dp screen margin, 16dp top — spec §4.1
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              child: ConstrainedBox(
+                constraints: BoxConstraints(
+                  // Вычитаем вертикальный padding, чтобы IntrinsicHeight знал
+                  // целевую высоту без переполнения.
+                  minHeight: constraints.maxHeight - 32,
+                ),
+                child: IntrinsicHeight(
+                  child: Column(
+                    children: [
+                      // Прогресс шагов — bodySmall + textMuted
+                      Text(
+                        '${context.s('meditation.step')} ${_stepIndex + 1} / $stepCount',
+                        style: textTheme.bodySmall?.copyWith(
+                          color: ext.textMuted,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      // Линейный прогресс — accent (несёт смысл прогресса)
+                      LinearProgressIndicator(
+                        value: (_stepIndex + 1) / stepCount,
+                        minHeight: 4,
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                      const SizedBox(height: 40),
 
-              // Дуга таймера — accent (первичная метрика текущего шага)
-              SizedBox(
-                width: 200,
-                height: 200,
-                child: reduce
-                    ? _StaticArcTimer(
-                        remaining: _remaining,
-                        total: _currentStep.seconds,
-                        color: colorScheme.primary,
-                        textTheme: textTheme,
-                      )
-                    : AnimatedBuilder(
-                        animation: _arcController,
-                        builder: (_, _) => CustomPaint(
-                          painter: _ArcPainter(
-                            progress: 1 - _arcController.value,
-                            color: colorScheme.primary,
-                            trackColor: ext.border,
-                          ),
-                          child: Center(
-                            // Таймер внутри дуги — displaySmall (крупный, display font)
-                            child: Text(
-                              _formatSeconds(_remaining),
-                              style: textTheme.displaySmall,
-                            ),
+                      // Дуга таймера — accent (первичная метрика текущего шага)
+                      SizedBox(
+                        width: 200,
+                        height: 200,
+                        child: reduce
+                            ? _StaticArcTimer(
+                                remaining: _remaining,
+                                total: _currentStep.seconds,
+                                color: colorScheme.primary,
+                                textTheme: textTheme,
+                              )
+                            : AnimatedBuilder(
+                                animation: _arcController,
+                                builder: (_, _) => CustomPaint(
+                                  painter: _ArcPainter(
+                                    progress: 1 - _arcController.value,
+                                    color: colorScheme.primary,
+                                    trackColor: ext.border,
+                                  ),
+                                  child: Center(
+                                    // Таймер внутри дуги — displaySmall
+                                    child: Text(
+                                      _formatSeconds(_remaining),
+                                      style: textTheme.displaySmall,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                      ),
+
+                      const SizedBox(height: 40),
+
+                      // Текст шага — bodyLarge, центрально. Flexible забирает
+                      // доступное пространство, но не переполняет (под
+                      // IntrinsicHeight у Column ограниченная высота).
+                      Flexible(
+                        child: Center(
+                          child: Text(
+                            _currentStep.text,
+                            style: textTheme.bodyLarge,
+                            textAlign: TextAlign.center,
                           ),
                         ),
                       ),
-              ),
 
-              const SizedBox(height: 40),
+                      const SizedBox(height: 24),
 
-              // Текст шага — bodyLarge, центрально, прокручиваемый
-              Expanded(
-                child: Center(
-                  child: SingleChildScrollView(
-                    child: Text(
-                      _currentStep.text,
-                      style: textTheme.bodyLarge,
-                      textAlign: TextAlign.center,
-                    ),
+                      // Единственное первичное действие — FilledButton
+                      SizedBox(
+                        width: double.infinity,
+                        child: FilledButton(
+                          onPressed: () {
+                            if (_isLastStep) {
+                              _showCompletionDialog();
+                            } else {
+                              _arcController.stop();
+                              _advanceStep();
+                            }
+                          },
+                          child: Text(
+                            _isLastStep
+                                ? context.s('meditation.finish')
+                                : context.s('meditation.next'),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+
+                      // Вторичное действие — TextButton (низкий приоритет)
+                      TextButton(
+                        onPressed: () => Navigator.of(context).pop(),
+                        child: Text(context.s('meditation.end_session')),
+                      ),
+                    ],
                   ),
                 ),
               ),
-
-              const SizedBox(height: 24),
-
-              // Единственное первичное действие — FilledButton
-              SizedBox(
-                width: double.infinity,
-                child: FilledButton(
-                  onPressed: () {
-                    if (_isLastStep) {
-                      _showCompletionDialog();
-                    } else {
-                      _arcController.stop();
-                      _advanceStep();
-                    }
-                  },
-                  child: Text(
-                    _isLastStep
-                        ? context.s('meditation.finish')
-                        : context.s('meditation.next'),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 8),
-
-              // Вторичное действие — TextButton (навигационный нудж, низкий приоритет)
-              TextButton(
-                onPressed: () => Navigator.of(context).pop(),
-                child: Text(context.s('meditation.end_session')),
-              ),
-            ],
-          ),
+            );
+          },
         ),
       ),
     );
