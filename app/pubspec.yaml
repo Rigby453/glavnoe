@@ -53,6 +53,9 @@ dependencies:
   speech_to_text: ^7.4.0
   file_picker: ^8.0.0
   usage_stats: ^2.0.1
+
+  # Короткие звуковые эффекты в приложении (звук «задача выполнена»)
+  audioplayers: ^6.0.0
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -73,6 +76,9 @@ flutter:
     # Android читает из android/app/src/main/res/drawable-<density>/ напрямую.
     # Генерируются скриптом: flutter test test/generate_kai_assets_test.dart
     - assets/kai_widget/
+    # Короткие звуки в приложении (звук «задача выполнена» — task_done.mp3).
+    # Если файла ещё нет — сервис звука откатывается на системный клик.
+    - assets/sounds/
 
   fonts:
     # Локально вшитые шрифты для деванагари / японского / корейского.

@@ -2,11 +2,14 @@
 // Предоставляет стримы и методы CRUD для задач/событий/дедлайнов
 // Используется в Today/Plan экранах через Riverpod-провайдеры
 
+import 'dart:async';
+
 import 'package:drift/drift.dart';
 
 import '../database.dart';
 import '../../utils/id.dart';
 import '../../../features/plan/recurrence.dart';
+import '../../../services/sound/completion_sound_service.dart';
 
 part 'items_dao.g.dart';
 
@@ -149,14 +152,25 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
     return rowsAffected > 0;
   }
 
-  /// Пометить задачу как выполненную
-  Future<bool> markDone(String id) => updateItem(
-        id,
-        ItemsTableCompanion(
-          status: const Value('done'),
-          updatedAt: Value(DateTime.now()),
-        ),
-      );
+  /// Пометить задачу как выполненную.
+  /// Побочный эффект: проигрывает короткий звук завершения, если включена
+  /// настройка 'completion_sound_enabled' (сервис читает её сам из
+  /// SharedPreferences). Срабатывает на всех путях done через DAO — и при
+  /// свайпе вправо, и при тапе-чекбоксе. Звук — fire-and-forget, чтобы не
+  /// задерживать запись в БД и не ронять завершение при ошибке плеера.
+  Future<bool> markDone(String id) async {
+    final ok = await updateItem(
+      id,
+      ItemsTableCompanion(
+        status: const Value('done'),
+        updatedAt: Value(DateTime.now()),
+      ),
+    );
+    if (ok) {
+      unawaited(CompletionSoundService.instance.playIfEnabled());
+    }
+    return ok;
+  }
 
   /// Пометить задачу как пропущенную
   Future<bool> markSkipped(String id) => updateItem(
@@ -361,6 +375,13 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
         updatedAt: Value(now),
       ),
     );
+
+    // Материализация повтора со статусом 'done' = завершение задачи →
+    // тот же звук, что и markDone (например, свайп вправо по виртуальному
+    // повтору серии). Прочие статусы (pending/skipped) звук не проигрывают.
+    if (status == 'done') {
+      unawaited(CompletionSoundService.instance.playIfEnabled());
+    }
 
     return newId;
   }

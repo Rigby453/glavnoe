@@ -1,7 +1,9 @@
 // FL-TODAY-04: Список задач дня с двумя секциями.
 // - "Main today": задачи priority=main со значком щита.
 // - "Later": остальные задачи, по времени.
-// Свайп вправо = done (зелёный), свайп влево = skip (серый).
+// Действия свайпа НАСТРАИВАЕМЫ (swipe_action_provider): пользователь выбирает,
+// что делает свайп вправо и влево из набора done/skip/delete/snooze.
+// Дефолты сохраняют прежнее поведение: вправо = done (зелёный), влево = skip (серый).
 // Тап по задаче открывает лист редактирования.
 //
 // ANIMATIONS.md §1.1+§1.2: карточка обёрнута в Pressable (scale/lift).
@@ -24,6 +26,7 @@ import '../../../core/animations/pressable.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/settings/swipe_action_provider.dart';
 import '../../../core/settings/swipe_hint_provider.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../plan/widgets/recurrence_providers.dart';
@@ -188,79 +191,35 @@ class _TaskListState extends ConsumerState<TaskList>
       );
     }
 
-    final colorScheme = Theme.of(context).colorScheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>();
-    // success и textFaint из ThemeExtension — нет hardcoded цветов (03-components §1)
-    final successColor = ext?.success ?? colorScheme.primary;
-    final textFaintColor = ext?.textFaint ?? colorScheme.onSurface.withAlpha(140);
+    // Направление → действие берётся из настроек (swipeActionsProvider).
+    // Дефолты сохраняют текущее поведение: вправо = done, влево = skip.
+    final config = ref.watch(swipeActionsProvider);
+    final rightAction = config.right;
+    final leftAction = config.left;
 
     Widget dismissible = Dismissible(
       key: ValueKey(item.id),
-      // Свайп вправо = done: success-цвет (03-components §1: success только для done)
+      // Фон/иконка соответствуют выбранному действию для каждого направления.
       background: _swipeBg(
-        color: successColor.withAlpha(40),
-        icon: Icons.check,
-        iconColor: successColor,
+        color: rightAction.color(context).withAlpha(40),
+        icon: rightAction.icon,
+        iconColor: rightAction.color(context),
         alignment: Alignment.centerLeft,
       ),
-      // Свайп влево = skip: нейтральный textFaint
       secondaryBackground: _swipeBg(
-        color: textFaintColor.withAlpha(25),
-        icon: Icons.remove_circle_outline,
-        iconColor: textFaintColor,
+        color: leftAction.color(context).withAlpha(40),
+        icon: leftAction.icon,
+        iconColor: leftAction.color(context),
         alignment: Alignment.centerRight,
       ),
-      // Выполняем действие и возвращаем false: строка не удаляется,
-      // а перерисуется с новым статусом из реактивного стрима.
+      // confirmDismiss возвращает true только для delete (реальное удаление
+      // строки), для done/skip/snooze — false: строка не удаляется физически,
+      // а перерисуется с новым состоянием из реактивного стрима.
       confirmDismiss: (direction) async {
-        final dao = ref.read(itemsDaoProvider);
-        // Виртуальный повтор серии: сначала материализуем день в реальную
-        // строку с применённым статусом (анкер получает EXDATE на эту дату).
-        // Возвращённый id используем для undo (revert → pending).
-        final isVirtual = isVirtualOccurrenceId(item.id);
-        if (direction == DismissDirection.startToEnd) {
-          String? targetId = item.id;
-          if (isVirtual) {
-            targetId = await dao.materializeOccurrence(
-              anchorIdFromVirtual(item.id),
-              dateFromVirtual(item.id) ?? item.scheduledAt,
-              status: 'done',
-            );
-          } else {
-            await dao.markDone(item.id);
-          }
-          // §3.1: тост «задача выполнена» с кнопкой Undo (отмена завершения).
-          // Для материализованного повтора undo возвращает concrete-строку в
-          // pending (день остаётся материализованным — действие не теряется).
-          if (context.mounted && targetId != null) {
-            final undoId = targetId;
-            showAppToast(
-              context,
-              variant: AppToastVariant.done,
-              message: '"${item.title}" ${context.s('today.marked_done')}',
-              onUndo: () async {
-                await ref.read(itemsDaoProvider).updateItem(
-                      undoId,
-                      const ItemsTableCompanion(
-                        status: Value('pending'),
-                      ),
-                    );
-              },
-            );
-          }
-        } else {
-          if (isVirtual) {
-            await dao.materializeOccurrence(
-              anchorIdFromVirtual(item.id),
-              dateFromVirtual(item.id) ?? item.scheduledAt,
-              status: 'skipped',
-            );
-          } else {
-            await dao.markSkipped(item.id);
-          }
-          // Для skip тост не показываем
-        }
-        return false;
+        final action = direction == DismissDirection.startToEnd
+            ? rightAction
+            : leftAction;
+        return _runSwipeAction(context, item, action);
       },
       child: _TaskCard(key: ValueKey(item.id), item: item, day: widget.day),
     );
@@ -297,6 +256,141 @@ class _TaskListState extends ConsumerState<TaskList>
       ),
       child: Icon(icon, color: iconColor),
     );
+  }
+
+  /// Выполняет действие свайпа [action] над [item].
+  /// Возвращает true ТОЛЬКО для delete (Dismissible физически удаляет строку);
+  /// для done/skip/snooze — false (строка перерисуется из реактивного стрима).
+  Future<bool> _runSwipeAction(
+    BuildContext context,
+    ItemsTableData item,
+    SwipeAction action,
+  ) async {
+    switch (action) {
+      case SwipeAction.done:
+        await _doDone(context, item);
+        return false;
+      case SwipeAction.skip:
+        await _doSkip(item);
+        return false;
+      case SwipeAction.snooze:
+        await _doSnooze(context, item);
+        return false;
+      case SwipeAction.delete:
+        await _doDelete(context, item);
+        return true;
+    }
+  }
+
+  /// done: markDone / materializeOccurrence(status: done) + тост с Undo.
+  Future<void> _doDone(BuildContext context, ItemsTableData item) async {
+    final dao = ref.read(itemsDaoProvider);
+    final isVirtual = isVirtualOccurrenceId(item.id);
+    String? targetId = item.id;
+    if (isVirtual) {
+      targetId = await dao.materializeOccurrence(
+        anchorIdFromVirtual(item.id),
+        dateFromVirtual(item.id) ?? item.scheduledAt,
+        status: 'done',
+      );
+    } else {
+      await dao.markDone(item.id);
+    }
+    // §3.1: тост «задача выполнена» с кнопкой Undo (отмена завершения).
+    if (context.mounted && targetId != null) {
+      final undoId = targetId;
+      showAppToast(
+        context,
+        variant: AppToastVariant.done,
+        message: '"${item.title}" ${context.s('today.marked_done')}',
+        onUndo: () async {
+          await ref.read(itemsDaoProvider).updateItem(
+                undoId,
+                const ItemsTableCompanion(status: Value('pending')),
+              );
+        },
+      );
+    }
+  }
+
+  /// skip: markSkipped / materializeOccurrence(status: skipped). Без тоста.
+  Future<void> _doSkip(ItemsTableData item) async {
+    final dao = ref.read(itemsDaoProvider);
+    if (isVirtualOccurrenceId(item.id)) {
+      await dao.materializeOccurrence(
+        anchorIdFromVirtual(item.id),
+        dateFromVirtual(item.id) ?? item.scheduledAt,
+        status: 'skipped',
+      );
+    } else {
+      await dao.markSkipped(item.id);
+    }
+  }
+
+  /// snooze: переносит scheduledAt на завтра (тот же час). Для виртуального
+  /// повтора материализует день в concrete-строку со сдвигом scheduledAt.
+  /// Тост-подтверждение (без Undo).
+  Future<void> _doSnooze(BuildContext context, ItemsTableData item) async {
+    final dao = ref.read(itemsDaoProvider);
+    final tomorrow = item.scheduledAt.add(const Duration(days: 1));
+    if (isVirtualOccurrenceId(item.id)) {
+      // Материализуем повтор сразу на завтрашнее время — день анкера получает
+      // EXDATE, а concrete-строка встаёт на завтра в pending.
+      await dao.materializeOccurrence(
+        anchorIdFromVirtual(item.id),
+        dateFromVirtual(item.id) ?? item.scheduledAt,
+        scheduledAt: tomorrow,
+      );
+    } else {
+      await dao.updateItem(
+        item.id,
+        ItemsTableCompanion(
+          scheduledAt: Value(tomorrow),
+          updatedAt: Value(DateTime.now()),
+        ),
+      );
+    }
+    if (context.mounted) {
+      showAppToast(
+        context,
+        variant: AppToastVariant.done,
+        message: '"${item.title}" ${context.s('today.snoozed_tomorrow')}',
+      );
+    }
+  }
+
+  /// delete: реально удаляет задачу через DAO.deleteItem + тост с Undo,
+  /// который восстанавливает строку (re-insert тех же полей).
+  /// Для виртуального повтора сначала материализуем concrete-строку, затем
+  /// удаляем её (день анкера всё равно получает EXDATE — повтор не вернётся).
+  Future<void> _doDelete(BuildContext context, ItemsTableData item) async {
+    final dao = ref.read(itemsDaoProvider);
+    String? deletedId = item.id;
+    if (isVirtualOccurrenceId(item.id)) {
+      deletedId = await dao.materializeOccurrence(
+        anchorIdFromVirtual(item.id),
+        dateFromVirtual(item.id) ?? item.scheduledAt,
+      );
+    }
+    if (deletedId == null) return;
+    // Снимок строки для Undo (восстановление через re-insert).
+    final snapshot = await dao.getItemById(deletedId);
+    await dao.deleteItem(deletedId);
+    // §3.3: тост «удалено» с кнопкой Undo.
+    if (context.mounted) {
+      showAppToast(
+        context,
+        variant: AppToastVariant.removed,
+        message: '"${item.title}" ${context.s('today.deleted')}',
+        onUndo: snapshot == null
+            ? null
+            : () async {
+                await ref.read(itemsDaoProvider).insertItem(
+                      snapshot.toCompanion(false),
+                    );
+              },
+      );
+    }
   }
 }
 

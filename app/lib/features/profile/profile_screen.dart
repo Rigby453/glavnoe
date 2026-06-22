@@ -17,7 +17,10 @@ import '../mascot/kai_mascot.dart';
 import '../../core/settings/food_preferences_provider.dart';
 import '../../core/settings/health_profile_provider.dart';
 import '../../core/settings/mascot_provider.dart';
+import '../../core/settings/sound_provider.dart';
+import '../../core/settings/swipe_action_provider.dart';
 import '../../core/settings/text_scale_provider.dart';
+import '../../core/settings/timezone_provider.dart';
 import '../../core/widgets/voice_text_field.dart';
 import '../../core/utils/id.dart';
 import 'shared_plan.dart';
@@ -297,7 +300,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         const _TextSizeSetting(),
         const SizedBox(height: 8),
         const _NotificationsSetting(),
+        const _CompletionSoundSetting(),
         const _ShowKaiSetting(),
+        const _SwipeActionsSetting(),
+        const _TimezoneSetting(),
 
         // Секция «Поддержка»
         const SizedBox(height: 28),
@@ -586,6 +592,193 @@ class _ShowKaiSetting extends ConsumerWidget {
       subtitle: Text(context.s('profile.show_kai_subtitle')),
       value: showKai,
       onChanged: (_) => ref.read(showKaiProvider.notifier).toggle(),
+    );
+  }
+}
+
+/// Тумблер звука при выполнении задачи. Стиль — как _NotificationsSetting.
+class _CompletionSoundSetting extends ConsumerWidget {
+  const _CompletionSoundSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(completionSoundEnabledProvider);
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(context.s('profile.completion_sound')),
+      subtitle: Text(context.s('profile.completion_sound_subtitle')),
+      value: enabled,
+      onChanged: (want) =>
+          ref.read(completionSoundEnabledProvider.notifier).set(want),
+    );
+  }
+}
+
+/// Настройка действий свайпа по задачам: две строки (вправо/влево),
+/// каждая — Dropdown из 4 действий (done/skip/delete/snooze) с иконкой+подписью.
+/// Стиль строки — как «Язык» (ListTile + DropdownButton).
+class _SwipeActionsSetting extends ConsumerWidget {
+  const _SwipeActionsSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final config = ref.watch(swipeActionsProvider);
+
+    Widget row({
+      required IconData leadingIcon,
+      required String title,
+      required SwipeAction current,
+      required ValueChanged<SwipeAction> onChanged,
+    }) {
+      return ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(leadingIcon, color: ext.textMuted),
+        title: Text(title),
+        trailing: DropdownButton<SwipeAction>(
+          value: current,
+          underline: const SizedBox.shrink(),
+          dropdownColor: ext.surfaceElevated,
+          items: SwipeAction.values
+              .map((a) => DropdownMenuItem(
+                    value: a,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(a.icon, size: 18, color: a.color(context)),
+                        const SizedBox(width: 8),
+                        Text(a.label(context)),
+                      ],
+                    ),
+                  ))
+              .toList(),
+          onChanged: (a) {
+            if (a != null) onChanged(a);
+          },
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row(
+          leadingIcon: Icons.swipe_right_alt,
+          title: context.s('profile.swipe_right'),
+          current: config.right,
+          onChanged: (a) =>
+              ref.read(swipeActionsProvider.notifier).setRight(a),
+        ),
+        row(
+          leadingIcon: Icons.swipe_left_alt,
+          title: context.s('profile.swipe_left'),
+          current: config.left,
+          onChanged: (a) =>
+              ref.read(swipeActionsProvider.notifier).setLeft(a),
+        ),
+      ],
+    );
+  }
+}
+
+/// Настройка часового пояса. Строка-ListTile (как «Язык»), но из-за большого
+/// числа зон выбор открывается прокручиваемым боттомшитом, а не Dropdown.
+class _TimezoneSetting extends ConsumerWidget {
+  const _TimezoneSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final pref = ref.watch(timezoneOverrideProvider);
+
+    final currentLabel =
+        pref.isAuto ? context.s('profile.timezone_auto') : pref.iana!;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(Icons.schedule, color: ext.textMuted),
+      title: Text(context.s('profile.timezone')),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              currentLabel,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: ext.textMuted),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(Icons.chevron_right, color: ext.textMuted),
+        ],
+      ),
+      onTap: () => _pickTimezone(context, ref, pref),
+    );
+  }
+
+  Future<void> _pickTimezone(
+    BuildContext context,
+    WidgetRef ref,
+    TimezonePref current,
+  ) async {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final notifier = ref.read(timezoneOverrideProvider.notifier);
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: ext.surfaceElevated,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.7,
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+                  child: Text(
+                    ctx.s('profile.timezone_select'),
+                    style: Theme.of(ctx).textTheme.titleMedium,
+                  ),
+                ),
+                // Авто (устройство)
+                ListTile(
+                  title: Text(ctx.s('profile.timezone_auto')),
+                  trailing: current.isAuto
+                      ? Icon(Icons.check,
+                          color: Theme.of(ctx).colorScheme.primary)
+                      : null,
+                  onTap: () {
+                    notifier.setAuto();
+                    Navigator.of(ctx).pop();
+                  },
+                ),
+                const Divider(height: 1),
+                // Список зон
+                ...kSelectableTimezones.map(
+                  (zone) => ListTile(
+                    title: Text(zone),
+                    trailing: (!current.isAuto && current.iana == zone)
+                        ? Icon(Icons.check,
+                            color: Theme.of(ctx).colorScheme.primary)
+                        : null,
+                    onTap: () {
+                      notifier.setOverride(zone);
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

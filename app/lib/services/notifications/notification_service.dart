@@ -11,6 +11,7 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../core/settings/timezone_provider.dart';
 import '../../core/theme/theme_provider.dart'; // sharedPreferencesProvider
 
 const int _kMorningId = 1001;
@@ -19,20 +20,20 @@ const int kMorningHour = 8;
 const int kEveningHour = 20;
 
 class NotificationService {
-  NotificationService(this._plugin);
+  /// [overrideTzGetter] возвращает выбранный пользователем IANA-таймзон
+  /// (или null/пусто = авто/зона устройства). Передаётся провайдером, который
+  /// читает SharedPreferences. Если не задан — поведение по умолчанию (авто).
+  NotificationService(this._plugin, {String? Function()? overrideTzGetter})
+      : _overrideTzGetter = overrideTzGetter; // ignore: prefer_initializing_formals
 
   final FlutterLocalNotificationsPlugin _plugin;
+  final String? Function()? _overrideTzGetter;
   bool _inited = false;
 
   Future<void> init() async {
     if (_inited || kIsWeb) return;
     tzdata.initializeTimeZones();
-    try {
-      final info = await FlutterTimezone.getLocalTimezone();
-      tz.setLocalLocation(tz.getLocation(info.identifier));
-    } catch (_) {
-      // Запасной вариант — UTC (часы сместятся, но не упадёт).
-    }
+    await _applyLocalTimezone();
     const android = AndroidInitializationSettings('@mipmap/ic_launcher');
     const darwin = DarwinInitializationSettings(
       requestAlertPermission: false,
@@ -43,6 +44,34 @@ class NotificationService {
       settings: const InitializationSettings(android: android, iOS: darwin),
     );
     _inited = true;
+  }
+
+  /// Устанавливает tz.local в эффективную зону: выбранный override, если он
+  /// задан и валиден, иначе — зону устройства. При ошибке остаётся UTC
+  /// (часы сместятся, но приложение не упадёт).
+  Future<void> _applyLocalTimezone() async {
+    // 1. Override пользователя имеет приоритет.
+    final override = locationFromOverride(_overrideTzGetter?.call());
+    if (override != null) {
+      tz.setLocalLocation(override);
+      return;
+    }
+    // 2. Авто — зона устройства (прежнее поведение).
+    try {
+      final info = await FlutterTimezone.getLocalTimezone();
+      tz.setLocalLocation(tz.getLocation(info.identifier));
+    } catch (_) {
+      // Запасной вариант — UTC.
+    }
+  }
+
+  /// Перечитывает эффективную зону и применяет её к tz.local.
+  /// Вызывать при смене настройки таймзона — после этого нужно перепланировать
+  /// уведомления (zonedSchedule считает время от tz.local в момент планирования).
+  Future<void> refreshTimezone() async {
+    if (kIsWeb) return;
+    await init(); // гарантирует, что база timezone инициализирована
+    await _applyLocalTimezone();
   }
 
   /// Запрашивает разрешение на уведомления. true = выдано.
@@ -171,7 +200,12 @@ class NotificationService {
 }
 
 final notificationServiceProvider = Provider<NotificationService>((ref) {
-  return NotificationService(FlutterLocalNotificationsPlugin());
+  return NotificationService(
+    FlutterLocalNotificationsPlugin(),
+    // Эффективная зона: override из настроек (если задан), иначе зона устройства.
+    overrideTzGetter: () =>
+        ref.read(sharedPreferencesProvider).getString(kTimezoneOverrideKey),
+  );
 });
 
 // ---------------------------------------------------------------------------
@@ -205,6 +239,34 @@ class NotificationsEnabled extends Notifier<bool> {
     } catch (e) {
       debugPrint('[Notifications] setEnabled($enabled) failed: $e');
       return state;
+    }
+  }
+
+  /// Перепланирует уже активные уведомления в текущей эффективной зоне.
+  /// Вызывается при смене настройки часового пояса (timezone_provider).
+  /// Перечитывает зону устройства/override, затем заново планирует разборы
+  /// (если включены) и напоминания об осанке (если их тумблер активен).
+  /// Часы разборов берутся из тех же ключей prefs, что и при старте
+  /// (review_morning_hour / review_evening_hour — см. onboarding/setup_flow).
+  Future<void> reschedule() async {
+    if (kIsWeb) return;
+    final service = ref.read(notificationServiceProvider);
+    final prefs = ref.read(sharedPreferencesProvider);
+    try {
+      await service.refreshTimezone();
+      if (state) {
+        await service.scheduleDailyReviews(
+          morningHour: prefs.getInt('review_morning_hour') ?? kMorningHour,
+          eveningHour: prefs.getInt('review_evening_hour') ?? kEveningHour,
+        );
+      }
+      // Напоминания об осанке планируются отдельным тумблером
+      // (posture_reminders_on, см. posture_screen) — перепланируем, если активны.
+      if (prefs.getBool('posture_reminders_on') ?? false) {
+        await service.schedulePostureReminders();
+      }
+    } catch (e) {
+      debugPrint('[Notifications] reschedule failed: $e');
     }
   }
 }
