@@ -188,6 +188,22 @@ async function ensurePremium(
 /** Ответ при сбое апстрима (нет ключа / ошибка Claude). */
 function aiError(fastify: FastifyInstance, reply: FastifyReply, err: unknown, ctx: string) {
   fastify.log.error({ err }, `${ctx} AI call failed`);
+  // Отличаем временную недоступность апстрима (квота/перегрузка/регион) от прочих
+  // сбоев, чтобы клиент мог показать осмысленное сообщение и предложить повтор.
+  const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+  const temporarilyUnavailable =
+    msg.includes("429") ||
+    msg.includes("quota") ||
+    msg.includes("503") ||
+    msg.includes("high demand") ||
+    msg.includes("overloaded") ||
+    msg.includes("user location is not supported");
+  if (temporarilyUnavailable) {
+    return reply.status(503).send({
+      error:
+        "AI is temporarily unavailable (quota/region) — please try again later.",
+    });
+  }
   return reply
     .status(502)
     .send({ error: "AI service unavailable. Please try again later." });

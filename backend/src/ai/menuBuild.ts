@@ -372,6 +372,65 @@ function signed(delta: number): string {
 // Один вызов модели + очистка результата
 // ---------------------------------------------------------------------------
 
+/**
+ * Парсит JSON-ответ модели для menu-build с устойчивостью к мусору вокруг:
+ * 1) пробуем JSON.parse после снятия markdown-ограждений;
+ * 2) если не вышло — извлекаем первый сбалансированный объект {...}
+ *    (от первой '{' до её парной '}') и парсим его;
+ * 3) если и это не помогло — бросаем "unparseable JSON".
+ */
+function parseMenuJson(text: string): unknown {
+  const stripped = stripJsonFences(text);
+  try {
+    return JSON.parse(stripped);
+  } catch {
+    // fall through to balanced-object extraction
+  }
+  const candidate = extractFirstJsonObject(stripped);
+  if (candidate !== null) {
+    try {
+      return JSON.parse(candidate);
+    } catch {
+      // fall through to throw
+    }
+  }
+  throw new Error("AI returned unparseable JSON for menu-build.");
+}
+
+/**
+ * Возвращает подстроку первого сбалансированного top-level объекта `{ ... }`
+ * (с учётом строк и экранирования), либо null, если такого нет.
+ */
+function extractFirstJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  if (start === -1) return null;
+  let depth = 0;
+  let inString = false;
+  let escaped = false;
+  for (let i = start; i < text.length; i++) {
+    const ch = text[i];
+    if (inString) {
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === '"') {
+        inString = false;
+      }
+      continue;
+    }
+    if (ch === '"') {
+      inString = true;
+    } else if (ch === "{") {
+      depth++;
+    } else if (ch === "}") {
+      depth--;
+      if (depth === 0) return text.slice(start, i + 1);
+    }
+  }
+  return null;
+}
+
 async function callAndClean(args: {
   system: string;
   user: string;
@@ -383,17 +442,14 @@ async function callAndClean(args: {
   const text = await generateText({
     system,
     user,
-    maxTokens: 1500,
+    // Полное меню (несколько приёмов × позиции + note) легко превышает 1500
+    // токенов и обрезается → невалидный JSON. Поднимаем потолок (ADR-046).
+    maxTokens: 4000,
     tier: "smart",
     json: true,
   });
 
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripJsonFences(text));
-  } catch {
-    throw new Error("AI returned unparseable JSON for menu-build.");
-  }
+  const parsed = parseMenuJson(text);
   const result = RawMenuSchema.safeParse(parsed);
   if (!result.success) {
     throw new Error("AI returned an unexpected menu-build shape.");

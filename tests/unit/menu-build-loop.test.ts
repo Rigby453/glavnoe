@@ -192,6 +192,66 @@ test('meals count honored: meals_per_day expands meal slots and distributes food
   expect(nonEmpty.length).toBe(4);
 });
 
+test('parses menu JSON wrapped in markdown fences', async () => {
+  const inner = JSON.stringify({
+    meals: [
+      { meal: 'breakfast', items: [{ name: 'Oats', grams: 250 }] },
+      { meal: 'lunch', items: [{ name: 'Chicken', grams: 250 }] },
+      { meal: 'dinner', items: [{ name: 'Rice', grams: 500 }] },
+    ],
+    note: 'ok',
+  });
+  generateText.mockResolvedValueOnce('```json\n' + inner + '\n```');
+
+  const result = await buildMenu({
+    candidates,
+    calorieGoal: 2000,
+    proteinGoalG: 75,
+    meals: ['breakfast', 'lunch', 'dinner'],
+    tone: 'gentle',
+  });
+  expect(result.meals.length).toBe(3);
+});
+
+test('extracts the first balanced JSON object when prose surrounds it', async () => {
+  const inner = JSON.stringify({
+    meals: [
+      { meal: 'breakfast', items: [{ name: 'Oats', grams: 250 }] },
+      { meal: 'lunch', items: [{ name: 'Chicken', grams: 250 }] },
+      { meal: 'dinner', items: [{ name: 'Rice', grams: 500 }] },
+    ],
+    note: 'ok',
+  });
+  // Модель добавила болтовню до и после JSON — JSON.parse упадёт,
+  // должен сработать balanced-object fallback.
+  generateText.mockResolvedValueOnce(
+    'Here is your menu: ' + inner + ' Enjoy your day!'
+  );
+
+  const result = await buildMenu({
+    candidates,
+    calorieGoal: 2000,
+    proteinGoalG: 75,
+    meals: ['breakfast', 'lunch', 'dinner'],
+    tone: 'gentle',
+  });
+  expect(result.meals.length).toBe(3);
+});
+
+test('throws unparseable JSON error when no JSON object is present', async () => {
+  generateText.mockResolvedValue('Sorry, I cannot help with that.');
+
+  await expect(
+    buildMenu({
+      candidates,
+      calorieGoal: 2000,
+      proteinGoalG: 75,
+      meals: ['breakfast', 'lunch', 'dinner'],
+      tone: 'gentle',
+    })
+  ).rejects.toThrow('unparseable JSON');
+});
+
 test('totals are computed by code from candidates, never taken from the model', async () => {
   // Модель НЕ возвращает чисел КБЖУ — только name+grams. Проверяем точный расчёт:
   // Chicken 100g = 200 kcal / 30 P / 8 F.

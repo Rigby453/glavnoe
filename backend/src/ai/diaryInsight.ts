@@ -5,6 +5,7 @@
  */
 
 import { generateText } from "./provider.js";
+import { unwrapMaybeJson } from "./textResponse.js";
 
 export type Tone = "gentle" | "harsh";
 
@@ -37,19 +38,21 @@ export async function generateDiaryInsight(params: {
     "and surface ONE useful pattern or suggestion in 2-3 short sentences. " +
     "Plain text, no emoji, no quotes. " +
     toneHint +
-    `\n\nIMPORTANT: Write all human-readable text (the insight) in ${language}. Keep JSON keys and structure exactly as specified in English.`;
+    `\n\nIMPORTANT: Write all human-readable text (the insight) in ${language}.`;
 
   const user =
     logs.length === 0
       ? "There are no diary entries yet. Gently encourage the user to start journaling."
       : `Recent entries (JSON): ${JSON.stringify(logs)}. Write the insight.`;
 
-  const insight = await generateText({
+  const raw = await generateText({
     system,
     user,
     maxTokens: 200,
     tier: "smart",
   });
+  // Защита: если модель всё же вернула JSON {"insight":"..."} — разворачиваем в текст.
+  const insight = unwrapMaybeJson(raw, "insight");
   if (!insight) throw new Error("AI returned an empty diary insight.");
   return { insight };
 }

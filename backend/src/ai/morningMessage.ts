@@ -5,6 +5,7 @@
  */
 
 import { generateText } from "./provider.js";
+import { unwrapMaybeJson } from "./textResponse.js";
 
 export type Tone = "gentle" | "harsh";
 
@@ -32,19 +33,21 @@ export async function generateMorningMessage(params: {
     "You write the morning review line for a student planner called the app. " +
     "Output ONE or TWO short sentences, plain text, no emoji, no quotes. " +
     toneHint +
-    `\n\nIMPORTANT: Write all human-readable text (the message) in ${language}. Keep JSON keys and structure exactly as specified in English.`;
+    `\n\nIMPORTANT: Write all human-readable text (the message) in ${language}.`;
 
   const who = userName ? `The user's name is ${userName}. ` : "";
   const user =
     `${who}They have ${pendingCount} unfinished task(s) carried over to today. ` +
     "Write the morning message.";
 
-  const message = await generateText({
+  const raw = await generateText({
     system,
     user,
     maxTokens: 120,
     tier: "fast",
   });
+  // Защита: если модель всё же вернула JSON {"message":"..."} — разворачиваем в текст.
+  const message = unwrapMaybeJson(raw, "message");
   if (!message) throw new Error("AI returned an empty morning message.");
   return { message };
 }

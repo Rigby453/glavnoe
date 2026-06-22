@@ -6,6 +6,7 @@
  */
 
 import { generateText } from "./provider.js";
+import { unwrapMaybeJson } from "./textResponse.js";
 
 export interface WrappedStats {
   periodDays: number;
@@ -34,7 +35,7 @@ export async function generateWrappedSummary(
         "plain text only."
       : "You write warm, upbeat recaps for a student planner. " +
         "Under 60 words, one paragraph, plain text only.") +
-    `\n\nIMPORTANT: Write all human-readable text (the summary paragraph) in ${language}. Keep JSON keys and structure exactly as specified in English.`;
+    `\n\nIMPORTANT: Write all human-readable text (the summary paragraph) in ${language}.`;
 
   const user =
     `Summarize the student's ${periodLabel}: ` +
@@ -52,5 +53,6 @@ export async function generateWrappedSummary(
     tier: "fast",
   });
 
-  return { summary: text.trim() };
+  // Защита: если модель всё же вернула JSON {"summary":"..."} — разворачиваем в текст.
+  return { summary: unwrapMaybeJson(text, "summary") };
 }
