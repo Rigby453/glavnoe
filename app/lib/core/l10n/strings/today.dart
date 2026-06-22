@@ -1515,4 +1515,17 @@ const Map<String, Map<String, String>> todayStrings = {
     'ja': 'シリーズを削除',
     'ko': '시리즈 삭제',
   },
+  'recur.repeats_daily': {
+    'en': 'Repeats daily',
+    'ru': 'Повторяется ежедневно',
+    'de': 'Wiederholt sich täglich',
+    'fr': 'Se répète chaque jour',
+    'it': 'Si ripete ogni giorno',
+    'pt': 'Repete diariamente',
+    'es': 'Se repite a diario',
+    'id': 'Berulang setiap hari',
+    'hi': 'रोज़ दोहराता है',
+    'ja': '毎日繰り返し',
+    'ko': '매일 반복',
+  },
 };

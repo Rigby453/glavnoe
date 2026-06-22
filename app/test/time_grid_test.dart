@@ -91,6 +91,49 @@ void main() {
     });
   });
 
+  group('formatMinutesOfDay', () {
+    test('форматирует час:минуты с ведущими нулями', () {
+      expect(formatMinutesOfDay(0), '00:00');
+      expect(formatMinutesOfDay(450), '07:30');
+      expect(formatMinutesOfDay(8 * 60 + 5), '08:05');
+    });
+    test('зажимает отрицательное и за пределы суток', () {
+      expect(formatMinutesOfDay(-30), '00:00');
+      // 24:00 → отображаем как 00:00 (нормализация по модулю 24)
+      expect(formatMinutesOfDay(24 * 60), '00:00');
+    });
+  });
+
+  group('formatBlockTimeRange', () {
+    test('диапазон старт–конец', () {
+      expect(
+        formatBlockTimeRange(DateTime(2026, 6, 22, 14, 30), 45),
+        '14:30–15:15',
+      );
+    });
+    test('целый час', () {
+      expect(
+        formatBlockTimeRange(DateTime(2026, 6, 22, 9, 0), 60),
+        '09:00–10:00',
+      );
+    });
+  });
+
+  group('blockContentLevel', () {
+    test('низкий блок → только заголовок', () {
+      expect(blockContentLevel(20), BlockContentLevel.titleOnly);
+      expect(blockContentLevel(33.9), BlockContentLevel.titleOnly);
+    });
+    test('средний блок → заголовок + время', () {
+      expect(blockContentLevel(34), BlockContentLevel.titleAndTime);
+      expect(blockContentLevel(63.9), BlockContentLevel.titleAndTime);
+    });
+    test('высокий блок → заголовок + время + мета', () {
+      expect(blockContentLevel(64), BlockContentLevel.titleTimeAndMeta);
+      expect(blockContentLevel(120), BlockContentLevel.titleTimeAndMeta);
+    });
+  });
+
   group('computeOverlapLanes', () {
     test('пустой список', () {
       expect(computeOverlapLanes([]), isEmpty);
