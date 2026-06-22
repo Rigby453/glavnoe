@@ -16,6 +16,9 @@ interface ItemWithSubtasks {
   id: string;
   subtasks: SubtaskShape[];
 }
+interface CreatedItemReminder {
+  reminder_minutes_before: number | null;
+}
 
 let app: FastifyInstance;
 const userIds: string[] = [];
@@ -51,6 +54,40 @@ describe('POST /api/v1/items', () => {
     });
     expect(item.priority).toBe('main');
     expect(item.is_protected).toBe(true);
+  });
+
+  test('reminder_minutes_before round-trips (create → response)', async () => {
+    const user = await registerUser(app);
+    userIds.push(user.userId);
+    const item = await createItem(app, user.token, {
+      title: 'Remind me',
+      reminder_minutes_before: 15,
+    });
+    expect(item.reminder_minutes_before).toBe(15);
+  });
+
+  test('reminder_minutes_before defaults to null when omitted', async () => {
+    const user = await registerUser(app);
+    userIds.push(user.userId);
+    const item = await createItem(app, user.token, { title: 'No reminder' });
+    expect(item.reminder_minutes_before).toBeNull();
+  });
+
+  test('reminder_minutes_before out of range (>10080) → 400', async () => {
+    const user = await registerUser(app);
+    userIds.push(user.userId);
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/items',
+      headers: { Authorization: `Bearer ${user.token}` },
+      payload: {
+        title: 'Bad reminder',
+        type: 'task',
+        scheduled_at: new Date().toISOString(),
+        reminder_minutes_before: 10081,
+      },
+    });
+    expect(res.statusCode).toBe(400);
   });
 
   test('missing title → 400', async () => {
@@ -135,6 +172,36 @@ describe('PATCH /api/v1/items/:id', () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json<{ status: string }>().status).toBe('done');
+  });
+
+  test('reminder_minutes_before set then cleared via null', async () => {
+    const user = await registerUser(app);
+    userIds.push(user.userId);
+    const item = await createItem(app, user.token, {
+      title: 'Reminder edit',
+      reminder_minutes_before: 30,
+    });
+    expect(item.reminder_minutes_before).toBe(30);
+
+    // Set to a new value
+    const set = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/items/${item.id}`,
+      headers: { Authorization: `Bearer ${user.token}` },
+      payload: { reminder_minutes_before: 60 },
+    });
+    expect(set.statusCode).toBe(200);
+    expect(set.json<CreatedItemReminder>().reminder_minutes_before).toBe(60);
+
+    // Clear with explicit null
+    const cleared = await app.inject({
+      method: 'PATCH',
+      url: `/api/v1/items/${item.id}`,
+      headers: { Authorization: `Bearer ${user.token}` },
+      payload: { reminder_minutes_before: null },
+    });
+    expect(cleared.statusCode).toBe(200);
+    expect(cleared.json<CreatedItemReminder>().reminder_minutes_before).toBeNull();
   });
 
   test("another user's item → 404", async () => {

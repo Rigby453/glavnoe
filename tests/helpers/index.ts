@@ -96,6 +96,7 @@ export interface CreatedItem {
   duration_minutes: number;
   is_protected: boolean;
   recurrence_rule: string | null;
+  reminder_minutes_before: number | null;
   created_at: string;
   updated_at: string;
 }

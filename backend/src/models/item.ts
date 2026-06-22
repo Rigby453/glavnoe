@@ -99,6 +99,8 @@ export interface SerializedItem {
   duration_minutes: number;
   is_protected: boolean;
   recurrence_rule: string | null;
+  // Напоминание: за сколько минут до scheduled_at (null = нет напоминания).
+  reminder_minutes_before: number | null;
   created_at: string;
   updated_at: string;
   subtasks: SerializedSubtask[];
@@ -137,6 +139,7 @@ export function serializeItem(item: ItemWithSubtasks): SerializedItem {
     duration_minutes: item.durationMinutes,
     is_protected: item.isProtected,
     recurrence_rule: item.recurrenceRule ?? null,
+    reminder_minutes_before: item.reminderMinutesBefore ?? null,
     created_at: item.createdAt.toISOString(),
     updated_at: item.updatedAt.toISOString(),
     subtasks,

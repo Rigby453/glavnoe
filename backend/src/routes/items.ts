@@ -22,6 +22,8 @@ const createItemSchema = z.object({
   duration_minutes: z.number().int().default(30),
   is_protected: z.boolean().optional(),
   recurrence_rule: z.string().nullable().optional(),
+  // Напоминание: за N минут до scheduled_at (null/0 = нет; макс. 10080 = неделя).
+  reminder_minutes_before: z.number().int().min(0).max(10080).nullable().optional(),
   subtasks: z.array(subtaskInputSchema).optional(),
 });
 
@@ -35,6 +37,7 @@ const updateItemSchema = z.object({
   duration_minutes: z.number().int().optional(),
   is_protected: z.boolean().optional(),
   recurrence_rule: z.string().nullable().optional(),
+  reminder_minutes_before: z.number().int().min(0).max(10080).nullable().optional(),
   subtasks: z.array(subtaskInputSchema).optional(),
 });
 
@@ -75,6 +78,7 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
             durationMinutes: data.duration_minutes,
             isProtected,
             recurrenceRule: data.recurrence_rule ?? null,
+            reminderMinutesBefore: data.reminder_minutes_before ?? null,
           },
         });
 
@@ -164,6 +168,7 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
         durationMinutes?: number;
         isProtected?: boolean;
         recurrenceRule?: string | null;
+        reminderMinutesBefore?: number | null;
       } = {};
 
       if (data.title !== undefined) updateData.title = data.title;
@@ -184,6 +189,8 @@ const itemsRoutes: FastifyPluginAsync = async (fastify) => {
         updateData.isProtected = data.is_protected;
       if ("recurrence_rule" in data)
         updateData.recurrenceRule = data.recurrence_rule ?? null;
+      if ("reminder_minutes_before" in data)
+        updateData.reminderMinutesBefore = data.reminder_minutes_before ?? null;
 
       const updated = await prisma.$transaction(async (tx) => {
         await tx.item.update({

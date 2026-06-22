@@ -51,6 +51,8 @@ model Item {
   durationMinutes Int      @default(30)
   isProtected     Boolean  @default(false)
   recurrenceRule  String?
+  // Напоминание: за сколько минут до scheduledAt уведомить (null/0 = нет). API: reminder_minutes_before.
+  reminderMinutesBefore Int?
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
   subtasks        Subtask[]

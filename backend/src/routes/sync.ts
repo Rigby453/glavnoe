@@ -24,6 +24,8 @@ const syncItemSchema = z.object({
   duration_minutes: z.number().int().optional(),
   is_protected: z.boolean().optional(),
   recurrence_rule: z.string().nullable().optional(),
+  // Напоминание: за N минут до scheduled_at (null/0 = нет; макс. 10080 = неделя).
+  reminder_minutes_before: z.number().int().min(0).max(10080).nullable().optional(),
   // Подзадачи (snake_case). Если массив прислан — заменяем набор целиком (LWW на наборе).
   subtasks: z
     .array(
@@ -183,6 +185,12 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
                     ...("recurrence_rule" in incoming
                       ? { recurrenceRule: incoming.recurrence_rule ?? null }
                       : {}),
+                    ...("reminder_minutes_before" in incoming
+                      ? {
+                          reminderMinutesBefore:
+                            incoming.reminder_minutes_before ?? null,
+                        }
+                      : {}),
                   },
                 });
 
@@ -234,6 +242,7 @@ const syncRoutes: FastifyPluginAsync = async (fastify) => {
                   durationMinutes: incoming.duration_minutes ?? 30,
                   isProtected,
                   recurrenceRule: incoming.recurrence_rule ?? null,
+                  reminderMinutesBefore: incoming.reminder_minutes_before ?? null,
                 },
               });
 
