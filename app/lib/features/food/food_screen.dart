@@ -311,6 +311,11 @@ class _BalanceCard extends ConsumerWidget {
       proteinGoalG: targets.proteinG,
     );
 
+    // Сид дня: целые дни с эпохи. Стабилен в течение дня → текст не «прыгает»
+    // при ребилдах, но меняется день ото дня. Локаль/таймзона не важны.
+    final daySeed =
+        DateTime.now().millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
+
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -334,13 +339,15 @@ class _BalanceCard extends ConsumerWidget {
             const SizedBox(height: 8),
             if (balance.balanced)
               Text(
-                context.s('food.balance_ok'),
+                context.s(resolveBalanceOkKey(daySeed)),
                 style: textTheme.bodyMedium,
               )
             else
-              // hints содержат ключи локализации (food.hint_*), резолвим здесь
-              ...balance.hints.map(
-                (key) => Padding(
+              // hints содержат id категорий — выбираем вариант текста по daySeed.
+              // Смещаем сид на индекс категории (i), чтобы разные категории не
+              // упирались в один и тот же индекс массива.
+              ...balance.hints.asMap().entries.map(
+                (e) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -348,7 +355,7 @@ class _BalanceCard extends ConsumerWidget {
                       Text('· ', style: textTheme.bodyMedium?.copyWith(color: mutedColor)),
                       Expanded(
                         child: Text(
-                          context.s(key),
+                          context.s(resolveHintKey(e.value, daySeed + e.key)),
                           style: textTheme.bodyMedium?.copyWith(color: mutedColor),
                         ),
                       ),
