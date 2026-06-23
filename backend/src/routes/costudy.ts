@@ -315,6 +315,15 @@ export const coStudyRoutes: FastifyPluginAsync = async (app) => {
         });
         if (!member) return reply.code(404).send({ error: 'Request not found' });
 
+        // Идемпотентность: уже принятый участник → успех без повторной записи.
+        if (member.status === 'accepted') {
+          return reply.send({ user_id: member.userId, status: member.status });
+        }
+        // Принимаем только заявки в статусе pending — иначе ничего не «оживляем».
+        if (member.status !== 'pending') {
+          return reply.code(409).send({ error: 'Member is not pending', status: member.status });
+        }
+
         const updated = await prisma.studyGroupMember.update({
           where: { groupId_userId: { groupId, userId: targetUserId } },
           data: { status: 'accepted' },

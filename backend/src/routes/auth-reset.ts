@@ -13,6 +13,14 @@ import {
 // инстанса, из-за чего код терялся между запросом и вводом (тот же класс
 // проблемы, что вынос AiUsage из памяти в БД — ADR-034).
 
+// Раскрываем dev_code только в явно доверенных окружениях. Пустой/неизвестный
+// NODE_ENV НЕ должен раскрывать код (иначе забытый NODE_ENV на проде = обход
+// верификации). Allowlist, а не blacklist по 'production'.
+function devCodeAllowed(): boolean {
+  const env = process.env["NODE_ENV"];
+  return env === "development" || env === "test";
+}
+
 const forgotSchema = z.object({ email: z.string().email() });
 const resetSchema = z.object({
   email: z.string().email(),
@@ -38,19 +46,23 @@ const authResetRoutes: FastifyPluginAsync = async (fastify) => {
       const expiresAt = new Date(Date.now() + RESET_CODE_TTL_MS);
 
       // Инвалидируем все прошлые неиспользованные коды пользователя, помечая их
-      // использованными — активным остаётся только что выданный (одноразовость).
-      await prisma.passwordResetCode.updateMany({
-        where: { userId: user.id, usedAt: null },
-        data: { usedAt: new Date() },
-      });
-      await prisma.passwordResetCode.create({
-        data: { userId: user.id, codeHash, expiresAt },
-      });
+      // использованными, и создаём новый — атомарно в одной транзакции, чтобы
+      // сбой между двумя шагами не оставил пользователя без активного кода
+      // (или с двумя активными). Активным остаётся только что выданный.
+      await prisma.$transaction([
+        prisma.passwordResetCode.updateMany({
+          where: { userId: user.id, usedAt: null },
+          data: { usedAt: new Date() },
+        }),
+        prisma.passwordResetCode.create({
+          data: { userId: user.id, codeHash, expiresAt },
+        }),
+      ]);
 
       // TODO: в production отправить email через SMTP/SES (заблокировано отсутствием SMTP)
       fastify.log.info({ email }, "Password reset code generated");
-      // В dev-режиме возвращаем код в ответе для тестирования
-      if (process.env["NODE_ENV"] !== "production") {
+      // В dev/test-режиме возвращаем код в ответе для тестирования
+      if (devCodeAllowed()) {
         return reply.status(200).send({
           message: "If this email is registered, a reset code was sent.",
           dev_code: code,
