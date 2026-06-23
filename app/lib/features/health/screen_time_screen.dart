@@ -7,7 +7,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/l10n/app_strings.dart';
+import '../../core/settings/tone_provider.dart';
 import '../../core/theme/app_theme.dart';
+import 'screen_time_advice.dart';
 import 'screen_time_provider.dart';
 import 'screen_time_usage_provider.dart';
 
@@ -282,7 +284,7 @@ class _UsageSection extends ConsumerWidget {
 
 /// Плитка использования одной категории: «used X / limit Y», прогресс-бар,
 /// индикатор превышения (ember + «over by N» / «limit reached»).
-class _UsageTile extends StatelessWidget {
+class _UsageTile extends ConsumerWidget {
   const _UsageTile({
     required this.categoryKey,
     required this.categoryName,
@@ -298,7 +300,7 @@ class _UsageTile extends StatelessWidget {
   final int limitMinutes;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final primary = Theme.of(context).colorScheme.primary;
@@ -306,6 +308,13 @@ class _UsageTile extends StatelessWidget {
     final hasLimit = limitMinutes > 0;
     final isOver = hasLimit && usedMinutes >= limitMinutes;
     final overBy = usedMinutes - limitMinutes;
+
+    // Бесплатный «зашитый» совет: уровень + тон → ключ локализованной фразы.
+    // Показываем только когда есть данные об использовании (used > 0); дефолтные
+    // пороги применяются даже без явного лимита.
+    final tone = ref.watch(toneProvider);
+    final level = screenTimeLevel(usedMinutes, limitMinutes, categoryKey);
+    final adviceKey = screenTimeAdviceKey(categoryKey, level, tone);
 
     // Прогресс: used/limit, ограничен [0..1]. Без лимита — индикатор не показываем.
     final double? progress = hasLimit
@@ -363,6 +372,19 @@ class _UsageTile extends StatelessWidget {
                 style: textTheme.bodySmall?.copyWith(color: ext.ember),
               ),
             ],
+          ],
+          // Совет по категории — bodySmall, приглушённый; ember для tooMuch
+          // (в тон существующему оформлению превышения лимита).
+          if (usedMinutes > 0) ...[
+            const SizedBox(height: 6),
+            Text(
+              context.s(adviceKey),
+              style: textTheme.bodySmall?.copyWith(
+                color: level == ScreenTimeLevel.tooMuch
+                    ? ext.ember
+                    : ext.textMuted,
+              ),
+            ),
           ],
         ],
       ),

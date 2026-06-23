@@ -1086,6 +1086,143 @@ const Map<String, Map<String, String>> healthBStrings = {
   },
 
   // ---------------------------------------------------------------------------
+  // screentime_advice_*  —  screen_time_advice.dart (бесплатные «зашитые» фразы)
+  //   <category>_<ok|much|too_much>_<gentle|harsh>. 5×3×2 = 30 ключей.
+  //   Заданы en + ru; прочие локали падают на en (резолвер S делает fallback).
+  //   Первый черновик — пользователь будет править формулировки.
+  // ---------------------------------------------------------------------------
+
+  // --- social ---------------------------------------------------------------
+  'screentime_advice_social_ok_gentle': {
+    'en': 'Nice balance with social today.',
+    'ru': 'Хороший баланс с соцсетями сегодня.',
+  },
+  'screentime_advice_social_ok_harsh': {
+    'en': 'Social is in check. Keep it there.',
+    'ru': 'Соцсети под контролем. Так и держи.',
+  },
+  'screentime_advice_social_much_gentle': {
+    'en': 'Social is adding up — maybe a short break?',
+    'ru': 'Соцсети накапливаются — может, сделаешь паузу?',
+  },
+  'screentime_advice_social_much_harsh': {
+    'en': 'Social is climbing fast. Put it down.',
+    'ru': 'Соцсети растут слишком быстро. Отложи телефон.',
+  },
+  'screentime_advice_social_too_much_gentle': {
+    'en': 'Lots of social today — time to step away.',
+    'ru': 'Сегодня много соцсетей — пора отвлечься.',
+  },
+  'screentime_advice_social_too_much_harsh': {
+    'en': 'Way too much social. Close the app now.',
+    'ru': 'Соцсетей слишком много. Закрой приложение.',
+  },
+
+  // --- video ----------------------------------------------------------------
+  'screentime_advice_video_ok_gentle': {
+    'en': 'Your video time looks healthy today.',
+    'ru': 'Время на видео сегодня в норме.',
+  },
+  'screentime_advice_video_ok_harsh': {
+    'en': 'Video is fine so far. Stay sharp.',
+    'ru': 'Видео пока в порядке. Не расслабляйся.',
+  },
+  'screentime_advice_video_much_gentle': {
+    'en': 'Quite a bit of video — a pause could help.',
+    'ru': 'Видео уже немало — пауза не помешает.',
+  },
+  'screentime_advice_video_much_harsh': {
+    'en': 'Video is piling up. Stop the next one.',
+    'ru': 'Видео копится. Не запускай следующее.',
+  },
+  'screentime_advice_video_too_much_gentle': {
+    'en': 'That\'s a lot of video — give your eyes a rest.',
+    'ru': 'Это много видео — дай глазам отдохнуть.',
+  },
+  'screentime_advice_video_too_much_harsh': {
+    'en': 'Too much video. Turn it off.',
+    'ru': 'Видео слишком много. Выключай.',
+  },
+
+  // --- games ----------------------------------------------------------------
+  'screentime_advice_games_ok_gentle': {
+    'en': 'Gaming time is nicely balanced today.',
+    'ru': 'Время на игры сегодня в балансе.',
+  },
+  'screentime_advice_games_ok_harsh': {
+    'en': 'Games under control. Keep it tight.',
+    'ru': 'Игры под контролем. Не теряй хватку.',
+  },
+  'screentime_advice_games_much_gentle': {
+    'en': 'Games are adding up — maybe wrap up soon.',
+    'ru': 'Игры накапливаются — пора заканчивать.',
+  },
+  'screentime_advice_games_much_harsh': {
+    'en': 'Games are eating your time. Finish the match.',
+    'ru': 'Игры съедают время. Доигрывай и хватит.',
+  },
+  'screentime_advice_games_too_much_gentle': {
+    'en': 'Long gaming session — time for a break.',
+    'ru': 'Долгая игровая сессия — пора передохнуть.',
+  },
+  'screentime_advice_games_too_much_harsh': {
+    'en': 'Too much gaming. Quit and move on.',
+    'ru': 'Игр слишком много. Выходи и займись делом.',
+  },
+
+  // --- browsing -------------------------------------------------------------
+  'screentime_advice_browsing_ok_gentle': {
+    'en': 'Browsing time looks fine today.',
+    'ru': 'Время в браузере сегодня в норме.',
+  },
+  'screentime_advice_browsing_ok_harsh': {
+    'en': 'Browsing is in check. Don\'t drift.',
+    'ru': 'Браузер под контролем. Не залипай.',
+  },
+  'screentime_advice_browsing_much_gentle': {
+    'en': 'A fair bit of browsing — maybe refocus?',
+    'ru': 'Браузера уже немало — может, вернёшься к делу?',
+  },
+  'screentime_advice_browsing_much_harsh': {
+    'en': 'Browsing is creeping up. Close the tabs.',
+    'ru': 'Браузер растёт. Закрывай вкладки.',
+  },
+  'screentime_advice_browsing_too_much_gentle': {
+    'en': 'Lots of browsing today — time to log off.',
+    'ru': 'Сегодня много браузера — пора закрывать.',
+  },
+  'screentime_advice_browsing_too_much_harsh': {
+    'en': 'Too much aimless browsing. Stop scrolling.',
+    'ru': 'Бесцельного браузинга слишком много. Хватит листать.',
+  },
+
+  // --- messaging ------------------------------------------------------------
+  'screentime_advice_messaging_ok_gentle': {
+    'en': 'Messaging time is well balanced today.',
+    'ru': 'Время в мессенджерах сегодня в балансе.',
+  },
+  'screentime_advice_messaging_ok_harsh': {
+    'en': 'Messaging is fine. Keep replies quick.',
+    'ru': 'Мессенджеры в порядке. Отвечай коротко.',
+  },
+  'screentime_advice_messaging_much_gentle': {
+    'en': 'Messaging is adding up — pause the chats?',
+    'ru': 'Мессенджеры накапливаются — может, пауза в чатах?',
+  },
+  'screentime_advice_messaging_much_harsh': {
+    'en': 'Chats are taking over. Mute them a while.',
+    'ru': 'Чаты захватывают время. Поставь на паузу.',
+  },
+  'screentime_advice_messaging_too_much_gentle': {
+    'en': 'A lot of messaging today — take a breather.',
+    'ru': 'Сегодня много переписок — выдохни.',
+  },
+  'screentime_advice_messaging_too_much_harsh': {
+    'en': 'Too much time in chats. Put the phone down.',
+    'ru': 'В чатах слишком много времени. Отложи телефон.',
+  },
+
+  // ---------------------------------------------------------------------------
   // sleep.*  —  sleep_report_screen.dart
   // ---------------------------------------------------------------------------
 
