@@ -49,6 +49,19 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
   int _setIndex = 0; // текущий подход (0-based)
   _TrainerPhase _phase = _TrainerPhase.work;
 
+  // Feature B — фактические reps/weight текущего подхода.
+  // Пред-заполняются плановыми значениями упражнения (см. _resetSetInputs),
+  // так что «тап насквозь» без правок залогирует осмысленные числа.
+  int _currentReps = 0;
+  double? _currentWeightKg; // null = собственный вес (bodyweight)
+  bool _setInputsReady = false; // плановые значения уже подставлены?
+
+  // Границы регулировки фактических reps/weight
+  static const int _repsMin = 0;
+  static const int _repsMax = 999;
+  static const double _weightStep = 2.5; // шаг изменения веса в кг
+  static const double _weightMax = 999.0;
+
   // Таймер обратного отсчёта (для фазы rest)
   int _restSecondsLeft = 0;
   Timer? _restTimer;
@@ -143,9 +156,52 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
 
   int get _totalExercises => _exercises!.length;
 
-  /// Нажата кнопка «Set done» — переходим к отдыху или следующему упражнению.
-  void _onSetDone() {
+  /// Подставить плановые reps/weight упражнения как стартовые значения подхода.
+  /// Вызывается при первом показе work-фазы и при каждой смене упражнения.
+  /// Не вызывает setState сам — рассчитан на вызов внутри _animateTransition
+  /// или прямо перед setState в build-инициализации.
+  void _resetSetInputs() {
     final ex = _currentExercise;
+    _currentReps = ex.reps;
+    _currentWeightKg = ex.weightKg; // может быть null → bodyweight
+    _setInputsReady = true;
+  }
+
+  /// Изменить фактические повторения на delta (с клампом).
+  void _adjustReps(int delta) {
+    setState(() {
+      _currentReps = (_currentReps + delta).clamp(_repsMin, _repsMax);
+    });
+  }
+
+  /// Изменить фактический вес на delta кг (с клампом).
+  /// Из bodyweight (null) первый «+» стартует с 0, «−» остаётся bodyweight.
+  void _adjustWeight(double delta) {
+    setState(() {
+      final base = _currentWeightKg ?? 0.0;
+      final next = base + delta;
+      _currentWeightKg = next <= 0 ? null : next.clamp(0.0, _weightMax);
+    });
+  }
+
+  /// Нажата кнопка «Set done» — переходим к отдыху или следующему упражнению.
+  /// Feature B: ПЕРЕД сменой состояния логируем фактический подход в Drift.
+  Future<void> _onSetDone() async {
+    final ex = _currentExercise;
+
+    // Логируем факт выполненного подхода ДО мутаций состояния.
+    // Guard на _sessionId: до инициализации сессии не пишем.
+    if (_sessionId != null) {
+      await ref.read(workoutsDaoProvider).logSet(
+            sessionId: _sessionId!,
+            exerciseId: ex.id,
+            setIndex: _setIndex,
+            reps: _currentReps,
+            weightKg: _currentWeightKg,
+          );
+    }
+    if (!mounted) return;
+
     final isLastSet = _setIndex >= ex.sets - 1;
 
     if (!isLastSet) {
@@ -167,6 +223,8 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
           _exerciseIndex++;
           _setIndex = 0;
           _phase = _TrainerPhase.work;
+          // Новое упражнение → подставляем его плановые reps/weight.
+          _resetSetInputs();
         });
       }
     }
@@ -315,6 +373,10 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
     // Кешируем упражнения (нужны для логики, даже если стрим обновится)
     _exercises ??= exercises;
 
+    // Feature B: однократно подставляем плановые reps/weight первого упражнения
+    // как стартовые значения подхода (до первого рендера work-фазы).
+    if (!_setInputsReady) _resetSetInputs();
+
     final ex = _currentExercise;
     final progressLabel =
         '${context.s('workout.exercise_of')} ${_exerciseIndex + 1} '
@@ -413,6 +475,11 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
               textAlign: TextAlign.center,
             ),
           ],
+          const SizedBox(height: 32),
+          // Feature B: фактические reps/weight текущего подхода — два компактных
+          // степпера. Пред-заполнены планом упражнения; правки логируются в Drift.
+          // ACCENT DISCIPLINE: степперы нейтральные (textMuted), не accent.
+          _buildSetInputs(context, textTheme, ext),
           const Spacer(),
           // FilledButton — единственная первичная CTA (Set done)
           // ACCENT DISCIPLINE: только этот элемент в фазе work получает accent
@@ -428,6 +495,109 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
           const SizedBox(height: 16),
         ],
       ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Feature B — ввод фактических reps/weight (два компактных степпера)
+  // ---------------------------------------------------------------------------
+
+  /// Форматирование веса: «40 kg» / «42.5 kg» / «Bodyweight» (null).
+  String _formatWeight(BuildContext context, double? w) {
+    if (w == null) return context.s('workout.bodyweight');
+    final v = w == w.truncateToDouble() ? '${w.round()}' : '$w';
+    return '$v ${context.s('workout.weight_short')}';
+  }
+
+  /// Ряд из двух степперов: reps (целое) и weight (кг, шаг 2.5, опционально).
+  Widget _buildSetInputs(
+    BuildContext context,
+    TextTheme textTheme,
+    FocusThemeExtension ext,
+  ) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: _buildStepper(
+            context: context,
+            textTheme: textTheme,
+            ext: ext,
+            label: context.s('workout.reps_label'),
+            value: '$_currentReps',
+            onMinus: _currentReps <= _repsMin ? null : () => _adjustReps(-1),
+            onPlus: _currentReps >= _repsMax ? null : () => _adjustReps(1),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: _buildStepper(
+            context: context,
+            textTheme: textTheme,
+            ext: ext,
+            label: context.s('workout.weight_kg'),
+            value: _formatWeight(context, _currentWeightKg),
+            onMinus: _currentWeightKg == null
+                ? null
+                : () => _adjustWeight(-_weightStep),
+            onPlus: (_currentWeightKg ?? 0) >= _weightMax
+                ? null
+                : () => _adjustWeight(_weightStep),
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Один степпер: подпись + ряд «− значение +».
+  Widget _buildStepper({
+    required BuildContext context,
+    required TextTheme textTheme,
+    required FocusThemeExtension ext,
+    required String label,
+    required String value,
+    required VoidCallback? onMinus,
+    required VoidCallback? onPlus,
+  }) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Подпись поля — bodySmall + textFaint (тихая)
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 4),
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            IconButton(
+              onPressed: onMinus,
+              icon: const Icon(Icons.remove),
+              color: ext.textMuted,
+              visualDensity: VisualDensity.compact,
+            ),
+            // Текущее значение — titleLarge (читаемо, но не display)
+            Expanded(
+              child: Text(
+                value,
+                style: textTheme.titleLarge,
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            IconButton(
+              onPressed: onPlus,
+              icon: const Icon(Icons.add),
+              color: ext.textMuted,
+              visualDensity: VisualDensity.compact,
+            ),
+          ],
+        ),
+      ],
     );
   }
 

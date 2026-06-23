@@ -44,6 +44,7 @@ import 'package:app/features/health/water_fullscreen_screen.dart';
 import 'package:app/features/health/water_report_screen.dart';
 import 'package:app/features/health/workout_editor_screen.dart';
 import 'package:app/features/health/workout_trainer_screen.dart';
+import 'package:app/features/health/exercise_history_screen.dart';
 import 'package:app/features/health/workouts_screen.dart';
 import 'package:app/features/onboarding/onboarding_screen.dart';
 import 'package:app/features/onboarding/setup_flow.dart';
@@ -610,6 +611,60 @@ void main() {
         weightKg: 42.5,
       );
       await pumpNarrow(tester, WorkoutTrainerScreen(workoutId: id));
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // ExerciseHistoryScreen — пусто + (с данными) много сессий с длинным именем
+  // упражнения: худший случай для динамики веса + строк подходов на 320px.
+  // -------------------------------------------------------------------------
+
+  group('ExerciseHistoryScreen — overflow audits', () {
+    // Сидирование делаем внутри tester.runAsync: чтение Drift-стрима
+    // (.watch().first) зависит от zero-duration таймера Drift, который под
+    // фейковыми часами теста сам не срабатывает — без реального клока .first
+    // виснет (тест уходил в 10-минутный таймаут).
+    Future<String> seedHistory(WidgetTester tester, {int sessions = 8}) async {
+      final exId = await tester.runAsync(() async {
+        final dao = WorkoutsDao(db);
+        final workoutId = await dao.createWorkout('Push Day');
+        await dao.addExercise(
+          workoutId: workoutId,
+          name: 'Incline Dumbbell Bench Press With Slow Eccentric Tempo',
+        );
+        final ex = (await dao.watchExercises(workoutId).first).single;
+        for (var s = 0; s < sessions; s++) {
+          final sid = await dao.startSession(workoutId, 'Push Day');
+          await dao.logSet(
+              sessionId: sid,
+              exerciseId: ex.id,
+              setIndex: 0,
+              reps: 12,
+              weightKg: 40.0 + s * 2.5);
+        }
+        return ex.id;
+      });
+      return exId!;
+    }
+
+    testWidgets('empty state, narrow 320px: no overflow', (tester) async {
+      final exId = await tester.runAsync(() async {
+        final dao = WorkoutsDao(db);
+        final id = await dao.createWorkout('Push Day');
+        await dao.addExercise(workoutId: id, name: 'Bench Press');
+        return (await dao.watchExercises(id).first).single.id;
+      });
+      await pumpNarrow(tester, ExerciseHistoryScreen(exerciseId: exId!));
+    });
+
+    testWidgets('with many sessions (long name), narrow 320px', (tester) async {
+      final exId = await seedHistory(tester);
+      await pumpNarrow(tester, ExerciseHistoryScreen(exerciseId: exId));
+    });
+
+    testWidgets('with many sessions, large text scale 1.5', (tester) async {
+      final exId = await seedHistory(tester);
+      await pumpLargeText(tester, ExerciseHistoryScreen(exerciseId: exId));
     });
   });
 

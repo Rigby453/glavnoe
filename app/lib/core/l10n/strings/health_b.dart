@@ -532,6 +532,96 @@ const Map<String, Map<String, String>> healthBStrings = {
   },
 
   // ---------------------------------------------------------------------------
+  // workout.* (Feature B) — set-by-set дневник: ввод фактических reps/weight
+  // в тренажёре + экран истории упражнения (exercise_history_screen.dart)
+  // ---------------------------------------------------------------------------
+
+  // Подпись поля «вес» в тренажёре (kg)
+  'workout.weight_short': {
+    'en': 'kg',
+    'ru': 'кг',
+    'de': 'kg',
+    'fr': 'kg',
+    'it': 'kg',
+    'pt': 'kg',
+    'es': 'kg',
+    'id': 'kg',
+    'hi': 'किग्रा',
+    'ja': 'kg',
+    'ko': 'kg',
+  },
+  // Метка «собственный вес» (когда weight не задан)
+  'workout.bodyweight': {
+    'en': 'Bodyweight',
+    'ru': 'Свой вес',
+    'de': 'Körpergewicht',
+    'fr': 'Poids du corps',
+    'it': 'Corpo libero',
+    'pt': 'Peso corporal',
+    'es': 'Peso corporal',
+    'id': 'Berat badan',
+    'hi': 'शरीर का वज़न',
+    'ja': '自重',
+    'ko': '맨몸',
+  },
+  // Заголовок экрана истории упражнения
+  'workout.history_title': {
+    'en': 'Exercise history',
+    'ru': 'История упражнения',
+    'de': 'Übungsverlauf',
+    'fr': 'Historique de l\'exercice',
+    'it': 'Cronologia esercizio',
+    'pt': 'Histórico do exercício',
+    'es': 'Historial del ejercicio',
+    'id': 'Riwayat latihan',
+    'hi': 'एक्सरसाइज़ इतिहास',
+    'ja': '種目の履歴',
+    'ko': '종목 기록',
+  },
+  // Пустое состояние истории упражнения
+  'workout.history_empty': {
+    'en': 'No history yet',
+    'ru': 'Истории пока нет',
+    'de': 'Noch kein Verlauf',
+    'fr': 'Pas encore d\'historique',
+    'it': 'Ancora nessuna cronologia',
+    'pt': 'Sem histórico ainda',
+    'es': 'Aún no hay historial',
+    'id': 'Belum ada riwayat',
+    'hi': 'अभी कोई इतिहास नहीं',
+    'ja': 'まだ履歴がありません',
+    'ko': '아직 기록이 없습니다',
+  },
+  // Подпись над спарклайном динамики веса
+  'workout.weight_dynamics': {
+    'en': 'Top working weight',
+    'ru': 'Рабочий вес (макс.)',
+    'de': 'Top-Arbeitsgewicht',
+    'fr': 'Charge de travail max',
+    'it': 'Peso di lavoro max',
+    'pt': 'Carga de trabalho máx.',
+    'es': 'Peso de trabajo máx.',
+    'id': 'Beban kerja tertinggi',
+    'hi': 'टॉप वर्किंग वेट',
+    'ja': '最大ワーキング重量',
+    'ko': '최고 작업 중량',
+  },
+  // Подсказка/кнопка перехода к истории упражнения (tooltip)
+  'workout.view_history': {
+    'en': 'History',
+    'ru': 'История',
+    'de': 'Verlauf',
+    'fr': 'Historique',
+    'it': 'Cronologia',
+    'pt': 'Histórico',
+    'es': 'Historial',
+    'id': 'Riwayat',
+    'hi': 'इतिहास',
+    'ja': '履歴',
+    'ko': '기록',
+  },
+
+  // ---------------------------------------------------------------------------
   // breathing.*  —  breathing_screen.dart
   // ---------------------------------------------------------------------------
 

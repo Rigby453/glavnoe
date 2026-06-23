@@ -178,6 +178,10 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
                             exercise: ex,
                             onTap: () => _editExercise(ex),
                             onDelete: () => _deleteExercise(ex),
+                            onHistory: () => context.push(
+                              '/workouts/exercise/${ex.id}/history'
+                              '?name=${Uri.encodeQueryComponent(ex.name)}',
+                            ),
                             ext: ext,
                             textTheme: textTheme,
                           ),
@@ -266,6 +270,7 @@ class _ExerciseCard extends StatelessWidget {
     required this.exercise,
     required this.onTap,
     required this.onDelete,
+    required this.onHistory,
     required this.ext,
     required this.textTheme,
   });
@@ -274,6 +279,8 @@ class _ExerciseCard extends StatelessWidget {
   final VoidCallback onTap;
   /// Колбэк удаления — вызывается из кнопки-корзины trailing
   final VoidCallback onDelete;
+  /// Колбэк перехода к истории упражнения (Feature B) — иконка-график
+  final VoidCallback onHistory;
   final FocusThemeExtension ext;
   final TextTheme textTheme;
 
@@ -319,6 +326,16 @@ class _ExerciseCard extends StatelessWidget {
                     ],
                   ],
                 ),
+              ),
+              // Кнопка истории упражнения (Feature B) — прошлые подходы + динамика
+              IconButton(
+                icon: Icon(
+                  Icons.show_chart,
+                  size: 20,
+                  color: ext.textFaint,
+                ),
+                tooltip: context.s('workout.view_history'),
+                onPressed: onHistory,
               ),
               // Кнопка-корзина — второй способ удаления помимо свайпа
               // textFaint цвет — мягкий, не агрессивный

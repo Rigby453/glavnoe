@@ -343,11 +343,25 @@ void main() {
       expect(find.text('Bench Press'), findsOneWidget);
 
       // Set done → не последний подход → фаза rest (стартует Timer отдыха).
+      // Feature B: тап логирует фактический подход в Drift ДО смены фазы.
+      // Плановые reps упражнения = 10 (дефолт addExercise), степперы не трогали.
       await tester.tap(find.text('Set done'));
+      // logSet — асинхронная запись в Drift; прокачиваем реальные микротаски.
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text('Skip rest'), findsOneWidget);
       expect(tester.takeException(), isNull);
+
+      // Залогированный подход существует: строка workout_set_logs с reps=10
+      // (плановые повторы, степперы не меняли) для первого упражнения, setIndex 0.
+      final logged = await tester.runAsync(
+          () => db.select(db.workoutSetLogsTable).get());
+      expect(logged, isNotNull);
+      expect(logged!, hasLength(1));
+      expect(logged.single.reps, 10);
+      expect(logged.single.setIndex, 0);
 
       // Skip rest → переход к подходу 2 того же упражнения (индексация _setIndex++).
       await tester.tap(find.text('Skip rest'));

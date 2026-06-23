@@ -82,6 +82,13 @@ class WorkoutsDao extends DatabaseAccessor<AppDatabase>
         .watch();
   }
 
+  /// Реактивно: одно упражнение по id (null, если удалено).
+  /// Нужно экрану истории упражнения для заголовка (имя упражнения).
+  Stream<WorkoutExercisesTableData?> watchExercise(String id) {
+    return (select(workoutExercisesTable)..where((t) => t.id.equals(id)))
+        .watchSingleOrNull();
+  }
+
   /// Добавить упражнение в шаблон.
   Future<void> addExercise({
     required String workoutId,

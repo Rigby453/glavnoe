@@ -45,6 +45,7 @@ import 'package:app/features/health/costudy_screen.dart';
 import 'package:app/features/health/workouts_screen.dart';
 import 'package:app/features/health/workout_editor_screen.dart';
 import 'package:app/features/health/workout_trainer_screen.dart';
+import 'package:app/features/health/exercise_history_screen.dart';
 import 'package:app/features/diary/diary_history_screen.dart';
 import 'package:app/features/food/food_screen.dart';
 import 'package:app/features/food/recipes_screen.dart';
@@ -510,6 +511,56 @@ void main() {
       await settle(tester);
 
       expect(find.byType(WorkoutTrainerScreen), findsOneWidget);
+
+      await unmountAndFlush(tester);
+    });
+  });
+
+  group('ExerciseHistoryScreen', () {
+    testWidgets('renders seeded history with a logged set', (tester) async {
+      // Сидим тренировку + упражнение, логируем 3 подхода → экран рисует историю.
+      final dao = WorkoutsDao(db);
+      final exerciseId = await tester.runAsync(() async {
+        final workoutId = await dao.createWorkout('Push Day');
+        await dao.addExercise(workoutId: workoutId, name: 'Bench Press');
+        final ex = (await dao.watchExercises(workoutId).first).single;
+        final sid = await dao.startSession(workoutId, 'Push Day');
+        await dao.logSet(
+            sessionId: sid, exerciseId: ex.id, setIndex: 0, reps: 10, weightKg: 40);
+        await dao.logSet(
+            sessionId: sid, exerciseId: ex.id, setIndex: 1, reps: 9, weightKg: 40);
+        await dao.logSet(
+            sessionId: sid, exerciseId: ex.id, setIndex: 2, reps: 8, weightKg: 40);
+        return ex.id;
+      }) as String;
+
+      await tester
+          .pumpWidget(harness(ExerciseHistoryScreen(exerciseId: exerciseId)));
+      await settle(tester);
+
+      expect(find.byType(ExerciseHistoryScreen), findsOneWidget);
+      // Хотя бы одна строка подхода «reps × weight» отрисована.
+      expect(find.textContaining('10 × 40'), findsOneWidget);
+
+      await unmountAndFlush(tester);
+    });
+
+    testWidgets('empty state (valid id, no logs) renders chart icon',
+        (tester) async {
+      // Упражнение есть, но подходов не логировали → пустое состояние.
+      final dao = WorkoutsDao(db);
+      final exerciseId = await tester.runAsync(() async {
+        final workoutId = await dao.createWorkout('Push Day');
+        await dao.addExercise(workoutId: workoutId, name: 'Bench Press');
+        return (await dao.watchExercises(workoutId).first).single.id;
+      }) as String;
+
+      await tester
+          .pumpWidget(harness(ExerciseHistoryScreen(exerciseId: exerciseId)));
+      await settle(tester);
+
+      expect(find.byType(ExerciseHistoryScreen), findsOneWidget);
+      expect(find.byIcon(Icons.show_chart), findsOneWidget);
 
       await unmountAndFlush(tester);
     });

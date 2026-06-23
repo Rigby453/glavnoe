@@ -31,6 +31,7 @@ import '../../features/health/posture_screen.dart';
 import '../../features/health/workouts_screen.dart';
 import '../../features/health/workout_editor_screen.dart';
 import '../../features/health/workout_trainer_screen.dart';
+import '../../features/health/exercise_history_screen.dart';
 import '../../features/health/sleep_report_screen.dart';
 import '../../features/health/water_fullscreen_screen.dart';
 import '../../features/health/water_report_screen.dart';
@@ -280,6 +281,16 @@ final routerProvider = Provider<GoRouter>((ref) {
         path: '/workouts/:id/train',
         builder: (context, state) =>
             WorkoutTrainerScreen(workoutId: state.pathParameters['id']!),
+      ),
+      // История упражнения (Feature B): прошлые подходы + динамика веса.
+      // :id здесь — id упражнения (не тренировки). Имя для заголовка может
+      // прийти через ?name= (опционально; экран сам подтянет его из БД).
+      GoRoute(
+        path: '/workouts/exercise/:id/history',
+        builder: (context, state) => ExerciseHistoryScreen(
+          exerciseId: state.pathParameters['id']!,
+          exerciseName: state.uri.queryParameters['name'],
+        ),
       ),
 
       // /diary-history — история записей дневника, вне оболочки
