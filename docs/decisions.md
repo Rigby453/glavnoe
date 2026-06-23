@@ -5,6 +5,12 @@
 
 ---
 
+## ADR-051: AI workout-build endpoint (Feature A) — coach program, no weights prescribed
+**Date:** 2026-06-23
+**Проблема:** Нужна Phase 2 фича «AI-программа тренировок»: пользователь задаёт цель/опыт/оборудование/дни/время — бэкенд возвращает недельную программу. Требовался эндпоинт, зеркалящий существующий menu-build (auth, premium-гейт, валидация, обработка гео/квоты как 503), но для тренировок.
+**Решение:** `POST /api/v1/ai/workout-build` (premium, snake_case). Запрос: `goal` (strength|muscle|fat_loss|endurance|general), `experience` (beginner|intermediate|advanced), `equipment[]`, `days_per_week` (1..7), `minutes_per_session`, опц. `focus`/`limitations`/`tone`/`profile`. Ответ: `{ program_name, days[{title, exercises[{name, sets, reps, rest_seconds, note?}]}], note }`. Логика в `backend/src/ai/workoutBuild.ts` `buildWorkoutProgram(...)` — единственный путь к модели через `generateText` (ADR-022), `tier:'smart'`, `json:true`. **`reps` — строка** (диапазоны "8-12"/"AMRAP"); **вес НЕ прописывается** моделью (первый проход — просто). **`maxTokens: 4000`** (как menu-build по ADR-046: несколько дней × упражнения + note легко превышают 1500 токенов и обрезаются → невалидный JSON). Устойчивый парсинг (снятие fences → первый сбалансированный объект → ошибка) + 1 ретрай при невалидном JSON/схеме, затем понятная ошибка. **Число дней клемпится к `days_per_week`** (защита от лишних дней от модели). Контракт — в `api-spec.yaml` (тег AI Phase 2), мирроринг стиля menu-build.
+**Последствия:** Ещё одна premium AI-фича по тому же шаблону (auth → 400-валидация → premium-гейт → 200 / гео-квота → 503). Ничего не сохраняется на сервере. Вес не прописывается — клиент/пользователь подбирает нагрузку сам; нумерические подсказки можно добавить во втором проходе. Тесты мокают `generateText` (никаких реальных вызовов модели).
+
 ## ADR-050: Neon connection pooling — pooled DATABASE_URL at runtime, directUrl for migrations
 **Date:** 2026-06-23
 **Проблема:** На Neon (serverless Postgres) рантайм-инстанс на Render может масштабироваться/просыпаться и открывать много недолгих соединений; прямое соединение с БД быстро упирается в лимит коннектов Postgres. При этом Prisma для миграций (`prisma migrate`, теневая БД) требует **прямое** (не через pooler) соединение — PgBouncer в transaction-режиме не поддерживает все операции, нужные миграциям.

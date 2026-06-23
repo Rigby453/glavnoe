@@ -9,6 +9,7 @@ import { generateDiaryInsight } from "../ai/diaryInsight.js";
 import { recognizeFood } from "../ai/foodRecognize.js";
 import { generateWrappedSummary } from "../ai/wrappedSummary.js";
 import { buildMenu } from "../ai/menuBuild.js";
+import { buildWorkoutProgram } from "../ai/workoutBuild.js";
 import { searchProducts } from "../food/openFoodFacts.js";
 import type { FoodProduct } from "../food/openFoodFacts.js";
 import { resolveEntitlement } from "../models/entitlement.js";
@@ -113,6 +114,29 @@ const menuBuildSchema = z.object({
   health_profile: healthProfileSchema,
   food_prefs: foodPrefsSchema,
 });
+// Feature A: AI-программа тренировок (premium, Phase 2). Модель только
+// компонует упражнения под цель/оборудование/время — вес не прописывает.
+const workoutProfileSchema = z
+  .object({
+    sex: z.string().max(20).trim().optional(),
+    age: z.number().int().min(5).max(120).optional(),
+    weight_kg: z.number().min(20).max(400).optional(),
+    height_cm: z.number().min(80).max(260).optional(),
+  })
+  .optional();
+
+const workoutBuildSchema = z.object({
+  goal: z.enum(["strength", "muscle", "fat_loss", "endurance", "general"]),
+  experience: z.enum(["beginner", "intermediate", "advanced"]),
+  equipment: z.array(z.string().min(1)).min(1).max(20),
+  days_per_week: z.number().int().min(1).max(7),
+  minutes_per_session: z.number().int().min(10).max(240),
+  focus: z.string().max(200).trim().optional(),
+  limitations: z.string().max(500).trim().optional(),
+  tone: toneSchema.default("gentle"),
+  profile: workoutProfileSchema,
+});
+
 const wrappedSummarySchema = z.object({
   period_days: z.number().int().min(1).max(366),
   tasks_done: z.number().int().min(0),
@@ -378,6 +402,73 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (err) {
         return aiError(fastify, reply, err, "menu-build");
+      }
+    }
+  );
+
+  // Feature A: «AI-программа тренировок» — недельная программа под цель/опыт/
+  // оборудование/время (premium, Phase 2). Модель компонует упражнения и
+  // подходы/повторы/отдых; вес НЕ прописывает. Ничего не сохраняет.
+  fastify.post(
+    "/api/v1/ai/workout-build",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const parsed = workoutBuildSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: parsed.error.issues[0]?.message ?? "Validation error",
+        });
+      }
+      if (!(await ensurePremium(request, reply))) return reply;
+
+      try {
+        const result = await buildWorkoutProgram({
+          goal: parsed.data.goal,
+          experience: parsed.data.experience,
+          equipment: parsed.data.equipment,
+          daysPerWeek: parsed.data.days_per_week,
+          minutesPerSession: parsed.data.minutes_per_session,
+          tone: parsed.data.tone,
+          language: langName(request.headers["accept-language"]),
+          ...(parsed.data.focus !== undefined ? { focus: parsed.data.focus } : {}),
+          ...(parsed.data.limitations !== undefined
+            ? { limitations: parsed.data.limitations }
+            : {}),
+          ...(parsed.data.profile !== undefined
+            ? {
+                profile: {
+                  ...(parsed.data.profile.sex !== undefined
+                    ? { sex: parsed.data.profile.sex }
+                    : {}),
+                  ...(parsed.data.profile.age !== undefined
+                    ? { age: parsed.data.profile.age }
+                    : {}),
+                  ...(parsed.data.profile.weight_kg !== undefined
+                    ? { weightKg: parsed.data.profile.weight_kg }
+                    : {}),
+                  ...(parsed.data.profile.height_cm !== undefined
+                    ? { heightCm: parsed.data.profile.height_cm }
+                    : {}),
+                },
+              }
+            : {}),
+        });
+        return reply.status(200).send({
+          program_name: result.programName,
+          days: result.days.map((d) => ({
+            title: d.title,
+            exercises: d.exercises.map((e) => ({
+              name: e.name,
+              sets: e.sets,
+              reps: e.reps,
+              rest_seconds: e.restSeconds,
+              ...(e.note !== undefined ? { note: e.note } : {}),
+            })),
+          })),
+          note: result.note,
+        });
+      } catch (err) {
+        return aiError(fastify, reply, err, "workout-build");
       }
     }
   );

@@ -546,6 +546,107 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /api/v1/ai/workout-build:
+    post:
+      tags: [AI (Phase 2)]
+      summary: Build a weekly workout program (premium)
+      description: >
+        Feature A. The client sends goal, experience, available equipment,
+        training days/time and optional focus/limitations/profile; the model
+        acts as a strength coach and returns a weekly program (day titles +
+        exercises with sets/reps/rest). The model does NOT prescribe weights or
+        loads (first pass — kept simple). Nothing is saved server-side.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [goal, experience, equipment, days_per_week, minutes_per_session]
+              properties:
+                goal:
+                  type: string
+                  enum: [strength, muscle, fat_loss, endurance, general]
+                experience:
+                  type: string
+                  enum: [beginner, intermediate, advanced]
+                equipment:
+                  type: array
+                  minItems: 1
+                  maxItems: 20
+                  items: { type: string }
+                  description: >
+                    Available equipment, e.g.
+                    [barbell, dumbbells, pullup_bar, bodyweight, full_gym].
+                    The model uses ONLY these.
+                days_per_week:
+                  type: integer
+                  minimum: 1
+                  maximum: 7
+                  description: >
+                    Training days per week. The number of days in the response
+                    is clamped to this value.
+                minutes_per_session:
+                  type: integer
+                  minimum: 10
+                  maximum: 240
+                  description: Target duration of one session (minutes).
+                focus:
+                  type: string
+                  maxLength: 200
+                  description: Optional body part or lift to prioritize.
+                limitations:
+                  type: string
+                  maxLength: 500
+                  description: Optional injuries/limitations the model must work around.
+                tone: { $ref: '#/components/schemas/Tone' }
+                profile:
+                  type: object
+                  description: >
+                    Optional athlete context used only to size sensible volume
+                    (NOT load). Absent = unchanged behavior.
+                  properties:
+                    sex: { type: string, maxLength: 20 }
+                    age: { type: integer, minimum: 5, maximum: 120 }
+                    weight_kg: { type: number, minimum: 20, maximum: 400 }
+                    height_cm: { type: number, minimum: 80, maximum: 260 }
+      responses:
+        '200':
+          description: >
+            A weekly program: a program name, the requested number of days (each
+            with a title and a list of exercises), and a tone-aware coach note.
+            reps is a string to allow ranges ("8-12") or "AMRAP". The model never
+            prescribes weight/load.
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [program_name, days, note]
+                properties:
+                  program_name: { type: string }
+                  days:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title: { type: string }
+                        exercises:
+                          type: array
+                          items:
+                            type: object
+                            properties:
+                              name: { type: string }
+                              sets: { type: integer }
+                              reps:
+                                type: string
+                                description: Reps or range, e.g. "8-12" or "AMRAP".
+                              rest_seconds: { type: integer }
+                              note: { type: string }
+                  note: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /api/v1/ai/diary-insight:
     post:
       tags: [AI (Phase 1)]
