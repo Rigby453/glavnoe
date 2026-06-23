@@ -283,7 +283,11 @@ class DayTimeGrid extends ConsumerWidget {
           final colWidth = constraints.maxWidth - _kGutterWidth;
           return Stack(
             children: [
-              _HourLinesAndGutter(hourHeight: hourHeight),
+              // Статичный слой линий часов изолирован от перерисовки: drag
+              // соседнего блока не должен перерисовывать сетку.
+              RepaintBoundary(
+                child: _HourLinesAndGutter(hourHeight: hourHeight),
+              ),
               Positioned(
                 left: _kGutterWidth,
                 top: 0,
@@ -432,7 +436,11 @@ class _NDayTimeGrid extends ConsumerWidget {
                   hourHeight: hourHeight,
                   child: Stack(
                     children: [
-                      _HourLinesAndGutter(hourHeight: hourHeight),
+                      // Статичный слой линий часов изолирован от перерисовки:
+                      // drag соседнего блока не должен перерисовывать сетку.
+                      RepaintBoundary(
+                        child: _HourLinesAndGutter(hourHeight: hourHeight),
+                      ),
                       for (var i = 0; i < days.length; i++)
                         Positioned(
                           left: _kGutterWidth + effectiveColWidth * i,
@@ -771,7 +779,13 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
       handleHitHeight: _handleHitHeight,
     );
 
-    return ValueListenableBuilder<_BlockGesture>(
+    // Внутренняя обёртка лифта (масштаб + тень + подсказка). Вынесена из
+    // верхнего ValueListenableBuilder, чтобы GestureDetector и его замыкания
+    // (onLongPress*) НЕ пересоздавались на каждом кадре жеста — за кадр
+    // перестраивается только геометрия Positioned и лёгкий внутренний слой.
+    // AnimatedScale остаётся внутри: цель scale (1.03/1.0) меняется лишь на
+    // старте/конце жеста, поэтому анимация лифта не «тикает» во время переноса.
+    final lift = ValueListenableBuilder<_BlockGesture>(
       valueListenable: _gesture,
       child: content,
       builder: (context, g, child) {
@@ -799,6 +813,75 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
         // приподнятый элемент = «взят»).
         final lifted = g.active;
 
+        return AnimatedScale(
+          scale: lifted ? 1.03 : 1.0,
+          duration: effectiveDuration(context, kDurationSnap),
+          curve: kCurveSnap,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              // Тень-лифт поверх обычной заливки только во время жеста.
+              if (lifted)
+                Positioned.fill(
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(8),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withValues(alpha: 0.35),
+                          blurRadius: 10,
+                          offset: const Offset(0, 4),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              Positioned.fill(child: child!),
+              if (floatingLabel != null)
+                Positioned(top: 2, right: 2, child: floatingLabel),
+            ],
+          ),
+        );
+      },
+    );
+
+    // Стабильная часть: GestureDetector с замыканиями жеста строится один раз
+    // за data-build и не зависит от кадров жеста.
+    final interactive = GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // Короткий тап → карточка-деталь (а не сразу форма).
+      onTap: () => showTaskDetailSheet(
+        context,
+        item: widget.item,
+        day: widget.day,
+      ),
+      // Long-press начинает перенос (не конфликтует со скроллом списка).
+      onLongPressStart: (_) {
+        HapticFeedback.mediumImpact();
+        _gesture.value =
+            _BlockGesture(_GestureKind.drag, baseTop, baseHeight);
+      },
+      onLongPressMoveUpdate: (d) {
+        final cur = _gesture.value;
+        _gesture.value = _BlockGesture(
+          _GestureKind.drag,
+          baseTop + d.offsetFromOrigin.dy,
+          cur.heightPx,
+        );
+      },
+      onLongPressEnd: (_) => _commitMove(),
+      child: lift,
+    );
+
+    // Только геометрия Positioned (top/height) перестраивается на каждом кадре
+    // жеста; интерактивная обёртка и содержимое переиспользуются как child.
+    return ValueListenableBuilder<_BlockGesture>(
+      valueListenable: _gesture,
+      child: interactive,
+      builder: (context, g, child) {
+        final top = g.active ? g.topPx : baseTop;
+        final height = g.active ? g.heightPx : baseHeight;
+
         return Positioned(
           top: top,
           left: left,
@@ -806,61 +889,7 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
           height: height,
           // RepaintBoundary изолирует перерисовку блока: во время drag/resize
           // перерисовывается только этот слой, а не вся колонка/сетка.
-          child: RepaintBoundary(
-            child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            // Короткий тап → карточка-деталь (а не сразу форма).
-            onTap: () => showTaskDetailSheet(
-              context,
-              item: widget.item,
-              day: widget.day,
-            ),
-            // Long-press начинает перенос (не конфликтует со скроллом списка).
-            onLongPressStart: (_) {
-              HapticFeedback.mediumImpact();
-              _gesture.value =
-                  _BlockGesture(_GestureKind.drag, baseTop, baseHeight);
-            },
-            onLongPressMoveUpdate: (d) {
-              final cur = _gesture.value;
-              _gesture.value = _BlockGesture(
-                _GestureKind.drag,
-                baseTop + d.offsetFromOrigin.dy,
-                cur.heightPx,
-              );
-            },
-            onLongPressEnd: (_) => _commitMove(),
-            child: AnimatedScale(
-              scale: lifted ? 1.03 : 1.0,
-              duration: effectiveDuration(context, kDurationSnap),
-              curve: kCurveSnap,
-              child: Stack(
-                clipBehavior: Clip.none,
-                children: [
-                  // Тень-лифт поверх обычной заливки только во время жеста.
-                  if (lifted)
-                    Positioned.fill(
-                      child: DecoratedBox(
-                        decoration: BoxDecoration(
-                          borderRadius: BorderRadius.circular(8),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withValues(alpha: 0.35),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  Positioned.fill(child: child!),
-                  if (floatingLabel != null)
-                    Positioned(top: 2, right: 2, child: floatingLabel),
-                ],
-              ),
-            ),
-          ),
-          ),
+          child: RepaintBoundary(child: child!),
         );
       },
     );
