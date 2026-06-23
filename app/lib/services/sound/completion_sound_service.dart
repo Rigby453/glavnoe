@@ -32,7 +32,9 @@ import '../../core/settings/sound_provider.dart' show kCompletionSoundEnabledKey
 
 /// Путь к ассету звука завершения (относительно корня пакета).
 /// audioplayers через AssetSource ожидает путь БЕЗ префикса 'assets/'.
-const String _kCompletionSoundAsset = 'sounds/task_done.mp3';
+/// Сейчас лежит короткий синтезированный «дзинь» task_done.wav (0.6с, колокольный
+/// тембр E6→B6). Если заменишь на свой звук — поправь имя/расширение здесь.
+const String _kCompletionSoundAsset = 'sounds/task_done.wav';
 
 class CompletionSoundService {
   CompletionSoundService._();
