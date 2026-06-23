@@ -158,6 +158,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                 SegmentedButton<PlanView>(
                   segments: [
                     ButtonSegment(value: PlanView.day, label: Text(context.s('plan.view_day'))),
+                    ButtonSegment(value: PlanView.threeDay, label: Text(context.s('plan.view_3day'))),
                     ButtonSegment(value: PlanView.week, label: Text(context.s('plan.view_week'))),
                     ButtonSegment(value: PlanView.month, label: Text(context.s('plan.view_month'))),
                   ],
@@ -166,8 +167,9 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                   onSelectionChanged: (s) =>
                       ref.read(planViewProvider.notifier).state = s.first,
                 ),
-                // Тумблер раскладки (список ↔ сетка времени) — только Day/Week
-                if (view != PlanView.month) ...[
+                // Тумблер раскладки (список ↔ сетка времени) — только Day/Week.
+                // Для threeDay и month скрыт (они всегда сетка/календарь).
+                if (_supportsLayoutToggle(view)) ...[
                   const SizedBox(height: 12),
                   Align(
                     alignment: Alignment.centerLeft,
@@ -220,8 +222,9 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                   ],
                 ),
                 const SizedBox(height: 8),
-                // WeekStrip на планшете в левой колонке
-                if (view != PlanView.month) const WeekStrip(),
+                // WeekStrip на планшете в левой колонке.
+                // Для threeDay скрыта — заголовок сетки уже показывает 3 дня.
+                if (_showsWeekStrip(view)) const WeekStrip(),
                 const SizedBox(height: 12),
                 // Поиск (только в режиме Day)
                 if (view == PlanView.day)
@@ -382,8 +385,9 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                 }
               },
             ),
-          // --- Тумблер раскладки (список ↔ сетка времени) — только Day/Week. ---
-          if (view != PlanView.month) _LayoutToggleButton(layout: layout),
+          // --- Тумблер раскладки (список ↔ сетка времени) — только Day/Week.
+          // Для threeDay и month скрыт (всегда сетка/календарь). ---
+          if (_supportsLayoutToggle(view)) _LayoutToggleButton(layout: layout),
           // --- Overflow-меню для редких действий (цели, импорт). ---
           PopupMenuButton<String>(
             icon: Icon(Icons.more_vert, color: textMuted),
@@ -435,6 +439,17 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     switch (view) {
       case PlanView.month:
         return const MonthView();
+      case PlanView.threeDay:
+        // 3-дневная сетка ВСЕГДА блочная. Полосу дней недели/недельный календарь
+        // не показываем — заголовок сетки уже отображает 3 дня.
+        return Column(
+          children: [
+            Divider(height: 0.5, thickness: 0.5, color: border),
+            // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
+            const PinnedExamCard(),
+            Expanded(child: const ThreeDayTimeGrid()),
+          ],
+        );
       case PlanView.week:
         return Column(
           children: [
@@ -476,6 +491,16 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     switch (view) {
       case PlanView.month:
         return const MonthView();
+      case PlanView.threeDay:
+        // 3-дневная сетка ВСЕГДА блочная (список-вариант не нужен).
+        return Column(
+          children: [
+            Divider(height: 0.5, thickness: 0.5, color: border),
+            // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
+            const PinnedExamCard(),
+            Expanded(child: const ThreeDayTimeGrid()),
+          ],
+        );
       case PlanView.week:
         return Column(
           children: [
@@ -502,6 +527,16 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   }
 }
 
+/// Поддерживает ли вид тумблер раскладки список↔сетка. Day и Week — да;
+/// threeDay и month — нет (они всегда сетка/календарь).
+bool _supportsLayoutToggle(PlanView view) =>
+    view == PlanView.day || view == PlanView.week;
+
+/// Показывать ли полосу недели (WeekStrip/ExpandableWeekCalendar) для вида.
+/// Для threeDay и month — нет (свой заголовок/календарь).
+bool _showsWeekStrip(PlanView view) =>
+    view == PlanView.day || view == PlanView.week;
+
 /// Компактный выпадающий список вида: `[День ▾]`. Заменяет SegmentedButton
 /// из трёх кнопок (не влезает в одну строку тулбара на узких экранах).
 /// Показывает текущий вид + стрелку ▾; пункты — day/week/month.
@@ -514,6 +549,8 @@ class _ViewDropdown extends ConsumerWidget {
     switch (v) {
       case PlanView.day:
         return context.s('plan.view_day');
+      case PlanView.threeDay:
+        return context.s('plan.view_3day');
       case PlanView.week:
         return context.s('plan.view_week');
       case PlanView.month:

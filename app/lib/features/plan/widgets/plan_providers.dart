@@ -10,8 +10,8 @@ import '../../../core/utils/day_window.dart';
 import 'recurrence_providers.dart';
 import 'week_strip.dart' show selectedDayProvider;
 
-/// Режим отображения плана.
-enum PlanView { day, week, month }
+/// Режим отображения плана. Порядок видов: День, 3 дня, Неделя, Месяц.
+enum PlanView { day, threeDay, week, month }
 
 /// Раскладка Day/Week: список (текущее поведение) или сетка времени
 /// в стиле Google Calendar. Month всегда показывается как календарь.
