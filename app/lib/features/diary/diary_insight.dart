@@ -11,6 +11,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/utils/day_window.dart';
 
 /// Формат тегов «What went wrong?» в note (зеркалит diary_screen):
 /// свободный текст + "\n\nIssues: tag1, tag2".
@@ -179,7 +180,8 @@ final todayPlanVsFactProvider =
 final weeklyDiaryInsightProvider =
     FutureProvider.autoDispose<WeeklyInsightData>((ref) async {
   final now = DateTime.now();
-  final todayStart = DateTime.utc(now.year, now.month, now.day);
+  // Локальная полночь для оконного запроса items (как watchTodayItems).
+  final todayStart = localDayStart(now);
   final weekStart = todayStart.subtract(const Duration(days: 6));
   final weekEnd = todayStart.add(const Duration(days: 1));
 

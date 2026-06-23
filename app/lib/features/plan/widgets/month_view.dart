@@ -2,8 +2,8 @@
 // Точка под днём = в этот день есть задачи. Тап по дню → выбрать его и
 // переключиться на дневной вид. Стрелки ‹ › листают месяцы.
 //
-// Бакетинг «дня» согласован с watchTodayItems: день задачи = UTC-дата
-// scheduledAt (.toUtc()), границы месяца — UTC-полночь.
+// Бакетинг «дня» согласован с watchTodayItems: день задачи = ЛОКАЛЬНАЯ дата
+// scheduledAt, границы месяца — локальная полночь.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -55,18 +55,18 @@ class MonthView extends ConsumerWidget {
     final year = sel.year;
     final month = sel.month;
 
-    final monthStartUtc = DateTime.utc(year, month, 1);
-    final monthEndUtc = DateTime.utc(year, month + 1, 1);
+    final monthStart = DateTime(year, month, 1);
+    final monthEnd = DateTime(year, month + 1, 1);
     final items = ref
-            .watch(rangeItemsProvider((monthStartUtc, monthEndUtc)))
+            .watch(rangeItemsProvider((monthStart, monthEnd)))
             .valueOrNull ??
         const <ItemsTableData>[];
 
-    // Дни месяца, в которые есть задачи (по UTC-дате scheduledAt).
+    // Дни месяца, в которые есть задачи (по локальной дате scheduledAt).
     final daysWithItems = <int>{};
     for (final i in items) {
-      final u = i.scheduledAt.toUtc();
-      if (u.year == year && u.month == month) daysWithItems.add(u.day);
+      final s = i.scheduledAt;
+      if (s.year == year && s.month == month) daysWithItems.add(s.day);
     }
 
     final firstOfMonth = DateTime(year, month, 1);

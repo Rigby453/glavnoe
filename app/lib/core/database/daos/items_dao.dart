@@ -7,6 +7,7 @@ import 'dart:async';
 import 'package:drift/drift.dart';
 
 import '../database.dart';
+import '../../utils/day_window.dart';
 import '../../utils/id.dart';
 import '../../../features/plan/recurrence.dart';
 import '../../../services/sound/completion_sound_service.dart';
@@ -22,10 +23,10 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
   // ---------------------------------------------------------------------------
 
   /// Все задачи на конкретный календарный день, отсортированные по scheduledAt.
-  /// "День" = [date 00:00:00 UTC, date+1 00:00:00 UTC)
+  /// "День" = [локальная полночь date, локальная полночь date+1)
   Stream<List<ItemsTableData>> watchTodayItems(DateTime date) {
-    final dayStart = DateTime.utc(date.year, date.month, date.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
+    final dayStart = localDayStart(date);
+    final dayEnd = localDayEnd(date);
 
     return (select(itemsTable)
           ..where(
@@ -43,8 +44,8 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
 
   /// Только MAIN-задачи на день — используются для кольца прогресса
   Stream<List<ItemsTableData>> watchMainItems(DateTime date) {
-    final dayStart = DateTime.utc(date.year, date.month, date.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
+    final dayStart = localDayStart(date);
+    final dayEnd = localDayEnd(date);
 
     return (select(itemsTable)
           ..where(
@@ -62,7 +63,7 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
   /// начала сегодняшнего дня. Используется карточкой утреннего разбора
   /// (перенос несделанного с подтверждением). Сортировка по времени.
   Stream<List<ItemsTableData>> watchOverduePending(DateTime now) {
-    final todayStart = DateTime.utc(now.year, now.month, now.day);
+    final todayStart = localDayStart(now);
 
     return (select(itemsTable)
           ..where(
@@ -78,8 +79,8 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
   /// MAIN-задачи на день (Future-вариант watchMainItems).
   /// Используется StreakService для пересчёта серии после завершения задач.
   Future<List<ItemsTableData>> mainItemsForDay(DateTime date) {
-    final dayStart = DateTime.utc(date.year, date.month, date.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
+    final dayStart = localDayStart(date);
+    final dayEnd = localDayEnd(date);
 
     return (select(itemsTable)
           ..where(
@@ -93,7 +94,7 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
   }
 
   /// Задачи в диапазоне [from, to) реактивно — для месячного вида Plan.
-  /// Границы передаёт вызывающий (обычно UTC-полночь, как в watchTodayItems).
+  /// Границы передаёт вызывающий (обычно локальная полночь, как в watchTodayItems).
   Stream<List<ItemsTableData>> watchItemsInRange(DateTime from, DateTime to) {
     return (select(itemsTable)
           ..where(
@@ -181,18 +182,18 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
         ),
       );
 
-  /// Клонирует ВСЁ запланированное в неделе [weekStartUtc, +7d) на следующую
+  /// Клонирует ВСЁ запланированное в неделе [weekStart, +7d) на следующую
   /// неделю (scheduledAt + 7 дней), сбрасывая статус в pending. Возвращает
   /// число скопированных. Используется «Clone week» (импорт расписания, C4).
   /// Ревью 2026-06-11: раньше фильтровали по type='event' — пользователь
   /// ожидает копию всей недели, обычные задачи пропускались (баг).
-  /// Границы — UTC-полночь, согласованы с watchTodayItems/watchMainItems.
-  Future<int> cloneWeekEvents(DateTime weekStartUtc) async {
-    final weekEnd = weekStartUtc.add(const Duration(days: 7));
+  /// Границы — локальная полночь, согласованы с watchTodayItems/watchMainItems.
+  Future<int> cloneWeekEvents(DateTime weekStart) async {
+    final weekEnd = weekStart.add(const Duration(days: 7));
     final events = await (select(itemsTable)
           ..where(
             (t) =>
-                t.scheduledAt.isBiggerOrEqualValue(weekStartUtc) &
+                t.scheduledAt.isBiggerOrEqualValue(weekStart) &
                 t.scheduledAt.isSmallerThanValue(weekEnd) &
                 // Исключаем якоря серий (recurrenceRule != null): клонировать их
                 // строкой создало бы вторую активную серию-дубль. Конкретные
@@ -250,17 +251,16 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
   }
 
   /// Ближайшие предстоящие пункты на СЕГОДНЯ от текущего момента.
-  /// scheduledAt >= now и в пределах сегодняшнего UTC-дня, статус pending,
-  /// сортировка по времени, лимит 4. Используется data-bridge виджета (§8 WIDGET.md).
+  /// scheduledAt >= now и в пределах сегодняшнего (локального) дня, статус
+  /// pending, сортировка по времени, лимит 4. Используется data-bridge виджета
+  /// (§8 WIDGET.md).
   Future<List<ItemsTableData>> upcomingTodayItems(DateTime now) {
-    final dayEnd = DateTime.utc(now.year, now.month, now.day + 1);
-    // Приводим «сейчас» к UTC, чтобы сравнение шло с теми же UTC-значениями
-    final nowUtc = now.toUtc();
+    final dayEnd = localDayEnd(now);
 
     return (select(itemsTable)
           ..where(
             (t) =>
-                t.scheduledAt.isBiggerOrEqualValue(nowUtc) &
+                t.scheduledAt.isBiggerOrEqualValue(now) &
                 t.scheduledAt.isSmallerThanValue(dayEnd) &
                 t.status.equals('pending'),
           )
@@ -273,11 +273,10 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
   /// или из прошлых дней со статусом pending. Используется для вычисления
   /// эмоции Kai в виджете (anxious при наличии просрочки).
   Future<bool> hasOverdueItems(DateTime now) async {
-    final nowUtc = now.toUtc();
     final rows = await (select(itemsTable)
           ..where(
             (t) =>
-                t.scheduledAt.isSmallerThanValue(nowUtc) &
+                t.scheduledAt.isSmallerThanValue(now) &
                 t.status.equals('pending'),
           )
           ..limit(1))
@@ -288,8 +287,8 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
   /// Количество MAIN-задач на конкретный день (для проверки лимита 3).
   /// Получаем список и считаем длину — простой и надёжный подход.
   Future<int> countMainItems(DateTime date) async {
-    final dayStart = DateTime.utc(date.year, date.month, date.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
+    final dayStart = localDayStart(date);
+    final dayEnd = localDayEnd(date);
 
     final rows = await (select(itemsTable)
           ..where(
@@ -464,8 +463,8 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
     ItemsTableData anchor,
     DateTime date,
   ) async {
-    final dayStart = DateTime(date.year, date.month, date.day);
-    final dayEnd = dayStart.add(const Duration(days: 1));
+    final dayStart = localDayStart(date);
+    final dayEnd = localDayEnd(date);
     final rows = await (select(itemsTable)
           ..where(
             (t) =>

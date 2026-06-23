@@ -11,6 +11,7 @@ import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/day_window.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import 'day_timeline.dart' show dayItemsProvider;
 import 'week_strip.dart' show selectedDayProvider;
@@ -49,10 +50,9 @@ class WeekAgenda extends ConsumerWidget {
     );
     if (confirmed != true) return;
 
-    final weekStartUtc =
-        DateTime.utc(weekStart.year, weekStart.month, weekStart.day);
+    final weekStartLocal = localDayStart(weekStart);
     final count =
-        await ref.read(itemsDaoProvider).cloneWeekEvents(weekStartUtc);
+        await ref.read(itemsDaoProvider).cloneWeekEvents(weekStartLocal);
     if (!context.mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(

@@ -140,7 +140,7 @@ final expandedDayItemsProvider = StreamProvider.autoDispose
 
 /// Раскрытые задачи диапазона [from, to) = конкретные + виртуалы серий.
 /// Замена watchItemsInRange(from, to) для недельной сетки.
-/// Ключ — запись (from, to) UTC-полночь, как rangeItemsProvider.
+/// Ключ — запись (from, to) локальная полночь, как rangeItemsProvider.
 final expandedRangeItemsProvider = StreamProvider.autoDispose
     .family<List<ItemsTableData>, (DateTime, DateTime)>((ref, range) {
   final dao = ref.watch(itemsDaoProvider);

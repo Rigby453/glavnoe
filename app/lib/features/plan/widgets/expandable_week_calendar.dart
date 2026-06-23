@@ -9,7 +9,7 @@
 // уходит в 0, а высота растёт до полного месяца.
 //
 // Бакетинг «дня с задачами» согласован с MonthView/watchTodayItems:
-// день задачи = UTC-дата scheduledAt (.toUtc()).
+// день задачи = ЛОКАЛЬНАЯ дата scheduledAt (localDayKey).
 
 import 'package:flutter/gestures.dart' show kTouchSlop;
 import 'package:flutter/material.dart';
@@ -20,6 +20,7 @@ import 'package:intl/intl.dart';
 import '../../../core/animations/constants.dart';
 import '../../../core/database/database.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/day_window.dart';
 import 'plan_providers.dart';
 import 'week_strip.dart' show selectedDayProvider, dateOnly, isSameDate;
 
@@ -193,19 +194,17 @@ class _ExpandableWeekCalendarState
     final today = DateTime.now();
     final todayNorm = DateTime(today.year, today.month, today.day);
 
-    // Дни с задачами (UTC-дата scheduledAt) во всём видимом диапазоне сетки.
-    final gridStartUtc =
-        DateTime.utc(gridStart.year, gridStart.month, gridStart.day);
-    final gridEndUtc = DateTime.utc(
-        gridStart.year, gridStart.month, gridStart.day + _rows * 7);
+    // Дни с задачами (локальная дата scheduledAt) во всём видимом диапазоне сетки.
+    final gridRangeStart = localDayStart(gridStart);
+    final gridRangeEnd =
+        localDayStart(gridStart).add(Duration(days: _rows * 7));
     final items = ref
-            .watch(rangeItemsProvider((gridStartUtc, gridEndUtc)))
+            .watch(rangeItemsProvider((gridRangeStart, gridRangeEnd)))
             .valueOrNull ??
         const <ItemsTableData>[];
     final daysWithItems = <String>{};
     for (final i in items) {
-      final u = i.scheduledAt.toUtc();
-      daysWithItems.add('${u.year}-${u.month}-${u.day}');
+      daysWithItems.add(localDayKey(i.scheduledAt));
     }
 
     // Подписи дней недели — из gridStart (всегда понедельник), локализованные.
@@ -320,8 +319,8 @@ class _ExpandableWeekCalendarState
                                             isSelected: isSameDate(d, sel),
                                             isToday: isSameDate(d, todayNorm),
                                             isOutsideMonth: d.month != month,
-                                            hasItems: daysWithItems.contains(
-                                                '${d.year}-${d.month}-${d.day}'),
+                                            hasItems: daysWithItems
+                                                .contains(localDayKey(d)),
                                             onTap: () => _onDayTap(d),
                                             onLongPress: () =>
                                                 _onDayLongPress(d),

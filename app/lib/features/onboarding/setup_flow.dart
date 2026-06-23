@@ -270,7 +270,9 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   Future<bool> _insertFirstTask(String title) async {
     if (title.trim().isEmpty) return false;
     final now = DateTime.now();
-    final dayStart = DateTime.utc(now.year, now.month, now.day);
+    // Локальная полночь: scheduledAt трактуется как «настенное» местное время,
+    // согласовано с watchTodayItems/day_window.
+    final dayStart = DateTime(now.year, now.month, now.day);
     final companion = ItemsTableCompanion(
       id: Value(uuidV4()),
       userId: const Value('local'),

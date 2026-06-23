@@ -350,7 +350,7 @@ class SyncService {
       type: Value(m['type'] as String),
       priority: Value((m['priority'] as String?) ?? 'medium'),
       status: Value((m['status'] as String?) ?? 'pending'),
-      scheduledAt: Value(DateTime.parse(m['scheduled_at'] as String)),
+      scheduledAt: Value(DateTime.parse(m['scheduled_at'] as String).toLocal()),
       durationMinutes: Value((m['duration_minutes'] as int?) ?? 30),
       isProtected: Value((m['is_protected'] as bool?) ?? false),
       recurrenceRule: Value(m['recurrence_rule'] as String?),

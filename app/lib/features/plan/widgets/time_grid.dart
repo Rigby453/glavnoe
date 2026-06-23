@@ -21,6 +21,7 @@ import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/day_window.dart';
 import '../../../core/widgets/kai_loader.dart';
 import '../../today/task_colors.dart';
 import 'day_timeline.dart' show dayItemsProvider;
@@ -307,12 +308,11 @@ class WeekTimeGrid extends ConsumerWidget {
       (i) => DateTime(weekStart.year, weekStart.month, weekStart.day + i),
     );
 
-    // Реактивный диапазон недели через rangeItemsProvider. Границы — UTC-полночь,
-    // согласованы с watchItemsInRange/watchTodayItems.
-    final fromUtc =
-        DateTime.utc(weekStart.year, weekStart.month, weekStart.day);
-    final toUtc = fromUtc.add(const Duration(days: 7));
-    final itemsAsync = ref.watch(rangeItemsProvider((fromUtc, toUtc)));
+    // Реактивный диапазон недели через rangeItemsProvider. Границы — локальная
+    // полночь, согласованы с watchItemsInRange/watchTodayItems.
+    final from = localDayStart(weekStart);
+    final to = from.add(const Duration(days: 7));
+    final itemsAsync = ref.watch(rangeItemsProvider((from, to)));
 
     if (itemsAsync.isLoading && itemsAsync.valueOrNull == null) {
       return const Center(child: KaiLoader());

@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/theme/theme_provider.dart'; // sharedPreferencesProvider
+import '../../../core/utils/day_window.dart';
 import 'recurrence_providers.dart';
 
 /// Режим отображения плана.
@@ -72,8 +73,9 @@ final planSearchQueryProvider = StateProvider<String>((ref) => '');
 final nearestExamDeadlineProvider =
     StreamProvider.autoDispose<ItemsTableData?>((ref) {
   final now = DateTime.now();
-  // Ищем от начала сегодняшнего дня, чтобы «сегодня» тоже показывалось.
-  final from = DateTime.utc(now.year, now.month, now.day);
+  // Ищем от начала сегодняшнего дня (локальная полночь, как watchTodayItems),
+  // чтобы «сегодня» тоже показывалось.
+  final from = localDayStart(now);
   final to = from.add(const Duration(days: 365));
   return ref
       .watch(itemsDaoProvider)
