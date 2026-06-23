@@ -18,6 +18,15 @@ final _habitsProvider = StreamProvider.autoDispose<List<HabitsTableData>>((ref) 
   return ref.watch(habitsDaoProvider).watchActive();
 });
 
+/// Реактивный счётчик выполнений привычки за сегодня, кэшируется Riverpod
+/// по habitId. Заменяет inline-FutureBuilder: (1) обновляется сразу после
+/// logHabit, (2) не пере-запрашивает БД на каждый ребилд родителя,
+/// (3) один стрим на привычку (нет N+1 при перерисовке списка).
+final _habitTodayCountProvider =
+    StreamProvider.autoDispose.family<int, String>((ref, habitId) {
+  return ref.watch(habitsDaoProvider).watchCountForDate(habitId, DateTime.now());
+});
+
 class HabitsScreen extends ConsumerWidget {
   const HabitsScreen({super.key});
 
@@ -272,21 +281,19 @@ class _GoodHabitCard extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final dao = ref.read(habitsDaoProvider);
 
+    // Реактивный счётчик: обновляется сразу после logHabit (стрим из БД).
+    final count = ref.watch(_habitTodayCountProvider(habit.id)).value ?? 0;
+    final target = habit.targetPerDay;
+    final done = count >= target;
+    final progress = (count / target).clamp(0.0, 1.0);
+
     return Card(
       // Отступ между карточками
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
         // 16dp card inner padding — spec §4.1
         padding: const EdgeInsets.all(16),
-        child: FutureBuilder<int>(
-          future: dao.countForDate(habit.id, DateTime.now()),
-          builder: (context, snap) {
-            final count = snap.data ?? 0;
-            final target = habit.targetPerDay;
-            final done = count >= target;
-            final progress = (count / target).clamp(0.0, 1.0);
-
-            return Column(
+        child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Row(
@@ -365,9 +372,7 @@ class _GoodHabitCard extends ConsumerWidget {
                   ),
                 ),
               ],
-            );
-          },
-        ),
+            ),
       ),
     );
   }
@@ -389,22 +394,20 @@ class _BadHabitCard extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final dao = ref.read(habitsDaoProvider);
 
+    // Реактивный счётчик нарушений: обновляется сразу после logHabit.
+    final count = ref.watch(_habitTodayCountProvider(habit.id)).value ?? 0;
+
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
       child: Padding(
         // 16dp card inner padding
         padding: const EdgeInsets.all(16),
-        child: FutureBuilder<int>(
-          future: dao.countForDate(habit.id, DateTime.now()),
-          builder: (context, snap) {
-            final count = snap.data ?? 0;
-
-            return Row(
-              children: [
-                Text(
-                  habit.emoji.isNotEmpty ? habit.emoji : '',
-                  style: const TextStyle(fontSize: 22),
-                ),
+        child: Row(
+          children: [
+            Text(
+              habit.emoji.isNotEmpty ? habit.emoji : '',
+              style: const TextStyle(fontSize: 22),
+            ),
                 if (habit.emoji.isNotEmpty) const SizedBox(width: 8),
                 Expanded(child: Text(habit.name, style: textTheme.titleSmall)),
                 // Счётчик нарушений: ember при count>0 (признак срочности/проблемы)
@@ -457,9 +460,7 @@ class _BadHabitCard extends ConsumerWidget {
                   ],
                 ),
               ],
-            );
-          },
-        ),
+            ),
       ),
     );
   }

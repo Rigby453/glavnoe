@@ -492,20 +492,36 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
 
             const SizedBox(height: 24),
 
-            // Секция групп (настоящие учебные группы)
+            // Секция групп (настоящие учебные группы).
+            // Заголовок и кнопки разнесены: заголовок в Expanded (усекается
+            // эллипсисом), кнопки действий обёрнуты в Wrap — на узких экранах
+            // (~320px) они переносятся на следующую строку вместо overflow.
             Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                Text(context.s('costudy.groups'), style: textTheme.titleSmall),
-                const Spacer(),
-                TextButton.icon(
-                  icon: const Icon(Icons.group_add_outlined, size: 16),
-                  label: Text(context.s('costudy.join_group')),
-                  onPressed: _joinGroupByCode,
+                Expanded(
+                  child: Text(
+                    context.s('costudy.groups'),
+                    style: textTheme.titleSmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ),
-                TextButton.icon(
-                  icon: const Icon(Icons.add, size: 16),
-                  label: Text(context.s('costudy.create_group')),
-                  onPressed: _createGroup,
+                Flexible(
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    children: [
+                      TextButton.icon(
+                        icon: const Icon(Icons.group_add_outlined, size: 16),
+                        label: Text(context.s('costudy.join_group')),
+                        onPressed: _joinGroupByCode,
+                      ),
+                      TextButton.icon(
+                        icon: const Icon(Icons.add, size: 16),
+                        label: Text(context.s('costudy.create_group')),
+                        onPressed: _createGroup,
+                      ),
+                    ],
+                  ),
                 ),
               ],
             ),
@@ -534,8 +550,13 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
             Row(
               children: [
                 // titleSmall — секционный подзаголовок (body font, w600)
-                Text(context.s('costudy.study_buddies'), style: textTheme.titleSmall),
-                const Spacer(),
+                Expanded(
+                  child: Text(
+                    context.s('costudy.study_buddies'),
+                    style: textTheme.titleSmall,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
                 // TextButton — навигационный нудж (не основное действие)
                 TextButton.icon(
                   icon: const Icon(Icons.add, size: 16),

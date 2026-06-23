@@ -115,9 +115,16 @@ class MonthView extends ConsumerWidget {
               ),
               // headlineSmall для заголовка месяца (display font, big headline serif)
               // Spec: month header = big headline serif (02-type-space §1 headlineSmall)
-              Text(
-                DateFormat('MMMM yyyy').format(firstOfMonth),
-                style: textTheme.headlineSmall,
+              // Expanded + ellipsis: длинное название месяца при крупном тексте
+              // (scale 1.5) или узком экране (320px) не выталкивает стрелки за край.
+              Expanded(
+                child: Text(
+                  DateFormat('MMMM yyyy').format(firstOfMonth),
+                  style: textTheme.headlineSmall,
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               IconButton(
                 icon: Icon(Icons.chevron_right, color: textMuted),

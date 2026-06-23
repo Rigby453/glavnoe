@@ -10,6 +10,7 @@ import 'package:app/core/theme/theme_provider.dart'
 import 'package:app/core/utils/id.dart';
 import 'package:app/features/diary/diary_screen.dart';
 import 'package:app/features/food/shopping_list_screen.dart';
+import 'package:app/features/health/meditation_screen.dart';
 import 'package:app/features/plan/plan_screen.dart';
 import 'package:app/features/today/today_screen.dart';
 import 'package:drift/drift.dart' show Value;
@@ -198,6 +199,38 @@ void main() {
       // Поле ввода очищается после добавления
       expect(find.widgetWithText(TextField, 'Apples'), findsNothing);
 
+      await unmountAndFlush(tester);
+    });
+  });
+
+  group('MeditationScreen', () {
+    testWidgets('session list renders all sessions', (tester) async {
+      await tester.pumpWidget(harness(const MeditationScreen()));
+      await tester.pump();
+
+      // Список из 5 текстовых сессий — проверяем по названиям.
+      expect(find.text('Body Scan'), findsOneWidget);
+      expect(find.text('Focus Reset'), findsOneWidget);
+      expect(find.text('Sleep Prep'), findsOneWidget);
+
+      await unmountAndFlush(tester);
+    });
+
+    testWidgets('tapping a session opens the player without crashing',
+        (tester) async {
+      await tester.pumpWidget(harness(const MeditationScreen()));
+      await tester.pump();
+
+      // Открываем плеер первой сессии — здесь жил red-screen краш
+      // (MediaQuery.disableAnimationsOf в initState → старт Timer/анимации).
+      await tester.tap(find.text('Body Scan'));
+      await tester.pump(); // навигация
+      await tester.pump(const Duration(milliseconds: 100)); // первый кадр плеера
+
+      // Прогресс шага виден → плеер отрисовался без эксепшена.
+      expect(find.textContaining('1 / 6'), findsOneWidget);
+
+      // Останавливаем периодический Timer плеера: возвращаемся назад.
       await unmountAndFlush(tester);
     });
   });

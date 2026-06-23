@@ -3,8 +3,7 @@
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart'
-    show Clipboard, ClipboardData, FilteringTextInputFormatter;
+import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -24,6 +23,7 @@ import '../../core/settings/swipe_action_provider.dart';
 import '../../core/settings/task_presets_provider.dart';
 import '../../core/settings/text_scale_provider.dart';
 import '../../core/settings/timezone_provider.dart';
+import '../../core/widgets/number_input_dialog.dart';
 import '../../core/widgets/voice_text_field.dart';
 import '../../core/utils/id.dart';
 import 'shared_plan.dart';
@@ -1415,40 +1415,22 @@ class _PresetEditor extends StatelessWidget {
   }
 
   Future<void> _addPreset(BuildContext context) async {
-    final controller = TextEditingController();
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    // Контроллером владеет State диалога (NumberInputDialog), он уничтожается
+    // после анимации закрытия — исключает краш «used after disposed».
     final entered = await showDialog<int>(
       context: context,
-      builder: (ctx) {
-        return AlertDialog(
-          backgroundColor: ext.surfaceElevated,
-          title: Text(ctx.s('profile.presets_add_minutes_title')),
-          content: TextField(
-            controller: controller,
-            autofocus: true,
-            keyboardType: TextInputType.number,
-            inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-            decoration: InputDecoration(
-              labelText: ctx.s('profile.presets_minutes_hint'),
-            ),
-            onSubmitted: (v) =>
-                Navigator.of(ctx).pop(int.tryParse(v.trim())),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(ctx).pop(),
-              child: Text(ctx.s('btn.cancel')),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.of(ctx)
-                  .pop(int.tryParse(controller.text.trim())),
-              child: Text(ctx.s('profile.presets_add')),
-            ),
-          ],
-        );
-      },
+      builder: (ctx) => NumberInputDialog(
+        backgroundColor: ext.surfaceElevated,
+        title: ctx.s('profile.presets_add_minutes_title'),
+        labelText: ctx.s('profile.presets_minutes_hint'),
+        confirmLabel: ctx.s('profile.presets_add'),
+        // Без рамки — как в исходном поле (подчёркивание по умолчанию).
+        bordered: false,
+        // Нормализацию/валидацию выполнит провайдер; 0 допускаем.
+        minValue: 0,
+      ),
     );
-    controller.dispose();
     if (entered == null) return;
     // Нормализацию/валидацию выполнит провайдер; здесь просто добавляем.
     onChanged([...presets, entered]);

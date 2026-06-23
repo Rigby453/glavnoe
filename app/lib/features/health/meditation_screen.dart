@@ -345,6 +345,11 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
   int _remaining = 0;
   Timer? _timer;
 
+  // Первый шаг стартуем в didChangeDependencies (а НЕ в initState): _startStep
+  // читает MediaQuery.disableAnimationsOf(context), а обращение к
+  // InheritedWidget до завершения initState бросает исключение (red-screen).
+  bool _started = false;
+
   // AnimationController для дуги обратного отсчёта
   late AnimationController _arcController;
 
@@ -355,7 +360,16 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
   void initState() {
     super.initState();
     _arcController = AnimationController(vsync: this);
-    _startStep(widget.session.steps[0]);
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Стартуем первый шаг один раз, когда MediaQuery уже доступен.
+    if (!_started) {
+      _started = true;
+      _startStep(widget.session.steps[0]);
+    }
   }
 
   @override

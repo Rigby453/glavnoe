@@ -32,6 +32,7 @@ import '../../../core/settings/recent_subjects.dart';
 import '../../../core/settings/reminder_default_provider.dart';
 import '../../../core/settings/task_presets_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/number_input_dialog.dart';
 import '../../../core/utils/id.dart';
 import '../../../core/utils/nl_datetime.dart';
 import '../../../services/notifications/notification_service.dart';
@@ -742,48 +743,20 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
 
   /// Диалог кастомного напоминания: ввод «за N минут до» (0 = в момент).
   Future<void> _showCustomReminderDialog() async {
-    final controller = TextEditingController(
-      text: _reminderMinutesBefore?.toString() ?? '',
-    );
+    // Контроллером владеет State диалога (NumberInputDialog) — он уничтожается
+    // ПОСЛЕ анимации закрытия, поэтому краш «used after disposed» исключён.
     final minutes = await showDialog<int>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(ctx.s('today.reminder_label')),
-        content: TextField(
-          controller: controller,
-          keyboardType: TextInputType.number,
-          autofocus: true,
-          inputFormatters: [
-            FilteringTextInputFormatter.digitsOnly,
-            LengthLimitingTextInputFormatter(4),
-          ],
-          decoration: InputDecoration(
-            labelText: ctx.s('today.reminder_min_before').replaceAll('{n}', 'N'),
-            suffixText: ctx.s('today.duration_min_hint'),
-            border: const OutlineInputBorder(),
-          ),
-          onSubmitted: (v) {
-            final parsed = int.tryParse(v.trim());
-            Navigator.of(ctx).pop(parsed != null && parsed >= 0 ? parsed : null);
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: Text(ctx.s('btn.cancel')),
-          ),
-          FilledButton(
-            onPressed: () {
-              final parsed = int.tryParse(controller.text.trim());
-              Navigator.of(ctx).pop(
-                  parsed != null && parsed >= 0 ? parsed : null);
-            },
-            child: Text(ctx.s('btn.add')),
-          ),
-        ],
+      builder: (ctx) => NumberInputDialog(
+        title: ctx.s('today.reminder_label'),
+        labelText:
+            ctx.s('today.reminder_min_before').replaceAll('{n}', 'N'),
+        suffixText: ctx.s('today.duration_min_hint'),
+        initialValue: _reminderMinutesBefore,
+        // 0 = «в момент» допустимо, поэтому минимум 0.
+        minValue: 0,
       ),
     );
-    controller.dispose();
     if (!mounted) return;
     if (minutes != null && minutes >= 0) {
       setState(() {

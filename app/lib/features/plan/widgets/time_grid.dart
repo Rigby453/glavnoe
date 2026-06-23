@@ -477,27 +477,33 @@ class _WeekDayHeader extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final color = isToday ? scheme.primary : scheme.onSurface;
 
-    return Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(
-          DateFormat.E().format(day).substring(0, 3),
-          maxLines: 1,
-          overflow: TextOverflow.clip,
-          style: textTheme.labelSmall?.copyWith(
-            color: isToday ? scheme.primary : textMuted,
+    // FittedBox масштабирует содержимое вниз, чтобы шапка фиксированной высоты
+    // (_kHeaderHeight) не переполнялась при крупном системном тексте (scale 1.5).
+    return FittedBox(
+      fit: BoxFit.scaleDown,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(
+            DateFormat.E().format(day).substring(0, 3),
+            maxLines: 1,
+            overflow: TextOverflow.clip,
+            style: textTheme.labelSmall?.copyWith(
+              color: isToday ? scheme.primary : textMuted,
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          day.day.toString(),
-          maxLines: 1,
-          style: textTheme.bodyMedium?.copyWith(
-            color: color,
-            fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+          const SizedBox(height: 2),
+          Text(
+            day.day.toString(),
+            maxLines: 1,
+            style: textTheme.bodyMedium?.copyWith(
+              color: color,
+              fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

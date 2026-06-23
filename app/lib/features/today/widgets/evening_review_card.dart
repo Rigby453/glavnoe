@@ -103,11 +103,16 @@ class EveningReviewCard extends ConsumerWidget {
                         : (ext?.textMuted ?? colorScheme.secondary),
                   ),
                 const SizedBox(width: 8),
-                Text(
-                  context.s('today.plan_tomorrow'),
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: v.headingWeight,
-                    color: v.isHarsh ? v.accent : null,
+                // Expanded + ellipsis: на узких экранах (320px) длинный заголовок
+                // не вызывает RenderFlex overflow, а сжимается с многоточием.
+                Expanded(
+                  child: Text(
+                    context.s('today.plan_tomorrow'),
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: v.headingWeight,
+                      color: v.isHarsh ? v.accent : null,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],

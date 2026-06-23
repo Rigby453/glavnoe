@@ -128,15 +128,20 @@ class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
                         : (ext?.ember ?? colorScheme.secondary),
                   ),
                 const SizedBox(width: 8),
-                Text(
-                  context.s('today.morning_review'),
-                  // harsh — плотный/строгий заголовок и ember-тон.
-                  style: textTheme.titleMedium?.copyWith(
-                    fontWeight: v.headingWeight,
-                    color: v.isHarsh ? v.accent : null,
+                // Expanded + ellipsis: на узких экранах (320px) заголовок сжимается
+                // вместо RenderFlex overflow; Expanded также отжимает иконку вправо
+                // (заменяет прежний Spacer).
+                Expanded(
+                  child: Text(
+                    context.s('today.morning_review'),
+                    // harsh — плотный/строгий заголовок и ember-тон.
+                    style: textTheme.titleMedium?.copyWith(
+                      fontWeight: v.headingWeight,
+                      color: v.isHarsh ? v.accent : null,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const Spacer(),
                 // AI-nudge кнопка: во время загрузки — пульс вместо спиннера (§7.1)
                 IconButton(
                   tooltip: context.s('today.ai_nudge_tooltip'),

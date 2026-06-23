@@ -329,14 +329,19 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               },
               style: TextButton.styleFrom(
                 minimumSize: const Size(0, 36),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
+                // Компактный padding: экономит ширину на 320px, чтобы тулбар с
+                // видимой кнопкой «Today» помещался без overflow.
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,
               ),
               child: Text(context.s('plan.today')),
             ),
-          // --- Дата: тап открывает DatePicker. Flexible: ужимается (ellipsis),
-          // а не вызывает overflow. ---
-          Flexible(
+          // --- Дата: тап открывает DatePicker. Expanded забирает всё свободное
+          // место (заменяет прежний Spacer, прижимая иконки вправо) и при нехватке
+          // ширины ужимает дату с ellipsis вместо RenderFlex overflow.
+          // Это и есть фикс overflow на 320px при видимой кнопке «Today». ---
+          Expanded(
             child: GestureDetector(
               onTap: () => _pickDate(selectedDay),
               child: Padding(
@@ -353,10 +358,9 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                         softWrap: false,
                       ),
                     ),
-                    const SizedBox(width: 2),
                     Icon(
                       Icons.arrow_drop_down,
-                      size: 18,
+                      size: 16,
                       // нейтральный цвет для иконок тулбара (accent discipline)
                       color: textMuted,
                     ),
@@ -365,8 +369,6 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               ),
             ),
           ),
-          // Прижимаем действия к правому краю строки.
-          const Spacer(),
           // --- Иконка поиска (только в режиме Day) — нейтральный цвет. ---
           if (view == PlanView.day)
             IconButton(

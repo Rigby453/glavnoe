@@ -15,12 +15,20 @@ import 'package:app/core/theme/theme_provider.dart'
     show sharedPreferencesProvider;
 import 'package:app/features/diary/diary_screen.dart';
 import 'package:app/features/food/food_screen.dart';
+import 'package:app/features/health/costudy_screen.dart';
+import 'package:app/features/health/habits_screen.dart';
 import 'package:app/features/health/health_screen.dart';
 import 'package:app/features/plan/plan_screen.dart';
 import 'package:app/features/plan/widgets/plan_providers.dart'
-    show PlanLayout, PlanLayoutNotifier, planLayoutProvider;
+    show
+        PlanLayout,
+        PlanLayoutNotifier,
+        PlanView,
+        planLayoutProvider,
+        planViewProvider;
 import 'package:app/features/plan/widgets/week_strip.dart' show selectedDayProvider;
 import 'package:app/features/today/today_screen.dart';
+import 'package:app/services/api/api_client.dart' show ApiClient, apiClientProvider;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -104,6 +112,22 @@ class _OverflowHarness {
 class _GridLayoutNotifier extends PlanLayoutNotifier {
   @override
   PlanLayout build() => PlanLayout.grid;
+}
+
+/// Фейковый ApiClient для co-study: возвращает пустые списки вместо реальных
+/// HTTP-вызовов. Без него экран бьётся в недоступный бэкенд (медленно/таймауты)
+/// — нам же нужен только детерминированный рендер пустого состояния.
+class _FakeApiClient extends ApiClient {
+  _FakeApiClient(super.prefs);
+
+  @override
+  Future<List<Map<String, dynamic>>> getFriends() async => [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getLeaderboard() async => [];
+
+  @override
+  Future<List<Map<String, dynamic>>> getStudyGroups() async => [];
 }
 
 /// Размонтирует дерево и прокачивает один кадр, чтобы Drift-таймеры
@@ -289,6 +313,165 @@ void main() {
       await _setSize(tester, _normalSize);
       await tester.pumpWidget(
         harness.build(const FoodScreen(), textScale: _largeTextScale),
+      );
+      await _settle(tester);
+      await _unmount(tester);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // CoStudyScreen — заголовок «Группы» с кнопками «Вступить по коду»/«Создать»
+  // переполнялся вживую (RIGHT OVERFLOWED BY 93px). Фейковый API → пустое
+  // состояние, аудитим обе ширины и оба textScale.
+  // -------------------------------------------------------------------------
+
+  List<Override> buildCostudyOverrides() => [
+        apiClientProvider.overrideWith((ref) => _FakeApiClient(prefs)),
+      ];
+
+  group('CoStudyScreen — overflow audits', () {
+    testWidgets('narrow 320px: no overflow', (tester) async {
+      await _setSize(tester, _narrowSize);
+      await tester.pumpWidget(
+        harness.build(const CoStudyScreen(), extraOverrides: buildCostudyOverrides()),
+      );
+      await _settle(tester);
+      await _unmount(tester);
+    });
+
+    testWidgets('large text scale 1.5: no overflow', (tester) async {
+      await _setSize(tester, _normalSize);
+      await tester.pumpWidget(
+        harness.build(
+          const CoStudyScreen(),
+          textScale: _largeTextScale,
+          extraOverrides: buildCostudyOverrides(),
+        ),
+      );
+      await _settle(tester);
+      await _unmount(tester);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // HabitsScreen — пустое состояние + (если есть данные) карточки привычек.
+  // Аудитим обе ширины и оба textScale.
+  // -------------------------------------------------------------------------
+
+  group('HabitsScreen — overflow audits', () {
+    testWidgets('narrow 320px: no overflow', (tester) async {
+      await _setSize(tester, _narrowSize);
+      await tester.pumpWidget(harness.build(const HabitsScreen()));
+      await _settle(tester);
+      await _unmount(tester);
+    });
+
+    testWidgets('large text scale 1.5: no overflow', (tester) async {
+      await _setSize(tester, _normalSize);
+      await tester.pumpWidget(
+        harness.build(const HabitsScreen(), textScale: _largeTextScale),
+      );
+      await _settle(tester);
+      await _unmount(tester);
+    });
+
+    // С реальными привычками (good + bad) — карточки с прогресс-баром,
+    // счётчиком, кнопками лога и меню. Самый плотный по ширине случай.
+    testWidgets('with habits, narrow 320px: no overflow', (tester) async {
+      await db.habitsDao.createHabit(
+        name: 'Drink water every single day no matter what',
+        type: 'good',
+      );
+      await db.habitsDao.createHabit(
+        name: 'Stop scrolling social media late at night',
+        type: 'bad',
+      );
+      await _setSize(tester, _narrowSize);
+      await tester.pumpWidget(harness.build(const HabitsScreen()));
+      await _settle(tester);
+      await _unmount(tester);
+    });
+
+    testWidgets('with habits, large text scale 1.5: no overflow', (tester) async {
+      await db.habitsDao.createHabit(
+        name: 'Drink water every single day no matter what',
+        type: 'good',
+      );
+      await db.habitsDao.createHabit(
+        name: 'Stop scrolling social media late at night',
+        type: 'bad',
+      );
+      await _setSize(tester, _normalSize);
+      await tester.pumpWidget(
+        harness.build(const HabitsScreen(), textScale: _largeTextScale),
+      );
+      await _settle(tester);
+      await _unmount(tester);
+    });
+  });
+
+  // -------------------------------------------------------------------------
+  // PlanScreen — виды «3 дня» (threeDay) и «Месяц» (month, блочный календарь).
+  // Недавняя фича plan-views; пользователь ловил overflow вживую. Аудитим
+  // обе ширины и оба textScale, переопределяя planViewProvider.
+  // -------------------------------------------------------------------------
+
+  group('PlanScreen 3-day view — overflow audits', () {
+    testWidgets('narrow 320px: no overflow', (tester) async {
+      await _setSize(tester, _narrowSize);
+      await tester.pumpWidget(
+        harness.build(
+          const PlanScreen(),
+          extraOverrides: [
+            planViewProvider.overrideWith((ref) => PlanView.threeDay),
+          ],
+        ),
+      );
+      await _settle(tester);
+      await _unmount(tester);
+    });
+
+    testWidgets('large text scale 1.5: no overflow', (tester) async {
+      await _setSize(tester, _normalSize);
+      await tester.pumpWidget(
+        harness.build(
+          const PlanScreen(),
+          textScale: _largeTextScale,
+          extraOverrides: [
+            planViewProvider.overrideWith((ref) => PlanView.threeDay),
+          ],
+        ),
+      );
+      await _settle(tester);
+      await _unmount(tester);
+    });
+  });
+
+  group('PlanScreen month (block) view — overflow audits', () {
+    testWidgets('narrow 320px: no overflow', (tester) async {
+      await _setSize(tester, _narrowSize);
+      await tester.pumpWidget(
+        harness.build(
+          const PlanScreen(),
+          extraOverrides: [
+            planViewProvider.overrideWith((ref) => PlanView.month),
+          ],
+        ),
+      );
+      await _settle(tester);
+      await _unmount(tester);
+    });
+
+    testWidgets('large text scale 1.5: no overflow', (tester) async {
+      await _setSize(tester, _normalSize);
+      await tester.pumpWidget(
+        harness.build(
+          const PlanScreen(),
+          textScale: _largeTextScale,
+          extraOverrides: [
+            planViewProvider.overrideWith((ref) => PlanView.month),
+          ],
+        ),
       );
       await _settle(tester);
       await _unmount(tester);

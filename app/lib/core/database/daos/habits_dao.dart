@@ -44,6 +44,23 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
     return rows.fold<int>(0, (sum, r) => sum + r.count);
   }
 
+  /// Реактивное количество выполнений привычки за день.
+  /// В отличие от [countForDate], эмитит новое значение при каждом logHabit —
+  /// карточка обновляется сразу, без ухода/возврата на экран.
+  Stream<int> watchCountForDate(String habitId, DateTime date) {
+    final start = DateTime.utc(date.year, date.month, date.day);
+    final end = start.add(const Duration(days: 1));
+    final countExpr = habitLogsTable.count.sum();
+    final query = selectOnly(habitLogsTable)
+      ..addColumns([countExpr])
+      ..where(
+        habitLogsTable.habitId.equals(habitId) &
+            habitLogsTable.date.isBiggerOrEqualValue(start) &
+            habitLogsTable.date.isSmallerThanValue(end),
+      );
+    return query.watchSingle().map((row) => row.read(countExpr) ?? 0);
+  }
+
   /// Добавить выполнение (+1 или +count).
   Future<void> logHabit(String habitId, {int count = 1}) {
     final date = DateTime.utc(
