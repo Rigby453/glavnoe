@@ -994,13 +994,25 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     final service = ref.read(notificationServiceProvider);
     final minutes = _reminderMinutesBefore;
     if (minutes == null) {
+      // Напоминание снято — разрешение не нужно, просто отменяем прежнее.
       await service.cancelTaskReminder(itemId);
       return;
     }
+    // Напоминание ЗАДАНО: гарантируем разрешение (на Android 13+ его могли
+    // не выдать через глобальный тумблер — иначе уведомление тихо не придёт).
+    // Идемпотентно: системный диалог показывается один раз.
+    final granted = await service.ensurePermission();
     final fireAt = _scheduledAt.subtract(Duration(minutes: minutes));
     // scheduleTaskReminder сам отменит прежнее и пропустит планирование,
-    // если fireAt уже в прошлом.
+    // если fireAt уже в прошлом. Планируем в любом случае (отказ не блокирует).
     await service.scheduleTaskReminder(itemId, title, fireAt);
+    // Если пользователь отказал — ненавязчивая подсказка. Метод async, поэтому
+    // после await проверяем mounted перед обращением к context.
+    if (!granted && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.s('today.reminder_permission_hint'))),
+      );
+    }
   }
 
   /// Сохраняет черновик подзадач в Drift, привязывая их к задаче [itemId].

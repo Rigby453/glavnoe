@@ -96,6 +96,40 @@ class NotificationService {
     return false;
   }
 
+  /// Гарантирует разрешение на уведомления для путей, которые планируют их
+  /// напрямую (напоминания задач), не проходя через глобальный тумблер.
+  /// Возвращает true, если уведомления разрешены (или платформа их не требует).
+  ///
+  /// Переиспользует [requestPermission]: на Android 13+/iOS системный диалог
+  /// показывается один раз — повторные вызовы просто возвращают текущее
+  /// состояние, поэтому метод идемпотентен и его безопасно дёргать при каждом
+  /// сохранении напоминания. На web/неподдерживаемых платформах — no-op (true),
+  /// чтобы не блокировать сохранение.
+  Future<bool> ensurePermission() async {
+    if (kIsWeb) return true;
+    await init();
+    final android = _plugin.resolvePlatformSpecificImplementation<
+        AndroidFlutterLocalNotificationsPlugin>();
+    if (android != null) {
+      // Если уже выдано — не показываем диалог повторно.
+      final enabled = await android.areNotificationsEnabled() ?? false;
+      if (enabled) return true;
+      return await android.requestNotificationsPermission() ?? false;
+    }
+    final ios = _plugin.resolvePlatformSpecificImplementation<
+        IOSFlutterLocalNotificationsPlugin>();
+    if (ios != null) {
+      return await ios.requestPermissions(
+            alert: true,
+            badge: true,
+            sound: true,
+          ) ??
+          false;
+    }
+    // Прочие платформы (desktop) — разрешение не требуется.
+    return true;
+  }
+
   static const _details = NotificationDetails(
     android: AndroidNotificationDetails(
       'kaizen_reviews',
