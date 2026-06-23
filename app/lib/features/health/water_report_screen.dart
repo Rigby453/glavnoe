@@ -204,10 +204,16 @@ class WaterReportScreen extends ConsumerWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      _formatFullDate(selectedDate),
-                      style: textTheme.bodyLarge?.copyWith(
-                        fontWeight: FontWeight.w600,
+                    // Flexible + ellipsis: на узком экране дата сжимается,
+                    // а не выталкивает chevron-кнопки за границу строки.
+                    Flexible(
+                      child: Text(
+                        _formatFullDate(selectedDate),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
                       ),
                     ),
                     const SizedBox(width: 6),

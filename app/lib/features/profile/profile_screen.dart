@@ -273,8 +273,17 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
               // Иконки настроек нейтральные (textMuted) — не accent (03-components §19)
               leading: Icon(Icons.language, color: ext.textMuted),
               title: Text(context.s('profile.language')),
-              trailing: DropdownButton<String>(
+              // Ограничиваем ширину дропдауна, иначе самый длинный пункт
+              // («Português (Brasil)») распирает ListTile и вызывает overflow
+              // на узких экранах (320px) и при крупном масштабе текста.
+              trailing: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 140),
+                child: DropdownButton<String>(
                 value: currentTag,
+                // В рамках ограниченной ширины выбранное имя обрезается «…»,
+                // а не распирает строку. Меню при открытии не ограничено —
+                // полные имена видны.
+                isExpanded: true,
                 underline: const SizedBox.shrink(),
                 // Непрозрачный фон меню (иначе контент страницы просвечивает).
                 // DropdownButton не читает popupMenuTheme — задаём явно.
@@ -297,6 +306,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                         .setLocale(entry.locale);
                   }
                 },
+                ),
               ),
             );
           },
@@ -429,19 +439,25 @@ class _FreezeCard extends ConsumerWidget {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                _StreakStat(
-                  label: context.s('profile.streak'),
-                  value: '${streak?.current ?? 0}',
-                ),
-                _StreakStat(
-                  label: context.s('profile.streak_best'),
-                  value: '${streak?.longest ?? 0}',
-                ),
-                Tooltip(
-                  message: context.s('streak.freeze'),
+                Expanded(
                   child: _StreakStat(
-                    label: context.s('profile.streak_freezes'),
-                    value: '$freezes',
+                    label: context.s('profile.streak'),
+                    value: '${streak?.current ?? 0}',
+                  ),
+                ),
+                Expanded(
+                  child: _StreakStat(
+                    label: context.s('profile.streak_best'),
+                    value: '${streak?.longest ?? 0}',
+                  ),
+                ),
+                Expanded(
+                  child: Tooltip(
+                    message: context.s('streak.freeze'),
+                    child: _StreakStat(
+                      label: context.s('profile.streak_freezes'),
+                      value: '$freezes',
+                    ),
                   ),
                 ),
               ],
@@ -2456,7 +2472,14 @@ class _StreakStat extends StatelessWidget {
         // Крупное число — headlineSmall (display font)
         Text(value, style: textTheme.headlineSmall),
         const SizedBox(height: 2),
-        Text(label, style: textTheme.bodySmall?.copyWith(color: ext.textMuted)),
+        // Подпись ужимается под узкую/крупную типографику, не ломая Row
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
       ],
     );
   }
