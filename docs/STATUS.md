@@ -4,6 +4,18 @@
 > *Что обещали* (продукт) — в `docs/SPEC.md`. Архитектурные решения — в `docs/decisions.md`.
 > Статусы задач в журнале ниже: `[ ]` todo · `[~]` в работе · `[x]` сделано · `[!]` заблокировано.
 
+## Сводка для пользователя (обновлено 2026-06-23)
+
+### ⚠️ Требует миграции Neon (КРИТИЧНО — до неё интеграционные тесты падают)
+Код за ночь 2026-06-23 добавил новые таблицы/колонки в `backend/prisma/schema.prisma`, **но миграция к Neon ещё не применена**. До запуска `prisma migrate` (нужен `DIRECT_URL`, ADR-050) бэкенд-интеграционные тесты этих фич падают с Prisma **`P2021`** (relation does not exist). Не применено:
+- **`Subtask`** — таблица подзадач (ADR-048).
+- **`Item.reminderMinutesBefore`** — новая колонка (ADR-048).
+- **`study_groups`** (`StudyGroup`) — таблица учебных групп (ADR-049).
+- **`study_group_members`** (`StudyGroupMember`) — таблица членств (ADR-049).
+- **`PasswordResetCode`** — таблица кодов сброса пароля (ADR-047, всё ещё не мигрирована).
+
+Действие оркестратора: `cd backend && npx prisma migrate dev --name subtasks_reminders_groups_reset` (или `migrate deploy` на проде) — после этого `P2021` исчезает; юнит-тесты (без БД) уже зелёные.
+
 ## Сводка для пользователя (обновлено 2026-06-21)
 
 ### ✅ Готово (работает, под тестами)
@@ -50,6 +62,28 @@
 ---
 
 ## Журнал работ (хронология сделанного по блокам)
+
+- [!] **Подзадачи + reminder_minutes_before (2026-06-23, ADR-048):** задача получила чеклист подпунктов и поле «напоминание за N минут». Бэк: модель `Subtask` (cascade с `Item`, `@@index([itemId])`) + колонка `Item.reminderMinutesBefore Int?` (валидация 0..10080); `syncSubtasks` (`models/item.ts`) — замена-набором (upsert по id + удаление отсутствующих) внутри `$transaction`; подзадачи едут **вложенным snake_case массивом** на `Item` через `POST/PATCH /items` и `/sync`; `serializeItem` отдаёт `subtasks` (сорт по `sort_order`) + `reminder_minutes_before`. Шаблон подзадач живёт на якоре серии (recurrence). Клиент: Drift поднят до **v15**. Контракты обновлены (api-spec: `Subtask`/`SubtaskInput` + поля на Item/Create/Update; data-model). **Миграция к Neon не применена — `P2021` до `prisma migrate`** (см. блок «Требует миграции Neon»).
+
+- [!] **Co-study группы (2026-06-23, ADR-049):** настоящие учебные группы поверх одиночных сессий. Модели `StudyGroup` (`study_groups`, `code @unique`, владелец cascade) и `StudyGroupMember` (`study_group_members`, `role owner|member`, `status pending|accepted`, `@@unique([groupId,userId])`). Маршруты в `routes/costudy.ts` (snake_case): `POST /study-groups` (создатель = owner/accepted, 201); `POST /study-groups/join/{code}` (заявка pending, code case-insensitive, 404/409); `accept`/`decline` участника (только владелец → 403; нельзя отклонить владельца → 400; 200/204); `DELETE /study-groups/{groupId}/leave` (**выход владельца удаляет группу каскадом**, `{deleted_group}`); `GET /study-groups` (мои accepted + `pending_count` для владельца); `GET /study-groups/{groupId}` (детали; владелец видит pending, участник — только accepted). Контракты обновлены (api-spec: тег Study Groups + 6 путей + схемы; data-model). **Миграция к Neon не применена — `P2021`** (`study_groups`/`study_group_members`).
+
+- [!] **Password-reset в БД (2026-06-23, ADR-047):** коды восстановления пароля переехали из in-memory `Map` в таблицу `PasswordResetCode` (только SHA-256-хэш кода, TTL 15 мин + одноразовость, cascade с User). Контракты дополнены (data-model + prisma-блок). **Миграция к Neon не применена — `P2021`** (`PasswordResetCode`), интеграционные тесты flow падают до `prisma migrate`; юнит-тесты зелёные.
+
+- [x] **Neon connection pooling (2026-06-23, ADR-050):** `datasource db` теперь даёт два URL — pooled `url = env("DATABASE_URL")` (хост `-pooler`, `?pgbouncer=true`) для рантайма и `directUrl = env("DIRECT_URL")` (без pooler) для миграций. Документировано в `.env.example`, `backend/CLAUDE.md`, `render.yaml`; data-model `datasource` приведён в соответствие. Рантайм держит много дешёвых коннектов через PgBouncer, `prisma migrate` идёт по прямому каналу.
+
+- [x] **Recurrence weekly/monthly (2026-06-23):** повторение задач расширено еженедельным и ежемесячным правилами (iCal RRULE); экземпляры серии генерируются по правилу, подзадачи/настройки берутся с якорной задачи (см. ADR-048).
+
+- [x] **NL-парсер: duration/priority/recurrence/reminder (2026-06-23):** парсер быстрого ввода (`core/utils/nl_datetime.dart` и связанные) теперь распознаёт не только дату/время, но и длительность, приоритет, повторение и напоминание из естественного текста — поля задачи проставляются автоматически (ручной выбор перекрывает NL).
+
+- [x] **Настраиваемые свайпы (2026-06-23):** действия свайпа по задаче (влево/вправо) теперь настраиваются пользователем; единый паттерн `SwipeToDelete`/действий переиспользован.
+
+- [x] **Звук (2026-06-23):** добавлены звуковые эффекты ключевых действий (завершение задачи / празднование); уважение системных настроек/выключения.
+
+- [x] **Таймзона (2026-06-23):** корректная работа с часовым поясом пользователя для расписания/напоминаний/повторений (локальное время вместо UTC там, где это важно для пользователя).
+
+- [x] **Жест месяца (2026-06-23):** в Plan добавлен жест переключения месяца в календарном представлении.
+
+- [x] **Строгий режим (2026-06-23):** доработан «жёсткий тренер» (harsh-режим) — поведение/копирайт Kai и разборов в строгом тоне (по фидбэку пользователя о переделке дизайна строгого режима).
 
 - [x] **Чистка: удалён мёртвый `ToneCopy` (2026-06-21):** класс `ToneCopy` (`core/settings/tone_provider.dart`) подтверждён неиспользуемым (UI давно на `KaiCopy`) — удалён (33 строки), живая tone-логика (`toneProvider`/`AppTone`) нетронута. `flutter analyze` 0, `flutter test` 247/247.
 

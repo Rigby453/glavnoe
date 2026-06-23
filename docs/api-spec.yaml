@@ -21,6 +21,7 @@ tags:
   - name: Engine
   - name: AI (Phase 1)
   - name: Share
+  - name: Study Groups
   - name: Subscription
   - name: Billing
 
@@ -902,6 +903,188 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/Error' }
 
+  /api/v1/study-groups:
+    post:
+      tags: [Study Groups]
+      summary: Create a study group (creator becomes owner, accepted)
+      description: >
+        Phase 3 (Ф3). Creates a group with a short join code (first 8 chars of a
+        uuid). The creator is added immediately as an accepted owner member.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, description: Group name (trimmed; must be non-empty) }
+      responses:
+        '201':
+          description: Group created
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudyGroupCreated' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    get:
+      tags: [Study Groups]
+      summary: List my study groups (groups where I am accepted)
+      description: >
+        Returns groups where the caller is an accepted member, newest first.
+        pending_count is the number of pending join requests, non-zero only for
+        groups the caller owns.
+      responses:
+        '200':
+          description: OK (empty array if none)
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: '#/components/schemas/StudyGroupSummary' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /api/v1/study-groups/join/{code}:
+    post:
+      tags: [Study Groups]
+      summary: Request to join a group by its short code (status=pending)
+      description: >
+        Creates a pending membership; the owner must accept it. The code match
+        is case-insensitive.
+      parameters:
+        - in: path
+          name: code
+          required: true
+          schema: { type: string }
+          description: The group's short join code.
+      responses:
+        '201':
+          description: Join request created (pending owner approval)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [group_id, name, status]
+                properties:
+                  group_id: { type: string, format: uuid }
+                  name: { type: string }
+                  status: { type: string, enum: [pending] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Already a member or a request is already pending
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [error]
+                properties:
+                  error: { type: string }
+                  status: { type: string, enum: [pending, accepted] }
+
+  /api/v1/study-groups/{groupId}/members/{userId}/accept:
+    post:
+      tags: [Study Groups]
+      summary: Accept a pending member (owner only)
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Member accepted
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [user_id, status]
+                properties:
+                  user_id: { type: string, format: uuid }
+                  status: { type: string, enum: [accepted] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/study-groups/{groupId}/members/{userId}/decline:
+    post:
+      tags: [Study Groups]
+      summary: Decline / remove a member (owner only)
+      description: >
+        Deletes the membership row. The owner cannot be declined (returns 400).
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+        - in: path
+          name: userId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '204': { description: Declined (no body) }
+        '400':
+          description: Cannot decline the owner
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Error' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/study-groups/{groupId}/leave:
+    delete:
+      tags: [Study Groups]
+      summary: Leave a group (owner leaving deletes the whole group)
+      description: >
+        A regular member is removed. If the owner leaves, the group is deleted
+        together with all its members (cascade) and deleted_group is true.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: Left the group (or deleted it if owner)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [deleted_group]
+                properties:
+                  deleted_group:
+                    type: boolean
+                    description: true if the caller was the owner and the group was deleted.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /api/v1/study-groups/{groupId}:
+    get:
+      tags: [Study Groups]
+      summary: Group details with members (members only)
+      description: >
+        Returns the group with its member list. The owner sees pending members
+        too; a regular member sees only accepted members.
+      parameters:
+        - in: path
+          name: groupId
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/StudyGroupDetail' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   /api/v1/food/barcode/{code}:
     get:
       tags: [Food]
@@ -1070,6 +1253,32 @@ components:
       properties:
         ok: { type: boolean, example: true }
 
+    Subtask:
+      type: object
+      description: >
+        A checklist item inside an Item. Cascade-deleted with its parent Item.
+        Carried inline on Item (and through /sync). Ordered by sort_order.
+      required: [id, title, done, sort_order]
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        done: { type: boolean }
+        sort_order: { type: integer }
+
+    SubtaskInput:
+      type: object
+      description: >
+        A subtask in a create/update/sync request. Sending the subtasks array
+        replaces the whole set (last-write-wins on the set): subtasks present
+        are upserted by id, missing ones are deleted. Omit id for a new subtask
+        (the server generates one).
+      required: [title]
+      properties:
+        id: { type: string, format: uuid, description: Omit for a new subtask. }
+        title: { type: string }
+        done: { type: boolean, default: false }
+        sort_order: { type: integer, default: 0 }
+
     Item:
       type: object
       properties:
@@ -1083,6 +1292,18 @@ components:
         duration_minutes: { type: integer, default: 30 }
         is_protected: { type: boolean }
         recurrence_rule: { type: string, nullable: true, description: iCal RRULE }
+        reminder_minutes_before:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 10080
+          description: >
+            Minutes before scheduled_at to notify (null/0 = no reminder).
+            Max 10080 = one week.
+        subtasks:
+          type: array
+          description: Checklist subtasks, ordered by sort_order (empty array if none).
+          items: { $ref: '#/components/schemas/Subtask' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
@@ -1097,6 +1318,16 @@ components:
         duration_minutes: { type: integer, default: 30 }
         is_protected: { type: boolean }
         recurrence_rule: { type: string, nullable: true }
+        reminder_minutes_before:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 10080
+          description: Minutes before scheduled_at to notify (null/0 = no reminder). Max 10080 = one week.
+        subtasks:
+          type: array
+          description: Optional. If present, sets the item's subtasks.
+          items: { $ref: '#/components/schemas/SubtaskInput' }
 
     UpdateItemRequest:
       type: object
@@ -1110,6 +1341,65 @@ components:
         duration_minutes: { type: integer }
         is_protected: { type: boolean }
         recurrence_rule: { type: string, nullable: true }
+        reminder_minutes_before:
+          type: integer
+          nullable: true
+          minimum: 0
+          maximum: 10080
+          description: Minutes before scheduled_at to notify (null/0 = no reminder). Max 10080 = one week.
+        subtasks:
+          type: array
+          description: Optional. If present, replaces the whole subtask set (LWW on the set).
+          items: { $ref: '#/components/schemas/SubtaskInput' }
+
+    StudyGroupCreated:
+      type: object
+      description: Response after creating a study group (Ф3).
+      required: [id, name, code, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string, description: Short join code (first 8 chars of a uuid). }
+        created_at: { type: string, format: date-time }
+
+    StudyGroupSummary:
+      type: object
+      description: One of my study groups (GET /study-groups list item).
+      required: [id, name, code, is_owner, member_count, pending_count]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        is_owner: { type: boolean }
+        member_count: { type: integer, description: Number of accepted members. }
+        pending_count:
+          type: integer
+          description: Pending join requests; non-zero only for groups I own (0 otherwise).
+
+    StudyGroupMember:
+      type: object
+      description: A member of a study group.
+      required: [user_id, email, role, status]
+      properties:
+        user_id: { type: string, format: uuid }
+        email: { type: string, format: email, nullable: true }
+        role: { type: string, enum: [owner, member] }
+        status: { type: string, enum: [pending, accepted] }
+
+    StudyGroupDetail:
+      type: object
+      description: >
+        Study group details (GET /study-groups/{groupId}). The owner sees pending
+        members too; a regular member sees only accepted members.
+      required: [id, name, code, is_owner, members]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        code: { type: string }
+        is_owner: { type: boolean }
+        members:
+          type: array
+          items: { $ref: '#/components/schemas/StudyGroupMember' }
 
     Streak:
       type: object

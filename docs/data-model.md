@@ -29,8 +29,21 @@
 | duration_minutes | integer  | default 30                            |
 | is_protected     | boolean  | защищён от переноса                   |
 | recurrence_rule  | string   | iCal RRULE, nullable                  |
+| reminder_minutes_before | integer | nullable; за сколько минут до scheduled_at уведомить (null/0 = нет; макс. 10080 = неделя) |
 | created_at       | timestamp|                                       |
 | updated_at       | timestamp|                                       |
+
+## Subtasks
+Подзадача (чеклист внутри задачи). Каскадно удаляется вместе с `Item`. В API отдаётся/принимается вложенным массивом snake_case (`{ id, title, done, sort_order }`) на `Item` и через `/sync` (LWW на наборе).
+| Column     | Type     | Notes                                          |
+|------------|----------|------------------------------------------------|
+| id         | uuid PK  |                                                |
+| item_id    | uuid FK  | -> items.id, **onDelete: Cascade**; index (item_id) |
+| title      | string   |                                                |
+| done       | boolean  | default false                                  |
+| sort_order | integer  | default 0                                      |
+| created_at | timestamp|                                                |
+| updated_at | timestamp|                                                |
 
 ## Streaks
 | Column                  | Type      | Notes                                      |
@@ -98,15 +111,59 @@
 | feature  | string   | напр. `food_photo`                           |
 | count    | integer  | default 0; unique (user_id, day, feature)    |
 
+## PasswordResetCode
+Код восстановления пароля, устойчивый к рестарту/мультиинстансу (ADR-047). Хранится **только** SHA-256-хэш кода (не сам код). TTL 15 мин + одноразовость.
+| Column     | Type     | Notes                                          |
+|------------|----------|------------------------------------------------|
+| id         | uuid PK  |                                                |
+| user_id    | uuid FK  | -> users.id, **onDelete: Cascade**; index (user_id) |
+| code_hash  | string   | SHA-256 от 6-значного кода                      |
+| expires_at | timestamp| now + 15 мин; index (expires_at)               |
+| used_at    | timestamp| nullable; null = не использован (одноразовость) |
+| created_at | timestamp|                                                |
+
+## StudyGroup
+Настоящая учебная группа (Ф3, ADR-049). Объединяет нескольких пользователей; вступление по короткому коду с модерацией владельцем.
+| Column     | Type     | Notes                                          |
+|------------|----------|------------------------------------------------|
+| id         | uuid PK  | таблица `study_groups`                          |
+| owner_id   | uuid FK  | -> users.id, **onDelete: Cascade** (выход владельца удаляет группу) |
+| name       | string   |                                                |
+| code       | string   | **unique**; короткий код (первые 8 символов uuid) |
+| created_at | timestamp|                                                |
+
+## StudyGroupMember
+Членство пользователя в `StudyGroup` (Ф3, ADR-049).
+| Column    | Type     | Notes                                          |
+|-----------|----------|------------------------------------------------|
+| id        | uuid PK  | таблица `study_group_members`                   |
+| group_id  | uuid FK  | -> study_groups.id, **onDelete: Cascade**       |
+| user_id   | uuid FK  | -> users.id, **onDelete: Cascade**              |
+| role      | string   | default `member`; `owner` \| `member`           |
+| status    | string   | default `pending`; `pending` \| `accepted`      |
+| joined_at | timestamp|                                                |
+| | | unique (group_id, user_id)                     |
+
 ## Prisma schema
+
+> ⚠️ Этот встроенный prisma-блок — **выжимка** и местами расходится с актуальной
+> `backend/prisma/schema.prisma` (источник истины). Здесь обновлены `datasource`
+> (Neon pooling) и добавлены новые модели (`Subtask`, `PasswordResetCode`,
+> `StudyGroup`, `StudyGroupMember`) и поля (`Item.reminderMinutesBefore`,
+> `Streak.lastFreezeAccrualAt`, `User.premiumUntil/premiumSource`). Полный набор
+> моделей (`Friend`, `CoStudySession`, relation-поля `User`) см. в `schema.prisma`.
 
 ```prisma
 generator client {
   provider = "prisma-client-js"
 }
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  // Pooled-строка Neon (хост с -pooler, ?pgbouncer=true&connection_limit=...) —
+  // используется в рантайме (ADR-050).
+  url       = env("DATABASE_URL")
+  // Прямая строка Neon (без -pooler) — Prisma берёт её только для миграций.
+  directUrl = env("DIRECT_URL")
 }
 model User {
   id               String     @id @default(uuid())
@@ -128,6 +185,10 @@ model User {
   foodLogs         FoodLog[]
   tombstones       Tombstone[]
   aiUsages         AiUsage[]
+  // ↓ relation-поля Friend/CoStudySession опущены — см. schema.prisma
+  ownedGroups        StudyGroup[]        @relation("GroupOwner")
+  groupMemberships   StudyGroupMember[]
+  passwordResetCodes PasswordResetCode[]
 }
 model Item {
   id              String   @id @default(uuid())
@@ -141,17 +202,32 @@ model Item {
   durationMinutes Int      @default(30)
   isProtected     Boolean  @default(false)
   recurrenceRule  String?
+  reminderMinutesBefore Int?  // за сколько минут до scheduledAt уведомить (null/0 = нет)
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
+  subtasks        Subtask[]
+}
+// Подзадача (чеклист). Каскадно удаляется с Item; в API/sync — вложенный snake_case массив.
+model Subtask {
+  id        String   @id @default(uuid())
+  itemId    String
+  item      Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  title     String
+  done      Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([itemId])
 }
 model Streak {
-  id                String    @id @default(uuid())
-  userId            String    @unique
-  user              User      @relation(fields: [userId], references: [id])
-  current           Int       @default(0)
-  longest           Int       @default(0)
-  lastCompletedDate DateTime?
-  freezeCount       Int       @default(0)
+  id                  String    @id @default(uuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id])
+  current             Int       @default(0)
+  longest             Int       @default(0)
+  lastCompletedDate   DateTime?
+  freezeCount         Int       @default(0)
+  lastFreezeAccrualAt DateTime? // LWW-курсор начисления заморозок (ADR-044)
 }
 model DayLog {
   id        String   @id @default(uuid())
@@ -208,5 +284,40 @@ model AiUsage {
   count     Int      @default(0)
   @@unique([userId, day, feature])
   @@index([userId, day])
+}
+// Код восстановления пароля (ADR-047). Храним только SHA-256-хэш, TTL + одноразовость.
+model PasswordResetCode {
+  id        String    @id @default(uuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  codeHash  String
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+  @@index([userId])
+  @@index([expiresAt])
+}
+// Учебная группа (Ф3, ADR-049). Вступление по коду с модерацией владельцем.
+model StudyGroup {
+  id        String             @id @default(uuid())
+  ownerId   String
+  name      String
+  code      String             @unique
+  createdAt DateTime           @default(now())
+  owner     User               @relation("GroupOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  members   StudyGroupMember[]
+  @@map("study_groups")
+}
+model StudyGroupMember {
+  id       String     @id @default(uuid())
+  groupId  String
+  userId   String
+  role     String     @default("member") // owner | member
+  status   String     @default("pending") // pending | accepted
+  joinedAt DateTime   @default(now())
+  group    StudyGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user     User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  @@unique([groupId, userId])
+  @@map("study_group_members")
 }
 ```

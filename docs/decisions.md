@@ -5,6 +5,29 @@
 
 ---
 
+## ADR-050: Neon connection pooling — pooled DATABASE_URL at runtime, directUrl for migrations
+**Date:** 2026-06-23
+**Проблема:** На Neon (serverless Postgres) рантайм-инстанс на Render может масштабироваться/просыпаться и открывать много недолгих соединений; прямое соединение с БД быстро упирается в лимит коннектов Postgres. При этом Prisma для миграций (`prisma migrate`, теневая БД) требует **прямое** (не через pooler) соединение — PgBouncer в transaction-режиме не поддерживает все операции, нужные миграциям.
+**Решение:** В `datasource db` заданы два URL: `url = env("DATABASE_URL")` — **pooled**-строка Neon (хост с суффиксом `-pooler`, параметры `?pgbouncer=true&connection_limit=...`), её использует рантайм; и `directUrl = env("DIRECT_URL")` — **прямая** строка (без `-pooler`), которую Prisma берёт только для миграций. В `.env`/`.env.example` и `backend/CLAUDE.md` обе переменные документированы; в `render.yaml` они передаются раздельно.
+**Последствия:** Рантайм держит много соединений дёшево через PgBouncer, миграции идут по прямому каналу. Минус — две переменные окружения вместо одной (легко перепутать); `directUrl` обязателен для `prisma migrate`, иначе миграция упадёт на теневой БД. Совместимо с Prisma 5 (ADR-009).
+
+## ADR-049: Co-study группы (StudyGroup / StudyGroupMember) — вступление по коду с модерацией владельцем
+**Date:** 2026-06-23
+**Проблема:** Существующий co-study (ADR ранее — друзья по email + одиночные `CoStudySession` по коду) не давал «настоящих» учебных групп из нескольких человек с управлением составом. Нужны группы, в которые можно вступить по короткому коду, но так, чтобы владелец контролировал, кто войдёт.
+**Решение:** Две модели поверх одиночных сессий: `StudyGroup` (`id`, `ownerId` → User `onDelete: Cascade`, `name`, `code` `@unique`, `createdAt`; `@@map("study_groups")`) и `StudyGroupMember` (`id`, `groupId` → StudyGroup `onDelete: Cascade`, `userId` → User `onDelete: Cascade`, `role` `owner|member` def `member`, `status` `pending|accepted` def `pending`, `joinedAt`, `@@unique([groupId,userId])`, `@@map("study_group_members")`). Короткий код = первые 8 символов uuid (как у одиночных сессий). Маршруты (`backend/src/routes/costudy.ts`, snake_case-ответы): `POST /study-groups` (создатель сразу `owner`/`accepted`, 201); `POST /study-groups/join/{code}` (заявка `pending`, 201; код матчится case-insensitive; 404 если нет, 409 если уже член/заявка); `POST /.../members/{userId}/accept` и `/decline` (только владелец → иначе 403; нельзя отклонить владельца → 400; 404 если нет заявки; accept→200, decline→204); `DELETE /study-groups/{groupId}/leave` (выход участника → `{deleted_group:false}`; **выход владельца удаляет всю группу каскадом** → `{deleted_group:true}`); `GET /study-groups` (мои accepted-группы + `pending_count` только для владельца); `GET /study-groups/{groupId}` (детали, доступ только участникам; владелец видит pending-участников, обычный участник — только accepted). Контракт зафиксирован в `api-spec.yaml` (тег Study Groups, схемы `StudyGroupCreated/Summary/Member/Detail`).
+**Последствия:** Группы — настоящая Ф3-фича с модерацией; cascade на `ownerId` означает, что удаление владельца-пользователя (или его выход) сносит группу и все членства — осознанно, группа без владельца не имеет смысла. **Миграция ещё не применена к Neon** — интеграционные тесты падают `P2021` (`study_groups`/`study_group_members` не существуют) до `prisma migrate`.
+
+## ADR-048: Подзадачи (Subtask) + reminder_minutes_before на Item — вложенный sync, cascade, шаблон на якоре серии
+**Date:** 2026-06-23
+**Проблема:** Задаче не хватало (а) чеклиста подпунктов и (б) настраиваемого напоминания «за N минут». Подзадачи должны синхронизироваться вместе с задачей (офлайн-первый, ADR-003/004) и не плодить отдельный контракт синка.
+**Решение:**
+- **Subtask** (`id`, `itemId` → Item `onDelete: Cascade`, `title`, `done` def false, `sortOrder` def 0, `createdAt`/`updatedAt`, `@@index([itemId])`). В API/sync — **вложенный snake_case массив** на `Item` (`{ id, title, done, sort_order }`), отсортированный по `sort_order`; в ответе `Item.subtasks` всегда массив (пустой, если нет).
+- **reminder_minutes_before** — поле `Item.reminderMinutesBefore Int?` (null/0 = нет напоминания; валидация 0..10080 = неделя). Сериализуется как `reminder_minutes_before` (nullable).
+- **LWW на наборе подзадач:** присланный массив `subtasks` (в `POST /items`, `PATCH /items/:id` и внутри `/sync` на каждом item) **заменяет весь набор** — `syncSubtasks` (`backend/src/models/item.ts`) апсертит присланные по id (id новой подзадачи генерит сервер, если не прислан) и удаляет отсутствующие; выполняется в той же `$transaction`, что и create/update задачи.
+- **Шаблон повторения на якоре серии:** подзадачи живут на «якорной» задаче серии (recurrence), копируются на экземпляры по тем же правилам, что и сама задача.
+- **Клиент:** Drift поднят до **v15** под колонку `reminder_minutes_before` и таблицу подзадач.
+**Последствия:** Один путь синка (всё едет через `Item`), удаление задачи каскадно сносит подзадачи. Замена-набором проста и идемпотентна, но не мерджит конкурентные правки отдельных подзадач (последняя запись набора побеждает) — приемлемо для чеклиста. **Миграция ещё не применена к Neon** — интеграционные тесты падают `P2021` (`Subtask` / колонка `Item.reminderMinutesBefore` не существуют) до `prisma migrate`.
+
 ## ADR-047: Password-reset codes persisted in a PasswordResetCode table (not in-memory), stored as SHA-256 hashes
 **Date:** 2026-06-23
 **Decision:** Replace the in-memory `Map` that held password-reset codes in `backend/src/routes/auth-reset.ts` with a persistent `PasswordResetCode` table (`id`, `userId` → User `onDelete: Cascade`, `codeHash`, `expiresAt`, `usedAt?`, `createdAt`, indexed on `userId` and `expiresAt`). Same class of fix as the AiUsage move ([[ADR-034]]): state that must survive a process restart belongs in the DB, not process memory. Design choices:
