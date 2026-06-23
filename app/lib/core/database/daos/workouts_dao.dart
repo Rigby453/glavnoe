@@ -8,7 +8,12 @@ import '../../utils/id.dart';
 
 part 'workouts_dao.g.dart';
 
-@DriftAccessor(tables: [WorkoutsTable, WorkoutExercisesTable, WorkoutSessionsTable])
+@DriftAccessor(tables: [
+  WorkoutsTable,
+  WorkoutExercisesTable,
+  WorkoutSessionsTable,
+  WorkoutSetLogsTable,
+])
 class WorkoutsDao extends DatabaseAccessor<AppDatabase>
     with _$WorkoutsDaoMixin {
   WorkoutsDao(super.db);
@@ -236,5 +241,58 @@ class WorkoutsDao extends DatabaseAccessor<AppDatabase>
           )
           ..orderBy([(t) => OrderingTerm.desc(t.startedAt)]))
         .watch();
+  }
+
+  // ---------------------------------------------------------------------------
+  // Дневник подходов (set-by-set logs)
+  // ---------------------------------------------------------------------------
+
+  /// Записать факт выполненного подхода (reps × weight).
+  /// completedAt = текущее время; weightKg = null означает собственный вес.
+  Future<void> logSet({
+    required String sessionId,
+    required String exerciseId,
+    required int setIndex,
+    required int reps,
+    double? weightKg,
+  }) async {
+    await into(workoutSetLogsTable).insert(
+      WorkoutSetLogsTableCompanion(
+        id: Value(uuidV4()),
+        sessionId: Value(sessionId),
+        exerciseId: Value(exerciseId),
+        setIndex: Value(setIndex),
+        reps: Value(reps),
+        weightKg: Value(weightKg),
+        completedAt: Value(DateTime.now()),
+      ),
+    );
+  }
+
+  /// Реактивно: все подходы одной сессии, по времени фиксации (старые первыми).
+  Stream<List<WorkoutSetLogsTableData>> watchSessionSets(String sessionId) {
+    return (select(workoutSetLogsTable)
+          ..where((t) => t.sessionId.equals(sessionId))
+          ..orderBy([(t) => OrderingTerm.asc(t.completedAt)]))
+        .watch();
+  }
+
+  /// Реактивно: все подходы одного упражнения через все сессии,
+  /// свежие первыми (для будущей истории/динамики).
+  Stream<List<WorkoutSetLogsTableData>> watchExerciseHistory(String exerciseId) {
+    return (select(workoutSetLogsTable)
+          ..where((t) => t.exerciseId.equals(exerciseId))
+          ..orderBy([(t) => OrderingTerm.desc(t.completedAt)]))
+        .watch();
+  }
+
+  /// Одноразовый снимок истории упражнения (для тестов/несреактивных вызовов).
+  Future<List<WorkoutSetLogsTableData>> getExerciseHistory(
+    String exerciseId,
+  ) async {
+    return (select(workoutSetLogsTable)
+          ..where((t) => t.exerciseId.equals(exerciseId))
+          ..orderBy([(t) => OrderingTerm.desc(t.completedAt)]))
+        .get();
   }
 }

@@ -9,4 +9,6 @@ mixin _$WorkoutsDaoMixin on DatabaseAccessor<AppDatabase> {
       attachedDatabase.workoutExercisesTable;
   $WorkoutSessionsTableTable get workoutSessionsTable =>
       attachedDatabase.workoutSessionsTable;
+  $WorkoutSetLogsTableTable get workoutSetLogsTable =>
+      attachedDatabase.workoutSetLogsTable;
 }

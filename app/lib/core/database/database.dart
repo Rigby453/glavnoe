@@ -423,6 +423,38 @@ class WorkoutExercisesTable extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Факты выполненных подходов (set-by-set дневник тренировки).
+/// Одна строка = один фактически выполненный подход (reps × weight).
+/// Локальные, без синхронизации. Добавлено в schemaVersion 16.
+class WorkoutSetLogsTable extends Table {
+  @override
+  String get tableName => 'workout_set_logs';
+
+  // UUID, генерируется клиентом
+  TextColumn get id => text()();
+
+  // Ссылка на сессию тренировки (workout_sessions.id)
+  TextColumn get sessionId => text()();
+
+  // Ссылка на упражнение-шаблон (workout_exercises.id) — для группировки истории
+  TextColumn get exerciseId => text()();
+
+  // Индекс подхода внутри упражнения (0-based)
+  IntColumn get setIndex => integer()();
+
+  // Фактически выполненные повторения
+  IntColumn get reps => integer()();
+
+  // Использованный вес в кг; null = собственный вес (bodyweight)
+  RealColumn get weightKg => real().nullable()();
+
+  // Время фиксации подхода
+  DateTimeColumn get completedAt => dateTime()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Вложения к задачам (фото/видео). Локальные, без синхронизации.
 /// Добавлено в schemaVersion 11.
 class ItemAttachmentsTable extends Table {
@@ -524,6 +556,7 @@ class SyncQueueTable extends Table {
     HabitLogsTable,
     ItemAttachmentsTable,
     SubtasksTable,
+    WorkoutSetLogsTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -536,7 +569,7 @@ class AppDatabase extends _$AppDatabase {
   HabitsDao get habitsDao => HabitsDao(this);
 
   @override
-  int get schemaVersion => 15;
+  int get schemaVersion => 16;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -602,6 +635,10 @@ class AppDatabase extends _$AppDatabase {
           // (напоминание за N минут до scheduledAt).
           if (from < 15) {
             await m.addColumn(itemsTable, itemsTable.reminderMinutesBefore);
+          }
+          // v16: добавлена таблица workout_set_logs (дневник подходов).
+          if (from < 16) {
+            await m.createTable(workoutSetLogsTable);
           }
         },
       );
