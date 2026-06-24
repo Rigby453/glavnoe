@@ -12,19 +12,42 @@ const kHealthAllergiesKey = 'health_allergies';
 const kHealthHealingKey = 'health_healing';
 const kHealthDeficienciesKey = 'health_deficiencies';
 
+// Ключи сна — приблизительное расписание пользователя.
+// Формат: час в 24-часовом формате (int, 0..23).
+// TODO(sleep-distribution): когда будет реализовано распределение задач
+// вокруг сна, читать kSleepBedtimeHourKey и kSleepWakeHourKey из prefs,
+// чтобы не ставить задачи/напоминания в ночное окно [bedtime, wake].
+const kSleepBedtimeHourKey = 'sleep_bedtime_hour';   // час отхода ко сну
+const kSleepWakeHourKey = 'sleep_wake_hour';           // час подъёма
+
+const kDefaultBedtimeHour = 23; // 23:00
+const kDefaultWakeHour = 7;     // 07:00
+
 /// Модель профиля здоровья.
 class HealthProfile {
   const HealthProfile({
     this.allergies = '',
     this.healing = '',
     this.deficiencies = '',
+    this.bedtimeHour = kDefaultBedtimeHour,
+    this.wakeHour = kDefaultWakeHour,
   });
 
   final String allergies;
+
+  /// Скорость заживления: 'fast'|'week'|'slow'|'' (пусто = не заполнено).
+  /// Значения соответствуют временным диапазонам (ITEM C).
   final String healing;
+
   final String deficiencies;
 
-  /// true, если все три поля пустые (данные не были заполнены).
+  /// Приблизительный час отхода ко сну (0..23). По умолчанию 23.
+  final int bedtimeHour;
+
+  /// Приблизительный час подъёма (0..23). По умолчанию 7.
+  final int wakeHour;
+
+  /// true, если все три текстовых поля пустые (данные не были заполнены).
   bool get isEmpty =>
       allergies.trim().isEmpty &&
       healing.trim().isEmpty &&
@@ -34,11 +57,15 @@ class HealthProfile {
     String? allergies,
     String? healing,
     String? deficiencies,
+    int? bedtimeHour,
+    int? wakeHour,
   }) =>
       HealthProfile(
         allergies: allergies ?? this.allergies,
         healing: healing ?? this.healing,
         deficiencies: deficiencies ?? this.deficiencies,
+        bedtimeHour: bedtimeHour ?? this.bedtimeHour,
+        wakeHour: wakeHour ?? this.wakeHour,
       );
 
   /// Сериализация в snake_case для API (POST body).
@@ -59,6 +86,8 @@ class HealthProfileNotifier extends Notifier<HealthProfile> {
       allergies: prefs.getString(kHealthAllergiesKey) ?? '',
       healing: prefs.getString(kHealthHealingKey) ?? '',
       deficiencies: prefs.getString(kHealthDeficienciesKey) ?? '',
+      bedtimeHour: prefs.getInt(kSleepBedtimeHourKey) ?? kDefaultBedtimeHour,
+      wakeHour: prefs.getInt(kSleepWakeHourKey) ?? kDefaultWakeHour,
     );
   }
 
@@ -68,6 +97,8 @@ class HealthProfileNotifier extends Notifier<HealthProfile> {
     await prefs.setString(kHealthAllergiesKey, profile.allergies.trim());
     await prefs.setString(kHealthHealingKey, profile.healing.trim());
     await prefs.setString(kHealthDeficienciesKey, profile.deficiencies.trim());
+    await prefs.setInt(kSleepBedtimeHourKey, profile.bedtimeHour);
+    await prefs.setInt(kSleepWakeHourKey, profile.wakeHour);
     state = profile;
   }
 
@@ -76,11 +107,15 @@ class HealthProfileNotifier extends Notifier<HealthProfile> {
     String? allergies,
     String? healing,
     String? deficiencies,
+    int? bedtimeHour,
+    int? wakeHour,
   }) =>
       save(state.copyWith(
         allergies: allergies,
         healing: healing,
         deficiencies: deficiencies,
+        bedtimeHour: bedtimeHour,
+        wakeHour: wakeHour,
       ));
 }
 

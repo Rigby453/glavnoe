@@ -30,7 +30,7 @@ const kFoodMealsPerDayKey = 'food_meals_per_day';
 /// [goal]       — цель по весу: 'maintain'|'lose'|'gain'
 /// [dislikes]   — нелюбимые продукты (свободный текст)
 /// [likes]      — любимые продукты (свободный текст)
-/// [mealsPerDay]— количество приёмов пищи в день (3..5)
+/// [mealsPerDay]— количество приёмов пищи в день (1..6+, поддерживает OMAD и дробное питание)
 class FoodPreferences {
   const FoodPreferences({
     this.diet = 'none',
@@ -52,7 +52,7 @@ class FoodPreferences {
       goal == 'maintain' &&
       dislikes.trim().isEmpty &&
       likes.trim().isEmpty &&
-      mealsPerDay == 3;
+      mealsPerDay == 3; // дефолт 3 — изменение на 1 уже снимет isEmpty
 
   FoodPreferences copyWith({
     String? diet,

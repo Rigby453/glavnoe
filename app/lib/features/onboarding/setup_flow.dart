@@ -33,6 +33,7 @@ import '../../core/database/database_providers.dart';
 import '../../core/database/database.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/locale_provider.dart';
+import '../../core/settings/health_profile_provider.dart'; // кonstants сна (ITEM B)
 import '../../core/settings/nutrition_targets.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -127,6 +128,12 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   _TimingOption _timing = _TimingOption.both;
   int _morningHour = kMorningHour; // 8
   int _eveningHour = kEveningHour; // 20
+
+  // --- Экран 14 (доп.): расписание сна (ITEM B) ---
+  // TODO(sleep-distribution): значения будут читаться планировщиком
+  // для создания «ночного окна» без задач/напоминаний.
+  int _bedtimeHour = kDefaultBedtimeHour; // 23:00
+  int _wakeHour = kDefaultWakeHour;       // 07:00
 
   // --- Экран 15: саммари (KaiLoader stub) ---
   bool _summaryReady = false;
@@ -242,6 +249,10 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     // Время разборов
     await prefs.setInt(reviewMorningHourKey, _morningHour);
     await prefs.setInt(reviewEveningHourKey, _eveningHour);
+
+    // Расписание сна (ITEM B)
+    await prefs.setInt(kSleepBedtimeHourKey, _bedtimeHour);
+    await prefs.setInt(kSleepWakeHourKey, _wakeHour);
 
     // Перепланируем уведомления если включены
     if (ref.read(notificationsEnabledProvider)) {
@@ -1207,12 +1218,24 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   // ---------------------------------------------------------------------------
 
   Widget _buildScreen14() {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    // Форматирование часа для кнопок выбора времени сна
+    String formatHour(int h) {
+      final period = h < 12 ? 'AM' : 'PM';
+      final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+      return '$h12:00 $period';
+    }
+
     return _stepFrame(
       kaiEmotion: KaiEmotion.neutral,
       title: context.s('onboarding_quiz.s14_title'),
       subtitle: context.s('onboarding_quiz.s14_subtitle'),
       child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // --- Время разборов ---
           _choiceTile(
             selected: _timing == _TimingOption.morning,
             title: context.s('onboarding_quiz.timing_morning'),
@@ -1254,6 +1277,66 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                 _eveningHour = kEveningHour;
               });
             },
+          ),
+
+          // --- Расписание сна (ITEM B) ---
+          // TODO(sleep-distribution): значения будут читаться планировщиком
+          // для «ночного окна» — никаких задач/напоминаний в [bedtime, wake].
+          const SizedBox(height: 24),
+          Text(
+            context.s('health_profile.sleep_schedule_label'),
+            style: textTheme.titleSmall,
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.s('onboarding_quiz.s14_sleep_hint'),
+            style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.bedtime_outlined, size: 18),
+                  label: Flexible(
+                    child: Text(
+                      '${context.s('health_profile.bedtime_label')}: ${formatHour(_bedtimeHour)}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  onPressed: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay(hour: _bedtimeHour, minute: 0),
+                    );
+                    if (picked != null) {
+                      setState(() => _bedtimeHour = picked.hour);
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.wb_sunny_outlined, size: 18),
+                  label: Flexible(
+                    child: Text(
+                      '${context.s('health_profile.wake_label')}: ${formatHour(_wakeHour)}',
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  onPressed: () async {
+                    final picked = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay(hour: _wakeHour, minute: 0),
+                    );
+                    if (picked != null) {
+                      setState(() => _wakeHour = picked.hour);
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -1327,6 +1410,17 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
       _TimingOption.evening => context.s('onboarding_quiz.timing_evening'),
       _TimingOption.both => context.s('onboarding_quiz.timing_both'),
     };
+
+    // Расписание сна (ITEM B)
+    String formatHourShort(int h) {
+      final period = h < 12 ? 'AM' : 'PM';
+      final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+      return '$h12:00 $period';
+    }
+
+    final sleepStr =
+        '${context.s('health_profile.bedtime_label')}: ${formatHourShort(_bedtimeHour)} · '
+        '${context.s('health_profile.wake_label')}: ${formatHourShort(_wakeHour)}';
 
     // Вода
     final waterStr = context
@@ -1402,6 +1496,14 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                     label:
                         context.s('onboarding_quiz.s15_timing_label'),
                     value: timingLabel,
+                    textTheme: textTheme,
+                    ext: ext,
+                  ),
+                  _summaryDivider(ext),
+                  _summaryRow(
+                    icon: Icons.bedtime_outlined,
+                    label: context.s('health_profile.sleep_schedule_label'),
+                    value: sleepStr,
                     textTheme: textTheme,
                     ext: ext,
                   ),

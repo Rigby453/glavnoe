@@ -1147,6 +1147,20 @@ const Map<String, Map<String, String>> onboardingQuizStrings = {
     'ko': '계속하기',
     'es': 'Continuar',
   },
+  // Подсказка к расписанию сна на экране 14 (ITEM B).
+  'onboarding_quiz.s14_sleep_hint': {
+    'en': 'Optional. Helps us avoid placing tasks in your sleep window.',
+    'ru': 'Необязательно. Помогает не ставить задачи в ночное время.',
+    'de': 'Optional. Hilft, Aufgaben nicht in dein Schlaffenster zu legen.',
+    'fr': 'Facultatif. Évite de placer des tâches pendant ton sommeil.',
+    'it': 'Facoltativo. Aiuta a non inserire compiti durante il tuo sonno.',
+    'pt': 'Opcional. Ajuda a evitar tarefas no horário de sono.',
+    'es': 'Opcional. Ayuda a evitar tareas en tu ventana de sueño.',
+    'id': 'Opsional. Membantu agar tugas tidak dijadwalkan saat tidur.',
+    'hi': 'वैकल्पिक। नींद के दौरान काम न लगाने में मदद करता है।',
+    'ja': '任意。睡眠中にタスクを入れないようにするためです。',
+    'ko': '선택 사항. 수면 중 할 일이 배치되지 않도록 도와줍니다.',
+  },
 
   // ---------------------------------------------------------------------------
   // Экран 15: итоговый саммари

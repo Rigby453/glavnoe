@@ -834,22 +834,29 @@ class _HealthProfileSectionState extends ConsumerState<_HealthProfileSection> {
   bool _editing = false;
 
   late final TextEditingController _allergiesCtrl;
-  late final TextEditingController _healingCtrl;
+  // Healing теперь выбирается из пресетов (ITEM C), а не свободным текстом.
+  // Значения: 'fast' | 'week' | 'slow' | '' (не указано).
+  late String _healingChoice;
   late final TextEditingController _deficienciesCtrl;
+
+  // Расписание сна (ITEM B).
+  late int _bedtimeHour;
+  late int _wakeHour;
 
   @override
   void initState() {
     super.initState();
     final hp = ref.read(healthProfileProvider);
     _allergiesCtrl = TextEditingController(text: hp.allergies);
-    _healingCtrl = TextEditingController(text: hp.healing);
+    _healingChoice = hp.healing;
     _deficienciesCtrl = TextEditingController(text: hp.deficiencies);
+    _bedtimeHour = hp.bedtimeHour;
+    _wakeHour = hp.wakeHour;
   }
 
   @override
   void dispose() {
     _allergiesCtrl.dispose();
-    _healingCtrl.dispose();
     _deficienciesCtrl.dispose();
     super.dispose();
   }
@@ -857,8 +864,10 @@ class _HealthProfileSectionState extends ConsumerState<_HealthProfileSection> {
   Future<void> _save() async {
     await ref.read(healthProfileProvider.notifier).save(HealthProfile(
           allergies: _allergiesCtrl.text,
-          healing: _healingCtrl.text,
+          healing: _healingChoice,
           deficiencies: _deficienciesCtrl.text,
+          bedtimeHour: _bedtimeHour,
+          wakeHour: _wakeHour,
         ));
     if (!mounted) return;
     setState(() => _editing = false);
@@ -891,8 +900,10 @@ class _HealthProfileSectionState extends ConsumerState<_HealthProfileSection> {
                   // Отмена — сброс к сохранённым значениям
                   final current = ref.read(healthProfileProvider);
                   _allergiesCtrl.text = current.allergies;
-                  _healingCtrl.text = current.healing;
+                  _healingChoice = current.healing;
                   _deficienciesCtrl.text = current.deficiencies;
+                  _bedtimeHour = current.bedtimeHour;
+                  _wakeHour = current.wakeHour;
                 }
                 setState(() => _editing = !_editing);
               },
@@ -905,11 +916,16 @@ class _HealthProfileSectionState extends ConsumerState<_HealthProfileSection> {
         const SizedBox(height: 8),
 
         if (_editing) ...[
-          // Режим редактирования — три VoiceTextField
-          _HealthProfileVoiceFields(
+          // Режим редактирования
+          _HealthProfileEditor(
             allergiesCtrl: _allergiesCtrl,
-            healingCtrl: _healingCtrl,
+            healingChoice: _healingChoice,
+            onHealingChanged: (v) => setState(() => _healingChoice = v),
             deficienciesCtrl: _deficienciesCtrl,
+            bedtimeHour: _bedtimeHour,
+            wakeHour: _wakeHour,
+            onBedtimeChanged: (v) => setState(() => _bedtimeHour = v),
+            onWakeChanged: (v) => setState(() => _wakeHour = v),
           ),
           const SizedBox(height: 8),
           // Дисклеймер
@@ -964,50 +980,314 @@ class _HealthProfileView extends StatelessWidget {
       );
     }
 
+    // Локализованный лейбл для скорости заживления
+    String healingLabel(String value) => switch (value) {
+          'fast' => context.s('health_profile.healing_fast'),
+          'week' => context.s('health_profile.healing_week'),
+          'slow' => context.s('health_profile.healing_slow'),
+          _ => value,
+        };
+
+    // Форматирование часа сна/подъёма
+    String formatHour(int h) {
+      final period = h < 12 ? 'AM' : 'PM';
+      final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+      return '$h12:00 $period';
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         field(context.s('health_profile.q_allergies'), profile.allergies),
-        field(context.s('health_profile.q_healing'), profile.healing),
+        if (profile.healing.isNotEmpty)
+          field(
+            context.s('health_profile.q_healing_label'),
+            healingLabel(profile.healing),
+          ),
         field(context.s('health_profile.q_deficiencies'), profile.deficiencies),
+        field(
+          context.s('health_profile.sleep_schedule_label'),
+          '${context.s('health_profile.bedtime_label')}: ${formatHour(profile.bedtimeHour)} · '
+          '${context.s('health_profile.wake_label')}: ${formatHour(profile.wakeHour)}',
+        ),
       ],
     );
   }
 }
 
-/// Три VoiceTextField для редактора профиля здоровья.
-/// Вынесен в отдельный StatelessWidget, чтобы не пересоздавать при setState(_editing).
-class _HealthProfileVoiceFields extends StatelessWidget {
-  const _HealthProfileVoiceFields({
+/// Редактор профиля здоровья: аллергии, скорость заживления (чипы),
+/// дефициты, расписание сна (ITEM B + ITEM C).
+class _HealthProfileEditor extends StatelessWidget {
+  const _HealthProfileEditor({
     required this.allergiesCtrl,
-    required this.healingCtrl,
+    required this.healingChoice,
+    required this.onHealingChanged,
     required this.deficienciesCtrl,
+    required this.bedtimeHour,
+    required this.wakeHour,
+    required this.onBedtimeChanged,
+    required this.onWakeChanged,
   });
 
   final TextEditingController allergiesCtrl;
-  final TextEditingController healingCtrl;
+  // 'fast' | 'week' | 'slow' | '' (не выбрано)
+  final String healingChoice;
+  final ValueChanged<String> onHealingChanged;
   final TextEditingController deficienciesCtrl;
+  final int bedtimeHour;
+  final int wakeHour;
+  final ValueChanged<int> onBedtimeChanged;
+  final ValueChanged<int> onWakeChanged;
+
+  String _formatHour(int h) {
+    final period = h < 12 ? 'AM' : 'PM';
+    final h12 = h == 0 ? 12 : (h > 12 ? h - 12 : h);
+    return '$h12:00 $period';
+  }
+
+  Future<void> _pickTime(
+    BuildContext context,
+    int currentHour,
+    ValueChanged<int> onChanged,
+  ) async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: TimeOfDay(hour: currentHour, minute: 0),
+    );
+    if (picked != null) onChanged(picked.hour);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
+
+    // Опции скорости заживления — конкретные временные диапазоны (ITEM C).
+    final healingOptions = [
+      ('fast', context.s('health_profile.healing_fast')),
+      ('week', context.s('health_profile.healing_week')),
+      ('slow', context.s('health_profile.healing_slow')),
+    ];
+
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // ---- Аллергии (просто поле ввода — ITEM C: убрана пояснительная подпись) ----
         VoiceTextField(
           controller: allergiesCtrl,
           labelText: context.s('health_profile.q_allergies'),
           maxLines: 3,
         ),
         const SizedBox(height: 16),
-        VoiceTextField(
-          controller: healingCtrl,
-          labelText: context.s('health_profile.q_healing'),
-          maxLines: 2,
+
+        // ---- Скорость заживления — конкретные диапазоны (ITEM C) ----
+        Text(
+          context.s('health_profile.q_healing_label'),
+          style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: healingOptions.map((pair) {
+            final value = pair.$1;
+            final label = pair.$2;
+            final selected = healingChoice == value;
+            return ChoiceChip(
+              label: Flexible(
+                child: Text(
+                  label,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+              selected: selected,
+              onSelected: (_) => onHealingChanged(selected ? '' : value),
+            );
+          }).toList(),
         ),
         const SizedBox(height: 16),
+
+        // ---- Дефициты ----
         VoiceTextField(
           controller: deficienciesCtrl,
           labelText: context.s('health_profile.q_deficiencies'),
           maxLines: 3,
+        ),
+        const SizedBox(height: 20),
+
+        // ---- Расписание сна (ITEM B) ----
+        // TODO(sleep-distribution): эти значения будут читаться планировщиком
+        // для создания «ночного окна» — задачи и напоминания не будут
+        // ставиться в промежуток [bedtimeHour, wakeHour].
+        Text(
+          context.s('health_profile.sleep_schedule_label'),
+          style: textTheme.titleSmall,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          context.s('health_profile.sleep_schedule_hint'),
+          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            // Час отхода ко сну
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.bedtime_outlined, size: 18),
+                label: Flexible(
+                  child: Text(
+                    '${context.s('health_profile.bedtime_label')}: ${_formatHour(bedtimeHour)}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                onPressed: () => _pickTime(context, bedtimeHour, onBedtimeChanged),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.onSurface,
+                  side: BorderSide(color: ext.border),
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            // Час подъёма
+            Expanded(
+              child: OutlinedButton.icon(
+                icon: const Icon(Icons.wb_sunny_outlined, size: 18),
+                label: Flexible(
+                  child: Text(
+                    '${context.s('health_profile.wake_label')}: ${_formatHour(wakeHour)}',
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                onPressed: () => _pickTime(context, wakeHour, onWakeChanged),
+                style: OutlinedButton.styleFrom(
+                  foregroundColor: colorScheme.onSurface,
+                  side: BorderSide(color: ext.border),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// ---------------------------------------------------------------------------
+// Meals per day picker — ITEM A
+// ---------------------------------------------------------------------------
+
+/// Пикер числа приёмов пищи в день: пресеты 1–6 + «другое» (ввод вручную).
+/// Минимум 1 — поддержка OMAD (один приём в день / интервальное голодание).
+/// Максимальный пресет 6; при вводе > 6 показывается значение как кастомный чип.
+class _MealsPerDayPicker extends StatelessWidget {
+  const _MealsPerDayPicker({
+    required this.value,
+    required this.onChanged,
+  });
+
+  final int value;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    // Пресеты 1..6; value > 6 показывается как дополнительный выбранный чип.
+    const presets = [1, 2, 3, 4, 5, 6];
+    final isCustom = !presets.contains(value);
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: [
+        // Пресеты 1–6
+        ...presets.map((n) {
+          final selected = value == n;
+          return ChoiceChip(
+            label: Text('$n'),
+            selected: selected,
+            onSelected: (_) => onChanged(n),
+          );
+        }),
+        // Кнопка «другое» — открывает диалог ввода числа
+        ChoiceChip(
+          label: Text(
+            isCustom
+                ? context.s('food_prefs.meals_custom_value').replaceAll('{n}', '$value')
+                : context.s('food_prefs.meals_custom'),
+            style: textTheme.bodySmall,
+          ),
+          selected: isCustom,
+          onSelected: (_) async {
+            final result = await showDialog<int>(
+              context: context,
+              builder: (_) => _MealsCustomDialog(initial: isCustom ? value : 7),
+            );
+            if (result != null && result >= 1) onChanged(result);
+          },
+          avatar: Icon(
+            Icons.edit_outlined,
+            size: 14,
+            color: isCustom ? colorScheme.onPrimary : ext.textMuted,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Диалог для ввода произвольного числа приёмов пищи (> 6 или любое другое).
+class _MealsCustomDialog extends StatefulWidget {
+  const _MealsCustomDialog({required this.initial});
+  final int initial;
+
+  @override
+  State<_MealsCustomDialog> createState() => _MealsCustomDialogState();
+}
+
+class _MealsCustomDialogState extends State<_MealsCustomDialog> {
+  late final TextEditingController _ctrl;
+
+  @override
+  void initState() {
+    super.initState();
+    _ctrl = TextEditingController(text: '${widget.initial}');
+  }
+
+  @override
+  void dispose() {
+    _ctrl.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: Text(context.s('food_prefs.meals_custom_title')),
+      content: TextField(
+        controller: _ctrl,
+        keyboardType: TextInputType.number,
+        autofocus: true,
+        decoration: InputDecoration(
+          labelText: context.s('food_prefs.meals_label'),
+        ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: Text(context.s('btn.cancel')),
+        ),
+        FilledButton(
+          onPressed: () {
+            final v = int.tryParse(_ctrl.text.trim());
+            if (v != null && v >= 1) Navigator.pop(context, v);
+          },
+          child: Text(context.s('btn.ok')),
         ),
       ],
     );
@@ -1171,21 +1451,15 @@ class _FoodPreferencesSectionState
           ),
           const SizedBox(height: 16),
 
-          // ---- Приёмы пищи ----
+          // ---- Приёмы пищи (мин. 1 — поддержка OMAD и дробного питания) ----
           Text(
             context.s('food_prefs.meals_label'),
             style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
           ),
           const SizedBox(height: 8),
-          SegmentedButton<int>(
-            segments: const [
-              ButtonSegment(value: 3, label: Text('3')),
-              ButtonSegment(value: 4, label: Text('4')),
-              ButtonSegment(value: 5, label: Text('5')),
-            ],
-            selected: {_mealsPerDay},
-            showSelectedIcon: false,
-            onSelectionChanged: (s) => setState(() => _mealsPerDay = s.first),
+          _MealsPerDayPicker(
+            value: _mealsPerDay,
+            onChanged: (v) => setState(() => _mealsPerDay = v),
           ),
           const SizedBox(height: 16),
 
