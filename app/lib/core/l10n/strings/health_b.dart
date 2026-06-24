@@ -1195,6 +1195,51 @@ const Map<String, Map<String, String>> healthBStrings = {
     'ko': '단계',
   },
 
+  // Диалог завершения сессии: подзаголовок с приглашением отметить настроение.
+  // Старый ключ session_complete_body («Отметь, как ты себя чувствуешь.») оставлен
+  // для обратной совместимости; в диалоге теперь используется mood_prompt.
+  'meditation.mood_prompt': {
+    'en': 'How do you feel right now?',
+    'ru': 'Как ты себя чувствуешь?',
+    'de': 'Wie fühlst du dich gerade?',
+    'fr': 'Comment te sens-tu en ce moment ?',
+    'it': 'Come ti senti adesso?',
+    'pt': 'Como você se sente agora?',
+    'es': '¿Cómo te sientes ahora?',
+    'id': 'Bagaimana perasaanmu sekarang?',
+    'hi': 'अभी तुम कैसा महसूस कर रहे हो?',
+    'ja': '今、気分はいかがですか？',
+    'ko': '지금 기분이 어떤가요?',
+  },
+  // Подпись над полем заметки (необязательная)
+  'meditation.mood_note_hint': {
+    'en': 'Optional note…',
+    'ru': 'Заметка (необязательно)…',
+    'de': 'Optionale Notiz…',
+    'fr': 'Note facultative…',
+    'it': 'Nota opzionale…',
+    'pt': 'Nota opcional…',
+    'es': 'Nota opcional…',
+    'id': 'Catatan opsional…',
+    'hi': 'वैकल्पिक नोट…',
+    'ja': '任意のメモ…',
+    'ko': '선택 메모…',
+  },
+  // Снэкбар-подтверждение при сохранении настроения
+  'meditation.mood_saved': {
+    'en': 'Mood logged',
+    'ru': 'Настроение сохранено',
+    'de': 'Stimmung gespeichert',
+    'fr': 'Humeur enregistrée',
+    'it': 'Umore salvato',
+    'pt': 'Humor registrado',
+    'es': 'Estado de ánimo guardado',
+    'id': 'Suasana hati dicatat',
+    'hi': 'मूड दर्ज किया',
+    'ja': '気分を記録しました',
+    'ko': '기분 기록됨',
+  },
+
   // ---------------------------------------------------------------------------
   // posture.* exercise content  —  posture_exercises.dart
   // ---------------------------------------------------------------------------

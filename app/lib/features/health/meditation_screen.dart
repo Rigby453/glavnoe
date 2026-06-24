@@ -7,10 +7,14 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../core/animations/constants.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
+import '../../core/mood/meditation_mood_log.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/theme/theme_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Модель данных
@@ -217,15 +221,16 @@ class _SessionCard extends StatelessWidget {
 // Session player screen
 // ---------------------------------------------------------------------------
 
-class _SessionPlayerScreen extends StatefulWidget {
+class _SessionPlayerScreen extends ConsumerStatefulWidget {
   const _SessionPlayerScreen({required this.session});
   final _Session session;
 
   @override
-  State<_SessionPlayerScreen> createState() => _SessionPlayerScreenState();
+  ConsumerState<_SessionPlayerScreen> createState() =>
+      _SessionPlayerScreenState();
 }
 
-class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
+class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     with TickerProviderStateMixin {
   int _stepIndex = 0;
   int _remaining = 0;
@@ -311,28 +316,142 @@ class _SessionPlayerScreenState extends State<_SessionPlayerScreen>
   void _showCompletionDialog() {
     _timer?.cancel();
     _arcController.stop();
+
+    // Эмодзи для шкалы настроения — те же, что в diary_screen.dart.
+    const moodEmojis = ['😞', '😕', '😐', '🙂', '😄'];
+
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        final ext = Theme.of(dialogContext).extension<FocusThemeExtension>()!;
-        return AlertDialog(
-          // Иконка завершения — success color (не accent, per ACCENT DISCIPLINE)
-          icon: Icon(Icons.spa_outlined, size: 40, color: ext.success),
-          title: Text(dialogContext.s('meditation.session_complete')),
-          content: Text(
-            '"${dialogContext.s(widget.session.nameKey)}" — '
-            '${dialogContext.s('meditation.session_complete_body')}',
-          ),
-          actions: [
-            TextButton(
-              onPressed: () {
-                Navigator.of(dialogContext).pop();
-                Navigator.of(context).pop();
-              },
-              child: Text(dialogContext.s('btn.done')),
-            ),
-          ],
+        // StatefulBuilder позволяет обновлять состояние выбора настроения
+        // внутри диалога без setState на экране плеера.
+        int? selectedMood; // null = ничего не выбрано (Done работает без)
+        final noteController = TextEditingController();
+        final reduce = MediaQuery.disableAnimationsOf(dialogContext);
+
+        return StatefulBuilder(
+          builder: (ctx, setDialogState) {
+            final ext = Theme.of(ctx).extension<FocusThemeExtension>()!;
+            final colorScheme = Theme.of(ctx).colorScheme;
+            final textTheme = Theme.of(ctx).textTheme;
+
+            return AlertDialog(
+              // Иконка завершения — success color (не accent, per ACCENT DISCIPLINE)
+              icon: Icon(Icons.spa_outlined, size: 40, color: ext.success),
+              title: Text(ctx.s('meditation.session_complete')),
+              // Скроллируемый контент — защита от переполнения на маленьких экранах
+              // (320px, textScaleFactor 1.5–2.0) с 5 эмодзи + текстовым полем.
+              content: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Сессия-название — bodyMedium (контекстная подпись)
+                    Text(
+                      '"${ctx.s(widget.session.nameKey)}"',
+                      style: textTheme.bodyMedium
+                          ?.copyWith(color: ext.textMuted),
+                    ),
+                    const SizedBox(height: 12),
+                    // Вопрос-приглашение — bodyLarge
+                    Text(
+                      ctx.s('meditation.mood_prompt'),
+                      style: textTheme.bodyLarge,
+                    ),
+                    const SizedBox(height: 12),
+                    // Шкала настроения 1..5 — эмодзи с обёртыванием Wrap
+                    // (защита от overflow при крупном шрифте или узком экране).
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: List.generate(5, (i) {
+                        final value = i + 1;
+                        final selected = selectedMood == value;
+                        return GestureDetector(
+                          onTap: () => setDialogState(
+                            () => selectedMood =
+                                selected ? null : value,
+                          ),
+                          child: AnimatedContainer(
+                            // snap=120ms (kDurationSnap)
+                            duration: reduce
+                                ? Duration.zero
+                                : kDurationSnap,
+                            curve: kCurveSnap,
+                            padding: const EdgeInsets.all(8),
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              // Выбрано: accentMuted фон + accent бордер
+                              // Нет: прозрачный + border (нейтральный)
+                              color: selected
+                                  ? ext.accentMuted
+                                  : Colors.transparent,
+                              border: Border.all(
+                                color: selected
+                                    ? colorScheme.primary
+                                    : ext.border,
+                                width: selected ? 1.5 : 1.0,
+                              ),
+                            ),
+                            child: Text(
+                              moodEmojis[i],
+                              style: const TextStyle(fontSize: 24),
+                            ),
+                          ),
+                        );
+                      }),
+                    ),
+                    const SizedBox(height: 12),
+                    // Однострочное поле заметки (необязательно)
+                    TextField(
+                      controller: noteController,
+                      maxLines: 1,
+                      textCapitalization: TextCapitalization.sentences,
+                      style: textTheme.bodyMedium,
+                      decoration: InputDecoration(
+                        hintText: ctx.s('meditation.mood_note_hint'),
+                        isDense: true,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () async {
+                    // Сохраняем только если выбрано настроение
+                    if (selectedMood != null) {
+                      final prefs = ref.read(sharedPreferencesProvider);
+                      await appendMeditationMood(
+                        prefs,
+                        MeditationMoodEntry(
+                          sessionId: widget.session.id,
+                          mood: selectedMood!,
+                          note: noteController.text.trim().isEmpty
+                              ? null
+                              : noteController.text.trim(),
+                          loggedAt: DateTime.now(),
+                        ),
+                      );
+                      // Показываем снэкбар только если экран плеера ещё живой.
+                      if (mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Text(context.s('meditation.mood_saved')),
+                          ),
+                        );
+                      }
+                    }
+                    noteController.dispose();
+                    if (ctx.mounted) Navigator.of(ctx).pop();
+                    if (mounted) Navigator.of(context).pop();
+                  },
+                  child: Text(ctx.s('btn.done')),
+                ),
+              ],
+            );
+          },
         );
       },
     );
