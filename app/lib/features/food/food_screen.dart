@@ -22,6 +22,7 @@ import '../../core/animations/app_sheet.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/locale_provider.dart';
+import '../../core/settings/fab_position_provider.dart';
 import '../../core/settings/nutrition_targets.dart';
 import '../../core/utils/id.dart';
 import '../../core/widgets/kai_loader.dart';
@@ -209,6 +210,7 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
     // Планируем доскролл к целевому приёму при первом непустом построении.
     _maybeScrollToTarget(logs);
 
+    final fabLocation = ref.watch(fabPositionProvider).fabLocation;
     return Scaffold(
       appBar: AppBar(
         title: Text(context.s('health.food')),
@@ -225,6 +227,7 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
           ),
         ],
       ),
+      floatingActionButtonLocation: fabLocation,
       floatingActionButton: FloatingActionButton(
         heroTag: 'food_add_fab',
         onPressed: () => _showSearchSheet(context),

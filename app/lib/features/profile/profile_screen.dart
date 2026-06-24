@@ -37,6 +37,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/custom_theme_provider.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../services/api/api_client.dart';
+import '../../core/settings/fab_position_provider.dart';
 import '../../core/widgets/kai_loader.dart';
 import '../../services/streak/freeze_accrual_service.dart';
 import '../auth/auth_controller.dart';
@@ -324,6 +325,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         const _MoodKaiSection(),
         const SizedBox(height: 16),
         const _TextSizeSetting(),
+        const SizedBox(height: 8),
+        const _FabPositionSetting(),
         const SizedBox(height: 8),
         const _NotificationsSetting(),
         const _CompletionSoundSetting(),
@@ -2417,6 +2420,71 @@ class _TextSizeSetting extends ConsumerWidget {
               onSelected: (_) => ref.read(textScaleProvider.notifier).set(p),
             );
           }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// FAB position setting
+// ---------------------------------------------------------------------------
+
+/// Выбор горизонтального положения кнопки «+» (FAB).
+/// SegmentedButton из трёх позиций: Left / Center / Right.
+/// Сохраняет выбор в fabPositionProvider (SharedPreferences).
+class _FabPositionSetting extends ConsumerWidget {
+  const _FabPositionSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(fabPositionProvider);
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          leading: Icon(Icons.add_circle_outline, color: ext.textMuted),
+          title: Text(context.s('profile.fab_position')),
+          subtitle: Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: SegmentedButton<FabPosition>(
+              segments: [
+                ButtonSegment(
+                  value: FabPosition.left,
+                  label: Text(
+                    context.s('profile.fab_position_left'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  icon: const Icon(Icons.align_horizontal_left, size: 16),
+                ),
+                ButtonSegment(
+                  value: FabPosition.center,
+                  label: Text(
+                    context.s('profile.fab_position_center'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  icon: const Icon(Icons.align_horizontal_center, size: 16),
+                ),
+                ButtonSegment(
+                  value: FabPosition.right,
+                  label: Text(
+                    context.s('profile.fab_position_right'),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  icon: const Icon(Icons.align_horizontal_right, size: 16),
+                ),
+              ],
+              selected: {current},
+              showSelectedIcon: false,
+              onSelectionChanged: (s) =>
+                  ref.read(fabPositionProvider.notifier).set(s.first),
+            ),
+          ),
+          // isThreeLine даёт лишний вертикальный отступ — не нужен, subtitle не текст
+          isThreeLine: false,
         ),
       ],
     );

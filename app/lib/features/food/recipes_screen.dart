@@ -10,6 +10,7 @@ import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
+import '../../core/settings/fab_position_provider.dart';
 import '../../core/theme/app_theme.dart';
 import 'recipe_nutrition.dart';
 
@@ -88,8 +89,10 @@ class RecipesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recipes = ref.watch(recipesListProvider).valueOrNull ?? const [];
 
+    final fabLocation = ref.watch(fabPositionProvider).fabLocation;
     return Scaffold(
       appBar: AppBar(title: Text(context.s('food.my_recipes_title'))),
+      floatingActionButtonLocation: fabLocation,
       floatingActionButton: FloatingActionButton(
         heroTag: 'recipes_add_fab',
         tooltip: context.s('food.new_recipe'),

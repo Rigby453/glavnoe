@@ -13,6 +13,7 @@ import '../../core/animations/constants.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/settings/fab_position_provider.dart';
 import '../../core/mood/mood_provider.dart';
 import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/tone_provider.dart';
@@ -161,6 +162,7 @@ class TodayScreen extends ConsumerWidget {
     required List<ItemsTableData> overdueItems,
   }) {
 
+    final fabLocation = ref.watch(fabPositionProvider).fabLocation;
     return Stack(
       children: [
         Scaffold(
@@ -169,6 +171,7 @@ class TodayScreen extends ConsumerWidget {
           // tooltip обеспечивает доступность вместо видимой подписи.
           // Слева от него — постоянная кнопка ↩ (undo), видна только когда
           // есть что отменять (lastUndoableActionProvider != null).
+          floatingActionButtonLocation: fabLocation,
           floatingActionButton: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -254,10 +257,12 @@ class TodayScreen extends ConsumerWidget {
     required List<ItemsTableData> overdueItems,
   }) {
     final items = itemsAsync.valueOrNull ?? const <ItemsTableData>[];
+    final fabLocation = ref.watch(fabPositionProvider).fabLocation;
 
     return Stack(
       children: [
         Scaffold(
+          floatingActionButtonLocation: fabLocation,
           floatingActionButton: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

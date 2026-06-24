@@ -12,6 +12,7 @@ import '../../core/database/database_providers.dart';
 import '../../core/database/daos/workouts_dao.dart' show ExerciseWithLogs;
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
+import '../../core/settings/fab_position_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
 import 'ai_workout_sheet.dart';
@@ -118,6 +119,7 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
   @override
   Widget build(BuildContext context) {
     final isWorkoutsTab = _tab == _WorkoutsTab.workouts;
+    final fabLocation = ref.watch(fabPositionProvider).fabLocation;
 
     return Scaffold(
       appBar: AppBar(
@@ -133,6 +135,7 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
       ),
       // FAB — только на вкладке «Тренировки» (создание программы). На «Дневнике»
       // создавать нечего — FAB скрыт.
+      floatingActionButtonLocation: fabLocation,
       floatingActionButton: isWorkoutsTab
           ? FloatingActionButton(
               heroTag: 'workouts_add_fab',
