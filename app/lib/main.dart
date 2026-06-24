@@ -28,6 +28,16 @@ Future<void> main() async {
   // чтобы ThemeNotifier мог синхронно прочитать сохранённый ключ
   final prefs = await SharedPreferences.getInstance();
 
+  // Инициализируем таблицы дат intl для сохранённой локали до первого кадра.
+  // Это гарантирует, что DateFormat.yMMMMEEEEd() и другие без явной локали
+  // используют язык пользователя, а не en_US по умолчанию.
+  {
+    // Дублируем ключ локально, чтобы не экспортировать внутренний const из locale_provider
+    const kLocaleKey = 'app_locale';
+    final savedLocale = prefs.getString(kLocaleKey) ?? 'en';
+    await applyIntlLocale(savedLocale);
+  }
+
   runApp(
     ProviderScope(
       // Пробрасываем уже инициализированный экземпляр SharedPreferences
