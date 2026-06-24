@@ -58,7 +58,13 @@ class DayTimeline extends ConsumerWidget {
       ..sort((a, b) => a.scheduledAt.compareTo(b.scheduledAt));
     final rest =
         filtered.where((i) => i.type != 'exam' && i.type != 'deadline').toList();
-    final sorted = [...pinned, ...rest];
+    final ordered = [...pinned, ...rest];
+    // Выполненные задачи уходят ВНИЗ списка (как в Google Calendar / списках дел):
+    // невыполненные сохраняют свой порядок, done — в конце (стабильно).
+    final sorted = [
+      ...ordered.where((i) => i.status != 'done'),
+      ...ordered.where((i) => i.status == 'done'),
+    ];
 
     if (sorted.isEmpty) {
       return _EmptyState(day: selectedDay);

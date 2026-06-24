@@ -7,6 +7,8 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'
+    show FilteringTextInputFormatter, LengthLimitingTextInputFormatter;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
@@ -15,6 +17,7 @@ import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
+import '../../core/settings/rest_default_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
 import 'workouts_screen.dart' show workoutExercisesProvider, workoutProvider;
@@ -50,12 +53,25 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
   int _setIndex = 0; // текущий подход (0-based)
   _TrainerPhase _phase = _TrainerPhase.work;
 
-  // Feature B — фактические reps/weight текущего подхода.
+  // Feature B / #22+F — фактические reps/weight текущего подхода.
   // Пред-заполняются плановыми значениями упражнения (см. _resetSetInputs),
   // так что «тап насквозь» без правок залогирует осмысленные числа.
+  // Правка и логирование происходят во время фазы ОТДЫХА (#22+F): после «Готово»
+  // показываем редактируемые поля reps/weight выполненного подхода, и пишем лог
+  // при ЗАВЕРШЕНИИ отдыха/переходе дальше с текущими значениями (без дублей).
   int _currentReps = 0;
   double? _currentWeightKg; // null = собственный вес (bodyweight)
   bool _setInputsReady = false; // плановые значения уже подставлены?
+
+  // #22+F: текстовые контроллеры полей ввода reps/weight (клавиатура).
+  // Источник истины — _currentReps/_currentWeightKg; контроллеры лишь зеркалят
+  // их для редактирования с клавиатуры. Синхронизируются в _syncInputControllers.
+  final TextEditingController _repsController = TextEditingController();
+  final TextEditingController _weightController = TextEditingController();
+
+  // #22+F: защита от дублей лога. Один подход логируется РОВНО один раз —
+  // в момент, когда мы покидаем этот подход (конец отдыха / переход дальше).
+  bool _currentSetLogged = false;
 
   // Границы регулировки фактических reps/weight
   static const int _repsMin = 0;
@@ -102,6 +118,9 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
   void dispose() {
     _restTimer?.cancel();
     _transitionCtrl.dispose();
+    // #22+F: контроллеры полей ввода reps/weight — обязательный dispose.
+    _repsController.dispose();
+    _weightController.dispose();
     super.dispose();
   }
 
@@ -166,12 +185,30 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
     _currentReps = ex.reps;
     _currentWeightKg = ex.weightKg; // может быть null → bodyweight
     _setInputsReady = true;
+    _currentSetLogged = false; // новый подход → ещё не залогирован
+    _syncInputControllers();
+  }
+
+  /// Привести текст контроллеров в соответствие с _currentReps/_currentWeightKg.
+  /// Вызывается после степперов и при подстановке плановых значений, чтобы поля
+  /// с клавиатуры и кнопки +/- показывали одно и то же число.
+  void _syncInputControllers() {
+    final repsText = '$_currentReps';
+    if (_repsController.text != repsText) _repsController.text = repsText;
+    final w = _currentWeightKg;
+    final weightText = w == null
+        ? ''
+        : (w == w.truncateToDouble() ? '${w.round()}' : '$w');
+    if (_weightController.text != weightText) {
+      _weightController.text = weightText;
+    }
   }
 
   /// Изменить фактические повторения на delta (с клампом).
   void _adjustReps(int delta) {
     setState(() {
       _currentReps = (_currentReps + delta).clamp(_repsMin, _repsMax);
+      _syncInputControllers();
     });
   }
 
@@ -182,39 +219,73 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
       final base = _currentWeightKg ?? 0.0;
       final next = base + delta;
       _currentWeightKg = next <= 0 ? null : next.clamp(0.0, _weightMax);
+      _syncInputControllers();
     });
   }
 
-  /// Нажата кнопка «Set done» — переходим к отдыху или следующему упражнению.
-  /// Feature B: ПЕРЕД сменой состояния логируем фактический подход в Drift.
+  /// #22+F: ввод reps с клавиатуры (digitsOnly). Пустое поле → 0.
+  void _onRepsTextChanged(String text) {
+    final parsed = int.tryParse(text) ?? 0;
+    setState(() {
+      _currentReps = parsed.clamp(_repsMin, _repsMax);
+    });
+  }
+
+  /// #22+F: ввод веса с клавиатуры (digitsOnly, кг). Пустое поле → bodyweight.
+  void _onWeightTextChanged(String text) {
+    setState(() {
+      if (text.isEmpty) {
+        _currentWeightKg = null; // bodyweight
+      } else {
+        final parsed = double.tryParse(text);
+        _currentWeightKg = parsed?.clamp(0.0, _weightMax);
+      }
+    });
+  }
+
+  /// #22+F: записать текущий подход в Drift РОВНО один раз (без дублей).
+  /// Вызывается при выходе из подхода: конец отдыха (авто/skip), переход к
+  /// следующему упражнению или финиш на последнем подходе. Идемпотентна за счёт
+  /// флага _currentSetLogged (сбрасывается в _resetSetInputs / при смене set).
+  Future<void> _logCurrentSet() async {
+    if (_currentSetLogged) return;
+    if (_sessionId == null) return; // сессия ещё не инициализирована
+    _currentSetLogged = true;
+    await ref.read(workoutsDaoProvider).logSet(
+          sessionId: _sessionId!,
+          exerciseId: _currentExercise.id,
+          setIndex: _setIndex,
+          reps: _currentReps,
+          weightKg: _currentWeightKg,
+        );
+  }
+
+  /// Нажата кнопка «Готово» — переходим к отдыху или следующему упражнению.
+  /// #22+F: при наличии отдыха лог НЕ пишем здесь — пользователь правит
+  /// фактические reps/weight ВО ВРЕМЯ отдыха, лог пишется при завершении отдыха
+  /// (_commitSetAndAdvance). На ПОСЛЕДНЕМ подходе отдыха нет → логируем сразу.
   Future<void> _onSetDone() async {
     final ex = _currentExercise;
-
-    // Логируем факт выполненного подхода ДО мутаций состояния.
-    // Guard на _sessionId: до инициализации сессии не пишем.
-    if (_sessionId != null) {
-      await ref.read(workoutsDaoProvider).logSet(
-            sessionId: _sessionId!,
-            exerciseId: ex.id,
-            setIndex: _setIndex,
-            reps: _currentReps,
-            weightKg: _currentWeightKg,
-          );
-    }
-    if (!mounted) return;
-
     final isLastSet = _setIndex >= ex.sets - 1;
 
     if (!isLastSet) {
-      // Ещё есть подходы → фаза отдыха
+      // Ещё есть подходы → фаза отдыха. Лог отложен до конца отдыха.
+      // Эффективное время отдыха: per-exercise, если задан явно (#23),
+      // иначе — глобальный дефолт из rest_default_provider.
+      final restSeconds = effectiveRestSeconds(
+        exerciseRestSeconds: ex.restSeconds,
+        globalDefaultSeconds: ref.read(restDefaultProvider),
+      );
       _animateTransition(() {
         _phase = _TrainerPhase.rest;
-        _restSecondsLeft = ex.restSeconds;
+        _restSecondsLeft = restSeconds;
         _restPaused = false; // новый отдых всегда стартует «играющим»
       });
       _startRestTimer();
     } else {
-      // Все подходы выполнены → следующее упражнение или финиш
+      // Последний подход упражнения → отдыха нет, логируем сразу с фактическими.
+      await _logCurrentSet();
+      if (!mounted) return;
       _restTimer?.cancel();
       final isLastExercise = _exerciseIndex >= _totalExercises - 1;
       if (isLastExercise) {
@@ -231,13 +302,24 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
     }
   }
 
-  /// Пропустить отдых — сразу переходим к следующему подходу.
-  void _skipRest() {
-    _restTimer?.cancel();
+  /// #22+F: завершить текущий подход (записать лог с фактическими значениями) и
+  /// перейти к следующему. Вызывается из конца отдыха: авто-таймер и «Пропустить
+  /// отдых». _logCurrentSet идемпотентна → дублей нет.
+  Future<void> _commitSetAndAdvance() async {
+    await _logCurrentSet();
+    if (!mounted) return;
     _animateTransition(() {
       _setIndex++;
       _phase = _TrainerPhase.work;
+      // Следующий подход того же упражнения → снова плановые значения + сброс флага.
+      _resetSetInputs();
     });
+  }
+
+  /// Пропустить отдых — логируем подход (фактические значения) и идём дальше.
+  void _skipRest() {
+    _restTimer?.cancel();
+    _commitSetAndAdvance();
   }
 
   /// Запустить обратный отсчёт отдыха.
@@ -249,11 +331,8 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
       if (_restPaused) return;
       if (_restSecondsLeft <= 1) {
         _restTimer?.cancel();
-        // Автоматический переход к следующему подходу
-        _animateTransition(() {
-          _setIndex++;
-          _phase = _TrainerPhase.work;
-        });
+        // Автопереход: логируем подход с фактическими значениями и идём дальше.
+        _commitSetAndAdvance();
       } else {
         setState(() => _restSecondsLeft--);
       }
@@ -487,11 +566,6 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
               textAlign: TextAlign.center,
             ),
           ],
-          const SizedBox(height: 32),
-          // Feature B: фактические reps/weight текущего подхода — два компактных
-          // степпера. Пред-заполнены планом упражнения; правки логируются в Drift.
-          // ACCENT DISCIPLINE: степперы нейтральные (textMuted), не accent.
-          _buildSetInputs(context, textTheme, ext),
           const Spacer(),
           // FilledButton — единственная первичная CTA (Set done)
           // ACCENT DISCIPLINE: только этот элемент в фазе work получает accent
@@ -511,17 +585,12 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // Feature B — ввод фактических reps/weight (два компактных степпера)
+  // #22+F — ввод фактических reps/weight ВО ВРЕМЯ ОТДЫХА
+  // Редактируемые поля (клавиатура) + степперы +/-. Пред-заполнены планом,
+  // правятся на фактические; лог пишется при завершении отдыха (без дублей).
   // ---------------------------------------------------------------------------
 
-  /// Форматирование веса: «40 kg» / «42.5 kg» / «Bodyweight» (null).
-  String _formatWeight(BuildContext context, double? w) {
-    if (w == null) return context.s('workout.bodyweight');
-    final v = w == w.truncateToDouble() ? '${w.round()}' : '$w';
-    return '$v ${context.s('workout.weight_short')}';
-  }
-
-  /// Ряд из двух степперов: reps (целое) и weight (кг, шаг 2.5, опционально).
+  /// Ряд из двух полей ввода: reps (целое) и weight (кг, шаг 2.5, опционально).
   Widget _buildSetInputs(
     BuildContext context,
     TextTheme textTheme,
@@ -532,24 +601,28 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Expanded(
-          child: _buildStepper(
+          child: _buildEditableField(
             context: context,
             textTheme: textTheme,
             ext: ext,
             label: context.s('workout.reps_label'),
-            value: '$_currentReps',
+            controller: _repsController,
+            onChanged: _onRepsTextChanged,
             onMinus: _currentReps <= _repsMin ? null : () => _adjustReps(-1),
             onPlus: _currentReps >= _repsMax ? null : () => _adjustReps(1),
           ),
         ),
         const SizedBox(width: 16),
         Expanded(
-          child: _buildStepper(
+          child: _buildEditableField(
             context: context,
             textTheme: textTheme,
             ext: ext,
             label: context.s('workout.weight_kg'),
-            value: _formatWeight(context, _currentWeightKg),
+            controller: _weightController,
+            // Пустое поле = собственный вес → плейсхолдер «Bodyweight».
+            hintText: context.s('workout.bodyweight'),
+            onChanged: _onWeightTextChanged,
             onMinus: _currentWeightKg == null
                 ? null
                 : () => _adjustWeight(-_weightStep),
@@ -562,15 +635,18 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
     );
   }
 
-  /// Один степпер: подпись + ряд «− значение +».
-  Widget _buildStepper({
+  /// Одно поле: подпись + ряд «− [TextField] +».
+  /// TextField — клавиатурный ввод (digitsOnly); степперы +/- рядом.
+  Widget _buildEditableField({
     required BuildContext context,
     required TextTheme textTheme,
     required FocusThemeExtension ext,
     required String label,
-    required String value,
+    required TextEditingController controller,
+    required ValueChanged<String> onChanged,
     required VoidCallback? onMinus,
     required VoidCallback? onPlus,
+    String? hintText,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -591,14 +667,27 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
               color: ext.textMuted,
               visualDensity: VisualDensity.compact,
             ),
-            // Текущее значение — titleLarge (читаемо, но не display)
+            // Редактируемое значение с клавиатуры (только цифры).
             Expanded(
-              child: Text(
-                value,
-                style: textTheme.titleLarge,
+              child: TextField(
+                controller: controller,
+                onChanged: onChanged,
+                keyboardType: TextInputType.number,
                 textAlign: TextAlign.center,
+                style: textTheme.titleLarge,
                 maxLines: 1,
-                overflow: TextOverflow.ellipsis,
+                inputFormatters: [
+                  FilteringTextInputFormatter.digitsOnly,
+                  LengthLimitingTextInputFormatter(4),
+                ],
+                decoration: InputDecoration(
+                  isDense: true,
+                  hintText: hintText,
+                  hintStyle:
+                      textTheme.bodySmall?.copyWith(color: ext.textFaint),
+                  contentPadding:
+                      const EdgeInsets.symmetric(vertical: 6, horizontal: 4),
+                ),
               ),
             ),
             IconButton(
@@ -701,6 +790,18 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
             style: textTheme.bodyMedium?.copyWith(color: ext.textFaint),
             textAlign: TextAlign.center,
           ),
+          const SizedBox(height: 28),
+          // #22+F: пока тикает таймер — правим фактические reps/weight ТОЛЬКО ЧТО
+          // выполненного подхода. Подпись поясняет, что логируется именно он.
+          Text(
+            '${context.s('workout.logged_set')} '
+            '${context.s('workout.set_label')} ${_setIndex + 1} '
+            '${context.s('workout.of')} ${ex.sets}',
+            style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+            textAlign: TextAlign.center,
+          ),
+          const SizedBox(height: 8),
+          _buildSetInputs(context, textTheme, ext),
           const Spacer(),
           // OutlinedButton — пауза/возобновление (вторичное действие, нейтральное).
           // ACCENT DISCIPLINE: не первичное действие → не FilledButton/accent.

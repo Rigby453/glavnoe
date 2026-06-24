@@ -18,6 +18,7 @@ import '../../core/settings/food_preferences_provider.dart';
 import '../../core/settings/health_profile_provider.dart';
 import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/reminder_default_provider.dart';
+import '../../core/settings/rest_default_provider.dart';
 import '../../core/settings/sound_provider.dart';
 import '../../core/settings/swipe_action_provider.dart';
 import '../../core/settings/task_presets_provider.dart';
@@ -250,6 +251,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         // Секция «Задачи по умолчанию»
         const SizedBox(height: 28),
         const _TaskDefaultsSection(),
+
+        // Секция «Тренировки» (#23): глобальное время отдыха по умолчанию
+        const SizedBox(height: 28),
+        const _WorkoutDefaultsSection(),
 
         // Секция «Внешний вид»
         const SizedBox(height: 28),
@@ -1401,6 +1406,83 @@ class _TaskDefaultsSection extends ConsumerWidget {
           reminder: true,
           onChanged: (list) =>
               ref.read(reminderPresetsProvider.notifier).setPresets(list),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Workout defaults section (#23)
+// ---------------------------------------------------------------------------
+
+/// Секция «Тренировки»: глобальное время отдыха между подходами по умолчанию.
+/// Пишет в restDefaultProvider (SharedPreferences). Тренажёр использует это
+/// значение, когда у упражнения нет своего restSeconds (effectiveRestSeconds).
+class _WorkoutDefaultsSection extends ConsumerWidget {
+  const _WorkoutDefaultsSection();
+
+  /// «M:SS» либо «N с» для коротких — компактная подпись текущего значения.
+  static String _formatSeconds(BuildContext context, int seconds) {
+    if (seconds < 60) {
+      return '$seconds ${context.s('workout.seconds_short')}';
+    }
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return s == 0 ? '$m:00' : '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _editRest(BuildContext context, WidgetRef ref) async {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final current = ref.read(restDefaultProvider);
+    final entered = await showDialog<int>(
+      context: context,
+      builder: (ctx) => NumberInputDialog(
+        backgroundColor: ext.surfaceElevated,
+        title: ctx.s('workout.rest_default_dialog_title'),
+        labelText: ctx.s('workout.rest_default_label'),
+        suffixText: ctx.s('workout.seconds_short'),
+        initialValue: current,
+        confirmLabel: ctx.s('btn.done'),
+        // Кламп в разумные границы делает сам провайдер (set).
+        minValue: kRestDefaultMinSeconds,
+      ),
+    );
+    if (entered == null) return;
+    await ref.read(restDefaultProvider.notifier).set(entered);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final restDefault = ref.watch(restDefaultProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.s('workout.section_defaults'),
+          style: textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          context.s('workout.rest_default_note'),
+          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+        ),
+        const SizedBox(height: 8),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(
+            context.s('workout.rest_default_label'),
+            style: textTheme.bodyLarge,
+          ),
+          trailing: Text(
+            _formatSeconds(context, restDefault),
+            style: textTheme.titleMedium?.copyWith(color: colorScheme.primary),
+          ),
+          onTap: () => _editRest(context, ref),
         ),
       ],
     );

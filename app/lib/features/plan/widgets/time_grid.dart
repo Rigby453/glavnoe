@@ -926,9 +926,16 @@ class _DayColumn extends ConsumerWidget {
 }
 
 /// Минимальная «нарисованная» длительность, ниже которой жест считается тапом
-/// (палец почти не сдвинулся) и задача НЕ создаётся. 20 мин > одного снап-шага
-/// (15), поэтому случайный микро-потяг не плодит пустые задачи.
+/// (палец почти не сдвинулся) и задача НЕ создаётся drag-путём. 20 мин > одного
+/// снап-шага (15), поэтому случайный микро-потяг не плодит пустые задачи. Сам
+/// КОРОТКИЙ ТАП по пустому месту создаёт задачу дефолтной длительности отдельным
+/// путём (см. _onTapCreate / _kTapCreateDefaultMinutes).
 const int kMinCreateDurationMinutes = 20;
+
+/// Дефолтная длительность задачи, создаваемой КОРОТКИМ ТАПОМ по пустой области
+/// (как Google Calendar: тап по пустому слоту → событие на час, которое потом
+/// двигают/ресайзят существующими жестами). Вынесена в константу — легко менять.
+const int _kTapCreateDefaultMinutes = 60;
 
 /// Эфемерное состояние жеста рисования новой задачи. Хранится в ValueNotifier,
 /// чтобы кадр рисования перерисовывал только ghost+подсказку (свой
@@ -949,14 +956,25 @@ class _CreateGesture {
 /// Слой рисования новой задачи по пустой области колонки дня (drag-to-create,
 /// как Google/Apple/Fantastical/Notion).
 ///
-/// АРЕНА ЖЕСТОВ (почему скролл не воруется). Слой держит ОДИН
-/// [LongPressGestureRecognizer] с тем же порогом [_kBlockPickupDelay] (~250 мс),
-/// что и перенос блоков. LongPress по умолчанию заявляет победу в арене лишь
-/// после удержания почти неподвижного пальца; быстрый вертикальный свайп
-/// сдвигает палец раньше срабатывания — и арену выигрывает родительский
-/// SingleChildScrollView (обычный скролл сетки продолжает работать). Это ровно
-/// та же симметрия, что у переноса блоков (тоже long-press), поэтому поведение
-/// предсказуемо: «придержал → рисуешь», «свайпнул → листаешь».
+/// АРЕНА ЖЕСТОВ (почему скролл не воруется). Слой держит ДВА распознавателя,
+/// разнесённых по ТИПУ указателя (supportedDevices), чтобы не конкурировать
+/// между собой:
+///   • ТАЧ (палец): [LongPressGestureRecognizer] с порогом [_kBlockPickupDelay]
+///     (~250 мс), как у переноса блоков. LongPress заявляет победу в арене лишь
+///     после удержания почти неподвижного пальца; быстрый вертикальный свайп
+///     сдвигает палец раньше срабатывания — арену выигрывает родительский
+///     SingleChildScrollView (скролл сетки работает). «Придержал → рисуешь»,
+///     «свайпнул → листаешь».
+///   • МЫШЬ/ТРЕКПАД/СТИЛУС: [PanGestureRecognizer] — рисование СРАЗУ по
+///     нажатию-и-протягиванию, БЕЗ удержания (как Google Calendar на вебе).
+///     Точный указатель не конфликтует со скроллом так, как палец, поэтому
+///     удержание ему не нужно. Оба drag-пути переиспользуют одну ghost-логику
+///     (_beginDrawAt / _updateDrawTo / _endDraw).
+///   • ЛЮБОЙ указатель — КОРОТКИЙ ТАП: [TapGestureRecognizer] → задача
+///     ДЕФОЛТНОЙ длительности (_kTapCreateDefaultMinutes) на снэпнутое время
+///     тапа (_onTapCreate). Tap выигрывает арену лишь когда не было drag — при
+///     протягивании побеждает pan/long-press-move, поэтому «тап = дефолт»,
+///     «протянул = диапазон» не конфликтуют.
 ///
 /// Слой лежит ПОД блоками (раньше в Stack), behavior = opaque, поэтому ловит
 /// касания только на ПУСТЫХ участках: над блоком его tap/long-press-move/resize
@@ -1015,19 +1033,23 @@ class _CreateLayerState extends State<_CreateLayer> {
     return dur < kSnapMinutes ? kSnapMinutes : dur;
   }
 
-  void _onStart(LongPressStartDetails d) {
-    HapticFeedback.mediumImpact();
-    _startTop = d.localPosition.dy;
-    _currentBottom = d.localPosition.dy;
+  // Старт рисования по локальной точке нажатия. Общий код для двух путей:
+  // long-press (тач, _onLongPressStart) и немедленный pan (мышь/трекпад/стилус,
+  // _onPanStart). [haptic] выключаем для мыши — на десктопе тактильной отдачи нет.
+  void _beginDrawAt(Offset localPosition, {bool haptic = true}) {
+    if (haptic) HapticFeedback.mediumImpact();
+    _startTop = localPosition.dy;
+    _currentBottom = localPosition.dy;
     _lastSnapSlot = offsetToSnappedMinutes(_startTop, widget.hourHeight);
     final snappedTop =
         minutesToOffset(_snappedStartMin, widget.hourHeight);
     _ghost.value = _CreateGesture(snappedTop, 0);
   }
 
-  void _onMoveUpdate(LongPressMoveUpdateDetails d) {
-    // offsetFromOrigin — суммарное смещение от точки подхвата.
-    _currentBottom = _startTop + d.offsetFromOrigin.dy;
+  // Обновление по СУММАРНОМУ смещению от точки старта (offsetFromOrigin у
+  // long-press, накопленная дельта у pan). Общий код для двух путей.
+  void _updateDrawTo(double totalDy) {
+    _currentBottom = _startTop + totalDy;
     final endSlot = offsetToSnappedMinutes(_currentBottom, widget.hourHeight);
     _tickOnSnapChange(endSlot);
     // Рисуем от снэпнутого старта до снэпнутого конца (всегда вниз: высота по
@@ -1045,7 +1067,9 @@ class _CreateLayerState extends State<_CreateLayer> {
     _ghost.value = _CreateGesture(topPx, heightPx);
   }
 
-  void _onEnd(LongPressEndDetails d) {
+  // Завершение рисования: общий код для обоих путей. Слишком короткий диапазон
+  // (микро-движение мышью или почти-тап) — НЕ создаём.
+  void _endDraw() {
     final wasActive = _ghost.value.active;
     _ghost.value = const _CreateGesture.none();
     if (!wasActive) return;
@@ -1074,6 +1098,29 @@ class _CreateLayerState extends State<_CreateLayer> {
     _ghost.value = const _CreateGesture.none();
   }
 
+  /// КОРОТКИЙ ТАП по пустой области (без протягивания/удержания-с-движением):
+  /// создаёт задачу ДЕФОЛТНОЙ длительности (_kTapCreateDefaultMinutes) на
+  /// снэпнутое к 15 мин время тапа и открывает лист добавления. После сохранения
+  /// это обычный блок, который двигают/ресайзят существующими жестами. Тап по
+  /// БЛОКУ сюда не доходит — блоки лежат выше в Stack и перехватывают свой tap.
+  void _onTapCreate(TapUpDetails d) {
+    final startMin = offsetToSnappedMinutes(d.localPosition.dy, widget.hourHeight);
+    final startAt = DateTime(
+      widget.day.year,
+      widget.day.month,
+      widget.day.day,
+      startMin ~/ 60,
+      startMin % 60,
+    );
+    HapticFeedback.selectionClick();
+    showAddTaskSheet(
+      context,
+      day: widget.day,
+      initialAt: startAt,
+      initialDurationMinutes: _kTapCreateDefaultMinutes,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final scheme = Theme.of(context).colorScheme;
@@ -1081,15 +1128,73 @@ class _CreateLayerState extends State<_CreateLayer> {
     return RawGestureDetector(
       behavior: HitTestBehavior.opaque,
       gestures: <Type, GestureRecognizerFactory>{
+        // КОРОТКИЙ ТАП (любой указатель) по пустому месту → задача дефолтной
+        // длительности (как Google Calendar). Tap выигрывает арену только когда
+        // НЕ было протягивания/удержания-с-движением: при drag-create арену
+        // забирает pan (мышь) или long-press-move (тач), и tap проигрывает —
+        // поэтому «тап = дефолт», «протянул = диапазон» не конфликтуют.
+        TapGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<TapGestureRecognizer>(
+          () => TapGestureRecognizer(),
+          (r) {
+            r.onTapUp = _onTapCreate;
+          },
+        ),
+        // ТАЧ-путь: удержание (_kBlockPickupDelay) → рисование. Ограничен пальцем
+        // (supportedDevices = touch), чтобы на тач-устройстве короткий свайп
+        // уходил скроллу сетки, а удержание брало рисование. Мышь сюда не идёт —
+        // у неё отдельный немедленный pan ниже.
         LongPressGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-          () => LongPressGestureRecognizer(duration: _kBlockPickupDelay),
+          () => LongPressGestureRecognizer(
+            duration: _kBlockPickupDelay,
+            supportedDevices: const {PointerDeviceKind.touch},
+          ),
+          (r) {
+            // Блочные тела колбэков (не arrow): сеттеры распознавателя
+            // возвращают void, а arrow `=> _endDraw()` «использовал» бы void-
+            // результат (use_of_void_result) — как у resize-распознавателей ниже.
+            r
+              ..onLongPressStart = (d) {
+                _beginDrawAt(d.localPosition);
+              }
+              ..onLongPressMoveUpdate = (d) {
+                _updateDrawTo(d.offsetFromOrigin.dy);
+              }
+              ..onLongPressEnd = (_) {
+                _endDraw();
+              }
+              ..onLongPressCancel = _onCancel;
+          },
+        ),
+        // МЫШЬ/ТРЕКПАД/СТИЛУС-путь (как Google Calendar на вебе): рисование
+        // начинается СРАЗУ по нажатию-и-протягиванию, БЕЗ удержания. Точный
+        // указатель не конфликтует с вертикальным скроллом так, как палец,
+        // поэтому удержание ему не нужно. supportedDevices исключает touch —
+        // палец идёт по long-press выше. Переиспользует ту же ghost-логику.
+        PanGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
+          () => PanGestureRecognizer(
+            supportedDevices: const {
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.trackpad,
+              PointerDeviceKind.stylus,
+            },
+          ),
           (r) {
             r
-              ..onLongPressStart = _onStart
-              ..onLongPressMoveUpdate = _onMoveUpdate
-              ..onLongPressEnd = _onEnd
-              ..onLongPressCancel = _onCancel;
+              ..onStart = (d) {
+                _beginDrawAt(d.localPosition, haptic: false);
+              }
+              ..onUpdate = (d) {
+                // localPosition.dy − старт = суммарное смещение от точки нажатия
+                // (та же семантика, что offsetFromOrigin у long-press пути).
+                _updateDrawTo(d.localPosition.dy - _startTop);
+              }
+              ..onEnd = (_) {
+                _endDraw();
+              }
+              ..onCancel = _onCancel;
           },
         ),
       },
