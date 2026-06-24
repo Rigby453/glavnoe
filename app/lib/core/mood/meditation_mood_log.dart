@@ -60,12 +60,31 @@ class MeditationMoodEntry {
 ///
 /// [prefs] — SharedPreferences, полученный через sharedPreferencesProvider.
 /// Дневник ([DayLogsTable.mood]) остаётся неизменным.
+///
+/// Защита от повреждённых данных: если сохранённое значение не является
+/// валидным JSON-массивом (например, обрезанный JSON, одиночный объект или
+/// остаток от другого ключа), список сбрасывается до пустого и запись
+/// добавляется заново. Данные не теряются — только «плохой» предыдущий
+/// JSON заменяется свежим корректным массивом.
 Future<void> appendMeditationMood(
   SharedPreferences prefs,
   MeditationMoodEntry entry,
 ) async {
   final raw = prefs.getString(_kPrefsKey);
-  final List<dynamic> list = raw != null ? jsonDecode(raw) as List<dynamic> : [];
+  List<dynamic> list;
+  if (raw == null) {
+    list = [];
+  } else {
+    try {
+      final decoded = jsonDecode(raw);
+      // Если декодирование вернуло не список (например, одиночный объект
+      // или другой тип) — начинаем с чистого листа.
+      list = decoded is List ? decoded : [];
+    } catch (_) {
+      // FormatException или _CastError — повреждённые/несовместимые данные.
+      list = [];
+    }
+  }
   list.add(entry.toJson());
   await prefs.setString(_kPrefsKey, jsonEncode(list));
 }

@@ -420,17 +420,29 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
               actions: [
                 TextButton(
                   onPressed: () async {
+                    // Снимаем текст ЗАРАНЕЕ — до dispose контроллера и до pop.
+                    final noteText = noteController.text.trim();
+                    final moodSnapshot = selectedMood;
+
+                    // Закрываем диалог ПЕРВЫМ, чтобы Flutter успел убрать
+                    // TextField из дерева до того, как мы вызовем dispose на
+                    // noteController. Иначе анимация закрытия строит кадры
+                    // с уже-disposed контроллером → red-screen.
+                    if (ctx.mounted) Navigator.of(ctx).pop();
+
+                    // Освобождаем контроллер ПОСЛЕ pop (диалог вышел из дерева).
+                    noteController.dispose();
+
                     // Сохраняем только если выбрано настроение
-                    if (selectedMood != null) {
+                    if (moodSnapshot != null) {
                       final prefs = ref.read(sharedPreferencesProvider);
+                      // appendMeditationMood защищён try/catch внутри — не бросает.
                       await appendMeditationMood(
                         prefs,
                         MeditationMoodEntry(
                           sessionId: widget.session.id,
-                          mood: selectedMood!,
-                          note: noteController.text.trim().isEmpty
-                              ? null
-                              : noteController.text.trim(),
+                          mood: moodSnapshot,
+                          note: noteText.isEmpty ? null : noteText,
                           loggedAt: DateTime.now(),
                         ),
                       );
@@ -443,8 +455,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                         );
                       }
                     }
-                    noteController.dispose();
-                    if (ctx.mounted) Navigator.of(ctx).pop();
+                    // Возвращаемся на экран списка сессий.
                     if (mounted) Navigator.of(context).pop();
                   },
                   child: Text(ctx.s('btn.done')),
