@@ -83,6 +83,30 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
         .watch();
   }
 
+  /// Просроченные ДЕЙСТВУЕМЫЕ элементы — задачи (type='task') и дедлайны
+  /// (type='deadline'), а также экзамены (type='exam'): status=pending,
+  /// scheduledAt < начало сегодняшнего дня, не серия (recurrenceRule=null).
+  ///
+  /// Используется секцией «Overdue» в экране Today: пользователь может
+  /// перенести задачу на завтра, выбрать дату для дедлайна, отметить done/skip.
+  /// НЕ заменяет watchOverduePending (утренний разбор остаётся только для task).
+  Stream<List<ItemsTableData>> watchOverdueActionable(DateTime now) {
+    final todayStart = localDayStart(now);
+
+    return (select(itemsTable)
+          ..where(
+            (t) =>
+                t.status.equals('pending') &
+                (t.type.equals('task') |
+                    t.type.equals('deadline') |
+                    t.type.equals('exam')) &
+                t.scheduledAt.isSmallerThanValue(todayStart) &
+                t.recurrenceRule.isNull(),
+          )
+          ..orderBy([(t) => OrderingTerm.asc(t.scheduledAt)]))
+        .watch();
+  }
+
   /// MAIN-задачи на день (Future-вариант watchMainItems).
   /// Используется StreakService для пересчёта серии после завершения задач.
   Future<List<ItemsTableData>> mainItemsForDay(DateTime date) {

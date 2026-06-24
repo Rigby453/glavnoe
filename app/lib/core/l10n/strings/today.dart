@@ -2167,6 +2167,96 @@ const Map<String, Map<String, String>> todayStrings = {
     'ko': '종료 시각…',
   },
 
+  // ---------------------------------------------------------------------------
+  // Секция «Completed» (выполненные/пропущенные — сворачиваемый блок внизу)
+  // ---------------------------------------------------------------------------
+  'today.completed_section': {
+    'en': 'Completed',
+    'ru': 'Выполнено',
+    'de': 'Abgeschlossen',
+    'fr': 'Terminé',
+    'it': 'Completato',
+    'pt': 'Concluído',
+    'es': 'Completado',
+    'id': 'Selesai',
+    'hi': 'पूर्ण',
+    'ja': '完了',
+    'ko': '완료',
+  },
+
+  // ---------------------------------------------------------------------------
+  // Секция «Overdue» (просроченные — красный/ember блок вверху Today)
+  // ---------------------------------------------------------------------------
+  'today.overdue_section': {
+    'en': 'Overdue',
+    'ru': 'Просрочено',
+    'de': 'Überfällig',
+    'fr': 'En retard',
+    'it': 'In ritardo',
+    'pt': 'Atrasado',
+    'es': 'Vencido',
+    'id': 'Terlambat',
+    'hi': 'अतिदेय',
+    'ja': '期限切れ',
+    'ko': '기한 초과',
+  },
+  // Кнопка «перенести на завтра» для просроченной task
+  'today.overdue_move_tomorrow': {
+    'en': 'Move to tomorrow',
+    'ru': 'На завтра',
+    'de': 'Auf morgen',
+    'fr': 'À demain',
+    'it': 'A domani',
+    'pt': 'Para amanhã',
+    'es': 'A mañana',
+    'id': 'Ke besok',
+    'hi': 'कल के लिए',
+    'ja': '明日に移動',
+    'ko': '내일로 이동',
+  },
+  // Кнопка «выбрать дату» для просроченного deadline
+  'today.overdue_pick_date': {
+    'en': 'Pick date',
+    'ru': 'Выбрать дату',
+    'de': 'Datum wählen',
+    'fr': 'Choisir une date',
+    'it': 'Scegli data',
+    'pt': 'Escolher data',
+    'es': 'Elegir fecha',
+    'id': 'Pilih tanggal',
+    'hi': 'तारीख चुनें',
+    'ja': '日付を選ぶ',
+    'ko': '날짜 선택',
+  },
+  // Тост: элемент перенесён на завтра из секции Overdue
+  'today.overdue_moved_tomorrow': {
+    'en': 'moved to tomorrow',
+    'ru': 'перенесено на завтра',
+    'de': 'auf morgen verschoben',
+    'fr': 'reporté à demain',
+    'it': 'spostato a domani',
+    'pt': 'movido para amanhã',
+    'es': 'movido a mañana',
+    'id': 'dipindahkan ke besok',
+    'hi': 'कल के लिए स्थगित',
+    'ja': '明日に移動しました',
+    'ko': '내일로 이동됨',
+  },
+  // Тост: дата дедлайна обновлена
+  'today.overdue_date_updated': {
+    'en': 'deadline updated',
+    'ru': 'дедлайн обновлён',
+    'de': 'Frist aktualisiert',
+    'fr': 'échéance mise à jour',
+    'it': 'scadenza aggiornata',
+    'pt': 'prazo atualizado',
+    'es': 'fecha límite actualizada',
+    'id': 'tenggat diperbarui',
+    'hi': 'डेडलाइन अपडेट हुई',
+    'ja': '締め切りを更新しました',
+    'ko': '마감일이 업데이트됐어',
+  },
+
   // Сворачиваемый блок «Ещё»
   'today.more_section': {
     'en': 'More',

@@ -32,6 +32,7 @@ import 'widgets/progress_ring.dart';
 import 'widgets/streak_row.dart';
 import 'widgets/task_list.dart';
 import '../plan/widgets/recurrence_providers.dart';
+import 'widgets/overdue_section.dart';
 
 /// Все задачи на сегодня — раскрытые: конкретные строки дня + виртуальные
 /// повторы серий (recurrence_providers). Якоря-шаблоны исключены из
@@ -223,6 +224,8 @@ class TodayScreen extends ConsumerWidget {
                   const MorningReviewCard(),
                   const EveningReviewCard(),
                   const SizedBox(height: 32),
+                  // Секция «Просрочено» — вверху списка, ember-акцент (UX-LAYOUT §6)
+                  const OverdueSection(),
                   TaskList(items: items, day: now),
                 ],
               );
@@ -313,7 +316,14 @@ class TodayScreen extends ConsumerWidget {
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
-                    child: TaskList(items: items, day: now),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        // Секция «Просрочено» — вверху, ember-акцент (UX-LAYOUT §6)
+                        const OverdueSection(),
+                        TaskList(items: items, day: now),
+                      ],
+                    ),
                   ),
                 ),
               ],

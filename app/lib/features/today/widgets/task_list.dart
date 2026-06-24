@@ -139,9 +139,19 @@ class _TaskListState extends ConsumerState<TaskList>
     super.dispose();
   }
 
+  // Свёрнута/развёрнута секция «Выполнено» — эфемерное локальное состояние.
+  // По умолчанию секция СВЁРНУТА (скрыта): пользователю важно видеть актуальное.
+  bool _completedExpanded = false;
+
   @override
   Widget build(BuildContext context) {
     final items = widget.items;
+
+    // Разделяем: pending отдельно, завершённые (done/skipped) — в секцию «Выполнено».
+    final pendingItems =
+        items.where((i) => i.status == 'pending').toList();
+    final completedItems =
+        items.where((i) => i.status != 'pending').toList();
 
     if (items.isEmpty) {
       final ext = Theme.of(context).extension<FocusThemeExtension>();
@@ -160,21 +170,37 @@ class _TaskListState extends ConsumerState<TaskList>
       );
     }
 
-    final mainItems = items.where((i) => i.priority == 'main').toList();
-    final laterItems = items.where((i) => i.priority != 'main').toList();
+    // Из pending-пула разделяем по приоритету (main / остальные).
+    final mainItems =
+        pendingItems.where((i) => i.priority == 'main').toList();
+    final laterItems =
+        pendingItems.where((i) => i.priority != 'main').toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        // --- Секция «Главное» (только pending) ---
         if (mainItems.isNotEmpty) ...[
           _SectionHeader(title: context.s('today.main_tasks')),
           ...mainItems.map((i) => _buildRow(context, i)),
           const SizedBox(height: 16),
         ],
+        // --- Секция «Остальное» (только pending) ---
         if (laterItems.isNotEmpty) ...[
           _SectionHeader(title: context.s('today.later_section')),
           ...laterItems.map((i) => _buildRow(context, i)),
+          const SizedBox(height: 16),
         ],
+        // --- Секция «Выполнено» (collapsed by default) ---
+        if (completedItems.isNotEmpty)
+          _CompletedSectionHeader(
+            count: completedItems.length,
+            expanded: _completedExpanded,
+            onTap: () =>
+                setState(() => _completedExpanded = !_completedExpanded),
+          ),
+        if (_completedExpanded)
+          ...completedItems.map((i) => _buildRow(context, i)),
       ],
     );
   }
@@ -514,6 +540,52 @@ class _SectionHeader extends StatelessWidget {
               // textMuted для заголовков секций — нейтрально, не конкурирует с задачами
               color: ext?.textMuted,
             ),
+      ),
+    );
+  }
+}
+
+/// Заголовок секции «Выполнено (N)» со шевроном, тапается для раскрытия/свёртки.
+/// Эфемерное состояние _completedExpanded хранится в _TaskListState.
+class _CompletedSectionHeader extends StatelessWidget {
+  const _CompletedSectionHeader({
+    required this.count,
+    required this.expanded,
+    required this.onTap,
+  });
+
+  final int count;
+  final bool expanded;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final textTheme = Theme.of(context).textTheme;
+    final color = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(160);
+
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        // Симметричный отступ: md=16 сверху как у _SectionHeader, sm=8 снизу
+        padding: const EdgeInsets.only(top: 16, bottom: 8),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                '${context.s('today.completed_section')} ($count)',
+                style: textTheme.titleSmall?.copyWith(color: color),
+              ),
+            ),
+            // Шеврон: вниз = раскрыто, вправо = свёрнуто
+            AnimatedRotation(
+              turns: expanded ? 0.25 : 0.0,
+              duration: const Duration(milliseconds: 180), // fast=180
+              child: Icon(Icons.chevron_right, size: 18, color: color),
+            ),
+          ],
+        ),
       ),
     );
   }
