@@ -760,7 +760,26 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     final minutes = _planMinutesMap[_planOption] ?? 0;
-    // Честный расчёт: мин/день × 365 / 60
+
+    // Нулевой кейс: «Почти не планирую» → не показываем «~0 часов»,
+    // вместо этого мотивирующий текст без числа.
+    if (minutes == 0) {
+      return _stepFrame(
+        kaiEmotion: KaiEmotion.neutral,
+        title: context.s('onboarding_quiz.s8_none_headline'),
+        child: Column(
+          children: [
+            Text(
+              context.s('onboarding_quiz.s8_none_body'),
+              style: textTheme.bodyLarge?.copyWith(color: ext.textMuted),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
+    // Обычный кейс: честный расчёт мин/день × 365 / 60.
     final hoursPerYear = (minutes * 365 / 60).round();
 
     return _stepFrame(
@@ -1245,14 +1264,41 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   // Экран 15: Саммари
   // ---------------------------------------------------------------------------
 
+  /// Вычисляет нормы питания локально из введённых данных онбординга.
+  /// Если вес/рост/возраст не заполнены — возвращает NutritionTargets.fallback.
+  NutritionTargets _computeLocalNutrition() {
+    final weight = double.tryParse(_weightController.text.trim());
+    final heightCm = double.tryParse(_heightController.text.trim());
+    final age = int.tryParse(_ageController.text.trim());
+    if (weight == null || weight <= 0 ||
+        heightCm == null || heightCm <= 0 ||
+        age == null || age <= 0) {
+      return NutritionTargets.fallback;
+    }
+    return computeNutritionTargets(
+      weightKg: weight,
+      heightCm: heightCm,
+      age: age,
+      sex: _sex,
+      activity: _activity,
+      goal: 'maintain', // флоу онбординга не собирает цель питания
+    );
+  }
+
   Widget _buildScreen15() {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    // Персональные нормы
-    final waterGoal = ref.watch(waterGoalProvider);
-    final nutrition = ref.watch(nutritionTargetsProvider);
+    // FIX 2: используем локальное поле _waterGoal (уже пересчитывается
+    // через _recalcWater при изменении веса/роста/возраста/активности),
+    // а не ref.watch(waterGoalProvider), который читает ещё не записанные prefs.
+    //
+    // FIX 3: вычисляем калории локально из введённых данных онбординга,
+    // а не через nutritionTargetsProvider (читает prefs до того, как _finish()
+    // их записал — возвращает дефолт 2000 ккал).
+    final waterGoal = _waterGoal;
+    final nutrition = _computeLocalNutrition();
 
     // Язык
     final locale = ref.watch(localeNotifierProvider);

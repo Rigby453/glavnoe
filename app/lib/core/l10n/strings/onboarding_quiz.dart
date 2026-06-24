@@ -533,6 +533,46 @@ const Map<String, Map<String, String>> onboardingQuizStrings = {
   // ---------------------------------------------------------------------------
   // Экран 8: проекция (честная, derived)
   // ---------------------------------------------------------------------------
+
+  // --- Нулевой кейс («Почти не планирую») — отдельный мотивирующий текст ---
+  'onboarding_quiz.s8_none_headline': {
+    'en': 'No planning time lost — but control is slipping.',
+    'ru': 'Времени на планирование почти нет — но порядок ускользает.',
+    'de': 'Kaum Zeit fürs Planen — aber die Kontrolle schwindet.',
+    'fr': 'Presque pas de temps de planification — mais le contrôle s\'échappe.',
+    'it': 'Quasi nessun tempo per pianificare — ma il controllo sfugge.',
+    'pt': 'Quase nenhum tempo planejando — mas o controle está escapando.',
+    'id': 'Hampir tidak ada waktu perencanaan — tapi kendali mulai hilang.',
+    'hi': 'प्लानिंग में समय नहीं जाता — पर नियंत्रण छूट रहा है।',
+    'ja': '計画の時間はほぼゼロ — でも、制御が失われつつある。',
+    'ko': '계획 시간은 거의 없어요 — 하지만 통제력은 흐트러지고 있어요.',
+    'es': 'Casi nada de tiempo planificando — pero el control se escapa.',
+  },
+  'onboarding_quiz.s8_none_body': {
+    'en':
+        'Right now planning takes almost no time — but so does keeping things on track. Let\'s get control back without eating into your day.',
+    'ru':
+        'Сейчас планирование почти не отнимает времени — но и порядок теряется. Давай вернём контроль над днём, не тратя на это часы.',
+    'de':
+        'Im Moment kostet Planen fast keine Zeit — aber die Übersicht fehlt auch. Lass uns die Kontrolle zurückgewinnen, ohne Stunden zu opfern.',
+    'fr':
+        'Pour l\'instant, planifier prend presque zéro temps — mais l\'organisation aussi. Reprenons le contrôle sans y consacrer des heures.',
+    'it':
+        'Al momento pianificare richiede quasi zero tempo — ma anche la gestione delle cose. Riprendiamo il controllo senza sacrificare ore.',
+    'pt':
+        'Por ora planejar leva quase zero tempo — mas manter tudo em ordem também. Vamos recuperar o controle sem consumir horas do seu dia.',
+    'id':
+        'Saat ini perencanaan hampir tidak memakan waktu — tapi begitu pula menjaga segalanya tetap teratur. Mari kembali kontrol tanpa menghabiskan berjam-jam.',
+    'hi':
+        'अभी प्लानिंग में लगभग कोई समय नहीं जाता — लेकिन चीज़ें भी पटरी पर नहीं रहतीं। बिना घंटे बर्बाद किए दिन पर वापस नियंत्रण पाएं।',
+    'ja':
+        '今は計画にほぼ時間をかけていない — でも、物事を軌道に乗せるのも同じくらい難しい。何時間も費やさずに、1日の主導権を取り戻そう。',
+    'ko':
+        '지금은 계획에 거의 시간이 들지 않아요 — 하지만 일을 정리하는 것도 마찬가지예요. 하루를 잡아먹지 않으면서 통제력을 되찾아봐요.',
+    'es':
+        'Ahora mismo planificar lleva casi cero tiempo — pero mantener todo en orden también. Recuperemos el control sin consumir horas del día.',
+  },
+
   'onboarding_quiz.s8_title_prefix': {
     'en': 'About',
     'ru': 'Примерно',
