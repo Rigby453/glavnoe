@@ -217,7 +217,9 @@ class _DayHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // «Mon, Jun 23» — короткая дата (как в week_agenda)
+    // «Mon, Jun 23» — короткая дата (как в week_agenda). DateFormat без явной
+    // локали следует Intl.defaultLocale (выставляется applyIntlLocale), поэтому
+    // дата локализуется вместе с языком приложения.
     final label = DateFormat('EEE, MMM d').format(date);
     return Text(
       label,

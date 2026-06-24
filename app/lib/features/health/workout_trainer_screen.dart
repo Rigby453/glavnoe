@@ -260,16 +260,21 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
         );
   }
 
-  /// Нажата кнопка «Готово» — переходим к отдыху или следующему упражнению.
-  /// #22+F: при наличии отдыха лог НЕ пишем здесь — пользователь правит
-  /// фактические reps/weight ВО ВРЕМЯ отдыха, лог пишется при завершении отдыха
-  /// (_commitSetAndAdvance). На ПОСЛЕДНЕМ подходе отдыха нет → логируем сразу.
+  /// Нажата кнопка «Готово» — логируем подход и переходим к отдыху или к
+  /// следующему упражнению. Лог пишется НЕМЕДЛЕННО при тапе (до смены фазы),
+  /// чтобы подход был зафиксирован даже если пользователь сразу выходит.
+  /// _logCurrentSet идемпотентна → повторный вызов из _commitSetAndAdvance
+  /// (конец отдыха / skip rest) не создаст дубля.
   Future<void> _onSetDone() async {
+    // Логируем текущий подход сразу — ДО смены фазы.
+    await _logCurrentSet();
+    if (!mounted) return;
+
     final ex = _currentExercise;
     final isLastSet = _setIndex >= ex.sets - 1;
 
     if (!isLastSet) {
-      // Ещё есть подходы → фаза отдыха. Лог отложен до конца отдыха.
+      // Ещё есть подходы → фаза отдыха.
       // Эффективное время отдыха: per-exercise, если задан явно (#23),
       // иначе — глобальный дефолт из rest_default_provider.
       final restSeconds = effectiveRestSeconds(
