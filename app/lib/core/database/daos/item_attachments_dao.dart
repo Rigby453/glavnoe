@@ -4,6 +4,7 @@
 import 'dart:io';
 
 import 'package:drift/drift.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
 
 import '../database.dart';
 
@@ -53,10 +54,7 @@ class ItemAttachmentsDao extends DatabaseAccessor<AppDatabase>
         .get();
     await (delete(itemAttachmentsTable)..where((t) => t.id.equals(id))).go();
     for (final row in rows) {
-      final file = File(row.localPath);
-      if (await file.exists()) {
-        await file.delete();
-      }
+      await _deleteFileIfAny(row.localPath);
     }
   }
 
@@ -69,10 +67,19 @@ class ItemAttachmentsDao extends DatabaseAccessor<AppDatabase>
           ..where((t) => t.itemId.equals(itemId)))
         .go();
     for (final row in rows) {
-      final file = File(row.localPath);
-      if (await file.exists()) {
-        await file.delete();
-      }
+      await _deleteFileIfAny(row.localPath);
+    }
+  }
+
+  /// Удаляет файл вложения с диска, если [localPath] — это реальный путь.
+  /// На вебе вложения хранятся как data-URI прямо в localPath (нет файла на
+  /// диске), а dart:io File на вебе не работает — поэтому пропускаем web и
+  /// data-URI значения.
+  Future<void> _deleteFileIfAny(String localPath) async {
+    if (kIsWeb || localPath.startsWith('data:')) return;
+    final file = File(localPath);
+    if (await file.exists()) {
+      await file.delete();
     }
   }
 }

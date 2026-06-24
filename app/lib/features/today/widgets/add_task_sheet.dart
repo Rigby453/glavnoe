@@ -8,10 +8,11 @@
 // Локальное состояние формы (контроллер, выбранные чипы) — эфемерное,
 // поэтому здесь используется StatefulWidget; бизнес-состояние идёт через Riverpod.
 
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/drift.dart' show Value;
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show Uint8List, kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -73,6 +74,34 @@ String _reminderLabel(BuildContext context, int? minutes) {
   return context
       .s('today.reminder_min_before')
       .replaceAll('{n}', '$minutes');
+}
+
+/// true, если значение localPath вложения — это data-URI (web-вложение),
+/// а не реальный путь к файлу на диске (Android).
+bool _isDataUri(String localPath) => localPath.startsWith('data:');
+
+/// Декодирует base64-байты из data-URI вложения (web). Ожидает формат
+/// `data:<mime>;base64,<payload>`.
+Uint8List _bytesFromDataUri(String dataUri) =>
+    base64Decode(dataUri.substring(dataUri.indexOf(',') + 1));
+
+/// Строит виджет-изображение вложения по его localPath, выбирая источник:
+///   • data-URI (web) → Image.memory из декодированных base64-байтов;
+///   • обычный путь (Android) → Image.file.
+/// errorBuilder общий для обоих случаев (битый файл/данные не роняют UI).
+Widget _attachmentImage(
+  String localPath, {
+  required BoxFit fit,
+  required ImageErrorWidgetBuilder errorBuilder,
+}) {
+  if (_isDataUri(localPath)) {
+    return Image.memory(
+      _bytesFromDataUri(localPath),
+      fit: fit,
+      errorBuilder: errorBuilder,
+    );
+  }
+  return Image.file(File(localPath), fit: fit, errorBuilder: errorBuilder);
 }
 
 /// Человекочитаемая длительность: 45 → "45m", 90 → "1h 30m".
@@ -386,8 +415,12 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   }
 
   /// Возвращает чистый заголовок (без распознанных NL-фраз) для сохранения.
-  /// Чистим, если распознано ХОТЬ ЧТО-ТО: время, длительность, приоритет или
-  /// повтор — иначе оставляем исходный текст без изменений.
+  /// Чистим, если распознан ЛЮБОЙ параметр, который вырезается из названия:
+  /// время, длительность, приоритет, повтор ИЛИ напоминание. Эти параметры
+  /// одновременно автоподставляются в _onTitleChanged, поэтому их фрагмент
+  /// должен уйти и из заголовка (например «звонок напомни за 10 мин» → «звонок»).
+  /// moduleLink/type намеренно НЕ учитываем — их ключевые слова остаются в
+  /// названии (смысловое ядро), парсер их не вырезает.
   String get _cleanedTitle {
     final text = _titleController.text;
     // Переиспользуем кэш из _onTitleChanged (один парсинг с одним now). Если
@@ -398,7 +431,8 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     final recognizedSomething = result.when != null ||
         result.durationMinutes != null ||
         result.priority != null ||
-        result.recurrenceRule != null;
+        result.recurrenceRule != null ||
+        result.reminderMinutesBefore != null;
     if (recognizedSomething) return result.cleanedTitle.trim();
     return text.trim();
   }
@@ -803,6 +837,14 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   }
 
   Future<void> _pickAttachment(ImageSource source, {bool isVideo = false}) async {
+    // Видео на вебе не поддерживаем: хранение через data-URI раздуло бы базу
+    // (большие байты в base64), а плеер на вебе требует blob-URL. Фото на вебе
+    // работает полностью (см. _storeAttachment). На Android — всё как было.
+    if (kIsWeb && isVideo) {
+      _showAttachmentSnack(context.s('today.attachment_web_video_unsupported'));
+      return;
+    }
+
     // Локализуем сообщения ДО async-разрывов, чтобы не трогать context после
     // await (use_build_context_synchronously).
     final failedMsg = context.s('today.attachment_failed');
@@ -839,18 +881,32 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     if (mounted) _loadAttachments();
   }
 
-  /// Копирует выбранный файл в каталог приложения и пишет строку вложения
-  /// под текущим _attachmentItemId (реальный id или '__pending__').
+  /// Сохраняет выбранное вложение и пишет строку под текущим _attachmentItemId
+  /// (реальный id или '__pending__'). Колонка localPath переиспользуется:
+  ///   • Android: копируем файл в каталог приложения, localPath = реальный путь.
+  ///   • Web: File/path_provider недоступны, поэтому читаем байты (работает в
+  ///     вебе) и кодируем как data-URI base64 в localPath. Превью затем рисуется
+  ///     через Image.memory из этой строки (см. _attachmentImageProvider).
   Future<void> _storeAttachment(XFile file, {required bool isVideo}) async {
-    // Копируем в директорию приложения для надёжного хранения.
-    final dir = await getApplicationDocumentsDirectory();
-    final ext = p.extension(file.path).isEmpty
-        ? (isVideo ? '.mp4' : '.jpg')
-        : p.extension(file.path);
-    final fileName = '${DateTime.now().millisecondsSinceEpoch}$ext';
-    final dest = File(p.join(dir.path, 'attachments', fileName));
-    await dest.parent.create(recursive: true);
-    await File(file.path).copy(dest.path);
+    final String localPath;
+    if (kIsWeb) {
+      // dart:io File недоступен — берём байты напрямую из XFile и кодируем
+      // в data-URI. На вебе сюда попадают только фото (видео отсечено выше).
+      final bytes = await file.readAsBytes();
+      final mime = file.mimeType ?? (isVideo ? 'video/mp4' : 'image/jpeg');
+      localPath = 'data:$mime;base64,${base64Encode(bytes)}';
+    } else {
+      // Копируем в директорию приложения для надёжного хранения.
+      final dir = await getApplicationDocumentsDirectory();
+      final ext = p.extension(file.path).isEmpty
+          ? (isVideo ? '.mp4' : '.jpg')
+          : p.extension(file.path);
+      final fileName = '${DateTime.now().millisecondsSinceEpoch}$ext';
+      final dest = File(p.join(dir.path, 'attachments', fileName));
+      await dest.parent.create(recursive: true);
+      await File(file.path).copy(dest.path);
+      localPath = dest.path;
+    }
 
     final dao = ref.read(itemAttachmentsDaoProvider);
     // Новая задача → '__pending__' (перепривяжем в _save); редактирование →
@@ -858,7 +914,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     await dao.addAttachment(ItemAttachmentsTableCompanion(
       id: Value(uuidV4()),
       itemId: Value(_attachmentItemId),
-      localPath: Value(dest.path),
+      localPath: Value(localPath),
       type: Value(isVideo ? 'video' : 'photo'),
     ));
   }
@@ -884,7 +940,15 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                 minScale: 1,
                 maxScale: 5,
                 child: Center(
-                  child: Image.file(File(a.localPath), fit: BoxFit.contain),
+                  child: _attachmentImage(
+                    a.localPath,
+                    fit: BoxFit.contain,
+                    errorBuilder: (ctx, _, _) => const Icon(
+                      Icons.broken_image_outlined,
+                      size: 48,
+                      color: Colors.white,
+                    ),
+                  ),
                 ),
               ),
             ),
@@ -900,6 +964,13 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
         ),
       );
     } else {
+      // Видео хранится только как файл на диске (Android). На вебе видео не
+      // добавляется (см. _pickAttachment), поэтому File-плеер тут безопасен;
+      // защищаемся от теоретического data-URI, чтобы не дёргать File на вебе.
+      if (_isDataUri(a.localPath)) {
+        _showAttachmentSnack(context.s('today.attachment_web_video_unsupported'));
+        return;
+      }
       final ctrl = VideoPlayerController.file(File(a.localPath));
       showDialog<void>(
         context: context,
@@ -2099,10 +2170,10 @@ class _AttachmentThumb extends StatelessWidget {
                           color: colorScheme.onSurface,
                         ),
                       )
-                    : Image.file(
-                        File(attachment.localPath),
+                    : _attachmentImage(
+                        attachment.localPath,
                         fit: BoxFit.cover,
-                        // Если файл недоступен — нейтральная заглушка, не падаем.
+                        // Файл/данные недоступны — нейтральная заглушка, не падаем.
                         errorBuilder: (ctx, _, _) => Container(
                           color: ext?.surfaceElevated ?? colorScheme.surface,
                           alignment: Alignment.center,

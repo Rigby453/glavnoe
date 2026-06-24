@@ -675,6 +675,21 @@ const Map<String, Map<String, String>> todayStrings = {
     'ja': 'キャンセルしました',
     'ko': '취소됨',
   },
+  // SnackBar: на вебе фото работает, но видео-вложения пока не поддерживаем
+  // (большие байты в base64 раздули бы локальную базу, плеер на вебе сложнее).
+  'today.attachment_web_video_unsupported': {
+    'en': 'Video attachments aren\'t supported on web yet — photos work',
+    'ru': 'Видео-вложения пока не поддерживаются в вебе — фото работают',
+    'de': 'Video-Anhänge werden im Web noch nicht unterstützt — Fotos schon',
+    'fr': 'Les vidéos ne sont pas encore prises en charge sur le web — les photos oui',
+    'it': 'I video non sono ancora supportati sul web — le foto sì',
+    'pt': 'Vídeos ainda não são suportados na web — fotos funcionam',
+    'es': 'Los vídeos aún no son compatibles en la web — las fotos sí',
+    'id': 'Lampiran video belum didukung di web — foto bisa',
+    'hi': 'वेब पर वीडियो अटैचमेंट अभी समर्थित नहीं — फ़ोटो काम करती हैं',
+    'ja': '動画の添付はまだウェブでは利用できません（写真は可能）',
+    'ko': '동영상 첨부는 아직 웹에서 지원되지 않아요 — 사진은 가능해요',
+  },
   // Подсказка под пустой сеткой вложений.
   'today.attachments_empty': {
     'en': 'No attachments yet',
