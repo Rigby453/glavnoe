@@ -803,4 +803,106 @@ void main() {
       expect(r.cleanedTitle, 'экзамен');
     });
   });
+
+  // =========================================================================
+  // Висячие предлоги-связки. После вырезания распознанного фрагмента предлог,
+  // который им «управлял» («к [18 июня]», «во [вторник]», «до [пятницы]»),
+  // должен уйти из названия. Предлог СПРАВА от выреза, относящийся к следующему
+  // слову («[9:00] на работе»), — остаться.
+  // =========================================================================
+
+  group('Dangling preposition cleanup (left of erased span)', () {
+    test('"сдать курсовую к 18 июня" → "сдать курсовую" (drop "к")', () {
+      final r = parseNaturalDateTime('сдать курсовую к 18 июня', now);
+      expect(r.when, DateTime(2026, 6, 18, 9, 0));
+      expect(r.cleanedTitle, 'сдать курсовую');
+    });
+
+    test('"пара во вторник в 9" → "пара" (drop "во" и "в 9")', () {
+      final r = parseNaturalDateTime('пара во вторник в 9', now);
+      expect(r.when?.hour, 9);
+      expect(r.cleanedTitle, 'пара');
+    });
+
+    test('"позвонить во вторник" → "позвонить" (drop "во")', () {
+      final r = parseNaturalDateTime('позвонить во вторник', now);
+      expect(r.when, isNotNull);
+      expect(r.cleanedTitle, 'позвонить');
+    });
+
+    test('"дедлайн сдать до пятницы" → "дедлайн сдать" (drop "до")', () {
+      final r = parseNaturalDateTime('дедлайн сдать до пятницы', now);
+      expect(r.when, DateTime(2026, 6, 19, 9, 0));
+      expect(r.cleanedTitle, 'дедлайн сдать');
+    });
+
+    test('"лекция по математике в 1530" → "лекция по математике"', () {
+      // Пользовательский пример из задачи: «в 1530» уходит, «по математике» —
+      // осмысленная часть названия — остаётся (предлог «по» справа от другого
+      // выреза не трогаем; здесь выреза рядом с «по» вообще нет).
+      final r = parseNaturalDateTime('лекция по математике в 1530', now);
+      expect(r.when?.hour, 15);
+      expect(r.when?.minute, 30);
+      expect(r.cleanedTitle, 'лекция по математике');
+    });
+
+    test('"экзамен 18 июня в 10 утра" → "экзамен" (date+time, no residue)', () {
+      final r = parseNaturalDateTime('экзамен 18 июня в 10 утра', now);
+      expect(r.when, DateTime(2026, 6, 18, 10, 0));
+      expect(r.cleanedTitle, 'экзамен');
+    });
+  });
+
+  group('Trailing preposition is preserved (right of erased span)', () {
+    test('"встреча 9:00 на работе" → "встреча на работе" (keep "на работе")', () {
+      final r = parseNaturalDateTime('встреча 9:00 на работе', now);
+      expect(r.when?.hour, 9);
+      expect(r.cleanedTitle, 'встреча на работе');
+    });
+
+    test('"занятие завтра по английскому" → "занятие по английскому"', () {
+      final r = parseNaturalDateTime('занятие завтра по английскому', now);
+      expect(r.when, DateTime(2026, 6, 18, 9, 0));
+      expect(r.cleanedTitle, 'занятие по английскому');
+    });
+
+    test('"звонок 9:00 с клиентом" → "звонок с клиентом" (keep "с клиентом")', () {
+      final r = parseNaturalDateTime('звонок 9:00 с клиентом', now);
+      expect(r.when?.hour, 9);
+      expect(r.cleanedTitle, 'звонок с клиентом');
+    });
+
+    test('"оплата 15 числа за интернет" → "оплата за интернет"', () {
+      final r = parseNaturalDateTime('оплата 15 числа за интернет', now);
+      expect(r.recurrenceRule, 'FREQ=MONTHLY;BYMONTHDAY=15');
+      expect(r.cleanedTitle, 'оплата за интернет');
+    });
+  });
+
+  group('Preposition NOT touched when nothing erased nearby', () {
+    test('"связаться с деканатом завтра" keeps "с деканатом"', () {
+      // Только «завтра» вырезается (в конце); «с деканатом» в начале не у выреза.
+      final r = parseNaturalDateTime('связаться с деканатом завтра', now);
+      expect(r.when, DateTime(2026, 6, 18, 9, 0));
+      expect(r.cleanedTitle, 'связаться с деканатом');
+    });
+
+    test('"купить корм для кота" unchanged (no match at all)', () {
+      final r = parseNaturalDateTime('купить корм для кота', now);
+      expect(r.when, isNull);
+      expect(r.cleanedTitle, 'купить корм для кота');
+    });
+
+    test('"позвонить с другом" unchanged (no match, "с" stays)', () {
+      final r = parseNaturalDateTime('позвонить с другом', now);
+      expect(r.when, isNull);
+      expect(r.cleanedTitle, 'позвонить с другом');
+    });
+
+    test('"до магазина дойти" unchanged (leading "до" is a real word)', () {
+      final r = parseNaturalDateTime('до магазина дойти', now);
+      expect(r.when, isNull);
+      expect(r.cleanedTitle, 'до магазина дойти');
+    });
+  });
 }
