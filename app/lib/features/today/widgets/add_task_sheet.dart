@@ -36,6 +36,7 @@ import '../../../core/widgets/attachment_view.dart';
 import '../../../core/widgets/number_input_dialog.dart';
 import '../../../core/utils/id.dart';
 import '../../../core/utils/nl_datetime.dart';
+import '../../../core/utils/tag_parser.dart';
 import '../../../services/notifications/notification_service.dart';
 import '../../plan/recurrence.dart';
 import '../../plan/widgets/recurrence_providers.dart';
@@ -230,6 +231,11 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   final List<_SubtaskDraft> _subtasks = [];
   final TextEditingController _subtaskController = TextEditingController();
 
+  // Теги задачи (без «#»), извлечённые из заголовка или добавленные вручную.
+  // При загрузке извлекаются из сохранённого заголовка; при сохранении
+  // возвращаются в строку через buildStoredTitle.
+  final List<String> _tags = [];
+
   // Недавние уникальные названия задач (для ряда «быстрый выбор»).
   List<String> _recentTitles = [];
 
@@ -275,7 +281,14 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   void initState() {
     super.initState();
     final existing = widget.existing;
-    _titleController = TextEditingController(text: existing?.title ?? '');
+    // Извлекаем теги из сохранённого заголовка: в Drift хранится «заголовок #tag1 #tag2».
+    // Показываем в поле только cleanTitle; теги отображаются как чипы.
+    final rawTitle = existing?.title ?? '';
+    final tagResult = parseTaskTags(rawTitle);
+    _tags
+      ..clear()
+      ..addAll(tagResult.tags);
+    _titleController = TextEditingController(text: tagResult.cleanTitle);
     // Нормализуем старые значения к показываемым (exam→deadline, low→medium),
     // чтобы соответствующий чип подсветился и сохранилось нормализованное.
     _type = _normalizeType(existing?.type ?? 'task');
@@ -424,6 +437,35 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
         result.type != null &&
         _types.contains(result.type)) {
       setState(() => _type = _normalizeType(result.type!));
+    }
+
+    // --- Теги: авто-извлечение #tag-токенов из поля заголовка ---
+    // Когда пользователь печатает «#cs101» в заголовке, тег извлекается
+    // в чипы-список, а из поля ввода убирается токен (чистая строка остаётся).
+    // Это происходит ТОЛЬКО если в тексте есть хотя бы один тег.
+    final tagResult = parseTaskTags(text);
+    if (tagResult.tags.isNotEmpty) {
+      // Добавляем новые теги (которых ещё нет в _tags), сохраняя порядок.
+      bool newTagsAdded = false;
+      for (final t in tagResult.tags) {
+        if (!_tags.contains(t)) {
+          _tags.add(t);
+          newTagsAdded = true;
+        }
+      }
+      if (newTagsAdded || tagResult.cleanTitle != text) {
+        // Обновляем поле ввода: убираем тег-токены, оставляем чистый заголовок.
+        // Сохраняем курсор в конце чистой строки.
+        final clean = tagResult.cleanTitle;
+        if (_titleController.text != clean) {
+          _titleController.value = TextEditingValue(
+            text: clean,
+            selection: TextSelection.collapsed(offset: clean.length),
+          );
+          // listener сработает снова, но tagResult.tags уже пусты → цикл не бесконечный.
+        }
+        setState(() {}); // обновляем чипы
+      }
     }
   }
 
@@ -972,9 +1014,10 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   }
 
   Future<void> _save() async {
-    // Используем очищенный заголовок (NL-фраза удалена).
-    final title = _cleanedTitle;
-    if (title.isEmpty) {
+    // Строим заголовок для сохранения: чистый заголовок (без NL-фраз) + #теги в конце.
+    // В Drift хранится «чистый заголовок #tag1 #tag2» — planSearchMatches ищет по #tag.
+    final title = buildStoredTitle(_cleanedTitle, _tags);
+    if (title.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text(context.s('today.title_required'))),
       );
@@ -1383,6 +1426,14 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                   _nlDetectedDateTime = null;
                   _userPickedDateTime = true;
                 }),
+              ),
+            ],
+            // Теги-чипы: показываются когда есть хотя бы один тег.
+            if (_tags.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              _TagChipsRow(
+                tags: _tags,
+                onRemove: (tag) => setState(() => _tags.remove(tag)),
               ),
             ],
             const SizedBox(height: 12),
@@ -1922,6 +1973,40 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             ],
           ],
         ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ряд чипов тегов под полем заголовка.
+// Каждый тег — InputChip с крестиком удаления.
+// ---------------------------------------------------------------------------
+
+class _TagChipsRow extends StatelessWidget {
+  const _TagChipsRow({required this.tags, required this.onRemove});
+
+  final List<String> tags;
+  final void Function(String tag) onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: [
+          for (final tag in tags)
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: InputChip(
+                label: Text('#$tag'),
+                onDeleted: () => onRemove(tag),
+                // Компактный размер — MaterialTapTargetSize.shrinkWrap
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                visualDensity: VisualDensity.compact,
+              ),
+            ),
+        ],
       ),
     );
   }

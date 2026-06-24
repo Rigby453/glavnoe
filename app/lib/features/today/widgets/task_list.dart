@@ -29,6 +29,7 @@ import '../../../core/l10n/app_strings.dart';
 import '../../../core/settings/swipe_action_provider.dart';
 import '../../../core/settings/swipe_hint_provider.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/tag_parser.dart';
 import '../../../services/notifications/notification_service.dart';
 import '../../plan/widgets/recurrence_providers.dart';
 import '../task_colors.dart';
@@ -680,11 +681,9 @@ class _TaskCardState extends State<_TaskCard> {
                   // labelSmall для временной метки — tertiary info
                   style: textTheme.labelSmall?.copyWith(color: ext?.textFaint),
                 ),
-          title: AnimatedDefaultTextStyle(
-            style: titleStyle,
-            duration: const Duration(milliseconds: 200),
-            curve: kCurveSnap,
-            child: Text(widget.item.title),
+          title: _TaskTitleWithTags(
+            item: widget.item,
+            titleStyle: titleStyle,
           ),
           subtitle: Row(
             children: [
@@ -786,5 +785,59 @@ class _TaskCardState extends State<_TaskCard> {
       );
     }
     return null;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Заголовок задачи: чистый title (без #тегов) + чипы тегов под текстом.
+// Если тегов нет — просто обёрнутый AnimatedDefaultTextStyle (как прежде).
+// ---------------------------------------------------------------------------
+
+class _TaskTitleWithTags extends StatelessWidget {
+  const _TaskTitleWithTags({
+    required this.item,
+    required this.titleStyle,
+  });
+
+  final ItemsTableData item;
+  final TextStyle titleStyle;
+
+  @override
+  Widget build(BuildContext context) {
+    final parsed = parseTaskTags(item.title);
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final colorScheme = Theme.of(context).colorScheme;
+    final tagColor = ext?.textMuted ?? colorScheme.onSurface.withAlpha(160);
+
+    final titleWidget = AnimatedDefaultTextStyle(
+      style: titleStyle,
+      duration: const Duration(milliseconds: 200),
+      curve: kCurveSnap,
+      child: Text(parsed.cleanTitle.isEmpty ? item.title : parsed.cleanTitle),
+    );
+
+    if (parsed.tags.isEmpty) return titleWidget;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        titleWidget,
+        const SizedBox(height: 4),
+        Wrap(
+          spacing: 4,
+          runSpacing: 2,
+          children: [
+            for (final tag in parsed.tags)
+              Text(
+                '#$tag',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                      color: tagColor,
+                    ),
+              ),
+          ],
+        ),
+      ],
+    );
   }
 }

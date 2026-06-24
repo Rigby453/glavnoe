@@ -11,6 +11,7 @@ import 'package:intl/intl.dart';
 import '../../../core/database/database.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/tag_parser.dart';
 import '../../../core/widgets/kai_loader.dart';
 import '../../today/task_colors.dart';
 import '../../today/widgets/add_task_sheet.dart';
@@ -161,37 +162,13 @@ class _ItemCard extends StatelessWidget {
             const SizedBox(width: 12),
             // Заголовок (растягивается)
             Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    item.title,
-                    // titleSmall для обычных задач, titleMedium для main (02-type-space §1)
-                    style: (item.priority == 'main'
-                            ? textTheme.titleMedium
-                            : textTheme.titleSmall)
-                        ?.copyWith(
-                      decoration: item.status == 'done'
-                          ? TextDecoration.lineThrough
-                          : null,
-                      color: item.status == 'done'
-                          ? textMuted
-                          : colorScheme.onSurface,
-                    ),
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  // Обратный отсчёт для экзаменов/дедлайнов — ember (correct per spec)
-                  if (isUrgent)
-                    Text(
-                      _countdownLabel(context, item.scheduledAt),
-                      style: textTheme.bodySmall?.copyWith(
-                        color: ember,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                ],
+              child: _TimelineItemTitle(
+                item: item,
+                textTheme: textTheme,
+                textMuted: textMuted,
+                colorScheme: colorScheme,
+                ember: ember,
+                isUrgent: isUrgent,
               ),
             ),
             const SizedBox(width: 8),
@@ -293,6 +270,80 @@ void _openModule(BuildContext context, String moduleLink) {
   } else if (moduleLink.startsWith('meal:')) {
     // meal:<slot> → открыть Food и доскроллить к этому приёму.
     context.push('/food?meal=${moduleLink.substring(5)}');
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Заголовок задачи в таймлайне: чистый title (без #тегов) + чипы тегов.
+// ---------------------------------------------------------------------------
+
+class _TimelineItemTitle extends StatelessWidget {
+  const _TimelineItemTitle({
+    required this.item,
+    required this.textTheme,
+    required this.textMuted,
+    required this.colorScheme,
+    required this.ember,
+    required this.isUrgent,
+  });
+
+  final ItemsTableData item;
+  final TextTheme textTheme;
+  final Color textMuted;
+  final ColorScheme colorScheme;
+  final Color ember;
+  final bool isUrgent;
+
+  @override
+  Widget build(BuildContext context) {
+    final parsed = parseTaskTags(item.title);
+    final displayTitle =
+        parsed.cleanTitle.isNotEmpty ? parsed.cleanTitle : item.title;
+    final titleStyle = (item.priority == 'main'
+            ? textTheme.titleMedium
+            : textTheme.titleSmall)
+        ?.copyWith(
+      decoration: item.status == 'done' ? TextDecoration.lineThrough : null,
+      color: item.status == 'done' ? textMuted : colorScheme.onSurface,
+    );
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          displayTitle,
+          style: titleStyle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+        ),
+        // Обратный отсчёт для экзаменов/дедлайнов — ember
+        if (isUrgent)
+          Text(
+            _countdownLabel(context, item.scheduledAt),
+            style: textTheme.bodySmall?.copyWith(
+              color: ember,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        // Теги под заголовком
+        if (parsed.tags.isNotEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: Wrap(
+              spacing: 4,
+              runSpacing: 2,
+              children: [
+                for (final tag in parsed.tags)
+                  Text(
+                    '#$tag',
+                    style: textTheme.labelSmall?.copyWith(color: textMuted),
+                  ),
+              ],
+            ),
+          ),
+      ],
+    );
   }
 }
 

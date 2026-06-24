@@ -2271,4 +2271,19 @@ const Map<String, Map<String, String>> todayStrings = {
     'ja': 'その他',
     'ko': '더보기',
   },
+
+  // Секция тегов в форме добавления задачи
+  'today.tags_label': {
+    'en': 'Tags',
+    'ru': 'Теги',
+    'de': 'Tags',
+    'fr': 'Tags',
+    'it': 'Tag',
+    'pt': 'Tags',
+    'es': 'Etiquetas',
+    'id': 'Tag',
+    'hi': 'टैग',
+    'ja': 'タグ',
+    'ko': '태그',
+  },
 };
