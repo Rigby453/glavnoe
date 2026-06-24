@@ -942,12 +942,6 @@ class _HealthProfileSectionState extends ConsumerState<_HealthProfileSection> {
             onWakeChanged: (v) => setState(() => _wakeHour = v),
           ),
           const SizedBox(height: 8),
-          // Дисклеймер
-          Text(
-            context.s('health_profile.disclaimer'),
-            style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
-          ),
-          const SizedBox(height: 12),
           FilledButton(
             onPressed: _save,
             child: Text(context.s('health_profile.btn_save')),
