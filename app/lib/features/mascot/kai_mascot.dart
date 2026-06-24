@@ -12,6 +12,7 @@
 //
 // v2 (2026-06): добавлен моргания (blink) + micro-look (горизонтальный дрейф взгляда)
 // для читаемой «живости» на idle, усиленный pulse для thinking.
+// v3 (2026-06): интерактивный тап — баунс/wiggle + речевой пузырь с rotate-строками.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -20,6 +21,8 @@ import 'dart:ui' as ui;
 import 'package:flutter/material.dart';
 
 import '../../core/animations/constants.dart';
+import '../../core/l10n/app_strings.dart';
+import 'kai_speech_bubble.dart';
 
 // ---------------------------------------------------------------------------
 // Enum выражений
@@ -134,6 +137,9 @@ class KaiMascot extends StatefulWidget {
   State<KaiMascot> createState() => _KaiMascotState();
 }
 
+// Количество ротируемых реплик при тапе (kai.tap_quip_0 .. kai.tap_quip_N-1).
+const int _kTapQuipCount = 5;
+
 class _KaiMascotState extends State<KaiMascot>
     with TickerProviderStateMixin {
   // --- Tap → neutral ---
@@ -146,6 +152,21 @@ class _KaiMascotState extends State<KaiMascot>
   // Длительность «нейтральной паузы» по тапу — нормальная анимация (280мс)
   // даёт время морфингу доехать до neutral, затем ещё короткая задержка.
   static const Duration _tapNeutralHold = Duration(milliseconds: 1200);
+
+  // --- Tap-реакция v3: баунс + речевой пузырь ---
+  // _tapCount — монотонный счётчик нажатий; индекс реплики = tapCount % N.
+  int _tapCount = 0;
+  bool _showBubble = false;
+  Timer? _bubbleTimer; // таймер авто-скрытия пузыря, отменяется в dispose
+
+  // Баунс: TweenSequence scale 1→1.15→0.92→1 за kDurationNormal (280мс).
+  // Wiggle на пике: дополнительный легкий поворот (±6°) — rotateZ через Transform.
+  late final AnimationController _bounceCtrl;
+  late Animation<double> _bounceScaleAnim;
+  late Animation<double> _bounceRotateAnim; // рад, маленькое значение
+
+  // Длительность авто-скрытия пузыря (мс).
+  static const int _kBubbleHoldMs = 2000;
 
   // --- Дыхание (idle, бесконечный цикл) ---
   late final AnimationController _breathCtrl;
@@ -237,6 +258,48 @@ class _KaiMascotState extends State<KaiMascot>
     _thinkPulseAnim = Tween<double>(begin: 0, end: 1).animate(
       CurvedAnimation(parent: _thinkPulseCtrl, curve: Curves.easeInOut),
     );
+
+    // Баунс-анимация при тапе: kDurationNormal (280мс), упругая.
+    // Scale: 1.0 → 1.15 → 0.92 → 1.0 (TweenSequence)
+    // Rotate: 0 → +0.10 → -0.10 → 0 рад (~±6°)
+    _bounceCtrl = AnimationController(
+      vsync: this,
+      duration: kDurationNormal,
+    );
+    _bounceScaleAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 1.0, end: 1.15)
+            .chain(CurveTween(curve: kCurveSpring)),
+        weight: 40,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 1.15, end: 0.92)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 30,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 0.92, end: 1.0)
+            .chain(CurveTween(curve: kCurveLift)),
+        weight: 30,
+      ),
+    ]).animate(_bounceCtrl);
+    _bounceRotateAnim = TweenSequence<double>([
+      TweenSequenceItem(
+        tween: Tween(begin: 0.0, end: 0.10)
+            .chain(CurveTween(curve: Curves.easeOut)),
+        weight: 33,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: 0.10, end: -0.10)
+            .chain(CurveTween(curve: Curves.easeInOut)),
+        weight: 34,
+      ),
+      TweenSequenceItem(
+        tween: Tween(begin: -0.10, end: 0.0)
+            .chain(CurveTween(curve: kCurveLift)),
+        weight: 33,
+      ),
+    ]).animate(_bounceCtrl);
   }
 
   @override
@@ -268,12 +331,41 @@ class _KaiMascotState extends State<KaiMascot>
 
   /// Обработчик тапа: успокаиваем Kai к neutral на короткое время, затем
   /// возвращаемся к исходной эмоции. Внешний widget.onTap вызывается всегда.
-  /// При reduce-motion морфинг не нужен — сразу зовём onTap (без джиттера).
+  /// При reduce-motion морфинг не нужен — только показываем пузырь статично.
   void _handleTap() {
     widget.onTap?.call();
 
-    if (reduceMotionOf(context)) return;
+    final reduce = reduceMotionOf(context);
 
+    // Увеличиваем счётчик тапов и показываем пузырь (всегда, независимо от motion).
+    setState(() {
+      _tapCount++;
+      _showBubble = true;
+    });
+
+    // Баунс-анимация только при motion разрешён.
+    if (!reduce) {
+      _bounceCtrl
+        ..reset()
+        ..forward();
+    }
+
+    // Авто-скрытие пузыря: отменяем предыдущий таймер и запускаем новый.
+    // Используем Timer (не Future.delayed), чтобы cancel() в dispose() предотвращал
+    // pending-timer в тестах.
+    // При reduce-motion пузырь не скрываем автоматически — пользователь сам тапнет снова
+    // (нет анимации = нет таймеров; иначе тест жалуется на pending timer).
+    if (!reduce) {
+      _bubbleTimer?.cancel();
+      _bubbleTimer = Timer(Duration(milliseconds: _kBubbleHoldMs), () {
+        if (!mounted) return;
+        setState(() => _showBubble = false);
+      });
+    }
+
+    if (reduce) return;
+
+    // Морфинг к neutral (существующий механизм).
     final token = Object();
     _tapNeutralToken = token;
     if (!_tapNeutral) {
@@ -387,12 +479,14 @@ class _KaiMascotState extends State<KaiMascot>
   @override
   void dispose() {
     _blinkTimer?.cancel();
+    _bubbleTimer?.cancel();
     _breathCtrl.dispose();
     _morphCtrl.dispose();
     _jitterCtrl.dispose();
     _blinkCtrl.dispose();
     _lookCtrl.dispose();
     _thinkPulseCtrl.dispose();
+    _bounceCtrl.dispose();
     super.dispose();
   }
 
@@ -419,81 +513,128 @@ class _KaiMascotState extends State<KaiMascot>
     final bodyColor = colorScheme.onSurface.withAlpha(28);
     final borderColor = colorScheme.onSurface.withAlpha(18);
 
-    return GestureDetector(
-      // По тапу Kai успокаивается к neutral; внешний onTap всё равно вызывается.
-      onTap: _handleTap,
-      behavior: HitTestBehavior.opaque,
-      child: SizedBox(
-        width: widget.size,
-        height: widget.size,
-        child: AnimatedBuilder(
-          animation: Listenable.merge([
-            _breathAnim,
-            _morphAnim,
-            _jitterAnim,
-            _blinkAnim,
-            _lookAnim,
-            _thinkPulseAnim,
-          ]),
-          builder: (context, _) {
-            // При reduce-motion: статичный нейтральный рендер
-            if (reduce) {
-              return CustomPaint(
+    // Реплика при тапе: ротация по счётчику (не RNG — детерминированно, воспроизводимо).
+    // _tapCount уже инкрементирован в _handleTap перед показом пузыря.
+    final quipIndex = (_tapCount - 1).clamp(0, _kTapQuipCount - 1) % _kTapQuipCount;
+    final quipText = context.s('kai.tap_quip_$quipIndex');
+
+    // Пузырь: появляется выше Kai, overflow-safe через Column.
+    // AnimatedSwitcher даёт плавный fade при появлении/скрытии.
+    final bubbleWidget = AnimatedSwitcher(
+      duration: reduce ? Duration.zero : kDurationNormal,
+      switchInCurve: kCurveLift,
+      switchOutCurve: kCurveLift,
+      transitionBuilder: (child, anim) => FadeTransition(
+        opacity: anim,
+        child: child,
+      ),
+      child: _showBubble
+          ? Padding(
+              key: ValueKey(quipIndex),
+              padding: const EdgeInsets.only(bottom: 8),
+              child: KaiSpeechBubble(
+                message: quipText,
+                animate: !reduce,
+                tail: KaiBubbleTail.bottomCenter,
+                maxWidth: (widget.size * 3).clamp(160.0, 240.0),
+              ),
+            )
+          : SizedBox(key: const ValueKey('empty')),
+    );
+
+    // Сам Kai с bounce + существующими анимациями.
+    final kaiWidget = AnimatedBuilder(
+      animation: Listenable.merge([
+        _breathAnim,
+        _morphAnim,
+        _jitterAnim,
+        _blinkAnim,
+        _lookAnim,
+        _thinkPulseAnim,
+        _bounceCtrl,
+      ]),
+      builder: (context, _) {
+        // При reduce-motion: статичный нейтральный рендер без трансформов.
+        if (reduce) {
+          return CustomPaint(
+            painter: _KaiPainter(
+              state: _stateFor(_effectiveEmotion, widget.isHarsh),
+              eyeColor: eyeColor,
+              bodyColor: bodyColor,
+              borderColor: borderColor,
+              breathValue: 0,
+              jitterOffset: 0,
+              blinkT: 0,
+              microShiftX: 0,
+              thinkPulseValue: 0,
+            ),
+          );
+        }
+
+        final morphT = _morphAnim.value;
+        final interpolated = _lerpState(_from, _to, morphT);
+
+        // Дыхание (idle).
+        final breathScale = 1.0 +
+            (_breathAnim.value - 0.5) * (_breathAmplitude * 2);
+
+        // Thinking-pulse: добавляет видимое вертикальное «дыхание» во время
+        // обработки ИИ — усиленная пульсация scaleY (±4%) + opacity мерцание.
+        final thinkPulse = _thinkPulseAnim.value;
+
+        final jitter = _jitterAnim.value * 1.5; // px
+
+        // Micro-look: тихое горизонтальное смещение (±1.5 px при size=56)
+        // Не для anxious/thinking — там другие акценты
+        final doMicroLook = _effectiveEmotion != KaiEmotion.anxious;
+        final microShiftX = doMicroLook
+            ? _lookAnim.value * (widget.size * 0.027)
+            : 0.0;
+
+        // Баунс при тапе: scale + rotate поверх дыхания.
+        final bounceScale = _bounceScaleAnim.value;
+        final bounceRotate = _bounceRotateAnim.value;
+
+        return Transform.rotate(
+          angle: bounceRotate,
+          child: Transform.scale(
+            scale: breathScale * bounceScale,
+            child: Transform.translate(
+              offset: Offset(jitter, 0),
+              child: CustomPaint(
                 painter: _KaiPainter(
-                  state: _stateFor(_effectiveEmotion, widget.isHarsh),
+                  state: interpolated,
                   eyeColor: eyeColor,
                   bodyColor: bodyColor,
                   borderColor: borderColor,
-                  breathValue: 0,
-                  jitterOffset: 0,
-                  blinkT: 0,
-                  microShiftX: 0,
-                  thinkPulseValue: 0,
-                ),
-              );
-            }
-
-            final morphT = _morphAnim.value;
-            final interpolated = _lerpState(_from, _to, morphT);
-
-            // Дыхание (idle).
-            final breathScale = 1.0 +
-                (_breathAnim.value - 0.5) * (_breathAmplitude * 2);
-
-            // Thinking-pulse: добавляет видимое вертикальное «дыхание» во время
-            // обработки ИИ — усиленная пульсация scaleY (±4%) + opacity мерцание.
-            final thinkPulse = _thinkPulseAnim.value;
-
-            final jitter = _jitterAnim.value * 1.5; // px
-
-            // Micro-look: тихое горизонтальное смещение (±1.5 px при size=56)
-            // Не для anxious/thinking — там другие акценты
-            final doMicroLook = _effectiveEmotion != KaiEmotion.anxious;
-            final microShiftX = doMicroLook
-                ? _lookAnim.value * (widget.size * 0.027)
-                : 0.0;
-
-            return Transform.scale(
-              scale: breathScale,
-              child: Transform.translate(
-                offset: Offset(jitter, 0),
-                child: CustomPaint(
-                  painter: _KaiPainter(
-                    state: interpolated,
-                    eyeColor: eyeColor,
-                    bodyColor: bodyColor,
-                    borderColor: borderColor,
-                    breathValue: _breathAnim.value,
-                    jitterOffset: jitter,
-                    blinkT: _blinkAnim.value,
-                    microShiftX: microShiftX,
-                    thinkPulseValue: thinkPulse,
-                  ),
+                  breathValue: _breathAnim.value,
+                  jitterOffset: jitter,
+                  blinkT: _blinkAnim.value,
+                  microShiftX: microShiftX,
+                  thinkPulseValue: thinkPulse,
                 ),
               ),
-            );
-          },
-        ),
+            ),
+          ),
+        );
+      },
+    );
+
+    return GestureDetector(
+      // По тапу Kai успокаивается к neutral и показывает пузырь.
+      // Внешний onTap вызывается всегда.
+      onTap: _handleTap,
+      behavior: HitTestBehavior.opaque,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          bubbleWidget,
+          SizedBox(
+            width: widget.size,
+            height: widget.size,
+            child: kaiWidget,
+          ),
+        ],
       ),
     );
   }
