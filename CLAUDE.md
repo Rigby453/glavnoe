@@ -19,8 +19,8 @@ re-assembles the day around what matters and helps users understand *why* plans 
 - **Language:** ships in **English first** (all copy in EN); other languages later.
 - **Platform:** **Flutter** — iOS, Android, **Web** — plus a **landing site** with a smart
   `[Download]` button.
-- **Monetization:** subscription **$10/mo** (funds AI). Ads only on the free tier, never on paid.
-  AI is **never** funded by ads — AI is a paid-only feature.
+- **Monetization:** **freemium, no ads anywhere** (ADR-052). Subscription **$10/mo** funds AI and
+  unlocks premium features. Free tier is fully usable without AI. AI is a paid-only feature.
 - **AI:** backend-only, via the provider abstraction `backend/src/ai/provider.ts` (ADR-022):
   **Gemini** if `GEMINI_API_KEY` is set (current default), else **Claude API**
   (`claude-haiku-4-5` for bulk/fast, `claude-sonnet-4-6` for complex reasoning; prompt caching +
