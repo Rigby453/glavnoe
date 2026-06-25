@@ -2,6 +2,7 @@
 // (parseAiWorkoutProgram) и маппинга reps-строки в int (repsToInt).
 // PURE: без Flutter-виджетов и без БД.
 
+import 'package:app/core/settings/rest_default_provider.dart';
 import 'package:app/features/health/workout_templates.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -221,7 +222,9 @@ void main() {
       expect(ex.name, 'Push-Up');
       expect(ex.sets, 3);
       expect(ex.reps, '10');
-      expect(ex.restSeconds, 60);
+      // Пропущенный rest_seconds → сентинель «использовать глобальный дефолт»
+      // (kUseDefaultRest = -1, Phase A3), а не легаси-«магическая» 60.
+      expect(ex.restSeconds, kUseDefaultRest);
     });
 
     test('полностью пустой/битый ответ → программа с нулём дней (не падает)', () {
