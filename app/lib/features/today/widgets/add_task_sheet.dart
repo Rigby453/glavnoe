@@ -35,6 +35,7 @@ import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/attachment_view.dart';
 import '../../../core/widgets/number_input_dialog.dart';
 import '../../../core/utils/id.dart';
+import '../../../core/utils/module_inference.dart';
 import '../../../core/utils/nl_datetime.dart';
 import '../../../core/utils/tag_parser.dart';
 import '../../../services/notifications/notification_service.dart';
@@ -173,8 +174,6 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   late String _priority;
   late DateTime _scheduledAt;
   late int _durationMinutes;
-  // Ссылка на модуль: null = нет, или одно из значений moduleLink (локальное поле)
-  String? _moduleLink;
   // Цвет-метка задачи: null = нет, или ключ палитры из task_colors.dart (локальное поле)
   String? _color;
   // Место/локация задачи (свободный текст, как в Google Calendar). Локальное
@@ -262,9 +261,8 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   bool _userPickedPriority = false;
   bool _userPickedRepeat = false;
   bool _userPickedReminder = false;
-  // Модуль/тип авто-подставляются NL-парсером по ключевым словам названия,
-  // пока пользователь не выбрал их вручную.
-  bool _userPickedModuleLink = false;
+  // Тип авто-подставляется NL-парсером по ключевым словам названия,
+  // пока пользователь не выбрал его вручную.
   bool _userPickedType = false;
 
   // Напоминание перед задачей: null = нет; 0 = в момент; >0 = за N минут до
@@ -309,7 +307,6 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     if (existing == null && widget.initialDurationMinutes != null) {
       _userPickedDuration = true;
     }
-    _moduleLink = existing?.moduleLink;
     _color = existing?.color;
     _locationController = TextEditingController(text: existing?.location ?? '');
     _reminderMinutesBefore = existing?.reminderMinutesBefore;
@@ -425,11 +422,6 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     // --- Напоминание перед задачей ---
     if (!_userPickedReminder && result.reminderMinutesBefore != null) {
       setState(() => _reminderMinutesBefore = result.reminderMinutesBefore);
-    }
-
-    // --- Модуль (moduleLink) по ключевым словам названия ---
-    if (!_userPickedModuleLink && result.moduleLink != null) {
-      setState(() => _moduleLink = result.moduleLink);
     }
 
     // --- Тип задачи по ключевым словам названия ---
@@ -1070,14 +1062,15 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
       );
       if (concreteId != null) {
         await _persistSubtasks(concreteId);
-        // materializeOccurrence не принимает reminder/location/tags — проставляем
-        // отдельно (все три — локальные поля, не синкаются).
+        // materializeOccurrence не принимает reminder/location/tags/moduleLink — проставляем
+        // отдельно (все — локальные поля, не синкаются).
         await dao.updateItem(
           concreteId,
           ItemsTableCompanion(
             reminderMinutesBefore: Value(_reminderMinutesBefore),
             location: Value(location),
             tags: Value(tagsValue), // локальное поле — не попадает в синк
+            moduleLink: Value(inferModuleLink(_cleanedTitle, type: _type)), // автоматически — не попадает в синк
             updatedAt: Value(now),
           ),
         );
@@ -1104,7 +1097,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           isProtected: Value(isProtected),
           recurrenceRule: ruleValue,
           reminderMinutesBefore: Value(_reminderMinutesBefore),
-          moduleLink: Value(_moduleLink), // локальное поле — не попадает в синк
+          moduleLink: Value(inferModuleLink(_cleanedTitle, type: _type)), // автоматически — не попадает в синк
           color: Value(_color), // локальное поле — не попадает в синк
           location: Value(location), // локальное поле — не попадает в синк
           tags: Value(tagsValue), // локальное поле — не попадает в синк
@@ -1130,7 +1123,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           isProtected: Value(isProtected),
           recurrenceRule: Value(newRuleString),
           reminderMinutesBefore: Value(_reminderMinutesBefore),
-          moduleLink: Value(_moduleLink), // локальное поле — не попадает в синк
+          moduleLink: Value(inferModuleLink(_cleanedTitle, type: _type)), // автоматически — не попадает в синк
           color: Value(_color), // локальное поле — не попадает в синк
           location: Value(location), // локальное поле — не попадает в синк
           tags: Value(tagsValue), // локальное поле — не попадает в синк
@@ -1454,11 +1447,8 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                 _titleController.text = title;
                 _type = _normalizeType(type);
                 // Шаблон явно задаёт тип → NL не перетирает его.
+                // moduleLink теперь определяется автоматически из заголовка при сохранении.
                 _userPickedType = true;
-                if (moduleLink != null) {
-                  _moduleLink = moduleLink;
-                  _userPickedModuleLink = true;
-                }
               }),
               onSelectRecent: (title) =>
                   setState(() => _titleController.text = title),
@@ -1873,17 +1863,6 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             if (_moreExpanded) ...[
               const SizedBox(height: 12),
 
-              // Привязка к модулю — необязательный выбор.
-              _ModuleLinkPicker(
-                value: _moduleLink,
-                onChanged: (v) => setState(() {
-                  _moduleLink = v;
-                  // Ручной выбор → NL больше не перетирает модуль.
-                  _userPickedModuleLink = true;
-                }),
-              ),
-              const SizedBox(height: 16),
-
               // Цвет-метка задачи — палитра пресетов + «нет цвета».
               Text(context.s('today.color_label'), style: textTheme.labelMedium),
               const SizedBox(height: 8),
@@ -2215,70 +2194,6 @@ class _AttachAddButton extends StatelessWidget {
           Text(label, style: textTheme.labelSmall, textAlign: TextAlign.center),
         ],
       ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Выбор привязки к модулю — компактный DropdownButton (необязательный).
-// Значения: null, 'workout', 'meal:breakfast', 'meal:lunch', 'meal:dinner', 'sleep'.
-// ---------------------------------------------------------------------------
-
-class _ModuleLinkPicker extends StatelessWidget {
-  const _ModuleLinkPicker({
-    required this.value,
-    required this.onChanged,
-  });
-
-  final String? value;
-  final ValueChanged<String?> onChanged;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>();
-    final textMuted = ext?.textMuted ?? colorScheme.onSurface.withAlpha(160);
-
-    // Пары: значение → локализованный ярлык
-    final options = <(String?, String)>[
-      (null, context.s('today.module_link_none')),
-      ('workout', context.s('today.module_link_workout')),
-      ('meal:breakfast', context.s('today.module_link_breakfast')),
-      ('meal:lunch', context.s('today.module_link_lunch')),
-      ('meal:dinner', context.s('today.module_link_dinner')),
-      ('sleep', context.s('today.module_link_sleep')),
-    ];
-
-    return Row(
-      children: [
-        Text(context.s('today.module_link_label'), style: textTheme.labelMedium),
-        const SizedBox(width: 12),
-        Expanded(
-          child: DropdownButtonHideUnderline(
-            child: DropdownButton<String?>(
-              value: value,
-              isDense: true,
-              isExpanded: true,
-              style: textTheme.bodyMedium?.copyWith(color: colorScheme.onSurface),
-              dropdownColor: colorScheme.surface,
-              borderRadius: BorderRadius.circular(12),
-              hint: Text(
-                context.s('today.module_link_none'),
-                style: textTheme.bodyMedium?.copyWith(color: textMuted),
-              ),
-              items: options.map((opt) {
-                final (val, label) = opt;
-                return DropdownMenuItem<String?>(
-                  value: val,
-                  child: Text(label),
-                );
-              }).toList(),
-              onChanged: onChanged,
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
