@@ -20,6 +20,8 @@ import '../../core/l10n/plurals.dart';
 import '../../core/settings/rest_default_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
+import 'exercise_detail_sheet.dart';
+import 'exercise_library.dart';
 import 'workouts_screen.dart' show workoutExercisesProvider, workoutProvider;
 
 // ---------------------------------------------------------------------------
@@ -481,6 +483,20 @@ class _WorkoutTrainerScreenState extends ConsumerState<WorkoutTrainerScreen>
           // Прогресс «Exercise 2 of 5» — AppBar title через display font
           title: Text(progressLabel),
           actions: [
+            // Кнопка «Техника» — открывает ExerciseDetailSheet для текущего
+            // упражнения. Скрыта (no-op / не рендерится) если упражнение
+            // не найдено в каталоге — безопасно для кастомных упражнений.
+            Builder(
+              builder: (_) {
+                final catalogEntry = exerciseById(ex.name);
+                if (catalogEntry == null) return const SizedBox.shrink();
+                return IconButton(
+                  icon: const Icon(Icons.info_outline),
+                  tooltip: context.s('exercise.detail.info_tooltip'),
+                  onPressed: () => showExerciseDetail(context, catalogEntry),
+                );
+              },
+            ),
             // История текущего упражнения (Feature B) — прошлые подходы +
             // динамика веса. Самая логичная точка входа: пользователь смотрит
             // на упражнение прямо сейчас и хочет понять свой прогресс.
