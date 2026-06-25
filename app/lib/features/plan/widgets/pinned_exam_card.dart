@@ -88,7 +88,7 @@ class PinnedExamCard extends ConsumerWidget {
             Icon(
               item.type == 'exam'
                   ? Icons.school_outlined
-                  : Icons.flag_outlined,
+                  : Icons.alarm_outlined,
               color: ember,
               size: 20,
             ),
@@ -183,7 +183,13 @@ class _CollapsedChip extends StatelessWidget {
         ),
         child: Row(
           children: [
-            Icon(Icons.flag_outlined, color: ember, size: 16),
+            Icon(
+              item.type == 'exam'
+                  ? Icons.school_outlined
+                  : Icons.alarm_outlined,
+              color: ember,
+              size: 16,
+            ),
             const SizedBox(width: 8),
             // «{название}, {дата}» — одна строка с ellipsis.
             Expanded(

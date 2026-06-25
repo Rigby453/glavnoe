@@ -2922,7 +2922,7 @@ class _PlanSheetContent extends StatelessWidget {
       case 'exam':
         return Icons.school_outlined;
       case 'deadline':
-        return Icons.flag_outlined;
+        return Icons.alarm_outlined;
       default:
         return Icons.check_circle_outline;
     }
