@@ -97,6 +97,35 @@ void main() {
     });
   });
 
+  group('sub-minute ceiling contract (provider prepares 1 min for <60 s sessions)', () {
+    // Проверяем, что 1-минутная запись (результат ceiling в провайдере)
+    // корректно доходит до нужной категории.
+    // Конкретно: ночная игровая сессия 30 с → провайдер округляет до 1 мин →
+    // categorizeUsageMinutes получает {package: 1} → попадает в 'games'.
+    test('1-минутная запись не отфильтровывается (нет floor-до-нуля)', () {
+      final r = categorizeUsageMinutes(const {'com.king.candycrushsaga': 1});
+      expect(r['games'], 1,
+          reason: 'Короткая игровая сессия (1 мин после ceiling) должна попасть в games');
+    });
+
+    test('1-минутная запись неизвестного игрового пакета попадает в games через override', () {
+      final r = categorizeUsageMinutes(
+        const {'com.some.nightgame': 1},
+        androidCategoryOverrides: const {'com.some.nightgame': 'games'},
+      );
+      expect(r['games'], 1);
+      expect(r['other'], 0);
+    });
+
+    test('нулевые минуты всё равно отбрасываются (ms=0 → не передаём)', () {
+      // categorizeUsageMinutes само по себе отбрасывает <= 0 внутри, но
+      // провайдер не должен передавать нулей — тест документирует ожидание.
+      final r = categorizeUsageMinutes(const {'com.some.game': 0});
+      expect(r['games'], 0);
+      expect(r['other'], 0);
+    });
+  });
+
   group('androidCategoryToOurCategory', () {
     test('CATEGORY_GAME (0) → games', () {
       expect(androidCategoryToOurCategory(0), 'games');

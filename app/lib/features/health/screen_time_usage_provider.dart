@@ -191,12 +191,14 @@ class ScreenTimeUsageNotifier extends StateNotifier<ScreenTimeUsageState> {
         await UsageStats.queryAndAggregateUsageStats(midnight, now);
 
     // packageName → минуты в foreground за сегодня.
+    // Используем округление вверх (ceiling): 1–59 сек = 1 мин, чтобы короткие сессии
+    // (например, игра 30 сек ночью) не терялись при floor-делении на 60000.
     final perPackageMinutes = <String, int>{};
     perPackageStats.forEach((package, info) {
       final ms = info.totalTimeInForegroundMs ?? 0;
       if (ms <= 0) return;
-      final minutes = ms ~/ 60000; // мс → целые минуты
-      if (minutes <= 0) return;
+      // ceil: 1..59 999 мс → 1 мин; 60 000 мс → 1 мин; 60 001 мс → 2 мин.
+      final minutes = (ms / 60000).ceil();
       perPackageMinutes[package] = minutes;
     });
 
