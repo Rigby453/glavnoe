@@ -9,6 +9,7 @@ import 'strings/misc.dart';
 import 'strings/health_a.dart';
 import 'strings/health_b.dart';
 import 'strings/onboarding_quiz.dart';
+import 'strings/workouts_library.dart';
 
 /// Система переводов приложения.
 ///
@@ -37,6 +38,7 @@ class S {
     ...healthAStrings,
     ...healthBStrings,
     ...onboardingQuizStrings,
+    ...workoutsLibraryStrings,
   };
 
   /// Полная карта строк (key → {langTag → текст}) — только для read-only
