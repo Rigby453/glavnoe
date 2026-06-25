@@ -278,6 +278,21 @@ const Map<String, Map<String, String>> healthBStrings = {
     'ja': '任意',
     'ko': '선택',
   },
+  // A3: формат отдыха «по умолчанию» в карточке редактора и плейсхолдере поля.
+  // Параметр {value} заменяется на MM:SS (например «Default (02:00)»).
+  'workout.rest_default_fmt': {
+    'en': 'Default ({value})',
+    'ru': 'По умолчанию ({value})',
+    'de': 'Standard ({value})',
+    'fr': 'Défaut ({value})',
+    'it': 'Predefinito ({value})',
+    'pt': 'Padrão ({value})',
+    'es': 'Predeterminado ({value})',
+    'id': 'Default ({value})',
+    'hi': 'डिफ़ॉल्ट ({value})',
+    'ja': 'デフォルト ({value})',
+    'ko': '기본값 ({value})',
+  },
   // Trainer screen
   'workout.exercise_of': {
     'en': 'Exercise',

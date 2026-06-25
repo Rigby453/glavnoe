@@ -4,6 +4,7 @@
 import 'package:drift/drift.dart';
 
 import '../database.dart';
+import '../../settings/rest_default_provider.dart';
 import '../../utils/id.dart';
 
 part 'workouts_dao.g.dart';
@@ -90,13 +91,16 @@ class WorkoutsDao extends DatabaseAccessor<AppDatabase>
   }
 
   /// Добавить упражнение в шаблон.
+  /// [restSeconds] по умолчанию = kUseDefaultRest (-1): тренажёр подставит
+  /// глобальный дефолт пользователя. Передавайте явное значение только при
+  /// сознательном переопределении (например, держания на 30с).
   Future<void> addExercise({
     required String workoutId,
     required String name,
     int sets = 3,
     int reps = 10,
     double? weightKg,
-    int restSeconds = 60,
+    int restSeconds = kUseDefaultRest,
     String? technique,
   }) async {
     // sortOrder = текущее кол-во упражнений

@@ -79,11 +79,13 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
   }
 
   Future<void> _editExercise(WorkoutExercisesTableData ex) async {
+    final globalRestSeconds = ref.read(restDefaultProvider);
     final result = await showDialog<_ExerciseFormResult>(
       context: context,
       builder: (ctx) => _ExerciseDialog(
         title: ctx.s('workout.edit_exercise_title'),
         initial: ex,
+        defaultRestSeconds: globalRestSeconds,
       ),
     );
     if (result == null) return;
@@ -131,6 +133,9 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final colorScheme = Theme.of(context).colorScheme;
+
+    // Глобальный дефолт отдыха — для отображения «Default (MM:SS)» в карточках.
+    final globalDefaultSeconds = ref.watch(restDefaultProvider);
 
     final workout = ref.watch(workoutProvider(widget.workoutId)).valueOrNull;
     final exercises =
@@ -191,6 +196,7 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
                             ),
                             ext: ext,
                             textTheme: textTheme,
+                            globalDefaultSeconds: globalDefaultSeconds,
                           ),
                         ),
                       );
@@ -280,6 +286,7 @@ class _ExerciseCard extends StatelessWidget {
     required this.onHistory,
     required this.ext,
     required this.textTheme,
+    required this.globalDefaultSeconds,
   });
 
   final WorkoutExercisesTableData exercise;
@@ -290,6 +297,9 @@ class _ExerciseCard extends StatelessWidget {
   final VoidCallback onHistory;
   final FocusThemeExtension ext;
   final TextTheme textTheme;
+  /// Глобальный дефолт отдыха из restDefaultProvider — для отображения
+  /// «Default (MM:SS)» когда restSeconds == kUseDefaultRest/-1 или 60.
+  final int globalDefaultSeconds;
 
   @override
   Widget build(BuildContext context) {
@@ -313,7 +323,7 @@ class _ExerciseCard extends StatelessWidget {
                     const SizedBox(height: 4),
                     // Метаданные сетов/повторов — bodySmall + textMuted
                     Text(
-                      _exerciseSubtitle(context, exercise),
+                      _exerciseSubtitle(context, exercise, globalDefaultSeconds),
                       style: textTheme.bodySmall?.copyWith(
                         color: ext.textMuted,
                       ),
@@ -366,10 +376,21 @@ class _ExerciseCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Subtitle: «3×10 · 40 kg · rest 60s»
+// Subtitle: «3×10 · 40 kg · rest Default (02:00)» или «rest 90s»
 // ---------------------------------------------------------------------------
 
-String _exerciseSubtitle(BuildContext context, WorkoutExercisesTableData ex) {
+/// Форматирует секунды как MM:SS (например 120 → «02:00»).
+String _mmss(int seconds) {
+  final m = (seconds ~/ 60).toString().padLeft(2, '0');
+  final s = (seconds % 60).toString().padLeft(2, '0');
+  return '$m:$s';
+}
+
+String _exerciseSubtitle(
+  BuildContext context,
+  WorkoutExercisesTableData ex,
+  int globalDefaultSeconds,
+) {
   final parts = <String>[];
   parts.add('${ex.sets}×${ex.reps}'); // sets×reps (× = U+00D7)
   if (ex.weightKg != null) {
@@ -379,8 +400,13 @@ String _exerciseSubtitle(BuildContext context, WorkoutExercisesTableData ex) {
         w == w.truncateToDouble() ? '${w.round()} kg' : '$w kg';
     parts.add(formatted);
   }
-  // «rest Ns»
-  parts.add('${context.s('workout.rest_phase')} ${ex.restSeconds}s');
+  // Отдых: «Default (MM:SS)» для сентинелей, «Ns» для явных значений.
+  final restStr = isUseDefaultRest(ex.restSeconds)
+      ? context
+          .s('workout.rest_default_fmt')
+          .replaceAll('{value}', _mmss(globalDefaultSeconds))
+      : '${ex.restSeconds}s';
+  parts.add('${context.s('workout.rest_phase')} $restStr');
   return parts.join(' · ');
 }
 
@@ -414,15 +440,16 @@ class _ExerciseDialog extends StatefulWidget {
   const _ExerciseDialog({
     required this.title,
     this.initial,
-    this.defaultRestSeconds = kLegacyRestMarkerSeconds,
+    this.defaultRestSeconds = kUseDefaultRest,
   });
 
   final String title;
   final WorkoutExercisesTableData? initial;
 
-  /// Глобальный дефолт отдыха (из restDefaultProvider), используется ТОЛЬКО
-  /// при создании нового упражнения (initial == null). При редактировании
-  /// существующего упражнения используется его сохранённое значение.
+  /// Разрешённое глобальное время отдыха (секунды, из restDefaultProvider).
+  /// Показывается как плейсхолдер поля отдыха когда поле пустое
+  /// («Default (MM:SS)»). Не используется как сохраняемое значение — пустое
+  /// поле сохраняется как kUseDefaultRest (-1), явно введённое число — как есть.
   final int defaultRestSeconds;
 
   @override
@@ -447,11 +474,15 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
     _weight = TextEditingController(
       text: ex?.weightKg != null ? ex!.weightKg.toString() : '',
     );
-    // Для нового упражнения (ex == null) берём глобальный дефолт из Профиля,
-    // чтобы карточка показывала то же значение, что тренажёр использует при
-    // первом запуске. Для существующего упражнения — его сохранённое значение.
-    _rest = TextEditingController(
-        text: (ex?.restSeconds ?? widget.defaultRestSeconds).toString());
+    // Поле отдыха:
+    //   - Новое упражнение (ex == null): пустое — плейсхолдер покажет «Default (MM:SS)»;
+    //     пользователь видит глобальный дефолт, сохраняется kUseDefaultRest (-1).
+    //   - Существующее упражнение: сентинель (kUseDefaultRest или 60) → пустое
+    //     (значение остаётся «по умолчанию»); явное значение → показываем цифру.
+    final storedRest = ex?.restSeconds;
+    final showEmpty =
+        storedRest == null || isUseDefaultRest(storedRest);
+    _rest = TextEditingController(text: showEmpty ? '' : storedRest.toString());
     _technique = TextEditingController(text: ex?.technique ?? '');
   }
 
@@ -472,19 +503,26 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
     final sets = int.tryParse(_sets.text.trim()) ?? 3;
     final reps = int.tryParse(_reps.text.trim()) ?? 10;
     final weightKg = double.tryParse(_weight.text.trim());
-    // Пустое/невалидное поле → текущий дефолт (не хардкоженный 60).
+    // Поле отдыха: пустое → kUseDefaultRest (тренажёр возьмёт глобальный дефолт);
+    // введённое число → явное per-exercise значение (хранится как есть).
+    final restTrimmed = _rest.text.trim();
+    final parsedRest = int.tryParse(restTrimmed);
     final restSeconds =
-        int.tryParse(_rest.text.trim()) ?? widget.defaultRestSeconds;
+        (restTrimmed.isEmpty || parsedRest == null) ? kUseDefaultRest : parsedRest;
     final technique = _technique.text.trim().isEmpty
         ? null
         : _technique.text.trim();
+
+    // restSeconds: kUseDefaultRest (-1) проходит без клампа; явные значения зажаты.
+    final clampedRest =
+        restSeconds == kUseDefaultRest ? restSeconds : restSeconds.clamp(0, 3600);
 
     Navigator.of(context).pop(_ExerciseFormResult(
       name: name,
       sets: sets.clamp(1, 999),
       reps: reps.clamp(1, 999),
       weightKg: weightKg,
-      restSeconds: restSeconds.clamp(0, 3600),
+      restSeconds: clampedRest,
       technique: technique,
     ));
   }
@@ -555,6 +593,15 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       labelText: context.s('workout.rest_s'),
+                      // Плейсхолдер «Default (MM:SS)» — показывает глобальный дефолт,
+                      // когда поле пустое (= kUseDefaultRest будет сохранён).
+                      hintText: widget.defaultRestSeconds > 0
+                          ? context
+                              .s('workout.rest_default_fmt')
+                              .replaceAll(
+                                  '{value}',
+                                  _mmss(widget.defaultRestSeconds))
+                          : null,
                     ),
                   ),
                 ),

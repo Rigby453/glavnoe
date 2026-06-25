@@ -13,6 +13,7 @@
 //   так что файл по-прежнему не тянет Flutter SDK и тестируется без виджетов.
 
 import '../../core/database/daos/workouts_dao.dart';
+import '../../core/settings/rest_default_provider.dart';
 
 // ---------------------------------------------------------------------------
 // Модель программы (общая для template-пути и AI-ответа)
@@ -148,22 +149,24 @@ List<_ExerciseTemplate> _availableExercises(List<String> equipment) {
 // Подходы/повторы/отдых по цели и опыту
 // ---------------------------------------------------------------------------
 
-/// Схема подходов/повторов/отдыха в зависимости от цели тренировки.
-({int sets, String reps, int rest}) _schemeFor(String goal, String experience) {
+/// Схема подходов/повторов для цели тренировки (без поля rest — он теперь всегда
+/// kUseDefaultRest для силовых/обычных упражнений, см. pick() ниже).
+/// Исключение: core/cardio (timed holds) получают явный короткий отдых (30с) в pick().
+({int sets, String reps}) _schemeFor(String goal, String experience) {
   // Новичкам — меньше объёма (меньше подходов).
   final setBias = experience == 'beginner' ? -1 : (experience == 'advanced' ? 1 : 0);
   switch (goal) {
     case 'strength':
-      return (sets: 4 + setBias, reps: '4-6', rest: 150);
+      return (sets: 4 + setBias, reps: '4-6');
     case 'muscle':
-      return (sets: 4 + setBias, reps: '8-12', rest: 90);
+      return (sets: 4 + setBias, reps: '8-12');
     case 'fat_loss':
-      return (sets: 3 + setBias, reps: '12-15', rest: 45);
+      return (sets: 3 + setBias, reps: '12-15');
     case 'endurance':
-      return (sets: 3 + setBias, reps: '15-20', rest: 40);
+      return (sets: 3 + setBias, reps: '15-20');
     case 'general':
     default:
-      return (sets: 3 + setBias, reps: '10-12', rest: 60);
+      return (sets: 3 + setBias, reps: '10-12');
   }
 }
 
@@ -288,13 +291,15 @@ WorkoutProgram buildTemplateProgram({
     final i = (cursor[group] ?? 0) % pool.length;
     cursor[group] = i + 1;
     final t = pool[i];
-    // Кор/кардио по времени удержания → reps как количество/удержание.
+    // Кор/кардио выполняются на время удержания → явный короткий отдых 30с.
+    // Силовые/обычные упражнения → kUseDefaultRest: тренажёр подставит
+    // глобальный дефолт пользователя из restDefaultProvider.
     final isHold = t.group == 'core' || t.group == 'cardio';
     return ProgramExercise(
       name: t.key, // слаг; локализуется в localizeWorkoutProgram()
       sets: scheme.sets.clamp(2, 6),
       reps: isHold ? (t.group == 'core' ? '30-45s' : '30s') : scheme.reps,
-      restSeconds: isHold ? 30 : scheme.rest,
+      restSeconds: isHold ? 30 : kUseDefaultRest,
     );
   }
 
@@ -315,7 +320,7 @@ WorkoutProgram buildTemplateProgram({
         name: t.key, // слаг; локализуется в localizeWorkoutProgram()
         sets: scheme.sets.clamp(2, 6),
         reps: scheme.reps,
-        restSeconds: scheme.rest,
+        restSeconds: kUseDefaultRest, // глобальный дефолт
       ));
     }
     days.add(ProgramDay(title: _dayTitle(dayType, d), exercises: exercises));
@@ -418,7 +423,9 @@ WorkoutProgram parseAiWorkoutProgram(Map<String, dynamic> json) {
               sets: _asPositiveInt(ex['sets'], fallback: 3),
               // reps приходит строкой ("8-12"/"AMRAP"); число для БД извлекаем позже.
               reps: _asReps(ex['reps']),
-              restSeconds: _asPositiveInt(ex['rest_seconds'], fallback: 60),
+              // Если AI не прислал rest_seconds — используем kUseDefaultRest, чтобы
+              // тренажёр применил глобальный дефолт пользователя.
+              restSeconds: _asNonNegativeInt(ex['rest_seconds']) ?? kUseDefaultRest,
               note: (ex['note'] as String?)?.trim(),
             ),
           );
@@ -452,6 +459,19 @@ int _asPositiveInt(Object? v, {required int fallback}) {
     if (n != null && n > 0) return n;
   }
   return fallback;
+}
+
+/// Приводит динамическое значение к неотрицательному int или null.
+/// Используется для парсинга rest_seconds из ответа AI: отсутствующее поле
+/// возвращает null, из которого вызывающий выбирает kUseDefaultRest.
+int? _asNonNegativeInt(Object? v) {
+  if (v is int && v >= 0) return v;
+  if (v is num && v >= 0) return v.round();
+  if (v is String) {
+    final n = int.tryParse(v.trim());
+    if (n != null && n >= 0) return n;
+  }
+  return null;
 }
 
 /// Приводит reps к непустой строке (модель может прислать число или строку).

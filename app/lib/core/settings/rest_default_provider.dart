@@ -4,11 +4,15 @@
 // задаёт «в среднем 2-3 минуты» один раз в Профиле; тренажёр использует это
 // значение, когда у упражнения НЕ задан явный per-exercise restSeconds.
 //
-// Per-exercise restSeconds (workout_exercises.restSeconds) остаётся как
-// переопределение: если у упражнения значение ОТЛИЧАЕТСЯ от легаси-маркера
-// [kLegacyRestMarkerSeconds] (60 — старый Constant-дефолт колонки), считаем его
-// явно заданным и используем как есть. Если значение РАВНО маркеру — упражнение
-// «не настраивали», берём глобальный дефолт. Без миграции БД (ADR — prefs).
+// Сентинель «использовать глобальный дефолт» = kUseDefaultRest (-1).
+// Это ЯВНЫЙ маркер «не настраивали», добавленный в A3. Устраняет путаницу с
+// числом 60 — теперь пользователь может явно выставить 60с и получить ровно 60с.
+//
+// Обратная совместимость: [kLegacyRestMarkerSeconds] = 60 — старый Constant-дефолт
+// колонки workout_exercises.restSeconds. Существующие записи в БД со значением 60
+// по-прежнему рассматриваются как «не настраивали» → применяется глобальный дефолт.
+// Это сохраняет старое поведение тренажёра без миграции данных.
+// Новые записи пишут kUseDefaultRest (-1), поэтому 60 со временем исчезнет.
 //
 // Хранение в SharedPreferences по образцу water_goal_provider / reminder_default_provider:
 // Notifier + NotifierProvider. UI настройки — в Профиле (секция «Тренировки»).
@@ -27,24 +31,36 @@ const String kRestDefaultSecondsKey = 'rest_default_seconds';
 /// Значение по умолчанию глобального отдыха (секунды). 2 минуты.
 const int kDefaultRestSeconds = 120;
 
+/// Явный сентинель «использовать глобальный дефолт» (A3).
+/// Хранится в workout_exercises.restSeconds вместо старого магического 60.
+/// Тренажёр и карточка редактора проверяют это значение через [effectiveRestSeconds]
+/// и [isUseDefaultRest].
+const int kUseDefaultRest = -1;
+
 /// Легаси-маркер: исходный Constant-дефолт колонки workout_exercises.restSeconds.
-/// Если per-exercise restSeconds равен этому значению — считаем, что отдых на
-/// упражнении НЕ настраивали явно, и применяем глобальный дефолт. Любое другое
-/// значение — это явное переопределение, его и используем.
+/// Хранится только в СТАРЫХ записях БД (созданных до A3). Обратная совместимость:
+/// effectiveRestSeconds обрабатывает его так же, как kUseDefaultRest.
+/// Новые записи пишут kUseDefaultRest вместо этого значения.
 const int kLegacyRestMarkerSeconds = 60;
 
 /// Границы разумного глобального отдыха (секунды): 15с … 10 мин.
 const int kRestDefaultMinSeconds = 15;
 const int kRestDefaultMaxSeconds = 600;
 
+/// Возвращает true, если [restSeconds] означает «использовать глобальный дефолт».
+/// Охватывает и новый сентинель (kUseDefaultRest = -1), и легаси-маркер (60).
+bool isUseDefaultRest(int restSeconds) =>
+    restSeconds == kUseDefaultRest || restSeconds == kLegacyRestMarkerSeconds;
+
 /// Возвращает эффективное время отдыха для упражнения:
-/// per-exercise [exerciseRestSeconds], если оно явно задано (≠ легаси-маркер),
-/// иначе — глобальный [globalDefaultSeconds].
+/// - kUseDefaultRest (-1): явный «использовать глобальный дефолт» → [globalDefaultSeconds]
+/// - kLegacyRestMarkerSeconds (60): старая запись «не настраивали» → [globalDefaultSeconds]
+/// - любое другое значение: явное per-exercise переопределение → используется как есть.
 int effectiveRestSeconds({
   required int exerciseRestSeconds,
   required int globalDefaultSeconds,
 }) {
-  return exerciseRestSeconds == kLegacyRestMarkerSeconds
+  return isUseDefaultRest(exerciseRestSeconds)
       ? globalDefaultSeconds
       : exerciseRestSeconds;
 }
