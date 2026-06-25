@@ -12,6 +12,7 @@ import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/day_window.dart';
+import '../../../core/utils/tag_parser.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import 'day_timeline.dart' show dayItemsProvider;
 import 'week_strip.dart' show selectedDayProvider;
@@ -175,6 +176,11 @@ class _AgendaRow extends StatelessWidget {
     // Иконка модуля — textMuted, ненавязчиво (только если есть ссылка)
     final moduleIcon = _moduleLinkIcon(item.moduleLink, ext, colorScheme);
 
+    // Парсим теги из заголовка: показываем чистый заголовок + чипы тегов.
+    final parsed = parseTaskTags(item.title);
+    final displayTitle =
+        parsed.cleanTitle.isNotEmpty ? parsed.cleanTitle : item.title;
+
     return InkWell(
       onTap: item.moduleLink != null
           ? () => _openModule(context, item.moduleLink!)
@@ -209,16 +215,37 @@ class _AgendaRow extends StatelessWidget {
                 padding: const EdgeInsets.only(right: 6),
                 child: moduleIcon,
               ),
+            // Заголовок + чипы тегов (если есть). Expanded предотвращает overflow.
             Expanded(
-              child: Text(
-                item.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                // bodyMedium для текста задач
-                style: textTheme.bodyMedium?.copyWith(
-                  decoration: done ? TextDecoration.lineThrough : null,
-                  color: done ? textMuted : colorScheme.onSurface,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    displayTitle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    // bodyMedium для текста задач
+                    style: textTheme.bodyMedium?.copyWith(
+                      decoration: done ? TextDecoration.lineThrough : null,
+                      color: done ? textMuted : colorScheme.onSurface,
+                    ),
+                  ),
+                  // Теги под заголовком — тихий стиль (textMuted, labelSmall)
+                  if (parsed.tags.isNotEmpty)
+                    Wrap(
+                      spacing: 4,
+                      runSpacing: 0,
+                      children: [
+                        for (final tag in parsed.tags)
+                          Text(
+                            '#$tag',
+                            style: textTheme.labelSmall
+                                ?.copyWith(color: textMuted),
+                          ),
+                      ],
+                    ),
+                ],
               ),
             ),
           ],

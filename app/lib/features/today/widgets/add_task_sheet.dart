@@ -1015,7 +1015,8 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
 
   Future<void> _save() async {
     // Строим заголовок для сохранения: чистый заголовок (без NL-фраз) + #теги в конце.
-    // В Drift хранится «чистый заголовок #tag1 #tag2» — planSearchMatches ищет по #tag.
+    // В Drift хранится «чистый заголовок #tag1 #tag2» — обратная совместимость и
+    // полнотекстовый поиск; колонка tags хранит их же как comma-joined (schemaVersion 18).
     final title = buildStoredTitle(_cleanedTitle, _tags);
     if (title.trim().isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -1031,6 +1032,11 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     // Место/локация: пустая строка → null (локальное поле, не синкается).
     final locationText = _locationController.text.trim();
     final location = locationText.isEmpty ? null : locationText;
+    // Теги: comma-joined строка для поиска (локальное поле, не синкается).
+    // null если нет тегов, иначе «shopping,urgent» (нижний регистр для поиска).
+    final tagsValue = _tags.isEmpty
+        ? null
+        : _tags.map((t) => t.toLowerCase()).join(',');
 
     // Запоминаем названия занятий/событий для быстрого повторного ввода (C4).
     // (exam теперь нормализуется в deadline ещё на входе формы.)
@@ -1064,13 +1070,14 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
       );
       if (concreteId != null) {
         await _persistSubtasks(concreteId);
-        // materializeOccurrence не принимает reminder/location — проставляем
-        // отдельно (location — локальное поле, не синкается).
+        // materializeOccurrence не принимает reminder/location/tags — проставляем
+        // отдельно (все три — локальные поля, не синкаются).
         await dao.updateItem(
           concreteId,
           ItemsTableCompanion(
             reminderMinutesBefore: Value(_reminderMinutesBefore),
             location: Value(location),
+            tags: Value(tagsValue), // локальное поле — не попадает в синк
             updatedAt: Value(now),
           ),
         );
@@ -1100,6 +1107,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           moduleLink: Value(_moduleLink), // локальное поле — не попадает в синк
           color: Value(_color), // локальное поле — не попадает в синк
           location: Value(location), // локальное поле — не попадает в синк
+          tags: Value(tagsValue), // локальное поле — не попадает в синк
           updatedAt: Value(now),
         ),
       );
@@ -1125,6 +1133,7 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
           moduleLink: Value(_moduleLink), // локальное поле — не попадает в синк
           color: Value(_color), // локальное поле — не попадает в синк
           location: Value(location), // локальное поле — не попадает в синк
+          tags: Value(tagsValue), // локальное поле — не попадает в синк
           createdAt: Value(now),
           updatedAt: Value(now),
         ),
@@ -1991,6 +2000,7 @@ class _TagChipsRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final removeTooltip = context.s('today.tag_remove_tooltip');
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: Row(
@@ -2001,6 +2011,7 @@ class _TagChipsRow extends StatelessWidget {
               child: InputChip(
                 label: Text('#$tag'),
                 onDeleted: () => onRemove(tag),
+                deleteButtonTooltipMessage: removeTooltip,
                 // Компактный размер — MaterialTapTargetSize.shrinkWrap
                 materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
                 visualDensity: VisualDensity.compact,

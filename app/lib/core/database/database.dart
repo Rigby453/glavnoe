@@ -68,6 +68,12 @@ class ItemsTable extends Table {
   // schemaVersion 17. По образцу color/moduleLink.
   TextColumn get location => text().nullable()();
 
+  // Теги задачи: comma-joined строка («shopping,urgent»), или null = нет тегов.
+  // Теги извлекаются парсером из заголовка при сохранении и хранятся отдельно
+  // для быстрого поиска. Локальная колонка (НЕ синхронизируется с сервером,
+  // нет в sync-payload), добавлено в schemaVersion 18. По образцу moduleLink.
+  TextColumn get tags => text().nullable()();
+
   DateTimeColumn get createdAt => dateTime()();
   DateTimeColumn get updatedAt => dateTime()();
 
@@ -575,7 +581,7 @@ class AppDatabase extends _$AppDatabase {
   HabitsDao get habitsDao => HabitsDao(this);
 
   @override
-  int get schemaVersion => 17;
+  int get schemaVersion => 18;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -651,6 +657,12 @@ class AppDatabase extends _$AppDatabase {
           // color/moduleLink.
           if (from < 17) {
             await m.addColumn(itemsTable, itemsTable.location);
+          }
+          // v18: добавлена колонка tags в items (comma-joined теги из заголовка,
+          // извлекаются тег-парсером при сохранении). Локальная колонка —
+          // НЕ синхронизируется — по образцу moduleLink/color/location.
+          if (from < 18) {
+            await m.addColumn(itemsTable, itemsTable.tags);
           }
         },
       );

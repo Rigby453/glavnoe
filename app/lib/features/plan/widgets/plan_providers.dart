@@ -103,8 +103,9 @@ const _kSearchTypeKeywords = {'task', 'event', 'exam', 'deadline'};
 /// Чистая функция (без I/O, без provider) — поэтому юнит-тестируемая.
 /// Запрос разбивается по пробелам на токены (регистронезависимо), и
 /// элемент проходит фильтр только если совпали ВСЕ токены (AND-семантика):
-///   * `#tag` — заголовок должен содержать хэштег как ЦЕЛОЕ слово
-///     (граница слова, так `#math` ≠ «#mathematics»);
+///   * `#tag` — ищем в поле [tags] (comma-joined строка в Drift, schemaVersion 18)
+///     если оно заполнено; иначе — в заголовке целым словом (обратная совместимость
+///     для задач, сохранённых до v18 и не прошедших re-save). Регистронезависимо.
 ///   * `type:VALUE` или голое слово-тип (`task`/`event`/`exam`/`deadline`) —
 ///     требует `item.type == value`;
 ///   * любой другой токен — подстрока в заголовке (прежнее поведение).
@@ -117,13 +118,28 @@ bool planSearchMatches(ItemsTableData item, String rawQuery) {
   final title = item.title.toLowerCase();
   final type = item.type.toLowerCase();
 
+  // Нормализованный список тегов из колонки tags (schemaVersion 18).
+  // null/пустая → fallback на поиск в заголовке (обратная совместимость).
+  final storedTagsRaw = item.tags;
+  final storedTags = (storedTagsRaw != null && storedTagsRaw.isNotEmpty)
+      ? storedTagsRaw.toLowerCase().split(',').map((t) => t.trim()).toSet()
+      : null;
+
   for (final token in tokens) {
     if (token.startsWith('#')) {
-      // Хэштег как целое слово: границы слова вокруг точного совпадения.
-      final pattern = RegExp(
-        r'(?<![\w#])' + RegExp.escape(token) + r'(?![\w#])',
-      );
-      if (!pattern.hasMatch(title)) return false;
+      // Тег-запрос: имя тега = token без «#».
+      final tagName = token.substring(1);
+      if (storedTags != null) {
+        // Ищем в выделенной колонке tags — точное совпадение (без truncation).
+        if (!storedTags.contains(tagName)) return false;
+      } else {
+        // Fallback (задачи до v18 или не прошедшие re-save):
+        // ищем #tag как целое слово в заголовке.
+        final pattern = RegExp(
+          r'(?<![\w#])' + RegExp.escape(token) + r'(?![\w#])',
+        );
+        if (!pattern.hasMatch(title)) return false;
+      }
     } else if (token.startsWith('type:')) {
       // Явный фильтр по типу: type:exam.
       if (type != token.substring('type:'.length)) return false;

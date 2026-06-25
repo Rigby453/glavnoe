@@ -2354,4 +2354,19 @@ const Map<String, Map<String, String>> todayStrings = {
     'ja': 'タグ',
     'ko': '태그',
   },
+
+  // Тултип кнопки удаления тег-чипа в форме добавления задачи
+  'today.tag_remove_tooltip': {
+    'en': 'Remove tag',
+    'ru': 'Удалить тег',
+    'de': 'Tag entfernen',
+    'fr': 'Supprimer le tag',
+    'it': 'Rimuovi tag',
+    'pt': 'Remover tag',
+    'es': 'Eliminar etiqueta',
+    'id': 'Hapus tag',
+    'hi': 'टैग हटाएं',
+    'ja': 'タグを削除',
+    'ko': '태그 삭제',
+  },
 };

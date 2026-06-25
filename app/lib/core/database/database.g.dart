@@ -157,6 +157,15 @@ class $ItemsTableTable extends ItemsTable
     type: DriftSqlType.string,
     requiredDuringInsert: false,
   );
+  static const VerificationMeta _tagsMeta = const VerificationMeta('tags');
+  @override
+  late final GeneratedColumn<String> tags = GeneratedColumn<String>(
+    'tags',
+    aliasedName,
+    true,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+  );
   static const VerificationMeta _createdAtMeta = const VerificationMeta(
     'createdAt',
   );
@@ -195,6 +204,7 @@ class $ItemsTableTable extends ItemsTable
     moduleLink,
     color,
     location,
+    tags,
     createdAt,
     updatedAt,
   ];
@@ -316,6 +326,12 @@ class $ItemsTableTable extends ItemsTable
         location.isAcceptableOrUnknown(data['location']!, _locationMeta),
       );
     }
+    if (data.containsKey('tags')) {
+      context.handle(
+        _tagsMeta,
+        tags.isAcceptableOrUnknown(data['tags']!, _tagsMeta),
+      );
+    }
     if (data.containsKey('created_at')) {
       context.handle(
         _createdAtMeta,
@@ -397,6 +413,10 @@ class $ItemsTableTable extends ItemsTable
         DriftSqlType.string,
         data['${effectivePrefix}location'],
       ),
+      tags: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}tags'],
+      ),
       createdAt: attachedDatabase.typeMapping.read(
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
@@ -429,6 +449,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
   final String? moduleLink;
   final String? color;
   final String? location;
+  final String? tags;
   final DateTime createdAt;
   final DateTime updatedAt;
   const ItemsTableData({
@@ -446,6 +467,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
     this.moduleLink,
     this.color,
     this.location,
+    this.tags,
     required this.createdAt,
     required this.updatedAt,
   });
@@ -475,6 +497,9 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
     }
     if (!nullToAbsent || location != null) {
       map['location'] = Variable<String>(location);
+    }
+    if (!nullToAbsent || tags != null) {
+      map['tags'] = Variable<String>(tags);
     }
     map['created_at'] = Variable<DateTime>(createdAt);
     map['updated_at'] = Variable<DateTime>(updatedAt);
@@ -507,6 +532,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
       location: location == null && nullToAbsent
           ? const Value.absent()
           : Value(location),
+      tags: tags == null && nullToAbsent ? const Value.absent() : Value(tags),
       createdAt: Value(createdAt),
       updatedAt: Value(updatedAt),
     );
@@ -534,6 +560,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
       moduleLink: serializer.fromJson<String?>(json['moduleLink']),
       color: serializer.fromJson<String?>(json['color']),
       location: serializer.fromJson<String?>(json['location']),
+      tags: serializer.fromJson<String?>(json['tags']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
       updatedAt: serializer.fromJson<DateTime>(json['updatedAt']),
     );
@@ -556,6 +583,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
       'moduleLink': serializer.toJson<String?>(moduleLink),
       'color': serializer.toJson<String?>(color),
       'location': serializer.toJson<String?>(location),
+      'tags': serializer.toJson<String?>(tags),
       'createdAt': serializer.toJson<DateTime>(createdAt),
       'updatedAt': serializer.toJson<DateTime>(updatedAt),
     };
@@ -576,6 +604,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
     Value<String?> moduleLink = const Value.absent(),
     Value<String?> color = const Value.absent(),
     Value<String?> location = const Value.absent(),
+    Value<String?> tags = const Value.absent(),
     DateTime? createdAt,
     DateTime? updatedAt,
   }) => ItemsTableData(
@@ -597,6 +626,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
     moduleLink: moduleLink.present ? moduleLink.value : this.moduleLink,
     color: color.present ? color.value : this.color,
     location: location.present ? location.value : this.location,
+    tags: tags.present ? tags.value : this.tags,
     createdAt: createdAt ?? this.createdAt,
     updatedAt: updatedAt ?? this.updatedAt,
   );
@@ -628,6 +658,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
           : this.moduleLink,
       color: data.color.present ? data.color.value : this.color,
       location: data.location.present ? data.location.value : this.location,
+      tags: data.tags.present ? data.tags.value : this.tags,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
       updatedAt: data.updatedAt.present ? data.updatedAt.value : this.updatedAt,
     );
@@ -650,6 +681,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
           ..write('moduleLink: $moduleLink, ')
           ..write('color: $color, ')
           ..write('location: $location, ')
+          ..write('tags: $tags, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt')
           ..write(')'))
@@ -672,6 +704,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
     moduleLink,
     color,
     location,
+    tags,
     createdAt,
     updatedAt,
   );
@@ -693,6 +726,7 @@ class ItemsTableData extends DataClass implements Insertable<ItemsTableData> {
           other.moduleLink == this.moduleLink &&
           other.color == this.color &&
           other.location == this.location &&
+          other.tags == this.tags &&
           other.createdAt == this.createdAt &&
           other.updatedAt == this.updatedAt);
 }
@@ -712,6 +746,7 @@ class ItemsTableCompanion extends UpdateCompanion<ItemsTableData> {
   final Value<String?> moduleLink;
   final Value<String?> color;
   final Value<String?> location;
+  final Value<String?> tags;
   final Value<DateTime> createdAt;
   final Value<DateTime> updatedAt;
   final Value<int> rowid;
@@ -730,6 +765,7 @@ class ItemsTableCompanion extends UpdateCompanion<ItemsTableData> {
     this.moduleLink = const Value.absent(),
     this.color = const Value.absent(),
     this.location = const Value.absent(),
+    this.tags = const Value.absent(),
     this.createdAt = const Value.absent(),
     this.updatedAt = const Value.absent(),
     this.rowid = const Value.absent(),
@@ -749,6 +785,7 @@ class ItemsTableCompanion extends UpdateCompanion<ItemsTableData> {
     this.moduleLink = const Value.absent(),
     this.color = const Value.absent(),
     this.location = const Value.absent(),
+    this.tags = const Value.absent(),
     required DateTime createdAt,
     required DateTime updatedAt,
     this.rowid = const Value.absent(),
@@ -774,6 +811,7 @@ class ItemsTableCompanion extends UpdateCompanion<ItemsTableData> {
     Expression<String>? moduleLink,
     Expression<String>? color,
     Expression<String>? location,
+    Expression<String>? tags,
     Expression<DateTime>? createdAt,
     Expression<DateTime>? updatedAt,
     Expression<int>? rowid,
@@ -794,6 +832,7 @@ class ItemsTableCompanion extends UpdateCompanion<ItemsTableData> {
       if (moduleLink != null) 'module_link': moduleLink,
       if (color != null) 'color': color,
       if (location != null) 'location': location,
+      if (tags != null) 'tags': tags,
       if (createdAt != null) 'created_at': createdAt,
       if (updatedAt != null) 'updated_at': updatedAt,
       if (rowid != null) 'rowid': rowid,
@@ -815,6 +854,7 @@ class ItemsTableCompanion extends UpdateCompanion<ItemsTableData> {
     Value<String?>? moduleLink,
     Value<String?>? color,
     Value<String?>? location,
+    Value<String?>? tags,
     Value<DateTime>? createdAt,
     Value<DateTime>? updatedAt,
     Value<int>? rowid,
@@ -835,6 +875,7 @@ class ItemsTableCompanion extends UpdateCompanion<ItemsTableData> {
       moduleLink: moduleLink ?? this.moduleLink,
       color: color ?? this.color,
       location: location ?? this.location,
+      tags: tags ?? this.tags,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       rowid: rowid ?? this.rowid,
@@ -888,6 +929,9 @@ class ItemsTableCompanion extends UpdateCompanion<ItemsTableData> {
     if (location.present) {
       map['location'] = Variable<String>(location.value);
     }
+    if (tags.present) {
+      map['tags'] = Variable<String>(tags.value);
+    }
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
@@ -917,6 +961,7 @@ class ItemsTableCompanion extends UpdateCompanion<ItemsTableData> {
           ..write('moduleLink: $moduleLink, ')
           ..write('color: $color, ')
           ..write('location: $location, ')
+          ..write('tags: $tags, ')
           ..write('createdAt: $createdAt, ')
           ..write('updatedAt: $updatedAt, ')
           ..write('rowid: $rowid')
@@ -8706,6 +8751,7 @@ typedef $$ItemsTableTableCreateCompanionBuilder =
       Value<String?> moduleLink,
       Value<String?> color,
       Value<String?> location,
+      Value<String?> tags,
       required DateTime createdAt,
       required DateTime updatedAt,
       Value<int> rowid,
@@ -8726,6 +8772,7 @@ typedef $$ItemsTableTableUpdateCompanionBuilder =
       Value<String?> moduleLink,
       Value<String?> color,
       Value<String?> location,
+      Value<String?> tags,
       Value<DateTime> createdAt,
       Value<DateTime> updatedAt,
       Value<int> rowid,
@@ -8807,6 +8854,11 @@ class $$ItemsTableTableFilterComposer
 
   ColumnFilters<String> get location => $composableBuilder(
     column: $table.location,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get tags => $composableBuilder(
+    column: $table.tags,
     builder: (column) => ColumnFilters(column),
   );
 
@@ -8900,6 +8952,11 @@ class $$ItemsTableTableOrderingComposer
     builder: (column) => ColumnOrderings(column),
   );
 
+  ColumnOrderings<String> get tags => $composableBuilder(
+    column: $table.tags,
+    builder: (column) => ColumnOrderings(column),
+  );
+
   ColumnOrderings<DateTime> get createdAt => $composableBuilder(
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
@@ -8974,6 +9031,9 @@ class $$ItemsTableTableAnnotationComposer
   GeneratedColumn<String> get location =>
       $composableBuilder(column: $table.location, builder: (column) => column);
 
+  GeneratedColumn<String> get tags =>
+      $composableBuilder(column: $table.tags, builder: (column) => column);
+
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
 
@@ -9026,6 +9086,7 @@ class $$ItemsTableTableTableManager
                 Value<String?> moduleLink = const Value.absent(),
                 Value<String?> color = const Value.absent(),
                 Value<String?> location = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
                 Value<DateTime> updatedAt = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
@@ -9044,6 +9105,7 @@ class $$ItemsTableTableTableManager
                 moduleLink: moduleLink,
                 color: color,
                 location: location,
+                tags: tags,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
@@ -9064,6 +9126,7 @@ class $$ItemsTableTableTableManager
                 Value<String?> moduleLink = const Value.absent(),
                 Value<String?> color = const Value.absent(),
                 Value<String?> location = const Value.absent(),
+                Value<String?> tags = const Value.absent(),
                 required DateTime createdAt,
                 required DateTime updatedAt,
                 Value<int> rowid = const Value.absent(),
@@ -9082,6 +9145,7 @@ class $$ItemsTableTableTableManager
                 moduleLink: moduleLink,
                 color: color,
                 location: location,
+                tags: tags,
                 createdAt: createdAt,
                 updatedAt: updatedAt,
                 rowid: rowid,
