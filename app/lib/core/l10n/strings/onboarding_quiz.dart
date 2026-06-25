@@ -1385,4 +1385,108 @@ const Map<String, Map<String, String>> onboardingQuizStrings = {
     'ja': '「重要」と「通常」は、終わらなかった分の繰り越し順だけに影響する。',
     'ko': '«중요»와 «일반»은 못 끝낸 일이 옮겨지는 순서에만 영향을 줘요.',
   },
+
+  // ---------------------------------------------------------------------------
+  // Шаг: разрешение на уведомления (после времени разборов)
+  // ---------------------------------------------------------------------------
+  'onboarding_quiz.notif_title': {
+    'en': 'Reminders for your daily review?',
+    'ru': 'Напоминания о ежедневном разборе?',
+  },
+  'onboarding_quiz.notif_subtitle': {
+    'en': 'I\'ll nudge you at the times you just picked — nothing more.',
+    'ru': 'Буду напоминать в выбранное тобой время — и ничего лишнего.',
+  },
+  'onboarding_quiz.notif_cta': {
+    'en': 'Enable reminders',
+    'ru': 'Включить напоминания',
+  },
+  'onboarding_quiz.notif_skip': {
+    'en': 'Not now',
+    'ru': 'Не сейчас',
+  },
+
+  // ---------------------------------------------------------------------------
+  // Шаг: тон общения (gentle / harsh)
+  // ---------------------------------------------------------------------------
+  'onboarding_quiz.tone_title': {
+    'en': 'Want me gentle, or honest and blunt?',
+    'ru': 'Мне быть мягким или честным и прямым?',
+  },
+  'onboarding_quiz.tone_subtitle': {
+    'en': 'It sets how I talk to you. Change it anytime.',
+    'ru': 'От этого зависит, как я с тобой говорю. Поменяешь когда угодно.',
+  },
+  'onboarding_quiz.tone_gentle_label': {
+    'en': 'Gentle',
+    'ru': 'Мягко',
+  },
+  'onboarding_quiz.tone_gentle_sub': {
+    'en': 'Encouraging and kind.',
+    'ru': 'Поддержит и подбодрит.',
+  },
+  'onboarding_quiz.tone_harsh_label': {
+    'en': 'Honest & blunt',
+    'ru': 'Честно и прямо',
+  },
+  'onboarding_quiz.tone_harsh_sub': {
+    'en': 'Straight talk, no sugar.',
+    'ru': 'Прямо, без сахара.',
+  },
+  'onboarding_quiz.tone_cta': {
+    'en': 'Continue',
+    'ru': 'Дальше',
+  },
+
+  // ---------------------------------------------------------------------------
+  // Шаг: тема оформления (5 пресетов)
+  // ---------------------------------------------------------------------------
+  'onboarding_quiz.theme_title': {
+    'en': 'Pick a look. Change it anytime.',
+    'ru': 'Выбери вид. Поменяешь когда угодно.',
+  },
+  'onboarding_quiz.theme_subtitle': {
+    'en': 'First impression — but never final.',
+    'ru': 'Первое впечатление — но не навсегда.',
+  },
+  'onboarding_quiz.theme_cta': {
+    'en': 'Continue',
+    'ru': 'Дальше',
+  },
+  'onboarding_quiz.theme_focus': {
+    'en': 'Focus',
+    'ru': 'Фокус',
+  },
+  'onboarding_quiz.theme_calm': {
+    'en': 'Calm',
+    'ru': 'Спокойствие',
+  },
+  'onboarding_quiz.theme_black': {
+    'en': 'Black',
+    'ru': 'Чёрная',
+  },
+  'onboarding_quiz.theme_white': {
+    'en': 'White',
+    'ru': 'Светлая',
+  },
+  'onboarding_quiz.theme_contrast': {
+    'en': 'Contrast',
+    'ru': 'Контраст',
+  },
+  'onboarding_quiz.theme_custom': {
+    'en': 'My theme',
+    'ru': 'Моя тема',
+  },
+
+  // ---------------------------------------------------------------------------
+  // Саммари: новые строки (тон + тема)
+  // ---------------------------------------------------------------------------
+  'onboarding_quiz.s15_tone_label': {
+    'en': 'Tone',
+    'ru': 'Тон',
+  },
+  'onboarding_quiz.s15_theme_label': {
+    'en': 'Theme',
+    'ru': 'Тема',
+  },
 };

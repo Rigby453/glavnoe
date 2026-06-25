@@ -35,6 +35,7 @@ import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/locale_provider.dart';
 import '../../core/settings/health_profile_provider.dart'; // кonstants сна (ITEM B)
 import '../../core/settings/nutrition_targets.dart';
+import '../../core/settings/tone_provider.dart'; // тон gentle/harsh
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
@@ -78,6 +79,16 @@ const _planMinutesMap = {
   'more': 45,
 };
 
+// Превью-свотчи тем для шага выбора темы: (bg, accent). Зеркалят
+// design-tokens.json — чтобы не строить полный ThemeData (GoogleFonts) на тайл.
+const _kThemeSwatch = <AppThemeKey, (Color, Color)>{
+  AppThemeKey.focus: (Color(0xFF141009), Color(0xFFD9F24B)),
+  AppThemeKey.calm: (Color(0xFF11171A), Color(0xFF6FB6A3)),
+  AppThemeKey.black: (Color(0xFF000000), Color(0xFFC8FF4D)),
+  AppThemeKey.white: (Color(0xFFFFFFFF), Color(0xFF2B2A26)),
+  AppThemeKey.contrast: (Color(0xFF000000), Color(0xFFFFE600)),
+};
+
 // ---------------------------------------------------------------------------
 // Корневой виджет
 // ---------------------------------------------------------------------------
@@ -94,9 +105,10 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   int _page = 0;
 
   // Общее число экранов.
-  // 12 экранов: ценность и выбор языка перенесены в /onboarding (первый запуск),
-  // здесь — только персонализация (цели → тело → первая задача → демо → пейвол).
-  static const _pageCount = 12;
+  // 15 экранов: ценность и выбор языка перенесены в /onboarding (первый запуск),
+  // здесь — персонализация (цели → тело → первая задача → демо → время разборов →
+  // уведомления → тон → тема → саммари → пейвол).
+  static const _pageCount = 15;
 
   // --- Экран 5: цели ---
   final Set<String> _selectedGoals = {};
@@ -305,8 +317,8 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   // UI-helpers
   // ---------------------------------------------------------------------------
 
-  /// Показывать ли прогресс-индикатор (не на демо-экране 8 и пейволе 11).
-  bool get _showProgress => _page != 8 && _page != 11;
+  /// Показывать ли прогресс-индикатор (не на демо-экране 8 и пейволе 14).
+  bool get _showProgress => _page != 8 && _page != 14;
 
   /// Карточка-выбор (single select) с accent-границей у выбранной.
   Widget _choiceTile({
@@ -315,6 +327,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     String? subtitle,
     required VoidCallback onTap,
     double topPad = 5,
+    Widget? leading,
   }) {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
@@ -341,6 +354,10 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
             child: Row(
               children: [
+                if (leading != null) ...[
+                  leading,
+                  const SizedBox(width: 12),
+                ],
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -441,8 +458,8 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
 
     // Лейбл CTA на последнем экране (экран 16 — пейволл, кнопка не нужна).
     final isLastPage = _page == _pageCount - 1;
-    // Экран хендоффа в пейволл (индекс 11) управляет собой сам — кнопок нет.
-    final showBottomButtons = _page != 11;
+    // Экран хендоффа в пейволл (индекс 14) управляет собой сам — кнопок нет.
+    final showBottomButtons = _page != 14;
 
     return Scaffold(
       body: SafeArea(
@@ -461,22 +478,25 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   _page = i;
                   // Сбрасываем демо при возврате на экран демо-пересборки (8)
                   if (i == 8) _taskMoved = false;
-                  // Запускаем «расчёт» на экране сводки (10)
-                  if (i == 10) _triggerSummaryReady();
+                  // Запускаем «расчёт» на экране сводки (13)
+                  if (i == 13) _triggerSummaryReady();
                 }),
                 children: [
-                  _buildScreen5(),  // 0  Цели
-                  _buildScreen6(),  // 1  Время на планирование
-                  _buildScreen7(),  // 2  Горизонт
-                  _buildScreen8(),  // 3  Проекция
-                  _buildScreen9(),  // 4  Возраст/пол
-                  _buildScreen10(), // 5  Рост/вес
-                  _buildScreen11(), // 6  Активность
-                  _buildScreen12(), // 7  Первая задача
-                  _buildScreen13(), // 8  Демо-пересборка
-                  _buildScreen14(), // 9  Время разборов
-                  _buildScreen15(), // 10 Сводка
-                  _buildScreen16(), // 11 Хендофф в пейвол
+                  _buildScreen5(),       // 0  Цели
+                  _buildScreen6(),       // 1  Время на планирование
+                  _buildScreen7(),       // 2  Горизонт
+                  _buildScreen8(),       // 3  Проекция
+                  _buildScreen9(),       // 4  Возраст/пол
+                  _buildScreen10(),      // 5  Рост/вес
+                  _buildScreen11(),      // 6  Активность
+                  _buildScreen12(),      // 7  Первая задача
+                  _buildScreen13(),      // 8  Демо-пересборка
+                  _buildScreen14(),      // 9  Время разборов
+                  _buildNotifStep(),     // 10 Разрешение на уведомления
+                  _buildToneStep(),      // 11 Тон gentle/harsh
+                  _buildThemeStep(),     // 12 Тема оформления
+                  _buildScreen15(),      // 13 Сводка
+                  _buildScreen16(),      // 14 Хендофф в пейвол
                 ],
               ),
             ),
@@ -523,9 +543,16 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
               ),
             ),
             const SizedBox(width: 12),
-            Text(
-              '$displayPage / $total',
-              style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+            // Flexible + ellipsis: на крупном textScale двузначный счётчик
+            // («11 / 15») вместе с «Пропустить» не должен переполнять строку.
+            Flexible(
+              child: Text(
+                '$displayPage / $total',
+                maxLines: 1,
+                softWrap: false,
+                overflow: TextOverflow.ellipsis,
+                style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+              ),
             ),
           ] else
             const Spacer(),
@@ -588,7 +615,11 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
             child: SizedBox(
               height: 52,
               child: FilledButton(
-                onPressed: _page == 7 ? _handleAddTask : _next,
+                onPressed: switch (_page) {
+                  7 => _handleAddTask,
+                  10 => _handleNotifPermission,
+                  _ => _next,
+                },
                 child: Text(context.s(ctaKey)),
               ),
             ),
@@ -610,7 +641,10 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
         7 => 'onboarding_quiz.s12_cta', // Добавить задачу
         8 => 'onboarding_quiz.s13_cta', // Демо-пересборка
         9 => 'onboarding_quiz.s14_cta', // Время разборов
-        10 => 'onboarding_quiz.s15_cta', // Сводка
+        10 => 'onboarding_quiz.notif_cta', // Уведомления
+        11 => 'onboarding_quiz.tone_cta', // Тон
+        12 => 'onboarding_quiz.theme_cta', // Тема
+        13 => 'onboarding_quiz.s15_cta', // Сводка
         _ => 'onboarding_quiz.s5_cta',
       };
 
@@ -637,6 +671,27 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
       await Future<void>.delayed(animDelay);
       if (mounted) _next();
     }
+  }
+
+  // ---------------------------------------------------------------------------
+  // Разрешение на уведомления (экран 11 в общем флоу, индекс 10)
+  // ---------------------------------------------------------------------------
+
+  /// Запрашивает системное разрешение на уведомления и включает напоминания.
+  /// Сначала фиксирует выбранные на прошлом шаге часы разборов в prefs, чтобы
+  /// планировщик использовал именно их. При отказе остаётся выключенным
+  /// (`notifications_enabled=false`); не падает — всегда продолжает флоу.
+  Future<void> _handleNotifPermission() async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setInt(reviewMorningHourKey, _morningHour);
+    await prefs.setInt(reviewEveningHourKey, _eveningHour);
+    try {
+      // setEnabled сам запрашивает разрешение и при отказе оставляет false.
+      await ref.read(notificationsEnabledProvider.notifier).setEnabled(true);
+    } catch (_) {
+      // Уведомления не должны блокировать онбординг.
+    }
+    if (mounted) _next();
   }
 
   // ---------------------------------------------------------------------------
@@ -1344,6 +1399,154 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   }
 
   // ---------------------------------------------------------------------------
+  // Шаг (индекс 10): Разрешение на уведомления
+  // ---------------------------------------------------------------------------
+  // Пояснительный экран. Сама кнопка снизу (`notif_cta`) делает системный
+  // запрос через _handleNotifPermission; тут — копия + иконка + «Не сейчас».
+
+  Widget _buildNotifStep() {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return _stepFrame(
+      kaiEmotion: KaiEmotion.neutral,
+      title: context.s('onboarding_quiz.notif_title'),
+      subtitle: context.s('onboarding_quiz.notif_subtitle'),
+      child: Column(
+        children: [
+          Center(
+            child: Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withAlpha(18),
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                Icons.notifications_active_outlined,
+                size: 40,
+                color: colorScheme.primary,
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          // «Не сейчас» — пропускаем без включения уведомлений.
+          Center(
+            child: TextButton(
+              onPressed: _next,
+              child: Text(
+                context.s('onboarding_quiz.notif_skip'),
+                style: textTheme.labelLarge?.copyWith(color: ext.textMuted),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Шаг (индекс 11): Тон общения (gentle / harsh)
+  // ---------------------------------------------------------------------------
+  // Выбор пишется сразу в toneProvider (живо), выбранный тайл подсвечивается.
+
+  Widget _buildToneStep() {
+    final tone = ref.watch(toneProvider);
+    return _stepFrame(
+      kaiEmotion: KaiEmotion.thinking,
+      title: context.s('onboarding_quiz.tone_title'),
+      subtitle: context.s('onboarding_quiz.tone_subtitle'),
+      child: Column(
+        children: [
+          _choiceTile(
+            selected: tone == AppTone.gentle,
+            title: context.s('onboarding_quiz.tone_gentle_label'),
+            subtitle: context.s('onboarding_quiz.tone_gentle_sub'),
+            leading: const Text('🌿', style: TextStyle(fontSize: 22)),
+            onTap: () => ref.read(toneProvider.notifier).set(AppTone.gentle),
+          ),
+          _choiceTile(
+            selected: tone == AppTone.harsh,
+            title: context.s('onboarding_quiz.tone_harsh_label'),
+            subtitle: context.s('onboarding_quiz.tone_harsh_sub'),
+            leading: const Text('🔥', style: TextStyle(fontSize: 22)),
+            onTap: () => ref.read(toneProvider.notifier).set(AppTone.harsh),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Шаг (индекс 12): Тема оформления (5 пресетов)
+  // ---------------------------------------------------------------------------
+  // Выбор пишется сразу в themeNotifierProvider (живо), с цветным свотчем.
+
+  Widget _buildThemeStep() {
+    final current = ref.watch(themeNotifierProvider);
+    const themes = [
+      AppThemeKey.focus,
+      AppThemeKey.calm,
+      AppThemeKey.black,
+      AppThemeKey.white,
+      AppThemeKey.contrast,
+    ];
+    return _stepFrame(
+      kaiEmotion: KaiEmotion.neutral,
+      title: context.s('onboarding_quiz.theme_title'),
+      subtitle: context.s('onboarding_quiz.theme_subtitle'),
+      child: Column(
+        children: themes.map((key) {
+          return _choiceTile(
+            selected: current == key,
+            title: context.s(_themeLabelKey(key)),
+            leading: _themeSwatchDot(key),
+            onTap: () =>
+                ref.read(themeNotifierProvider.notifier).setTheme(key),
+          );
+        }).toList(),
+      ),
+    );
+  }
+
+  /// Ключ локализованного названия темы.
+  String _themeLabelKey(AppThemeKey key) => switch (key) {
+        AppThemeKey.focus => 'onboarding_quiz.theme_focus',
+        AppThemeKey.calm => 'onboarding_quiz.theme_calm',
+        AppThemeKey.black => 'onboarding_quiz.theme_black',
+        AppThemeKey.white => 'onboarding_quiz.theme_white',
+        AppThemeKey.contrast => 'onboarding_quiz.theme_contrast',
+        AppThemeKey.custom => 'onboarding_quiz.theme_custom',
+      };
+
+  /// Маленький круглый свотч-превью темы (bg + accent-точка). Цвета зеркалят
+  /// design-tokens.json, чтобы не строить полный ThemeData (GoogleFonts) на тайл.
+  Widget _themeSwatchDot(AppThemeKey key) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final pair = _kThemeSwatch[key] ??
+        (const Color(0xFF141009), const Color(0xFFD9F24B));
+    return Container(
+      width: 26,
+      height: 26,
+      decoration: BoxDecoration(
+        color: pair.$1,
+        shape: BoxShape.circle,
+        border: Border.all(color: ext.border),
+      ),
+      child: Center(
+        child: Container(
+          width: 12,
+          height: 12,
+          decoration: BoxDecoration(
+            color: pair.$2,
+            shape: BoxShape.circle,
+          ),
+        ),
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
   // Экран 15: Саммари
   // ---------------------------------------------------------------------------
 
@@ -1410,6 +1613,16 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
       _TimingOption.evening => context.s('onboarding_quiz.timing_evening'),
       _TimingOption.both => context.s('onboarding_quiz.timing_both'),
     };
+
+    // Тон общения (выбран на шаге тона; живёт в toneProvider).
+    final tone = ref.watch(toneProvider);
+    final toneLabel = tone == AppTone.harsh
+        ? context.s('onboarding_quiz.tone_harsh_label')
+        : context.s('onboarding_quiz.tone_gentle_label');
+
+    // Тема оформления (выбрана на шаге темы; живёт в themeNotifierProvider).
+    final themeKey = ref.watch(themeNotifierProvider);
+    final themeLabel = context.s(_themeLabelKey(themeKey));
 
     // Расписание сна (ITEM B)
     String formatHourShort(int h) {
@@ -1504,6 +1717,22 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                     icon: Icons.bedtime_outlined,
                     label: context.s('health_profile.sleep_schedule_label'),
                     value: sleepStr,
+                    textTheme: textTheme,
+                    ext: ext,
+                  ),
+                  _summaryDivider(ext),
+                  _summaryRow(
+                    icon: Icons.record_voice_over_outlined,
+                    label: context.s('onboarding_quiz.s15_tone_label'),
+                    value: toneLabel,
+                    textTheme: textTheme,
+                    ext: ext,
+                  ),
+                  _summaryDivider(ext),
+                  _summaryRow(
+                    icon: Icons.palette_outlined,
+                    label: context.s('onboarding_quiz.s15_theme_label'),
+                    value: themeLabel,
                     textTheme: textTheme,
                     ext: ext,
                   ),
