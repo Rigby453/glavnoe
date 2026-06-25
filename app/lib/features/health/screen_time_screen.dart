@@ -45,6 +45,13 @@ class _ScreenTimeScreenState extends ConsumerState<ScreenTimeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
+    // Обновляем данные каждый раз, когда пользователь открывает экран —
+    // провайдер не autoDispose, поэтому без этого цифры могут быть stale.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        ref.read(screenTimeUsageProvider.notifier).refresh();
+      }
+    });
   }
 
   @override
