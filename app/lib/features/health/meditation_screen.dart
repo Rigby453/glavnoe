@@ -10,21 +10,51 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/animations/constants.dart';
+import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
 import '../../core/mood/meditation_mood_log.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../core/widgets/undo_snack_bar.dart';
+import 'meditation_custom_providers.dart';
+import 'meditation_editor_screen.dart';
 
 // ---------------------------------------------------------------------------
 // Модель данных
 // ---------------------------------------------------------------------------
 
-// Шаг сессии: textKey — l10n-ключ текста инструкции.
+// Шаг встроенной сессии: textKey — l10n-ключ текста инструкции.
 class _Step {
   const _Step({required this.textKey, required this.seconds});
   final String textKey;
   final int seconds;
+}
+
+// ---------------------------------------------------------------------------
+// Унифицированная рантайм-модель плеера
+//
+// Встроенные сессии хранят l10n-КЛЮЧИ (textKey/nameKey), пользовательские —
+// СЫРОЙ текст. Плеер не должен знать о различии: при открытии сессии мы один раз
+// резолвим всё в [_RunSession] — встроенные через context.s(), пользовательские
+// пропускаем как есть. Дальше плеер просто показывает готовые строки.
+// ---------------------------------------------------------------------------
+
+class _RunStep {
+  const _RunStep({required this.text, required this.seconds});
+  final String text; // уже резолвленная строка (готова к показу)
+  final int seconds;
+}
+
+class _RunSession {
+  const _RunSession({
+    required this.id,
+    required this.name,
+    required this.steps,
+  });
+  final String id; // для лога настроения (sessionId)
+  final String name; // уже резолвленное имя
+  final List<_RunStep> steps;
 }
 
 // Сессия медитации: nameKey/descKey/steps — l10n-ключи; id и duration — стабильные.
@@ -115,35 +145,113 @@ const _sessions = <_Session>[
   ),
 ];
 
+// Резолвит встроенную сессию (l10n-ключи) в рантайм-модель плеера.
+_RunSession _builtinToRun(BuildContext context, _Session session) {
+  return _RunSession(
+    id: session.id,
+    name: context.s(session.nameKey),
+    steps: session.steps
+        .map((st) => _RunStep(text: context.s(st.textKey), seconds: st.seconds))
+        .toList(),
+  );
+}
+
+// Резолвит пользовательскую сессию (СЫРОЙ текст) в рантайм-модель плеера.
+_RunSession _customToRun(CustomMeditation m) {
+  return _RunSession(
+    id: m.id,
+    name: m.name,
+    steps: m.steps
+        .map((st) => _RunStep(text: st.text, seconds: st.seconds))
+        .toList(),
+  );
+}
+
+void _openPlayer(BuildContext context, _RunSession session) {
+  Navigator.of(context).push(
+    MaterialPageRoute<void>(
+      builder: (_) => _SessionPlayerScreen(session: session),
+    ),
+  );
+}
+
 // ---------------------------------------------------------------------------
 // Session list screen
 // ---------------------------------------------------------------------------
 
-class MeditationScreen extends StatelessWidget {
+class MeditationScreen extends ConsumerWidget {
   const MeditationScreen({super.key});
 
+  void _openEditor(BuildContext context) {
+    Navigator.of(context).push(
+      MaterialPageRoute<void>(builder: (_) => const MeditationEditorScreen()),
+    );
+  }
+
+  /// Удаление пользовательской сессии с Undo (паттерн привычек/дыхания).
+  Future<void> _deleteCustom(
+    BuildContext context,
+    WidgetRef ref,
+    CustomMeditation m,
+  ) async {
+    final dao = ref.read(customMeditationDaoProvider);
+    final snapshot = await dao.getById(m.id);
+    if (snapshot == null) return;
+    await dao.deleteSession(m.id);
+    if (!context.mounted) return;
+    showUndoSnackBar(
+      context,
+      message: '"${m.name}" ${context.s('meditation.removed')}',
+      onUndo: () async => dao.restore(snapshot),
+    );
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
+    // Пользовательские сессии из БД (пустой список, пока стрим грузится).
+    final custom = ref.watch(customMeditationsProvider).valueOrNull ??
+        const <CustomMeditation>[];
+
     return Scaffold(
       appBar: AppBar(title: Text(context.s('meditation.title'))),
-      body: ListView.separated(
+      body: ListView(
         // 24dp screen margin — spec §4.1
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
-        itemCount: _sessions.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 12),
-        itemBuilder: (context, index) {
-          final session = _sessions[index];
-          return _SessionCard(session: session, ext: ext, textTheme: textTheme);
-        },
+        children: [
+          // Встроенные сессии.
+          for (final session in _sessions) ...[
+            _SessionCard(session: session, ext: ext, textTheme: textTheme),
+            const SizedBox(height: 12),
+          ],
+          // Пользовательские сессии — рядом со встроенными, тот же плеер.
+          for (final m in custom) ...[
+            _CustomSessionCard(
+              session: m,
+              ext: ext,
+              textTheme: textTheme,
+              onDelete: () => _deleteCustom(context, ref, m),
+            ),
+            const SizedBox(height: 12),
+          ],
+          // Создать свою сессию.
+          Align(
+            alignment: Alignment.centerLeft,
+            child: TextButton.icon(
+              onPressed: () => _openEditor(context),
+              icon: const Icon(Icons.add),
+              label: Text(context.s('meditation.create_button')),
+            ),
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Карточка сессии — выделена в StatelessWidget для чистоты.
+/// Карточка встроенной сессии — выделена в StatelessWidget для чистоты.
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
     required this.session,
@@ -160,13 +268,7 @@ class _SessionCard extends StatelessWidget {
     return Card(
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
-        onTap: () {
-          Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => _SessionPlayerScreen(session: session),
-            ),
-          );
-        },
+        onTap: () => _openPlayer(context, _builtinToRun(context, session)),
         child: Padding(
           padding: const EdgeInsets.all(16),
           child: Row(
@@ -217,13 +319,84 @@ class _SessionCard extends StatelessWidget {
   }
 }
 
+/// Карточка пользовательской сессии: тот же макет + кнопка удаления (Undo).
+class _CustomSessionCard extends StatelessWidget {
+  const _CustomSessionCard({
+    required this.session,
+    required this.ext,
+    required this.textTheme,
+    required this.onDelete,
+  });
+
+  final CustomMeditation session;
+  final FocusThemeExtension ext;
+  final TextTheme textTheme;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    // Длительность сессии в минутах (минимум 1) для мета-строки.
+    final minutes = (session.totalSeconds / 60).round().clamp(1, 1 << 30);
+
+    return Card(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => _openPlayer(context, _customToRun(session)),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: ext.accentMuted,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.self_improvement_outlined,
+                  color: ext.textMuted,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Имя — СЫРОЙ пользовательский текст (данные).
+                    Text(session.name, style: textTheme.titleMedium),
+                    const SizedBox(height: 6),
+                    Text(
+                      '${plMinutes(context, minutes)} · ${plSteps(context, session.steps.length)}',
+                      style: textTheme.bodySmall?.copyWith(
+                        color: ext.textFaint,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                icon: Icon(Icons.delete_outline, color: ext.ember),
+                tooltip: context.s('btn.delete'),
+                onPressed: onDelete,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ---------------------------------------------------------------------------
 // Session player screen
 // ---------------------------------------------------------------------------
 
 class _SessionPlayerScreen extends ConsumerStatefulWidget {
   const _SessionPlayerScreen({required this.session});
-  final _Session session;
+  final _RunSession session;
 
   @override
   ConsumerState<_SessionPlayerScreen> createState() =>
@@ -245,7 +418,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
   late AnimationController _arcController;
 
   bool get _isLastStep => _stepIndex >= widget.session.steps.length - 1;
-  _Step get _currentStep => widget.session.steps[_stepIndex];
+  _RunStep get _currentStep => widget.session.steps[_stepIndex];
 
   @override
   void initState() {
@@ -270,7 +443,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     super.dispose();
   }
 
-  void _startStep(_Step step) {
+  void _startStep(_RunStep step) {
     _timer?.cancel();
     _remaining = step.seconds;
 
@@ -349,7 +522,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                   children: [
                     // Сессия-название — bodyMedium (контекстная подпись)
                     Text(
-                      '"${ctx.s(widget.session.nameKey)}"',
+                      '"${widget.session.name}"',
                       style: textTheme.bodyMedium
                           ?.copyWith(color: ext.textMuted),
                     ),
@@ -478,7 +651,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.s(widget.session.nameKey)),
+        title: Text(widget.session.name),
         centerTitle: true,
       ),
       body: SafeArea(
@@ -555,7 +728,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                       Flexible(
                         child: Center(
                           child: Text(
-                            context.s(_currentStep.textKey),
+                            _currentStep.text,
                             style: textTheme.bodyLarge,
                             textAlign: TextAlign.center,
                           ),

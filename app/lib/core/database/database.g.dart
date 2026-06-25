@@ -9257,6 +9257,319 @@ class CustomBreathingTableCompanion
   }
 }
 
+class $CustomMeditationTableTable extends CustomMeditationTable
+    with TableInfo<$CustomMeditationTableTable, CustomMeditationTableData> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CustomMeditationTableTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _idMeta = const VerificationMeta('id');
+  @override
+  late final GeneratedColumn<String> id = GeneratedColumn<String>(
+    'id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _nameMeta = const VerificationMeta('name');
+  @override
+  late final GeneratedColumn<String> name = GeneratedColumn<String>(
+    'name',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _stepsJsonMeta = const VerificationMeta(
+    'stepsJson',
+  );
+  @override
+  late final GeneratedColumn<String> stepsJson = GeneratedColumn<String>(
+    'steps_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _createdAtMeta = const VerificationMeta(
+    'createdAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> createdAt = GeneratedColumn<DateTime>(
+    'created_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: false,
+    defaultValue: currentDateAndTime,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [id, name, stepsJson, createdAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'custom_meditation';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CustomMeditationTableData> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('id')) {
+      context.handle(_idMeta, id.isAcceptableOrUnknown(data['id']!, _idMeta));
+    } else if (isInserting) {
+      context.missing(_idMeta);
+    }
+    if (data.containsKey('name')) {
+      context.handle(
+        _nameMeta,
+        name.isAcceptableOrUnknown(data['name']!, _nameMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_nameMeta);
+    }
+    if (data.containsKey('steps_json')) {
+      context.handle(
+        _stepsJsonMeta,
+        stepsJson.isAcceptableOrUnknown(data['steps_json']!, _stepsJsonMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_stepsJsonMeta);
+    }
+    if (data.containsKey('created_at')) {
+      context.handle(
+        _createdAtMeta,
+        createdAt.isAcceptableOrUnknown(data['created_at']!, _createdAtMeta),
+      );
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {id};
+  @override
+  CustomMeditationTableData map(
+    Map<String, dynamic> data, {
+    String? tablePrefix,
+  }) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CustomMeditationTableData(
+      id: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}id'],
+      )!,
+      name: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}name'],
+      )!,
+      stepsJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}steps_json'],
+      )!,
+      createdAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}created_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CustomMeditationTableTable createAlias(String alias) {
+    return $CustomMeditationTableTable(attachedDatabase, alias);
+  }
+}
+
+class CustomMeditationTableData extends DataClass
+    implements Insertable<CustomMeditationTableData> {
+  final String id;
+  final String name;
+  final String stepsJson;
+  final DateTime createdAt;
+  const CustomMeditationTableData({
+    required this.id,
+    required this.name,
+    required this.stepsJson,
+    required this.createdAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['id'] = Variable<String>(id);
+    map['name'] = Variable<String>(name);
+    map['steps_json'] = Variable<String>(stepsJson);
+    map['created_at'] = Variable<DateTime>(createdAt);
+    return map;
+  }
+
+  CustomMeditationTableCompanion toCompanion(bool nullToAbsent) {
+    return CustomMeditationTableCompanion(
+      id: Value(id),
+      name: Value(name),
+      stepsJson: Value(stepsJson),
+      createdAt: Value(createdAt),
+    );
+  }
+
+  factory CustomMeditationTableData.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CustomMeditationTableData(
+      id: serializer.fromJson<String>(json['id']),
+      name: serializer.fromJson<String>(json['name']),
+      stepsJson: serializer.fromJson<String>(json['stepsJson']),
+      createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'id': serializer.toJson<String>(id),
+      'name': serializer.toJson<String>(name),
+      'stepsJson': serializer.toJson<String>(stepsJson),
+      'createdAt': serializer.toJson<DateTime>(createdAt),
+    };
+  }
+
+  CustomMeditationTableData copyWith({
+    String? id,
+    String? name,
+    String? stepsJson,
+    DateTime? createdAt,
+  }) => CustomMeditationTableData(
+    id: id ?? this.id,
+    name: name ?? this.name,
+    stepsJson: stepsJson ?? this.stepsJson,
+    createdAt: createdAt ?? this.createdAt,
+  );
+  CustomMeditationTableData copyWithCompanion(
+    CustomMeditationTableCompanion data,
+  ) {
+    return CustomMeditationTableData(
+      id: data.id.present ? data.id.value : this.id,
+      name: data.name.present ? data.name.value : this.name,
+      stepsJson: data.stepsJson.present ? data.stepsJson.value : this.stepsJson,
+      createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomMeditationTableData(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('stepsJson: $stepsJson, ')
+          ..write('createdAt: $createdAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(id, name, stepsJson, createdAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CustomMeditationTableData &&
+          other.id == this.id &&
+          other.name == this.name &&
+          other.stepsJson == this.stepsJson &&
+          other.createdAt == this.createdAt);
+}
+
+class CustomMeditationTableCompanion
+    extends UpdateCompanion<CustomMeditationTableData> {
+  final Value<String> id;
+  final Value<String> name;
+  final Value<String> stepsJson;
+  final Value<DateTime> createdAt;
+  final Value<int> rowid;
+  const CustomMeditationTableCompanion({
+    this.id = const Value.absent(),
+    this.name = const Value.absent(),
+    this.stepsJson = const Value.absent(),
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CustomMeditationTableCompanion.insert({
+    required String id,
+    required String name,
+    required String stepsJson,
+    this.createdAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  }) : id = Value(id),
+       name = Value(name),
+       stepsJson = Value(stepsJson);
+  static Insertable<CustomMeditationTableData> custom({
+    Expression<String>? id,
+    Expression<String>? name,
+    Expression<String>? stepsJson,
+    Expression<DateTime>? createdAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (id != null) 'id': id,
+      if (name != null) 'name': name,
+      if (stepsJson != null) 'steps_json': stepsJson,
+      if (createdAt != null) 'created_at': createdAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CustomMeditationTableCompanion copyWith({
+    Value<String>? id,
+    Value<String>? name,
+    Value<String>? stepsJson,
+    Value<DateTime>? createdAt,
+    Value<int>? rowid,
+  }) {
+    return CustomMeditationTableCompanion(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      stepsJson: stepsJson ?? this.stepsJson,
+      createdAt: createdAt ?? this.createdAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (id.present) {
+      map['id'] = Variable<String>(id.value);
+    }
+    if (name.present) {
+      map['name'] = Variable<String>(name.value);
+    }
+    if (stepsJson.present) {
+      map['steps_json'] = Variable<String>(stepsJson.value);
+    }
+    if (createdAt.present) {
+      map['created_at'] = Variable<DateTime>(createdAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CustomMeditationTableCompanion(')
+          ..write('id: $id, ')
+          ..write('name: $name, ')
+          ..write('stepsJson: $stepsJson, ')
+          ..write('createdAt: $createdAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -9288,6 +9601,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
       $WorkoutSetLogsTableTable(this);
   late final $CustomBreathingTableTable customBreathingTable =
       $CustomBreathingTableTable(this);
+  late final $CustomMeditationTableTable customMeditationTable =
+      $CustomMeditationTableTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -9314,6 +9629,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     subtasksTable,
     workoutSetLogsTable,
     customBreathingTable,
+    customMeditationTable,
   ];
 }
 
@@ -14585,6 +14901,206 @@ typedef $$CustomBreathingTableTableProcessedTableManager =
       CustomBreathingTableData,
       PrefetchHooks Function()
     >;
+typedef $$CustomMeditationTableTableCreateCompanionBuilder =
+    CustomMeditationTableCompanion Function({
+      required String id,
+      required String name,
+      required String stepsJson,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+typedef $$CustomMeditationTableTableUpdateCompanionBuilder =
+    CustomMeditationTableCompanion Function({
+      Value<String> id,
+      Value<String> name,
+      Value<String> stepsJson,
+      Value<DateTime> createdAt,
+      Value<int> rowid,
+    });
+
+class $$CustomMeditationTableTableFilterComposer
+    extends Composer<_$AppDatabase, $CustomMeditationTableTable> {
+  $$CustomMeditationTableTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get stepsJson => $composableBuilder(
+    column: $table.stepsJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CustomMeditationTableTableOrderingComposer
+    extends Composer<_$AppDatabase, $CustomMeditationTableTable> {
+  $$CustomMeditationTableTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get id => $composableBuilder(
+    column: $table.id,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get name => $composableBuilder(
+    column: $table.name,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get stepsJson => $composableBuilder(
+    column: $table.stepsJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get createdAt => $composableBuilder(
+    column: $table.createdAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CustomMeditationTableTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CustomMeditationTableTable> {
+  $$CustomMeditationTableTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get id =>
+      $composableBuilder(column: $table.id, builder: (column) => column);
+
+  GeneratedColumn<String> get name =>
+      $composableBuilder(column: $table.name, builder: (column) => column);
+
+  GeneratedColumn<String> get stepsJson =>
+      $composableBuilder(column: $table.stepsJson, builder: (column) => column);
+
+  GeneratedColumn<DateTime> get createdAt =>
+      $composableBuilder(column: $table.createdAt, builder: (column) => column);
+}
+
+class $$CustomMeditationTableTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CustomMeditationTableTable,
+          CustomMeditationTableData,
+          $$CustomMeditationTableTableFilterComposer,
+          $$CustomMeditationTableTableOrderingComposer,
+          $$CustomMeditationTableTableAnnotationComposer,
+          $$CustomMeditationTableTableCreateCompanionBuilder,
+          $$CustomMeditationTableTableUpdateCompanionBuilder,
+          (
+            CustomMeditationTableData,
+            BaseReferences<
+              _$AppDatabase,
+              $CustomMeditationTableTable,
+              CustomMeditationTableData
+            >,
+          ),
+          CustomMeditationTableData,
+          PrefetchHooks Function()
+        > {
+  $$CustomMeditationTableTableTableManager(
+    _$AppDatabase db,
+    $CustomMeditationTableTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CustomMeditationTableTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CustomMeditationTableTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CustomMeditationTableTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> id = const Value.absent(),
+                Value<String> name = const Value.absent(),
+                Value<String> stepsJson = const Value.absent(),
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CustomMeditationTableCompanion(
+                id: id,
+                name: name,
+                stepsJson: stepsJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String id,
+                required String name,
+                required String stepsJson,
+                Value<DateTime> createdAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CustomMeditationTableCompanion.insert(
+                id: id,
+                name: name,
+                stepsJson: stepsJson,
+                createdAt: createdAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map((e) => (e.readTable(table), BaseReferences(db, table, e)))
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CustomMeditationTableTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CustomMeditationTableTable,
+      CustomMeditationTableData,
+      $$CustomMeditationTableTableFilterComposer,
+      $$CustomMeditationTableTableOrderingComposer,
+      $$CustomMeditationTableTableAnnotationComposer,
+      $$CustomMeditationTableTableCreateCompanionBuilder,
+      $$CustomMeditationTableTableUpdateCompanionBuilder,
+      (
+        CustomMeditationTableData,
+        BaseReferences<
+          _$AppDatabase,
+          $CustomMeditationTableTable,
+          CustomMeditationTableData
+        >,
+      ),
+      CustomMeditationTableData,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -14634,4 +15150,6 @@ class $AppDatabaseManager {
       $$WorkoutSetLogsTableTableTableManager(_db, _db.workoutSetLogsTable);
   $$CustomBreathingTableTableTableManager get customBreathingTable =>
       $$CustomBreathingTableTableTableManager(_db, _db.customBreathingTable);
+  $$CustomMeditationTableTableTableManager get customMeditationTable =>
+      $$CustomMeditationTableTableTableManager(_db, _db.customMeditationTable);
 }

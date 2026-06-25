@@ -8,6 +8,7 @@ import 'package:drift_flutter/drift_flutter.dart';
 
 import 'daos/habits_dao.dart';
 import 'daos/custom_breathing_dao.dart';
+import 'daos/custom_meditation_dao.dart';
 
 // Импорт сгенерированного файла (создаётся build_runner)
 part 'database.g.dart';
@@ -559,6 +560,31 @@ class CustomBreathingTable extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// Пользовательские медитативные сессии (Phase 2). Локальные, без синхронизации.
+/// Шаги хранятся как JSON-строка (кодек в features/health/meditation_custom.dart),
+/// плеер медитаций (meditation_screen.dart) работает с раскодированным списком.
+/// text каждого шага — СЫРОЙ пользовательский текст (данные, не l10n-ключ).
+/// Добавлено в schemaVersion 21.
+class CustomMeditationTable extends Table {
+  @override
+  String get tableName => 'custom_meditation';
+
+  // UUID, генерируется клиентом
+  TextColumn get id => text()();
+
+  // Название сессии (задаёт пользователь)
+  TextColumn get name => text()();
+
+  // JSON-массив шагов (см. meditation_custom.dart: encodeSteps/decodeSteps)
+  TextColumn get stepsJson => text()();
+
+  DateTimeColumn get createdAt =>
+      dateTime().withDefault(currentDateAndTime)();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Очередь синхронизации: записи, ожидающие отправки на сервер
 /// id — autoincrement int (локальный, не синхронизируется)
 class SyncQueueTable extends Table {
@@ -609,6 +635,7 @@ class SyncQueueTable extends Table {
     SubtasksTable,
     WorkoutSetLogsTable,
     CustomBreathingTable,
+    CustomMeditationTable,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -623,8 +650,11 @@ class AppDatabase extends _$AppDatabase {
   /// DAO для пользовательских дыхательных техник (schemaVersion 20).
   CustomBreathingDao get customBreathingDao => CustomBreathingDao(this);
 
+  /// DAO для пользовательских медитативных сессий (schemaVersion 21).
+  CustomMeditationDao get customMeditationDao => CustomMeditationDao(this);
+
   @override
-  int get schemaVersion => 20;
+  int get schemaVersion => 21;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -720,6 +750,11 @@ class AppDatabase extends _$AppDatabase {
           // дыхательные техники, Phase 2). Локальная, без синхронизации.
           if (from < 20) {
             await m.createTable(customBreathingTable);
+          }
+          // v21: добавлена таблица custom_meditation (пользовательские
+          // медитативные сессии, Phase 2). Локальная, без синхронизации.
+          if (from < 21) {
+            await m.createTable(customMeditationTable);
           }
         },
       );

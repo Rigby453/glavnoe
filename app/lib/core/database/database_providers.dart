@@ -19,6 +19,7 @@ import 'daos/habits_dao.dart';
 import 'daos/item_attachments_dao.dart';
 import 'daos/subtasks_dao.dart';
 import 'daos/custom_breathing_dao.dart';
+import 'daos/custom_meditation_dao.dart';
 
 /// Единственный экземпляр базы данных
 final appDatabaseProvider = Provider<AppDatabase>((ref) {
@@ -108,4 +109,9 @@ final subtasksDaoProvider = Provider<SubtasksDao>((ref) {
 /// DAO для пользовательских дыхательных техник (schemaVersion 20)
 final customBreathingDaoProvider = Provider<CustomBreathingDao>((ref) {
   return ref.watch(appDatabaseProvider).customBreathingDao;
+});
+
+/// DAO для пользовательских медитативных сессий (schemaVersion 21)
+final customMeditationDaoProvider = Provider<CustomMeditationDao>((ref) {
+  return ref.watch(appDatabaseProvider).customMeditationDao;
 });
