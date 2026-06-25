@@ -2109,7 +2109,7 @@ const Map<String, Map<String, String>> healthBStrings = {
     'en':
         'There is nowhere to be, nothing to do. Your only task now is to rest. Breathe slowly... and drift...',
     'ru':
-        'Вам некуда спешить, нечего делать. Ваша единственная задача сейчас — отдыхать. Дышите медленно... и drift...',
+        'Вам некуда спешить, нечего делать. Ваша единственная задача сейчас — отдыхать. Дышите медленно... и уплывайте...',
   },
 
   // — Stress Relief (8 min, 6 steps) —
