@@ -2325,21 +2325,6 @@ const Map<String, Map<String, String>> todayStrings = {
     'ko': '마감일이 업데이트됐어',
   },
 
-  // Сворачиваемый блок «Ещё»
-  'today.more_section': {
-    'en': 'More',
-    'ru': 'Ещё',
-    'de': 'Mehr',
-    'fr': 'Plus',
-    'it': 'Altro',
-    'pt': 'Mais',
-    'es': 'Más',
-    'id': 'Lainnya',
-    'hi': 'और',
-    'ja': 'その他',
-    'ko': '더보기',
-  },
-
   // Секция тегов в форме добавления задачи
   'today.tags_label': {
     'en': 'Tags',

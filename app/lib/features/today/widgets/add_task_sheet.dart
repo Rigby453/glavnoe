@@ -238,9 +238,6 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   // Недавние уникальные названия задач (для ряда «быстрый выбор»).
   List<String> _recentTitles = [];
 
-  // Состояние сворачиваемого блока «Ещё» (по умолчанию свёрнут).
-  bool _moreExpanded = false;
-
   final _imagePicker = ImagePicker();
 
   // --- NL datetime ---
@@ -1838,100 +1835,74 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             ),
             const SizedBox(height: 16),
 
-            // 10. «▸ Ещё» — сворачиваемый блок (по умолчанию свёрнут):
-            // Модуль, Цвет, Вложения.
-            InkWell(
-              onTap: () => setState(() => _moreExpanded = !_moreExpanded),
-              borderRadius: BorderRadius.circular(8),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
-                  children: [
-                    Icon(
-                      _moreExpanded
-                          ? Icons.keyboard_arrow_down
-                          : Icons.keyboard_arrow_right,
-                      size: 20,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(context.s('today.more_section'),
-                        style: textTheme.labelMedium),
-                  ],
-                ),
-              ),
+            // 10. Цвет-метка задачи — палитра пресетов + «нет цвета».
+            Text(context.s('today.color_label'), style: textTheme.labelMedium),
+            const SizedBox(height: 8),
+            _ColorPicker(
+              value: _color,
+              onChanged: (v) => setState(() => _color = v),
             ),
-            if (_moreExpanded) ...[
-              const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
-              // Цвет-метка задачи — палитра пресетов + «нет цвета».
-              Text(context.s('today.color_label'), style: textTheme.labelMedium),
-              const SizedBox(height: 8),
-              _ColorPicker(
-                value: _color,
-                onChanged: (v) => setState(() => _color = v),
-              ),
-              const SizedBox(height: 16),
-
-              // Вложения (фото / видео): подпись + 3 способа добавления
-              // (камера / галерея / видео) + сетка миниатюр-превью.
-              Text(context.s('today.attachments_label'),
-                  style: textTheme.labelMedium),
-              const SizedBox(height: 8),
-              // Кнопки добавления — три явных способа, иконка + подпись.
-              Row(
+            // 11. Вложения (фото / видео): подпись + 3 способа добавления
+            // (камера / галерея / видео) + сетка миниатюр-превью.
+            Text(context.s('today.attachments_label'),
+                style: textTheme.labelMedium),
+            const SizedBox(height: 8),
+            // Кнопки добавления — три явных способа, иконка + подпись.
+            Row(
+              children: [
+                Expanded(
+                  child: _AttachAddButton(
+                    icon: Icons.photo_camera_outlined,
+                    label: context.s('today.attach_camera'),
+                    onTap: () => _pickAttachment(ImageSource.camera),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _AttachAddButton(
+                    icon: Icons.photo_library_outlined,
+                    label: context.s('today.attach_gallery'),
+                    onTap: () => _pickAttachment(ImageSource.gallery),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: _AttachAddButton(
+                    icon: Icons.videocam_outlined,
+                    label: context.s('today.attach_video'),
+                    onTap: () =>
+                        _pickAttachment(ImageSource.gallery, isVideo: true),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            if (_attachments.isEmpty)
+              Text(
+                context.s('today.attachments_empty'),
+                style: textTheme.bodySmall?.copyWith(
+                  color: Theme.of(context)
+                          .extension<FocusThemeExtension>()
+                          ?.textMuted ??
+                      colorScheme.onSurface.withAlpha(160),
+                ),
+              )
+            else
+              // Сетка квадратных миниатюр (~72dp), переносится на строки.
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
                 children: [
-                  Expanded(
-                    child: _AttachAddButton(
-                      icon: Icons.photo_camera_outlined,
-                      label: context.s('today.attach_camera'),
-                      onTap: () => _pickAttachment(ImageSource.camera),
+                  for (final a in _attachments)
+                    AttachmentThumb(
+                      attachment: a,
+                      onTap: () => _viewAttachment(a),
+                      onDelete: () => _deleteAttachment(a),
                     ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _AttachAddButton(
-                      icon: Icons.photo_library_outlined,
-                      label: context.s('today.attach_gallery'),
-                      onTap: () => _pickAttachment(ImageSource.gallery),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: _AttachAddButton(
-                      icon: Icons.videocam_outlined,
-                      label: context.s('today.attach_video'),
-                      onTap: () =>
-                          _pickAttachment(ImageSource.gallery, isVideo: true),
-                    ),
-                  ),
                 ],
               ),
-              const SizedBox(height: 12),
-              if (_attachments.isEmpty)
-                Text(
-                  context.s('today.attachments_empty'),
-                  style: textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context)
-                            .extension<FocusThemeExtension>()
-                            ?.textMuted ??
-                        colorScheme.onSurface.withAlpha(160),
-                  ),
-                )
-              else
-                // Сетка квадратных миниатюр (~72dp), переносится на строки.
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: [
-                    for (final a in _attachments)
-                      AttachmentThumb(
-                        attachment: a,
-                        onTap: () => _viewAttachment(a),
-                        onDelete: () => _deleteAttachment(a),
-                      ),
-                  ],
-                ),
-            ], // конец сворачиваемого блока «Ещё»
             const SizedBox(height: 24),
 
             // Сохранить
