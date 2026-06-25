@@ -1,6 +1,9 @@
-// Экран редактирования целей (вес/рост/возраст/пол/активность/цель питания/вода).
-// Открывается из профиля. После сохранения invalidate nutritionTargetsProvider,
-// чтобы провайдер пересчитал нормы по новым данным без перезапуска.
+// Экран «Мои данные» — единая точка редактирования всех персональных данных:
+// тело (вес/рост/возраст/пол/активность), цель питания, вода, макросы КБЖУ,
+// пищевые предпочтения, профиль здоровья и расписание сна.
+//
+// Переименован из EditGoalsScreen (было /profile/edit-goals →
+// теперь /profile/my-data). Класс: MyDataScreen.
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -12,15 +15,18 @@ import '../../core/settings/nutrition_targets.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
+import 'widgets/food_preferences_section.dart';
+import 'widgets/health_profile_section.dart';
+import 'widgets/macro_editor.dart';
 
-class EditGoalsScreen extends ConsumerStatefulWidget {
-  const EditGoalsScreen({super.key});
+class MyDataScreen extends ConsumerStatefulWidget {
+  const MyDataScreen({super.key});
 
   @override
-  ConsumerState<EditGoalsScreen> createState() => _EditGoalsScreenState();
+  ConsumerState<MyDataScreen> createState() => _MyDataScreenState();
 }
 
-class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
+class _MyDataScreenState extends ConsumerState<MyDataScreen> {
   late final TextEditingController _weightCtrl;
   late final TextEditingController _heightCtrl;
   late final TextEditingController _ageCtrl;
@@ -29,9 +35,6 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
   late String _activity; // 'low'|'medium'|'high'
   late String _goal;     // 'maintain'|'lose'|'gain'
   late int _waterGoal;
-
-  // Расчётные нормы (обновляются live при изменении любого поля)
-  NutritionTargets? _preview;
 
   @override
   void initState() {
@@ -61,12 +64,10 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
     _goal = prefs.getString(kFoodGoalKey) ?? 'maintain';
     _waterGoal = ref.read(waterGoalProvider);
 
-    // Добавляем слушателей после инициализации
     _weightCtrl.addListener(_recalc);
     _heightCtrl.addListener(_recalc);
     _ageCtrl.addListener(_recalc);
 
-    // Начальный расчёт
     _recalc();
   }
 
@@ -82,7 +83,7 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Пересчёт нормы воды и нормы питания (live)
+  // Пересчёт нормы воды (live)
   // ---------------------------------------------------------------------------
 
   void _recalc() {
@@ -90,7 +91,6 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
     final height = double.tryParse(_heightCtrl.text.trim());
     final age = int.tryParse(_ageCtrl.text.trim());
 
-    // Пересчёт нормы воды
     if (weight != null && weight > 0) {
       final recommended = recommendedWaterMl(
         weightKg: weight,
@@ -100,34 +100,12 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
       );
       setState(() {
         _waterGoal = recommended;
-        _preview = _computePreview(weight, height, age);
-      });
-    } else {
-      setState(() {
-        _preview = null;
       });
     }
   }
 
-  NutritionTargets? _computePreview(
-    double weight,
-    double? height,
-    int? age,
-  ) {
-    if (height == null || height <= 0) return null;
-    if (age == null || age <= 0) return null;
-    return computeNutritionTargets(
-      weightKg: weight,
-      heightCm: height,
-      age: age,
-      sex: _sex,
-      activity: _activity,
-      goal: _goal,
-    );
-  }
-
   // ---------------------------------------------------------------------------
-  // Сохранение
+  // Сохранение основных данных тела + воды
   // ---------------------------------------------------------------------------
 
   Future<void> _save() async {
@@ -149,16 +127,15 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
     await prefs.setString(kUserSexKey, _sex);
     await prefs.setString(kUserActivityKey, _activity);
 
-    // Цель питания — пишем в тот же ключ, что использует nutritionTargetsProvider
+    // Цель питания — пишем в ключ nutritionTargetsProvider + FoodPreferences
     await prefs.setString(kFoodGoalKey, _goal);
-    // Также обновляем FoodPreferences, чтобы цель отображалась в секции пищевых предпочтений
     final fp = ref.read(foodPreferencesProvider);
     await ref.read(foodPreferencesProvider.notifier).save(fp.copyWith(goal: _goal));
 
     // Норма воды
     await ref.read(waterGoalProvider.notifier).set(_waterGoal);
 
-    // Invalidate nutritionTargetsProvider — провайдер пересчитает нормы из prefs
+    // Invalidate nutritionTargetsProvider — провайдер пересчитает нормы
     ref.invalidate(nutritionTargetsProvider);
 
     if (!mounted) return;
@@ -180,7 +157,7 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: Text(context.s('edit_goals.title')),
+        title: Text(context.s('profile.my_data')),
       ),
       body: SingleChildScrollView(
         keyboardDismissBehavior: ScrollViewKeyboardDismissBehavior.onDrag,
@@ -188,7 +165,16 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ---- Возраст + пол ----
+            // ================================================================
+            // Секция: Параметры тела
+            // ================================================================
+            Text(
+              context.s('edit_goals.body_params'),
+              style: textTheme.titleMedium,
+            ),
+            const SizedBox(height: 12),
+
+            // ---- Возраст ----
             Text(
               context.s('onboarding.norms_age'),
               style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
@@ -197,6 +183,7 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
             _AgeField(controller: _ageCtrl),
             const SizedBox(height: 20),
 
+            // ---- Пол ----
             Text(
               context.s('onboarding.norms_sex'),
               style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
@@ -225,17 +212,13 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
             const SizedBox(height: 24),
 
             // ---- Рост и вес ----
-            Text(
-              context.s('edit_goals.body_params'),
-              style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
-            ),
-            const SizedBox(height: 8),
             Row(
               children: [
                 Expanded(
                   child: TextField(
                     controller: _weightCtrl,
-                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    keyboardType:
+                        const TextInputType.numberWithOptions(decimal: true),
                     inputFormatters: [
                       FilteringTextInputFormatter.allow(RegExp(r'[\d.,]')),
                     ],
@@ -278,7 +261,9 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
 
             const SizedBox(height: 24),
 
-            // ---- Цель питания ----
+            // ================================================================
+            // Секция: Цель питания
+            // ================================================================
             Text(
               context.s('food_prefs.goal_label'),
               style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
@@ -324,7 +309,9 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
 
             const SizedBox(height: 24),
 
-            // ---- Норма воды ----
+            // ================================================================
+            // Секция: Норма воды
+            // ================================================================
             Text(
               context.s('edit_goals.water_goal_label'),
               style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
@@ -346,8 +333,8 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
             Slider(
               value: _waterGoal.toDouble(),
               min: 1000,
-              max: 4000,
-              divisions: 30,
+              max: 3000,
+              divisions: 20,
               label: '$_waterGoal ml',
               onChanged: (v) => setState(() => _waterGoal = v.round()),
             ),
@@ -358,33 +345,7 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
 
             const SizedBox(height: 28),
 
-            // ---- Предварительный расчёт норм ----
-            if (_preview != null) ...[
-              Divider(color: ext.border),
-              const SizedBox(height: 16),
-              Text(
-                context.s('edit_goals.targets_preview'),
-                style: textTheme.titleSmall,
-              ),
-              const SizedBox(height: 12),
-              _NutritionPreviewCard(targets: _preview!),
-              const SizedBox(height: 4),
-              Text(
-                context.s('edit_goals.targets_note'),
-                style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-              ),
-            ] else ...[
-              Divider(color: ext.border),
-              const SizedBox(height: 12),
-              Text(
-                context.s('edit_goals.targets_fill_all'),
-                style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-              ),
-            ],
-
-            const SizedBox(height: 32),
-
-            // ---- Кнопка сохранения ----
+            // ---- Кнопка сохранения основных данных ----
             SizedBox(
               width: double.infinity,
               height: 52,
@@ -393,6 +354,32 @@ class _EditGoalsScreenState extends ConsumerState<EditGoalsScreen> {
                 child: Text(context.s('edit_goals.save_btn')),
               ),
             ),
+
+            // ================================================================
+            // Секция: Макросы КБЖУ (MacroEditor)
+            // ================================================================
+            const SizedBox(height: 32),
+            Divider(color: ext.border),
+            const SizedBox(height: 20),
+            const MacroEditor(),
+
+            // ================================================================
+            // Секция: Пищевые предпочтения
+            // ================================================================
+            const SizedBox(height: 32),
+            Divider(color: ext.border),
+            const SizedBox(height: 20),
+            const FoodPreferencesSection(),
+
+            // ================================================================
+            // Секция: Профиль здоровья + Расписание сна
+            // ================================================================
+            const SizedBox(height: 32),
+            Divider(color: ext.border),
+            const SizedBox(height: 20),
+            const HealthProfileSection(),
+
+            const SizedBox(height: 32),
           ],
         ),
       ),
@@ -511,81 +498,6 @@ class _ActivityChips extends StatelessWidget {
           ),
         );
       }).toList(),
-    );
-  }
-}
-
-/// Карточка с расчётными нормами питания (live-preview).
-class _NutritionPreviewCard extends StatelessWidget {
-  const _NutritionPreviewCard({required this.targets});
-
-  final NutritionTargets targets;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final colorScheme = Theme.of(context).colorScheme;
-
-    Widget row(String label, String value) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 4),
-        child: Row(
-          children: [
-            Expanded(
-              child: Text(
-                label,
-                style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            Text(
-              value,
-              style: textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: colorScheme.onSurface,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: ext.border),
-        color: Theme.of(context).colorScheme.surface,
-      ),
-      child: Column(
-        children: [
-          row(
-            context.s('edit_goals.preview_kcal'),
-            '${targets.kcal} ${context.s('edit_goals.unit_kcal')}',
-          ),
-          row(
-            context.s('edit_goals.preview_protein'),
-            '${targets.proteinG} ${context.s('edit_goals.unit_g')}',
-          ),
-          row(
-            context.s('edit_goals.preview_fat'),
-            '${targets.fatG} ${context.s('edit_goals.unit_g')}',
-          ),
-          row(
-            context.s('edit_goals.preview_carbs'),
-            '${targets.carbsG} ${context.s('edit_goals.unit_g')}',
-          ),
-          row(
-            context.s('edit_goals.preview_fiber'),
-            '${targets.fiberG} ${context.s('edit_goals.unit_g')}',
-          ),
-          row(
-            context.s('edit_goals.preview_sugar_max'),
-            '${targets.sugarMaxG} ${context.s('edit_goals.unit_g')}',
-          ),
-        ],
-      ),
     );
   }
 }
