@@ -785,26 +785,44 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.front_squat.step1': {
     'en': 'Rest the bar across your front deltoids and clavicles; hold it with a clean grip (four fingers under the bar) or crossed-arm grip, elbows high.',
     'ru': 'Положите гриф на передние дельты и ключицы; держите хватом снизу (четыре пальца под грифом) или скрещёнными руками, локти высоко.',
+    'de': 'Die Stange auf die vorderen Deltamuskeln und Schlüsselbeine legen; mit dem Clean-Griff (vier Finger unter der Stange) oder Kreuzgriff halten, Ellenbogen hoch.',
+    'fr': 'Posez la barre sur les deltoïdes avant et les clavicules ; tenez-la avec une prise propre (quatre doigts sous la barre) ou en bras croisés, coudes hauts.',
+    'it': 'Appoggia il bilanciere sui deltoidi anteriori e le clavicole; tienilo con la presa pulita (quattro dita sotto il bilanciere) o a braccia incrociate, gomiti alti.',
   },
   'exercise.front_squat.step2': {
     'en': 'Stand with feet shoulder-width apart, toes slightly out; keep your elbows raised throughout — they drive the upright torso.',
     'ru': 'Ноги на ширине плеч, носки немного в стороны; локти держите высоко — они удерживают корпус вертикально.',
+    'de': 'Füße schulterbreit, Zehen leicht auswärts; Ellenbogen während der gesamten Bewegung hochhalten — sie erzwingen den aufrechten Oberkörper.',
+    'fr': 'Pieds écartés à la largeur des épaules, orteils légèrement ouverts ; gardez les coudes hauts tout au long — ils maintiennent le torse droit.',
+    'it': 'Piedi alla larghezza delle spalle, punte leggermente verso l\'esterno; mantieni i gomiti alzati per tutto il movimento — tengono il busto eretto.',
   },
   'exercise.front_squat.step3': {
     'en': 'Brace your core, push your knees out and descend as deep as mobility allows — ideally below parallel.',
     'ru': 'Напрягите кор, разведите колени и опускайтесь как можно глубже — идеально ниже параллели.',
+    'de': 'Core anspannen, Knie nach außen drücken und so tief absinken, wie die Mobilität erlaubt — idealerweise unter die Parallele.',
+    'fr': 'Gainéz le tronc, poussez les genoux vers l\'extérieur et descendez aussi bas que la mobilité le permet — idéalement en dessous de la parallèle.',
+    'it': 'Contrai il core, spingi le ginocchia verso l\'esterno e scendi quanto la mobilità consente — idealmente sotto il parallelo.',
   },
   'exercise.front_squat.step4': {
     'en': 'Drive through your whole foot to stand up; exhale as you lock out.',
     'ru': 'Давите всей стопой при подъёме; выдыхайте в верхней точке.',
+    'de': 'Durch den ganzen Fuß hochdrücken; beim Durchstrecken ausatmen.',
+    'fr': 'Poussez à travers tout le pied pour vous lever ; expirez au verrouillage.',
+    'it': 'Spingi attraverso tutto il piede per alzarti; espira al blocco.',
   },
   'exercise.front_squat.mistake1': {
     'en': 'Elbows dropping — the bar will roll forward and strain your wrists; keep elbows parallel to the floor.',
     'ru': 'Локти опускаются — гриф съезжает вперёд и нагружает запястья; держите локти параллельно полу.',
+    'de': 'Ellenbogen fallen ab — die Stange rollt nach vorne und belastet die Handgelenke; Ellenbogen parallel zum Boden halten.',
+    'fr': 'Coudes qui s\'abaissent — la barre roule vers l\'avant et sollicite les poignets ; gardez les coudes parallèles au sol.',
+    'it': 'Gomiti che scendono — il bilanciere scivola in avanti e affatica i polsi; mantieni i gomiti paralleli al pavimento.',
   },
   'exercise.front_squat.mistake2': {
     'en': 'Excessive forward lean — usually means poor thoracic mobility; work on upper-back flexibility.',
     'ru': 'Сильный наклон вперёд — признак недостаточной подвижности грудного отдела; развивайте гибкость верхней спины.',
+    'de': 'Zu starke Vorwärtsneigung — meist schlechte Brustwirbelsäulenmobilität; Oberkörperbeweglichkeit verbessern.',
+    'fr': 'Inclinaison excessive en avant — signe d\'une mauvaise mobilité thoracique ; travaillez la flexibilité du haut du dos.',
+    'it': 'Eccessiva inclinazione in avanti — di solito indica scarsa mobilità toracica; lavora sulla flessibilità della parte alta della schiena.',
   },
 
   // ---------------------------------------------------------------------------
@@ -813,18 +831,30 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.goblet_squat.step1': {
     'en': 'Hold a kettlebell (or dumbbell) vertically at chest height with both hands cupped under the bell; stand with feet slightly wider than hip-width, toes out.',
     'ru': 'Держите гирю (или гантель) вертикально у груди обеими руками снизу; ноги чуть шире бёдер, носки в стороны.',
+    'de': 'Eine Kettlebell (oder Hantel) senkrecht auf Brusthöhe mit beiden Händen von unten halten; Füße etwas breiter als hüftbreit, Zehen auswärts.',
+    'fr': 'Tenez une kettlebell (ou haltère) verticalement à hauteur de poitrine avec les deux mains en coupe sous le poids ; pieds légèrement plus larges que les hanches, orteils tournés vers l\'extérieur.',
+    'it': 'Tieni un kettlebell (o manubrio) verticalmente all\'altezza del petto con entrambe le mani a coppa sotto; piedi leggermente più larghi dei fianchi, punte verso l\'esterno.',
   },
   'exercise.goblet_squat.step2': {
     'en': 'Brace your core, push your knees outward and sit down between your heels — use your elbows to gently push the knees wider at the bottom.',
     'ru': 'Напрягите кор, разведите колени и опускайтесь между пятками — в нижней точке локтями слегка раздвигайте колени.',
+    'de': 'Core anspannen, Knie nach außen drücken und zwischen die Fersen setzen — unten mit den Ellenbogen die Knie sanft weiter auseinander drücken.',
+    'fr': 'Gainéz le tronc, poussez les genoux vers l\'extérieur et descendez entre vos talons — en bas, utilisez les coudes pour écarter doucement les genoux.',
+    'it': 'Contrai il core, spingi le ginocchia verso l\'esterno e siediti tra i talloni — in basso usa i gomiti per spingere delicatamente le ginocchia più in fuori.',
   },
   'exercise.goblet_squat.step3': {
     'en': 'Keep your chest tall and drive through your heels to stand; squeeze your glutes at the top.',
     'ru': 'Держите грудь высоко и давите пятками в пол при подъёме; сожмите ягодицы наверху.',
+    'de': 'Brust aufrecht halten und durch die Fersen hochdrücken; Gesäß oben anspannen.',
+    'fr': 'Gardez la poitrine haute et poussez à travers les talons pour vous lever ; serrez les fessiers en haut.',
+    'it': 'Mantieni il petto alto e spingi attraverso i talloni per alzarti; stringi i glutei in cima.',
   },
   'exercise.goblet_squat.mistake1': {
     'en': 'Heels rising — shift your weight back and improve ankle mobility.',
     'ru': 'Пятки отрываются — переместите вес назад и улучшайте подвижность голеностопа.',
+    'de': 'Fersen heben sich — Gewicht nach hinten verlagern und Sprunggelenk-Mobilität verbessern.',
+    'fr': 'Talons qui se soulèvent — transférez le poids vers l\'arrière et améliorez la mobilité des chevilles.',
+    'it': 'I talloni si sollevano — sposta il peso indietro e migliora la mobilità della caviglia.',
   },
 
   // ---------------------------------------------------------------------------
@@ -833,18 +863,30 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.walking_lunge.step1': {
     'en': 'Stand tall holding a dumbbell in each hand (or hands free for beginners); step one foot forward about two feet.',
     'ru': 'Встаньте прямо с гантелями в руках (или без отягощения для новичков); сделайте шаг вперёд примерно на 60 см.',
+    'de': 'Aufrecht stehen mit je einer Hantel in jeder Hand (oder ohne Gewicht für Anfänger); einen Fuß etwa 60 cm nach vorne setzen.',
+    'fr': 'Tenez-vous droit en tenant un haltère dans chaque main (ou mains libres pour les débutants) ; faites un pas en avant d\'environ 60 cm.',
+    'it': 'Stai in piedi con un manubrio in ogni mano (o a mani libere per i principianti); fai un passo in avanti di circa 60 cm.',
   },
   'exercise.walking_lunge.step2': {
     'en': 'Lower your rear knee toward the floor until both knees are at roughly 90°; keep your front knee over your ankle, not past your toes.',
     'ru': 'Опустите заднее колено к полу до угла примерно 90° в обоих суставах; переднее колено над лодыжкой, не выходит за носок.',
+    'de': 'Hinteres Knie Richtung Boden senken, bis beide Knie ca. 90° haben; vorderes Knie über dem Knöchel, nicht über die Zehen hinaus.',
+    'fr': 'Abaissez le genou arrière vers le sol jusqu\'à ce que les deux genoux soient à environ 90° ; genou avant au-dessus de la cheville, pas au-delà des orteils.',
+    'it': 'Abbassa il ginocchio posteriore verso il pavimento finché entrambe le ginocchia sono a circa 90°; il ginocchio anteriore sopra la caviglia, non oltre le punte.',
   },
   'exercise.walking_lunge.step3': {
     'en': 'Drive through the front heel to rise, bringing the rear foot forward into the next step.',
     'ru': 'Давите передней пяткой в пол при подъёме, перенося заднюю ногу вперёд в следующий шаг.',
+    'de': 'Durch die Vorderferse hochdrücken und den hinteren Fuß in den nächsten Schritt nach vorne bringen.',
+    'fr': 'Poussez à travers le talon avant pour vous lever, en ramenant le pied arrière vers l\'avant pour le prochain pas.',
+    'it': 'Spingi attraverso il tallone anteriore per alzarti, portando il piede posteriore in avanti per il passo successivo.',
   },
   'exercise.walking_lunge.mistake1': {
     'en': 'Torso leaning too far forward — keep your chest up and shoulders over your hips.',
     'ru': 'Корпус слишком наклоняется вперёд — держите грудь высоко, плечи над бёдрами.',
+    'de': 'Oberkörper lehnt zu weit nach vorne — Brust oben halten, Schultern über den Hüften.',
+    'fr': 'Torse trop incliné en avant — gardez la poitrine haute et les épaules au-dessus des hanches.',
+    'it': 'Busto inclinato troppo in avanti — tieni il petto alto e le spalle sopra i fianchi.',
   },
 
   // ---------------------------------------------------------------------------
@@ -853,26 +895,44 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.bulgarian_split_squat.step1': {
     'en': 'Stand about two feet in front of a bench; place the top of one foot on the bench behind you.',
     'ru': 'Встаньте примерно в 60 см перед скамьёй; положите тыльную поверхность стопы задней ноги на скамью.',
+    'de': 'Ca. 60 cm vor einer Bank stehen; den Spann des hinteren Fußes auf die Bank legen.',
+    'fr': 'Tenez-vous à environ 60 cm devant un banc ; posez le dessus d\'un pied sur le banc derrière vous.',
+    'it': 'Stai a circa 60 cm davanti a una panca; appoggia il dorso del piede posteriore sulla panca.',
   },
   'exercise.bulgarian_split_squat.step2': {
     'en': 'Hold a dumbbell in each hand or keep hands at your sides; keep your chest up and core braced throughout.',
     'ru': 'Держите гантели в руках или опустите руки; грудь высоко, кор в напряжении на протяжении всего упражнения.',
+    'de': 'Hanteln halten oder Hände an den Seiten lassen; Brust oben und Core während der gesamten Übung angespannt.',
+    'fr': 'Tenez un haltère dans chaque main ou gardez les mains à vos côtés ; poitrine haute et gainage actif tout au long.',
+    'it': 'Tieni un manubrio in ogni mano o lascia le mani ai lati; petto alto e core contratto per tutto l\'esercizio.',
   },
   'exercise.bulgarian_split_squat.step3': {
     'en': 'Lower your rear knee toward the floor by bending the front knee; front shin stays roughly vertical.',
     'ru': 'Опустите заднее колено к полу, сгибая переднее; голень передней ноги остаётся примерно вертикальной.',
+    'de': 'Hinteres Knie Richtung Boden absenken, indem das vordere Knie gebeugt wird; Schienbein vorne bleibt annähernd vertikal.',
+    'fr': 'Abaissez le genou arrière vers le sol en fléchissant le genou avant ; le tibia avant reste environ vertical.',
+    'it': 'Abbassa il ginocchio posteriore verso il pavimento piegando il ginocchio anteriore; lo stinco anteriore rimane circa verticale.',
   },
   'exercise.bulgarian_split_squat.step4': {
     'en': 'Drive through your front heel to return to start; complete all reps on one side before switching.',
     'ru': 'Давите передней пяткой при подъёме; выполните все повторения на одну ногу, затем меняйте.',
+    'de': 'Durch die Vorderferse zurückdrücken; alle Wiederholungen auf einer Seite vollenden, dann wechseln.',
+    'fr': 'Poussez à travers le talon avant pour revenir au départ ; terminez toutes les répétitions d\'un côté avant de changer.',
+    'it': 'Spingi attraverso il tallone anteriore per tornare all\'inizio; completa tutte le ripetizioni su un lato prima di cambiare.',
   },
   'exercise.bulgarian_split_squat.mistake1': {
     'en': 'Front knee caving inward — actively push it out in line with your toes.',
     'ru': 'Переднее колено заваливается внутрь — активно толкайте его наружу по линии носка.',
+    'de': 'Vorderes Knie fällt nach innen — aktiv in Richtung Zehen nach außen drücken.',
+    'fr': 'Genou avant qui rentre vers l\'intérieur — poussez-le activement vers l\'extérieur dans l\'axe des orteils.',
+    'it': 'Il ginocchio anteriore cede verso l\'interno — spingi attivamente verso l\'esterno in linea con le punte.',
   },
   'exercise.bulgarian_split_squat.mistake2': {
     'en': 'Standing too close to the bench — creates excessive knee travel and hip flexor strain; step further forward.',
     'ru': 'Слишком близко к скамье — колено уходит далеко вперёд, перегружая сгибатели бедра; отступите дальше.',
+    'de': 'Zu nah an der Bank stehen — verursacht übermäßigen Kniebewegung und Hüftbeuger-Belastung; weiter vortreten.',
+    'fr': 'Trop près du banc — provoque un déplacement excessif du genou et une tension des fléchisseurs de hanche ; faites un pas plus en avant.',
+    'it': 'Troppo vicino alla panca — causa eccessivo spostamento del ginocchio e tensione ai flessori dell\'anca; fai un passo più avanti.',
   },
 
   // ---------------------------------------------------------------------------
@@ -881,22 +941,37 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.leg_press.step1': {
     'en': 'Sit in the machine with your back flat against the pad; place feet shoulder-width apart in the middle of the platform.',
     'ru': 'Сядьте в тренажёр, прижав спину к подушке; поставьте стопы на ширине плеч в середине платформы.',
+    'de': 'Im Gerät sitzen, Rücken flach an der Polsterung; Füße schulterbreit in der Mitte der Plattform.',
+    'fr': 'Asseyez-vous dans la machine, dos à plat contre le rembourrage ; placez les pieds à la largeur des épaules au centre de la plateforme.',
+    'it': 'Siediti nella macchina con la schiena piatta contro il cuscinetto; posiziona i piedi alla larghezza delle spalle al centro della piattaforma.',
   },
   'exercise.leg_press.step2': {
     'en': 'Release the safety handles, lower the platform by bending your knees to about 90° — lower back stays flat.',
     'ru': 'Снимите с упоров, опустите платформу, сгибая колени до ~90°; поясница прижата к спинке.',
+    'de': 'Sicherheitsgriffe lösen, Plattform durch Beugen der Knie auf ca. 90° absenken — Lendenwirbelsäule bleibt flach.',
+    'fr': 'Relâchez les poignées de sécurité, abaissez la plateforme en fléchissant les genoux à environ 90° — le bas du dos reste à plat.',
+    'it': 'Rilascia le maniglie di sicurezza, abbassa la piattaforma piegando le ginocchia a circa 90° — la zona lombare rimane piatta.',
   },
   'exercise.leg_press.step3': {
     'en': 'Press the platform back up through your heels without fully locking out your knees at the top.',
     'ru': 'Давите платформу пятками до упора, не разгибая колени полностью в верхней точке.',
+    'de': 'Plattform durch die Fersen hochdrücken, ohne die Knie oben vollständig durchzustrecken.',
+    'fr': 'Repoussez la plateforme à travers les talons sans verrouiller complètement les genoux en haut.',
+    'it': 'Premi la piattaforma verso l\'alto attraverso i talloni senza bloccare completamente le ginocchia in cima.',
   },
   'exercise.leg_press.mistake1': {
     'en': 'Lower back rounding off the pad — reduce the depth or the load until you can keep contact.',
     'ru': 'Поясница отрывается от спинки — уменьшите глубину или вес, пока не сможете удержать поясницу прижатой.',
+    'de': 'Lendenwirbelsäule hebt vom Polster ab — Tiefe oder Gewicht reduzieren, bis der Kontakt gehalten werden kann.',
+    'fr': 'Bas du dos qui se décolle du rembourrage — réduisez la profondeur ou la charge jusqu\'à pouvoir maintenir le contact.',
+    'it': 'La zona lombare si stacca dal cuscinetto — riduci la profondità o il carico finché riesci a mantenere il contatto.',
   },
   'exercise.leg_press.mistake2': {
     'en': 'Feet too low on the platform — shifts stress to the knees; move them to mid-plate or higher.',
     'ru': 'Стопы слишком низко на платформе — нагрузка переходит на колени; ставьте выше к середине или верху.',
+    'de': 'Füße zu weit unten auf der Plattform — verlagert Stress auf die Knie; Füße zur Mitte oder höher stellen.',
+    'fr': 'Pieds trop bas sur la plateforme — transfère le stress aux genoux ; placez-les au milieu ou plus haut.',
+    'it': 'Piedi troppo bassi sulla piattaforma — sposta lo stress sulle ginocchia; spostali a metà piattaforma o più in alto.',
   },
 
   // ---------------------------------------------------------------------------
@@ -905,26 +980,44 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.romanian_deadlift.step1': {
     'en': 'Stand with feet hip-width apart holding the bar (or dumbbells) against your thighs, overhand grip.',
     'ru': 'Ноги на ширине бёдер, гриф (или гантели) у бёдер прямым хватом.',
+    'de': 'Füße hüftbreit, Stange (oder Hanteln) mit Obergriff gegen die Oberschenkel halten.',
+    'fr': 'Pieds écartés à la largeur des hanches, barre (ou haltères) contre les cuisses en prise pronée.',
+    'it': 'Piedi alla larghezza dei fianchi, bilanciere (o manubri) contro le cosce con presa prona.',
   },
   'exercise.romanian_deadlift.step2': {
     'en': 'Push your hips backward and hinge forward, keeping the bar close to your legs — stop when you feel a strong hamstring stretch (usually shins vertical).',
     'ru': 'Отведите бёдра назад и наклонитесь вперёд, держа гриф близко к ногам — остановитесь при ощутимом растяжении бицепса бедра (голени вертикальны).',
+    'de': 'Hüfte nach hinten schieben und vorwärts beugen, Stange nah an den Beinen halten — aufhören, wenn ein starkes Dehngefühl in den Oberschenkelrückseiten entsteht (Schienbeine vertikal).',
+    'fr': 'Poussez les hanches vers l\'arrière et charnière en avant, barre proche des jambes — arrêtez quand vous sentez un fort étirement des ischio-jambiers (tibias verticaux).',
+    'it': 'Spingi i fianchi indietro e inclina in avanti, tenendo il bilanciere vicino alle gambe — fermati quando senti un forte stretching dei bicipiti femorali (stinchi verticali).',
   },
   'exercise.romanian_deadlift.step3': {
     'en': 'Maintain a neutral spine and flat back throughout — no rounding.',
     'ru': 'Держите нейтральный позвоночник и прямую спину на протяжении всего движения.',
+    'de': 'Neutrale Wirbelsäule und geraden Rücken während der gesamten Bewegung halten — kein Rundrücken.',
+    'fr': 'Maintenez une colonne vertébrale neutre et un dos plat tout au long — pas d\'arrondi.',
+    'it': 'Mantieni la colonna vertebrale neutra e la schiena piatta per tutto il movimento — niente arrotondamento.',
   },
   'exercise.romanian_deadlift.step4': {
     'en': 'Drive hips forward to return to standing; squeeze your glutes at the top.',
     'ru': 'Толкните бёдра вперёд, возвращаясь в стойку; сожмите ягодицы наверху.',
+    'de': 'Hüfte nach vorne treiben, um aufzustehen; Gesäß oben anspannen.',
+    'fr': 'Projetez les hanches vers l\'avant pour revenir debout ; serrez les fessiers en haut.',
+    'it': 'Spingi i fianchi in avanti per tornare in piedi; stringi i glutei in cima.',
   },
   'exercise.romanian_deadlift.mistake1': {
     'en': 'Rounding the lower back — reduce the range of motion until your back stays flat.',
     'ru': 'Скругление поясницы — уменьшите амплитуду до сохранения прямой спины.',
+    'de': 'Rundrücken im Lendenwirbelbereich — Bewegungsamplitude reduzieren, bis der Rücken gerade bleibt.',
+    'fr': 'Dos lombaire arrondi — réduisez l\'amplitude jusqu\'à ce que le dos reste plat.',
+    'it': 'Schiena lombare arrotondata — riduci il range of motion finché la schiena rimane piatta.',
   },
   'exercise.romanian_deadlift.mistake2': {
     'en': 'Bar drifting away from the legs — keep it dragging along your thighs and shins.',
     'ru': 'Гриф уходит от ног — ведите его вдоль бёдер и голеней на протяжении всего движения.',
+    'de': 'Stange driftet von den Beinen weg — sie muss die Oberschenkel und Schienbeine entlangschaben.',
+    'fr': 'La barre s\'éloigne des jambes — gardez-la en glissant le long des cuisses et des tibias.',
+    'it': 'Il bilanciere si allontana dalle gambe — tienilo a strisciare lungo le cosce e gli stinchi.',
   },
 
   // ---------------------------------------------------------------------------
@@ -933,18 +1026,30 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.leg_curl.step1': {
     'en': 'Lie face-down on the machine; position the pad just above your heels and hold the handles.',
     'ru': 'Лягте лицом вниз на тренажёр; подложите валик чуть выше пяток, держитесь за ручки.',
+    'de': 'Bäuchlings auf das Gerät legen; Polster knapp über den Fersen positionieren und Griffe festhalten.',
+    'fr': 'Allongez-vous face vers le bas sur la machine ; positionnez le rembourrage juste au-dessus des talons et tenez les poignées.',
+    'it': 'Sdraiati a faccia in giù sulla macchina; posiziona il cuscinetto appena sopra i talloni e tieni le maniglie.',
   },
   'exercise.leg_curl.step2': {
     'en': 'Curl both legs up toward your glutes in a smooth arc, squeezing the hamstrings at the top.',
     'ru': 'Сгибайте обе ноги к ягодицам по плавной дуге, сжимая бицепс бедра в верхней точке.',
+    'de': 'Beide Beine in gleichmäßigem Bogen zur Gesäßmuskulatur anziehen, Oberschenkelrückseiten oben anspannen.',
+    'fr': 'Fléchissez les deux jambes vers les fessiers en arc fluide, en contractant les ischio-jambiers en haut.',
+    'it': 'Piega entrambe le gambe verso i glutei in un arco fluido, contraendo i bicipiti femorali in cima.',
   },
   'exercise.leg_curl.step3': {
     'en': 'Lower the pad slowly back to the start — resist the weight on the way down.',
     'ru': 'Медленно опустите валик в исходное положение, сопротивляясь весу на пути вниз.',
+    'de': 'Polster langsam in die Ausgangsposition absenken — dem Gewicht auf dem Weg nach unten widerstehen.',
+    'fr': 'Rabaissez lentement le rembourrage au point de départ — résistez au poids dans la descente.',
+    'it': 'Abbassa lentamente il cuscinetto alla posizione di partenza — resisti al peso durante la discesa.',
   },
   'exercise.leg_curl.mistake1': {
     'en': 'Hips rising off the pad — reduce the weight and keep your pelvis flat throughout.',
     'ru': 'Бёдра отрываются от подушки — снизьте вес и держите таз прижатым на протяжении всего движения.',
+    'de': 'Hüften heben sich vom Polster ab — Gewicht reduzieren und Becken während der gesamten Bewegung flach halten.',
+    'fr': 'Hanches qui se soulèvent du rembourrage — réduisez le poids et gardez le bassin à plat tout au long.',
+    'it': 'I fianchi si sollevano dal cuscinetto — riduci il peso e tieni il bacino piatto per tutto il movimento.',
   },
 
   // ---------------------------------------------------------------------------
@@ -953,18 +1058,30 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.leg_extension.step1': {
     'en': 'Sit in the machine with your back against the pad; hook your ankles under the lower pad, knees at 90°.',
     'ru': 'Сядьте в тренажёр, прижав спину; зацепите лодыжки под нижний валик, колени под углом 90°.',
+    'de': 'Im Gerät sitzen, Rücken ans Polster; Knöchel unter das untere Polster haken, Knie 90°.',
+    'fr': 'Asseyez-vous dans la machine, dos contre le rembourrage ; accrochez les chevilles sous le rembourrage inférieur, genoux à 90°.',
+    'it': 'Siediti nella macchina con la schiena contro il cuscinetto; aggancia le caviglie sotto il cuscinetto inferiore, ginocchia a 90°.',
   },
   'exercise.leg_extension.step2': {
     'en': 'Extend both legs until straight, squeezing your quads at the top; hold briefly.',
     'ru': 'Разгибайте обе ноги до прямого положения, сжимая квадрицепс наверху; задержитесь на мгновение.',
+    'de': 'Beide Beine bis zur Streckung ausstrecken, Quadrizeps oben anspannen; kurz halten.',
+    'fr': 'Étendez les deux jambes jusqu\'à ce qu\'elles soient droites, contractez les quadriceps en haut ; maintenez brièvement.',
+    'it': 'Estendi entrambe le gambe fino a raddrizzarle, contraendo i quadricipiti in cima; tieni brevemente.',
   },
   'exercise.leg_extension.step3': {
     'en': 'Lower the weight slowly — 2–3 seconds — back to 90°.',
     'ru': 'Медленно опускайте вес — 2–3 секунды — до угла 90°.',
+    'de': 'Gewicht langsam — 2–3 Sekunden — zurück auf 90° absenken.',
+    'fr': 'Abaissez le poids lentement — 2 à 3 secondes — pour revenir à 90°.',
+    'it': 'Abbassa il peso lentamente — 2–3 secondi — fino a 90°.',
   },
   'exercise.leg_extension.mistake1': {
     'en': 'Using momentum to swing the weight up — slow down and control both phases of the rep.',
     'ru': 'Использование инерции — замедлитесь и контролируйте обе фазы движения.',
+    'de': 'Schwung nutzen um das Gewicht hochzuschwingen — verlangsamen und beide Phasen der Wiederholung kontrollieren.',
+    'fr': 'Utiliser l\'élan pour balancer le poids — ralentissez et contrôlez les deux phases de la répétition.',
+    'it': 'Usare lo slancio per alzare il peso — rallenta e controlla entrambe le fasi della ripetizione.',
   },
 
   // ---------------------------------------------------------------------------
@@ -973,18 +1090,30 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.standing_calf_raise.step1': {
     'en': 'Stand on the edge of a step or calf-raise platform with the balls of your feet on the edge and heels hanging off.',
     'ru': 'Встаньте на край ступеньки или платформы тренажёра: подушечки стоп на краю, пятки свисают.',
+    'de': 'Auf die Kante einer Stufe oder Wadenpress-Plattform stellen: Fußballen auf der Kante, Fersen hängen ab.',
+    'fr': 'Tenez-vous sur le bord d\'une marche ou d\'une plateforme avec les avant-pieds sur le bord et les talons dans le vide.',
+    'it': 'Stai sul bordo di un gradino o di una piattaforma con gli avampiedi sul bordo e i talloni che pendono.',
   },
   'exercise.standing_calf_raise.step2': {
     'en': 'Lower your heels as far as comfortable to feel a full stretch in your calves.',
     'ru': 'Опустите пятки как можно ниже, ощущая полное растяжение икроножных мышц.',
+    'de': 'Fersen so weit wie möglich absenken, um die Waden vollständig zu dehnen.',
+    'fr': 'Abaissez les talons aussi bas que confortable pour ressentir un étirement complet des mollets.',
+    'it': 'Abbassa i talloni il più possibile per sentire uno stretching completo nei polpacci.',
   },
   'exercise.standing_calf_raise.step3': {
     'en': 'Rise up onto your toes as high as possible, squeezing your calves at the top; lower slowly.',
     'ru': 'Поднимитесь на носки максимально высоко, сжимая икры наверху; опускайтесь медленно.',
+    'de': 'So hoch wie möglich auf die Zehenspitzen steigen, Waden oben anspannen; langsam absenken.',
+    'fr': 'Montez sur les pointes aussi haut que possible en contractant les mollets en haut ; redescendez lentement.',
+    'it': 'Alzati sulle punte il più in alto possibile, contraendo i polpacci in cima; abbassa lentamente.',
   },
   'exercise.standing_calf_raise.mistake1': {
     'en': 'Bouncing at the bottom — pause at full stretch to load the tissue properly.',
     'ru': 'Отскок внизу — сделайте паузу в полном растяжении для правильной нагрузки на мышцу.',
+    'de': 'Abprallen unten — in der vollständigen Dehnung pausieren, um das Gewebe richtig zu belasten.',
+    'fr': 'Rebondir en bas — faites une pause en étirement complet pour charger correctement le tissu.',
+    'it': 'Rimbalzare in basso — fai una pausa a stretching completo per caricare correttamente il tessuto.',
   },
 
   // ---------------------------------------------------------------------------
