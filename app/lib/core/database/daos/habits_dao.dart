@@ -37,6 +37,24 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
         .watch();
   }
 
+  /// Все логи привычек за ISO-неделю (с понедельника), для всех привычек.
+  /// Используется секцией «Привычки сегодня» (ADR-053, slice 3), чтобы для
+  /// привычек типа 'weekly_count' посчитать выполнения за текущую неделю и
+  /// понять, достигнута ли недельная цель. Дата нормализуется к UTC-дню,
+  /// как и [logHabit].
+  Stream<List<HabitLogsTableData>> watchLogsForWeek(DateTime date) {
+    final day = DateTime.utc(date.year, date.month, date.day);
+    final monday = day.subtract(Duration(days: day.weekday - 1));
+    final end = monday.add(const Duration(days: 7));
+    return (select(habitLogsTable)
+          ..where(
+            (t) =>
+                t.date.isBiggerOrEqualValue(monday) &
+                t.date.isSmallerThanValue(end),
+          ))
+        .watch();
+  }
+
   /// Количество выполнений привычки за день.
   Future<int> countForDate(String habitId, DateTime date) async {
     final start = DateTime.utc(date.year, date.month, date.day);

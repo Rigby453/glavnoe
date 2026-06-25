@@ -60,6 +60,35 @@ const Map<String, Map<String, String>> todayStrings = {
     'ko': '아직 계획 없음.\n+ 를 눌러 첫 번째 할 일을 추가해봐.',
   },
 
+  // Заголовок раздела «Привычки сегодня» (ADR-053, slice 3) — под задачами.
+  'today.habits_section': {
+    'en': 'Habits today',
+    'ru': 'Привычки сегодня',
+    'de': 'Gewohnheiten heute',
+    'fr': 'Habitudes du jour',
+    'it': 'Abitudini di oggi',
+    'pt': 'Hábitos de hoje',
+    'es': 'Hábitos de hoy',
+    'id': 'Kebiasaan hari ini',
+    'hi': 'आज की आदतें',
+    'ja': '今日の習慣',
+    'ko': '오늘의 습관',
+  },
+  // Тултип кнопки-отметки привычки в разделе «Привычки сегодня».
+  'today.habits_mark_done': {
+    'en': 'Mark done',
+    'ru': 'Отметить',
+    'de': 'Erledigt markieren',
+    'fr': 'Marquer fait',
+    'it': 'Segna fatto',
+    'pt': 'Marcar feito',
+    'es': 'Marcar hecho',
+    'id': 'Tandai selesai',
+    'hi': 'पूरा करें',
+    'ja': '完了にする',
+    'ko': '완료 표시',
+  },
+
   // Заголовок секции «Остальное на сегодня» в TaskList (rest-of-today, не «Главное»)
   'today.later_section': {
     'en': 'Rest of today',

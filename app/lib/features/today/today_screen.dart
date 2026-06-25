@@ -34,6 +34,7 @@ import 'widgets/streak_row.dart';
 import 'widgets/task_list.dart';
 import '../plan/widgets/recurrence_providers.dart';
 import 'widgets/overdue_section.dart';
+import 'widgets/habits_today_section.dart';
 
 /// Все задачи на сегодня — раскрытые: конкретные строки дня + виртуальные
 /// повторы серий (recurrence_providers). Якоря-шаблоны исключены из
@@ -230,6 +231,8 @@ class TodayScreen extends ConsumerWidget {
                   // Секция «Просрочено» — вверху списка, ember-акцент (UX-LAYOUT §6)
                   const OverdueSection(),
                   TaskList(items: items, day: now),
+                  // Раздел «Привычки сегодня» — под задачами (ADR-053, slice 3).
+                  const HabitsTodaySection(),
                 ],
               );
             },
@@ -327,6 +330,8 @@ class TodayScreen extends ConsumerWidget {
                         // Секция «Просрочено» — вверху, ember-акцент (UX-LAYOUT §6)
                         const OverdueSection(),
                         TaskList(items: items, day: now),
+                        // Раздел «Привычки сегодня» (ADR-053, slice 3).
+                        const HabitsTodaySection(),
                       ],
                     ),
                   ),
