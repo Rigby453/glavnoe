@@ -2266,6 +2266,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_fly.step3': {
     'en': 'Squeeze your chest to bring the dumbbells back together over your sternum; exhale as you close.',
     'ru': 'Сведите гантели обратно над грудиной, напрягая грудные мышцы; выдыхайте при сведении.',
+    'hi': 'छाती को सिकोड़ते हुए डंबल्स को वापस अपने उरोस्थि के ऊपर एक साथ लाएँ; सिकोड़ते समय साँस छोड़ें।',
+    'ja': '胸を絞り込みながら、ダンベルを胸骨の上で再び合わせる。閉じる際に息を吐く。',
+    'ko': '가슴을 쥐어짜며 덤벨을 흉골 위에서 다시 모으세요. 모을 때 숨을 내쉽니다.',
     'pt': 'Contraia o peito para trazer os halteres de volta juntos sobre o esterno; expire ao fechar.',
     'es': 'Contrae el pecho para juntar las mancuernas sobre el esternón; exhala al cerrar.',
     'id': 'Kencangkan dada untuk membawa dumbbell kembali bersama di atas tulang dada; hembuskan napas saat menutup.',
@@ -2276,6 +2279,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_fly.mistake1': {
     'en': 'Straightening the arms — this turns it into a press and risks elbow injury; keep a fixed bend.',
     'ru': 'Выпрямление рук — превращает упражнение в жим и нагружает локти; держите фиксированный изгиб.',
+    'hi': 'बाँहें सीधी करना — इससे यह एक प्रेस बन जाती है और कोहनी में चोट का खतरा रहता है; कोहनी का मोड़ स्थिर रखें।',
+    'ja': '腕を伸ばしきること——これではプレスになり、肘を痛める恐れがある。肘は一定の曲げを保つ。',
+    'ko': '팔을 펴는 것 — 이렇게 하면 프레스가 되어 팔꿈치 부상 위험이 있습니다. 팔꿈치는 일정한 각도로 굽힌 상태를 유지하세요.',
     'pt': 'Estender os braços — transforma o exercício em supino e arrisca lesão no cotovelo; mantenha a flexão fixa.',
     'es': 'Estirar los brazos — convierte el ejercicio en un press y arriesga lesión de codo; mantén la flexión fija.',
     'id': 'Meluruskan lengan — mengubahnya menjadi press dan berisiko cedera siku; pertahankan tekukan tetap.',
@@ -2286,6 +2292,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_fly.mistake2': {
     'en': 'Going too heavy and losing arc control — use a weight you can lower slowly over 3 seconds.',
     'ru': 'Слишком большой вес и потеря дуговой траектории — используйте вес, который можно опускать медленно за 3 секунды.',
+    'hi': 'बहुत भारी वजन लेना और चाप पर नियंत्रण खोना — ऐसा वजन इस्तेमाल करें जिसे आप 3 सेकंड में धीरे-धीरे नीचे ला सकें।',
+    'ja': '重すぎてアーク軌道のコントロールを失うこと——3秒かけてゆっくり下ろせる重量を使う。',
+    'ko': '너무 무거운 중량으로 아크 궤도 제어를 잃는 것 — 3초에 걸쳐 천천히 내릴 수 있는 무게를 사용하세요.',
     'pt': 'Usar peso excessivo e perder o controle do arco — use um peso que consiga baixar lentamente em 3 segundos.',
     'es': 'Usar demasiado peso y perder control del arco — usa un peso que puedas bajar lentamente en 3 segundos.',
     'id': 'Menggunakan beban terlalu berat dan kehilangan kontrol busur — gunakan beban yang bisa diturunkan perlahan selama 3 detik.',
@@ -2300,6 +2309,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.cable_crossover.step1': {
     'en': 'Set both cable pulleys to the high position and attach single handles; stand in the center, one foot slightly forward, and grab a handle in each hand.',
     'ru': 'Установите оба блока в верхнее положение, закрепите одиночные рукояти; встаньте в центре, одна нога слегка вперёд, возьмите рукоять в каждую руку.',
+    'hi': 'दोनों केबल पुली को ऊपरी स्थिति पर सेट करें और सिंगल हैंडल लगाएँ; बीच में खड़े हों, एक पैर थोड़ा आगे, और हर हाथ में एक हैंडल पकड़ें।',
+    'ja': '両方のケーブルプーリーを高い位置にセットし、シングルハンドルを取り付ける。中央に立ち、片足をやや前に出し、各手にハンドルを握る。',
+    'ko': '양쪽 케이블 도르래를 높은 위치에 설정하고 싱글 핸들을 부착하세요. 중앙에 서서 한 발을 약간 앞으로 두고 양손에 핸들을 각각 잡습니다.',
     'pt': 'Ajuste ambas as polias para a posição alta e encaixe os pegadores individuais; fique no centro, um pé ligeiramente à frente, e segure um pegador em cada mão.',
     'es': 'Ajusta ambas poleas en posición alta y fija los agarres individuales; párate en el centro, un pie ligeramente adelante, y toma un agarre en cada mano.',
     'id': 'Atur kedua katrol kabel ke posisi tinggi dan pasang pegangan tunggal; berdiri di tengah, satu kaki sedikit ke depan, pegang satu pegangan di setiap tangan.',
@@ -2310,6 +2322,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.cable_crossover.step2': {
     'en': 'With a slight bend in the elbows, bring your hands together in a sweeping arc downward and inward until they meet at hip level — feel the chest squeeze.',
     'ru': 'С небольшим сгибом в локтях сведите руки по дуге вниз и вперёд до уровня бёдер — ощутите сокращение грудных.',
+    'hi': 'कोहनियों में हल्का मोड़ रखते हुए, अपने हाथों को नीचे और भीतर की ओर एक चाप में तब तक लाएँ जब तक वे कूल्हे के स्तर पर न मिल जाएँ — छाती के सिकुड़ने को महसूस करें।',
+    'ja': '肘を軽く曲げたまま、両手を弧を描くように下方かつ内側へ動かし、腰の高さで合わせる——胸の収縮を感じる。',
+    'ko': '팔꿈치를 살짝 굽힌 채 양손을 아래쪽 안쪽으로 호를 그리며 모아 엉덩이 높이에서 만나게 하세요 — 가슴이 수축되는 것을 느낍니다.',
     'pt': 'Com leve flexão nos cotovelos, traga as mãos juntas num arco para baixo e para dentro até se encontrarem na altura do quadril — sinta a contração do peitoral.',
     'es': 'Con una leve flexión en los codos, lleva las manos juntas en un arco hacia abajo y adentro hasta que se encuentren a la altura de las caderas — siente la contracción pectoral.',
     'id': 'Dengan sedikit tekukan di siku, bawa kedua tangan bersama dalam busur ke bawah dan ke dalam hingga bertemu di level pinggul — rasakan kontraksi dada.',
@@ -2320,6 +2335,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.cable_crossover.step3': {
     'en': 'Slowly return to the start, allowing a full stretch; do not let the weight stack crash.',
     'ru': 'Медленно вернитесь в исходное положение, ощущая полное растяжение; не бросайте вес резко.',
+    'hi': 'धीरे-धीरे शुरुआती स्थिति में लौटें, पूरा खिंचाव होने दें; वजन के ढेर को टकराने न दें।',
+    'ja': 'ゆっくりとスタート位置に戻し、十分なストレッチを効かせる。ウエイトスタックを叩きつけない。',
+    'ko': '천천히 시작 자세로 돌아오며 충분한 스트레칭을 느끼세요. 중량 스택이 부딪히지 않게 합니다.',
     'pt': 'Retorne lentamente ao início, permitindo um alongamento completo; não deixe a pilha de pesos cair de repente.',
     'es': 'Vuelve lentamente al inicio, permitiendo un estiramiento completo; no dejes que la pila de pesos caiga bruscamente.',
     'id': 'Kembalikan perlahan ke posisi awal, biarkan peregangan penuh; jangan biarkan tumpukan beban jatuh mendadak.',
@@ -2330,6 +2348,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.cable_crossover.mistake1': {
     'en': 'Pulling with your arms rather than squeezing the chest — focus on leading the movement from the pec, not the bicep.',
     'ru': 'Тяга руками вместо сокращения груди — ведите движение грудными мышцами, а не бицепсами.',
+    'hi': 'छाती को सिकोड़ने के बजाय बाँहों से खींचना — गति को बाइसेप्स से नहीं, बल्कि पेक्टोरल मांसपेशियों से चलाने पर ध्यान दें।',
+    'ja': '胸を絞るのではなく腕で引くこと——動作は上腕二頭筋ではなく大胸筋で主導することに集中する。',
+    'ko': '가슴을 쥐어짜는 대신 팔로 당기는 것 — 동작을 이두근이 아니라 대흉근으로 주도하는 데 집중하세요.',
     'pt': 'Puxar com os braços em vez de contrair o peito — foque em liderar o movimento pelo peitoral, não pelo bíceps.',
     'es': 'Jalar con los brazos en vez de contraer el pecho — enfócate en iniciar el movimiento desde el pectoral, no el bíceps.',
     'id': 'Menarik dengan lengan daripada mengencangkan dada — fokus menggerakkan dari pektoralis, bukan bisep.',
@@ -2344,6 +2365,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_shoulder_press.step1': {
     'en': 'Sit on a bench with back support, holding a dumbbell in each hand at shoulder height, palms facing forward and elbows at roughly 90°.',
     'ru': 'Сядьте на скамью со спинкой, гантели на уровне плеч, ладони вперёд, локти примерно под 90°.',
+    'hi': 'बैक सपोर्ट वाली बेंच पर बैठें, हर हाथ में एक डंबल कंधे की ऊँचाई पर पकड़ें, हथेलियाँ आगे की ओर और कोहनियाँ लगभग 90° पर।',
+    'ja': '背もたれ付きのベンチに座り、各手にダンベルを肩の高さで持ち、手のひらを前に向け、肘を約90°にする。',
+    'ko': '등받이가 있는 벤치에 앉아 양손에 덤벨을 어깨 높이로 들고, 손바닥은 앞을 향하게 하며 팔꿈치는 약 90°로 둡니다.',
     'pt': 'Sente num banco com apoio para as costas, segurando um halter em cada mão na altura dos ombros, palmas voltadas para frente e cotovelos em aproximadamente 90°.',
     'es': 'Siéntate en un banco con respaldo, sosteniendo una mancuerna en cada mano a la altura de los hombros, palmas hacia adelante y codos en aproximadamente 90°.',
     'id': 'Duduklah di bangku dengan sandaran, pegang satu dumbbell di setiap tangan setinggi bahu, telapak tangan menghadap ke depan dan siku sekitar 90°.',
@@ -2354,6 +2378,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_shoulder_press.step2': {
     'en': 'Press both dumbbells overhead in a slight arc until arms are fully extended, then lower under control back to start.',
     'ru': 'Выжмите обе гантели вверх по небольшой дуге до полного выпрямления рук, затем с контролем опустите.',
+    'hi': 'दोनों डंबल्स को हल्के चाप में सिर के ऊपर तब तक दबाएँ जब तक बाँहें पूरी तरह सीधी न हो जाएँ, फिर नियंत्रण के साथ वापस शुरुआती स्थिति में नीचे लाएँ।',
+    'ja': '両方のダンベルを軽い弧を描きながら頭上へ押し上げ、腕を完全に伸ばしきり、コントロールしながらスタート位置まで下ろす。',
+    'ko': '양쪽 덤벨을 약간의 호를 그리며 머리 위로 팔이 완전히 펴질 때까지 밀어 올린 뒤, 통제하며 시작 자세로 내립니다.',
     'pt': 'Empurre ambos os halteres acima da cabeça em leve arco até os braços estarem totalmente estendidos, depois abaixe com controle.',
     'es': 'Presiona ambas mancuernas hacia arriba en un leve arco hasta extender completamente los brazos, luego baja con control.',
     'id': 'Tekan kedua dumbbell ke atas kepala dalam busur kecil hingga lengan sepenuhnya lurus, lalu turunkan dengan terkontrol.',
@@ -2364,6 +2391,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_shoulder_press.step3': {
     'en': 'Exhale as you press; maintain a tight core and avoid flaring your ribs or arching excessively.',
     'ru': 'Выдыхайте при жиме; удерживайте кор и не разворачивайте рёбра наружу и не прогибайте поясницу.',
+    'hi': 'दबाते समय साँस छोड़ें; कोर को कसा रखें और पसलियों को बाहर निकलने या अत्यधिक पीठ मोड़ने से बचें।',
+    'ja': '押し上げる際に息を吐く。体幹を引き締め、肋骨を張り出させたり過度に反らせたりしない。',
+    'ko': '밀어 올릴 때 숨을 내쉬세요. 코어를 단단히 유지하고 갈비뼈가 들리거나 허리를 과도하게 젖히지 않도록 합니다.',
     'pt': 'Expire ao pressionar; mantenha o core firme e evite abrir as costelas ou arquear excessivamente.',
     'es': 'Exhala al presionar; mantén el core firme y evita abrir las costillas o arquear en exceso.',
     'id': 'Hembuskan napas saat menekan; jaga core tetap kencang dan hindari membuka tulang rusuk atau melengkungkan punggung berlebihan.',
@@ -2374,6 +2404,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_shoulder_press.mistake1': {
     'en': 'Letting dumbbells drift too far forward — keep them in a vertical line above the shoulder joints.',
     'ru': 'Гантели уходят вперёд — держите их в вертикальной плоскости над плечевыми суставами.',
+    'hi': 'डंबल्स का बहुत आगे की ओर खिसक जाना — उन्हें कंधे के जोड़ों के ऊपर एक ऊर्ध्वाधर रेखा में रखें।',
+    'ja': 'ダンベルが前方に流れすぎること——肩関節の真上の垂直線上に保つ。',
+    'ko': '덤벨이 너무 앞으로 쏠리는 것 — 어깨 관절 바로 위 수직선상에 유지하세요.',
     'pt': 'Deixar os halteres ir muito para frente — mantenha-os em linha vertical acima das articulações dos ombros.',
     'es': 'Dejar que las mancuernas se vayan demasiado al frente — mantenlas en línea vertical sobre las articulaciones de los hombros.',
     'id': 'Membiarkan dumbbell bergerak terlalu jauh ke depan — jaga dalam garis vertikal di atas sendi bahu.',
@@ -2384,6 +2417,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_shoulder_press.mistake2': {
     'en': 'Excessive lower back arch — engage your core and keep your back flat against the bench.',
     'ru': 'Чрезмерный прогиб поясницы — напрягите кор и прижмите спину к спинке скамьи.',
+    'hi': 'पीठ के निचले हिस्से का अत्यधिक मोड़ — अपने कोर को सक्रिय करें और पीठ को बेंच से सटाकर सपाट रखें।',
+    'ja': '腰の反りすぎ——体幹を働かせ、背中をベンチに平らに付けておく。',
+    'ko': '허리의 과도한 젖힘 — 코어를 활성화하고 등을 벤치에 평평하게 붙여 유지하세요.',
     'pt': 'Arqueamento excessivo da lombar — ative o core e mantenha as costas planas contra o banco.',
     'es': 'Arqueo excesivo de la zona lumbar — activa el core y mantén la espalda plana contra el respaldo.',
     'id': 'Lengkungan punggung bawah berlebihan — aktifkan core dan jaga punggung tetap rata di bangku.',
@@ -2398,6 +2434,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.lateral_raise.step1': {
     'en': 'Stand (or sit) holding a dumbbell in each hand at your sides, palms facing your thighs; maintain a soft bend in the elbows.',
     'ru': 'Встаньте (или сядьте) с гантелями у бёдер, ладони к бёдрам; сохраняйте небольшой изгиб в локтях.',
+    'hi': 'हर हाथ में एक डंबल पकड़कर अपने बगल में रखते हुए खड़े हों (या बैठें), हथेलियाँ जाँघों की ओर हों; कोहनियों में हल्का मोड़ बनाए रखें।',
+    'ja': '両手にダンベルを持って体の横に下ろし、手のひらを太ももに向けて立つ（または座る）。肘は軽く曲げたままにする。',
+    'ko': '양손에 덤벨을 들고 몸 옆에 내린 채 손바닥이 허벅지를 향하도록 서거나 앉습니다. 팔꿈치는 살짝 구부린 상태를 유지하세요.',
     'pt': 'Fique em pé (ou sente) com um halter em cada mão ao lado do corpo, palmas voltadas para as coxas; mantenha leve flexão nos cotovelos.',
     'es': 'Párate (o siéntate) con una mancuerna en cada mano a los lados, palmas hacia los muslos; mantén una leve flexión en los codos.',
     'id': 'Berdiri (atau duduk) dengan satu dumbbell di setiap tangan di sisi tubuh, telapak tangan menghadap paha; pertahankan sedikit tekukan di siku.',
@@ -2408,6 +2447,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.lateral_raise.step2': {
     'en': 'Raise both arms out to the sides in a controlled arc until they reach shoulder height — lead with your elbows, not your wrists.',
     'ru': 'Поднимайте обе руки в стороны по дуге до уровня плеч — ведите движение локтями, а не запястьями.',
+    'hi': 'दोनों भुजाओं को नियंत्रित चाप में बगल की ओर कंधे की ऊँचाई तक उठाएँ — गति में कलाई नहीं, कोहनियों को आगे रखें।',
+    'ja': '両腕を制御した弧を描きながら肩の高さまで横に上げる ― 手首ではなく肘でリードする。',
+    'ko': '양팔을 통제된 호를 그리며 어깨 높이까지 옆으로 들어 올립니다 — 손목이 아니라 팔꿈치로 동작을 이끄세요.',
     'pt': 'Eleve ambos os braços lateralmente num arco controlado até a altura dos ombros — guie com os cotovelos, não com os pulsos.',
     'es': 'Eleva ambos brazos hacia los lados en un arco controlado hasta la altura de los hombros — guía con los codos, no con las muñecas.',
     'id': 'Angkat kedua lengan ke samping dalam busur terkontrol hingga setinggi bahu — pimpin dengan siku, bukan pergelangan tangan.',
@@ -2418,6 +2460,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.lateral_raise.step3': {
     'en': 'Lower slowly back to the start over 2–3 seconds; resist the weight on the way down.',
     'ru': 'Медленно опустите за 2–3 секунды; сопротивляйтесь весу на пути вниз.',
+    'hi': '2–3 सेकंड में धीरे-धीरे शुरुआती स्थिति में वापस नीचे लाएँ; उतरते समय वज़न का प्रतिरोध करें।',
+    'ja': '2〜3秒かけてゆっくりとスタート位置まで下ろす。下ろす際は重さに抵抗する。',
+    'ko': '2~3초에 걸쳐 천천히 시작 자세로 내립니다. 내리는 동안 무게에 저항하세요.',
     'pt': 'Baixe lentamente em 2–3 segundos; resista ao peso na descida.',
     'es': 'Baja lentamente en 2–3 segundos; resiste el peso en la bajada.',
     'id': 'Turunkan perlahan dalam 2–3 detik; tahan beban saat turun.',
@@ -2428,6 +2473,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.lateral_raise.mistake1': {
     'en': 'Shrugging the shoulders up — keep them depressed to avoid trap dominance.',
     'ru': 'Подъём плеч кверху — держите лопатки опущенными, чтобы нагрузка не уходила в трапецию.',
+    'hi': 'कंधों को ऊपर उचकाना — ट्रैपीज़ियस पर भार जाने से बचने के लिए कंधों को नीचे दबाए रखें।',
+    'ja': '肩をすくめてしまうこと ― 僧帽筋が優位にならないよう、肩は下げたままにする。',
+    'ko': '어깨를 으쓱 들어 올리는 것 — 승모근이 주도하지 않도록 어깨를 내린 상태로 유지하세요.',
     'pt': 'Encolher os ombros — mantenha-os para baixo para evitar dominância do trapézio.',
     'es': 'Elevar los hombros — mantenlos hacia abajo para evitar la dominancia del trapecio.',
     'id': 'Mengangkat bahu — jaga tetap ditekan ke bawah untuk menghindari dominasi trapezius.',
@@ -2438,6 +2486,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.lateral_raise.mistake2': {
     'en': 'Swinging the body for momentum — slow down and use a lighter weight.',
     'ru': 'Инерционные раскачки — замедлитесь и возьмите меньший вес.',
+    'hi': 'गति पाने के लिए शरीर को झुलाना — धीमा करें और हल्का वज़न इस्तेमाल करें।',
+    'ja': '反動をつけるために体を振ること ― 動作を遅くし、より軽い重量を使う。',
+    'ko': '반동을 얻으려고 몸을 흔드는 것 — 동작을 늦추고 더 가벼운 무게를 사용하세요.',
     'pt': 'Balançar o corpo por impulso — desacelere e use um peso mais leve.',
     'es': 'Balancear el cuerpo por inercia — reduce la velocidad y usa un peso más ligero.',
     'id': 'Mengayunkan tubuh untuk momentum — perlambat dan gunakan beban lebih ringan.',
@@ -2452,6 +2503,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.front_raise.step1': {
     'en': 'Stand holding a dumbbell in each hand against your thighs, palms facing back; keep a soft elbow bend.',
     'ru': 'Встаньте с гантелями у бёдер, ладони назад; сохраняйте небольшой изгиб в локтях.',
+    'hi': 'हर हाथ में एक डंबल पकड़कर जाँघों के सामने रखते हुए खड़े हों, हथेलियाँ पीछे की ओर हों; कोहनियों में हल्का मोड़ बनाए रखें।',
+    'ja': '両手にダンベルを持って太ももの前に当て、手のひらを後ろに向けて立つ。肘は軽く曲げたままにする。',
+    'ko': '양손에 덤벨을 들고 허벅지 앞에 댄 채 손바닥이 뒤를 향하도록 섭니다. 팔꿈치는 살짝 구부린 상태를 유지하세요.',
     'pt': 'Fique em pé com um halter em cada mão contra as coxas, palmas voltadas para trás; mantenha leve flexão nos cotovelos.',
     'es': 'Párate con una mancuerna en cada mano contra los muslos, palmas hacia atrás; mantén una leve flexión en los codos.',
     'id': 'Berdiri dengan satu dumbbell di setiap tangan di depan paha, telapak tangan menghadap ke belakang; pertahankan sedikit tekukan siku.',
@@ -2462,6 +2516,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.front_raise.step2': {
     'en': 'Raise one or both arms straight forward to shoulder height; hold briefly at the top, then lower slowly.',
     'ru': 'Поднимайте одну или обе руки прямо вперёд до уровня плеч; задержитесь на мгновение, затем медленно опустите.',
+    'hi': 'एक या दोनों भुजाओं को सीधे आगे कंधे की ऊँचाई तक उठाएँ; शीर्ष पर क्षण भर रुकें, फिर धीरे-धीरे नीचे लाएँ।',
+    'ja': '片腕または両腕をまっすぐ前に肩の高さまで上げる。トップで一瞬静止し、ゆっくり下ろす。',
+    'ko': '한쪽 또는 양쪽 팔을 곧게 앞으로 어깨 높이까지 들어 올립니다. 정점에서 잠시 멈춘 뒤 천천히 내리세요.',
     'pt': 'Eleve um ou ambos os braços reto à frente até a altura dos ombros; segure brevemente no topo, depois desça devagar.',
     'es': 'Eleva uno o ambos brazos recto al frente hasta la altura de los hombros; mantén brevemente arriba, luego baja despacio.',
     'id': 'Angkat satu atau kedua lengan lurus ke depan setinggi bahu; tahan sebentar di atas, lalu turunkan perlahan.',
@@ -2472,6 +2529,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.front_raise.mistake1': {
     'en': 'Using body swing — lean slightly forward only if necessary, but keep the movement controlled.',
     'ru': 'Инерционная раскачка корпуса — допускается лёгкий наклон вперёд, но движение должно оставаться контролируемым.',
+    'hi': 'शरीर की झुलाहट का उपयोग — ज़रूरत हो तभी थोड़ा आगे झुकें, पर गति को नियंत्रित रखें।',
+    'ja': '体の反動を使うこと ― 必要な場合のみわずかに前傾してよいが、動作は制御したままにする。',
+    'ko': '몸의 반동을 이용하는 것 — 필요할 때만 살짝 앞으로 기울이되, 동작은 통제된 상태를 유지하세요.',
     'pt': 'Usar o balanço do corpo — incline-se levemente para frente apenas se necessário, mas mantenha o movimento controlado.',
     'es': 'Usar el balanceo del cuerpo — inclínate ligeramente hacia adelante solo si es necesario, pero mantén el movimiento controlado.',
     'id': 'Menggunakan ayunan tubuh — condongkan sedikit ke depan hanya jika perlu, tetapi jaga gerakan tetap terkontrol.',
@@ -2486,6 +2546,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.rear_delt_fly.step1': {
     'en': 'Sit on the edge of a bench and hinge forward 45–90° with your chest toward your thighs; hold a dumbbell in each hand, arms hanging down with palms facing each other.',
     'ru': 'Сядьте на край скамьи, наклонитесь вперёд 45–90°, грудью к бёдрам; гантели свисают вниз, ладони смотрят друг на друга.',
+    'hi': 'बेंच के किनारे बैठें और छाती को जाँघों की ओर 45–90° आगे झुकाएँ; हर हाथ में एक डंबल पकड़ें, भुजाएँ नीचे लटकी हों और हथेलियाँ एक-दूसरे की ओर हों।',
+    'ja': 'ベンチの端に座り、胸を太ももに向けて45〜90°前傾する。両手にダンベルを持ち、腕を下に垂らして手のひらを向かい合わせる。',
+    'ko': '벤치 가장자리에 앉아 가슴을 허벅지 쪽으로 45~90° 숙입니다. 양손에 덤벨을 들고 팔을 아래로 늘어뜨린 채 손바닥이 서로 마주 보게 하세요.',
     'pt': 'Sente na borda de um banco e incline para frente 45–90° com o peito em direção às coxas; segure um halter em cada mão com os braços pendurados e palmas voltadas uma para a outra.',
     'es': 'Siéntate en el borde de un banco e inclínate hacia adelante 45–90° con el pecho hacia los muslos; sostén una mancuerna en cada mano con los brazos colgando y las palmas enfrentadas.',
     'id': 'Duduklah di tepi bangku dan condong ke depan 45–90° dengan dada menuju paha; pegang satu dumbbell di setiap tangan dengan lengan menggantung dan telapak tangan saling berhadapan.',
@@ -2496,6 +2559,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.rear_delt_fly.step2': {
     'en': 'With a fixed elbow bend, sweep both arms out to the sides until they are parallel to the floor — squeeze your rear delts and rhomboids at the top.',
     'ru': 'С фиксированным изгибом локтей разведите руки в стороны до параллели с полом — сожмите задние дельты и ромбовидные в верхней точке.',
+    'hi': 'कोहनियों के मोड़ को स्थिर रखते हुए दोनों भुजाओं को बगल की ओर फर्श के समानांतर होने तक फैलाएँ — शीर्ष पर अपने पिछले डेल्ट्स और रॉम्बॉइड्स को सिकोड़ें।',
+    'ja': '肘の曲げを固定したまま、両腕を床と平行になるまで横に開く ― トップで後部三角筋と菱形筋を絞り込む。',
+    'ko': '팔꿈치 각도를 고정한 채 양팔을 바닥과 평행이 될 때까지 옆으로 벌립니다 — 정점에서 후면 삼각근과 능형근을 조이세요.',
     'pt': 'Com a flexão de cotovelos fixa, abra ambos os braços para os lados até ficarem paralelos ao chão — contraia os deltoides posteriores e romboides no topo.',
     'es': 'Con la flexión de codos fija, abre ambos brazos hacia los lados hasta que queden paralelos al suelo — contrae los deltoides posteriores y romboides en la parte superior.',
     'id': 'Dengan tekukan siku tetap, sapukan kedua lengan ke samping hingga sejajar lantai — kencangkan deltoid belakang dan rhomboid di puncak.',
@@ -2506,6 +2572,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.rear_delt_fly.step3': {
     'en': 'Lower slowly back to the start; keep your torso still throughout.',
     'ru': 'Медленно опустите в исходное положение; корпус неподвижен на протяжении всего движения.',
+    'hi': 'धीरे-धीरे शुरुआती स्थिति में वापस नीचे लाएँ; पूरे दौरान धड़ को स्थिर रखें।',
+    'ja': 'ゆっくりとスタート位置まで下ろす。動作中は胴体を動かさないようにする。',
+    'ko': '천천히 시작 자세로 내립니다. 동작 내내 상체는 움직이지 않게 유지하세요.',
     'pt': 'Baixe lentamente ao início; mantenha o tronco imóvel durante todo o movimento.',
     'es': 'Baja lentamente al inicio; mantén el torso inmóvil durante todo el movimiento.',
     'id': 'Turunkan perlahan ke posisi awal; jaga torso tetap diam sepanjang gerakan.',
@@ -2516,6 +2585,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.rear_delt_fly.mistake1': {
     'en': 'Raising the elbows above shoulder height — stop at parallel to avoid traps taking over.',
     'ru': 'Подъём локтей выше уровня плеч — остановитесь у параллели, чтобы не подключалась трапеция.',
+    'hi': 'कोहनियों को कंधे की ऊँचाई से ऊपर उठाना — ट्रैपीज़ियस के हावी होने से बचने के लिए समानांतर पर रुकें।',
+    'ja': '肘を肩の高さより上に上げること ― 僧帽筋が働きすぎないよう、平行の位置で止める。',
+    'ko': '팔꿈치를 어깨 높이보다 위로 들어 올리는 것 — 승모근이 개입하지 않도록 평행 지점에서 멈추세요.',
     'pt': 'Elevar os cotovelos acima da altura dos ombros — pare na paralela para evitar que o trapézio domine.',
     'es': 'Subir los codos por encima de la altura de los hombros — detente en la paralela para evitar que el trapecio domine.',
     'id': 'Mengangkat siku di atas tinggi bahu — berhenti di posisi sejajar untuk mencegah trapezius mengambil alih.',
@@ -2530,6 +2602,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.arnold_press.step1': {
     'en': 'Sit on a bench with back support, holding dumbbells at chin height with palms facing you and elbows in front of your chest.',
     'ru': 'Сядьте на скамью со спинкой, гантели у подбородка, ладони к себе, локти перед грудью.',
+    'hi': 'पीठ के सहारे वाली बेंच पर बैठें, डम्बल को ठुड्डी की ऊँचाई पर पकड़ें, हथेलियाँ अपनी ओर और कोहनियाँ छाती के सामने रखें।',
+    'ja': '背もたれのあるベンチに座り、ダンベルをあごの高さで持ち、手のひらを自分側に向け、ひじを胸の前に置く。',
+    'ko': '등받이가 있는 벤치에 앉아 덤벨을 턱 높이에서 손바닥이 몸쪽을 향하게 잡고 팔꿈치를 가슴 앞에 둔다。',
     'pt': 'Sente num banco com suporte nas costas, segurando halteres na altura do queixo com palmas voltadas para você e cotovelos à frente do peito.',
     'es': 'Siéntate en un banco con respaldo, sosteniendo mancuernas a la altura del mentón con las palmas hacia ti y los codos frente al pecho.',
     'id': 'Duduklah di bangku dengan sandaran, pegang dumbbell setinggi dagu dengan telapak tangan menghadap ke kamu dan siku di depan dada.',
@@ -2540,6 +2615,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.arnold_press.step2': {
     'en': 'As you press upward, rotate your palms outward so they face forward at the top — arms fully extended.',
     'ru': 'При жиме вверх разворачивайте ладони наружу, так что в верхней точке они смотрят вперёд — руки полностью выпрямлены.',
+    'hi': 'ऊपर की ओर प्रेस करते हुए हथेलियों को बाहर की ओर घुमाएँ ताकि शीर्ष पर वे आगे की ओर हों — बाहें पूरी तरह सीधी।',
+    'ja': '上に押し上げながら手のひらを外側に回し、トップで前を向くようにする — 腕は完全に伸ばす。',
+    'ko': '위로 밀어 올리면서 손바닥을 바깥쪽으로 돌려 정점에서 앞을 향하게 한다 — 팔은 완전히 편다。',
     'pt': 'Ao pressionar para cima, gire as palmas para fora de modo que fiquem voltadas para frente no topo — braços totalmente estendidos.',
     'es': 'Al presionar hacia arriba, rota las palmas hacia afuera para que queden hacia adelante en la parte superior — brazos totalmente extendidos.',
     'id': 'Saat menekan ke atas, putar telapak tangan ke luar agar menghadap ke depan di puncak — lengan sepenuhnya lurus.',
@@ -2550,6 +2628,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.arnold_press.step3': {
     'en': 'Reverse the rotation as you lower back to the starting position, returning palms to face you.',
     'ru': 'При опускании разворот обратный — в нижней точке ладони снова смотрят на вас.',
+    'hi': 'शुरुआती स्थिति में नीचे लाते समय घुमाव को उल्टा करें, हथेलियों को फिर से अपनी ओर लौटाएँ।',
+    'ja': '開始位置に下ろす際は回転を逆にし、手のひらを再び自分側に戻す。',
+    'ko': '시작 자세로 내릴 때는 회전을 반대로 하여 손바닥을 다시 몸쪽으로 돌린다。',
     'pt': 'Inverta a rotação ao baixar de volta à posição inicial, retornando as palmas para você.',
     'es': 'Invierte la rotación al bajar a la posición inicial, regresando las palmas hacia ti.',
     'id': 'Balikkan rotasi saat turun ke posisi awal, kembalikan telapak tangan menghadap kamu.',
@@ -2560,6 +2641,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.arnold_press.mistake1': {
     'en': 'Rushing the rotation — move smoothly through the full arc to engage all three heads of the deltoid.',
     'ru': 'Спешка с разворотом — выполняйте плавно по всей дуге для нагрузки всех трёх пучков дельтовидных.',
+    'hi': 'घुमाव में जल्दबाजी — तीनों डेल्टॉइड हेड्स को सक्रिय करने के लिए पूरे चाप में सहजता से चलें।',
+    'ja': '回転を急ぐこと — 三角筋の三つの頭すべてを使うために、円弧全体を滑らかに動かす。',
+    'ko': '회전을 서두르는 것 — 삼각근의 세 갈래를 모두 사용하려면 전체 궤도를 부드럽게 움직인다。',
     'pt': 'Apressar a rotação — mova-se suavemente por todo o arco para ativar as três cabeças do deltóide.',
     'es': 'Apresurar la rotación — muévete suavemente a través del arco completo para activar las tres cabezas del deltoides.',
     'id': 'Terburu-buru melakukan rotasi — gerakkan dengan mulus melalui busur penuh untuk mengaktifkan ketiga kepala deltoid.',
@@ -2574,6 +2658,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.barbell_curl.step1': {
     'en': 'Stand with feet hip-width apart, holding a barbell with an underhand (supinated) grip, hands shoulder-width apart, arms hanging straight.',
     'ru': 'Встаньте, ноги на ширине бёдер, гриф хватом снизу на ширине плеч, руки прямые.',
+    'hi': 'पैरों को कूल्हे-चौड़ाई पर रखकर खड़े हों, बारबेल को अंडरहैंड (सुपिनेटेड) ग्रिप से कंधे-चौड़ाई पर पकड़ें, बाहें सीधी लटकी हों।',
+    'ja': '足を腰幅に開いて立ち、バーベルをアンダーハンド（回外）グリップで肩幅に持ち、腕をまっすぐ垂らす。',
+    'ko': '발을 엉덩이 너비로 벌리고 서서 바벨을 언더핸드(회외) 그립으로 어깨너비로 잡고 팔을 곧게 늘어뜨린다。',
     'pt': 'Fique em pé com pés na largura do quadril, segurando a barra com pegada supinada na largura dos ombros, braços pendendo retos.',
     'es': 'Párate con los pies al ancho de las caderas, sosteniendo la barra con agarre supino al ancho de los hombros, brazos colgando rectos.',
     'id': 'Berdiri dengan kaki selebar pinggul, pegang barbell dengan pegangan supinasi selebar bahu, lengan menggantung lurus.',
@@ -2584,6 +2671,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.barbell_curl.step2': {
     'en': 'Keeping your elbows pinned to your sides, curl the bar up toward your collarbone by contracting your biceps.',
     'ru': 'Прижав локти к бокам, поднимайте гриф к ключицам, сокращая бицепсы.',
+    'hi': 'कोहनियों को बगल में टिकाए रखते हुए, बाइसेप्स को सिकोड़कर बार को कॉलरबोन की ओर ऊपर उठाएँ।',
+    'ja': 'ひじを体側に固定したまま、上腕二頭筋を収縮させてバーを鎖骨に向かって巻き上げる。',
+    'ko': '팔꿈치를 옆구리에 붙인 채 이두근을 수축시켜 바를 쇄골 쪽으로 들어 올린다。',
     'pt': 'Mantendo os cotovelos fixos nos lados, faça o curl da barra até a clavícula contraindo os bíceps.',
     'es': 'Con los codos pegados a los lados, curl la barra hacia la clavícula contrayendo los bíceps.',
     'id': 'Jaga siku tetap di sisi tubuh, curl barbell ke arah tulang selangka dengan mengontraksikan bisep.',
@@ -2594,6 +2684,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.barbell_curl.step3': {
     'en': 'Squeeze at the top, then lower the bar slowly over 2–3 seconds to full arm extension.',
     'ru': 'Сожмите бицепсы наверху, затем медленно опустите гриф за 2–3 секунды до полного выпрямления рук.',
+    'hi': 'शीर्ष पर निचोड़ें, फिर बार को 2–3 सेकंड में धीरे-धीरे बाहों के पूर्ण विस्तार तक नीचे लाएँ।',
+    'ja': 'トップで絞り込み、その後バーを2〜3秒かけてゆっくりと腕が完全に伸びるまで下ろす。',
+    'ko': '정점에서 쥐어짜듯 수축한 후 바를 2~3초에 걸쳐 천천히 팔이 완전히 펴질 때까지 내린다。',
     'pt': 'Contraia no topo, depois abaixe lentamente em 2–3 segundos até extensão total dos braços.',
     'es': 'Contrae en la parte superior, luego baja lentamente en 2–3 segundos hasta la extensión completa de los brazos.',
     'id': 'Kencangkan di puncak, lalu turunkan barbell perlahan selama 2–3 detik hingga lengan sepenuhnya lurus.',
@@ -2604,6 +2697,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.barbell_curl.mistake1': {
     'en': 'Swinging the body back — reduce the weight so the movement is strict.',
     'ru': 'Откидывание корпуса назад — снизьте вес, чтобы движение оставалось строгим.',
+    'hi': 'शरीर को पीछे झुलाना — वजन कम करें ताकि गति सख्त बनी रहे।',
+    'ja': '体を後ろに振ること — 動作を厳格に保つために重量を減らす。',
+    'ko': '몸을 뒤로 젖히는 것 — 동작을 엄격하게 유지하도록 중량을 줄인다。',
     'pt': 'Balançar o corpo para trás — reduza o peso para que o movimento fique estrito.',
     'es': 'Balancear el cuerpo hacia atrás — reduce el peso para que el movimiento sea estricto.',
     'id': 'Mengayunkan tubuh ke belakang — kurangi beban agar gerakan tetap ketat.',
@@ -2614,6 +2710,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.barbell_curl.mistake2': {
     'en': 'Elbows drifting forward — keep them fixed at your sides to maximize bicep tension.',
     'ru': 'Локти уходят вперёд — держите их у боков для максимального напряжения бицепсов.',
+    'hi': 'कोहनियों का आगे खिसकना — बाइसेप्स के तनाव को अधिकतम करने के लिए उन्हें बगल में स्थिर रखें।',
+    'ja': 'ひじが前に出ること — 上腕二頭筋の緊張を最大化するため、ひじを体側に固定する。',
+    'ko': '팔꿈치가 앞으로 빠지는 것 — 이두근의 긴장을 최대화하도록 팔꿈치를 옆구리에 고정한다。',
     'pt': 'Cotovelos se movendo para frente — mantenha-os fixos nos lados para maximizar a tensão do bíceps.',
     'es': 'Codos que se van hacia adelante — mantenlos fijos a los lados para maximizar la tensión del bíceps.',
     'id': 'Siku bergerak ke depan — jaga tetap di sisi tubuh untuk memaksimalkan ketegangan bisep.',
@@ -2628,6 +2727,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_curl.step1': {
     'en': 'Stand or sit holding a dumbbell in each hand at your sides, palms facing forward.',
     'ru': 'Встаньте или сядьте с гантелями вдоль тела, ладони смотрят вперёд.',
+    'hi': 'हर हाथ में एक डम्बल बगल में पकड़कर खड़े हों या बैठें, हथेलियाँ आगे की ओर।',
+    'ja': '両手にダンベルを持って体側に下げ、手のひらを前に向けて立つか座る。',
+    'ko': '양손에 덤벨을 들고 몸 옆에 내린 채 손바닥을 앞으로 향하게 하여 서거나 앉는다。',
     'pt': 'Fique em pé ou sente com um halter em cada mão ao lado do corpo, palmas voltadas para frente.',
     'es': 'Párate o siéntate con una mancuerna en cada mano a los lados, palmas hacia adelante.',
     'id': 'Berdiri atau duduk dengan satu dumbbell di setiap tangan di sisi tubuh, telapak tangan menghadap ke depan.',
@@ -2638,6 +2740,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_curl.step2': {
     'en': 'Curl both (or alternating) dumbbells up toward your shoulders, keeping elbows stationary at your sides.',
     'ru': 'Поднимайте обе (или поочерёдные) гантели к плечам, локти неподвижны у боков.',
+    'hi': 'दोनों (या बारी-बारी से) डम्बल को कंधों की ओर ऊपर उठाएँ, कोहनियाँ बगल में स्थिर रखें।',
+    'ja': '両方の（または交互に）ダンベルを肩に向かって巻き上げ、ひじを体側に固定したままにする。',
+    'ko': '양쪽(또는 번갈아) 덤벨을 어깨 쪽으로 들어 올리고 팔꿈치는 옆구리에 고정한 상태를 유지한다。',
     'pt': 'Faça o curl de ambos os halteres (ou alternando) até os ombros, mantendo os cotovelos fixos nos lados.',
     'es': 'Curl ambas mancuernas (o alternando) hacia los hombros, manteniendo los codos fijos a los lados.',
     'id': 'Curl kedua dumbbell (atau bergantian) ke arah bahu, jaga siku tetap diam di sisi tubuh.',
@@ -2648,6 +2753,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_curl.step3': {
     'en': 'Lower slowly with full control; fully extend the arms at the bottom of each rep.',
     'ru': 'Медленно опускайте с контролем; полностью выпрямляйте руки в нижней точке каждого повторения.',
+    'hi': 'पूर्ण नियंत्रण के साथ धीरे-धीरे नीचे लाएँ; हर रेप के अंत में बाहों को पूरी तरह सीधा करें।',
+    'ja': '完全にコントロールしながらゆっくり下ろす。各レップの最下点で腕を完全に伸ばす。',
+    'ko': '완전히 통제하며 천천히 내린다; 각 반복의 맨 아래에서 팔을 완전히 편다。',
     'pt': 'Baixe lentamente com controle total; estenda completamente os braços na parte inferior de cada repetição.',
     'es': 'Baja lentamente con control total; extiende completamente los brazos en la parte inferior de cada repetición.',
     'id': 'Turunkan perlahan dengan kontrol penuh; luruskan sepenuhnya lengan di bagian bawah setiap repetisi.',
@@ -2658,6 +2766,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.dumbbell_curl.mistake1': {
     'en': 'Not lowering all the way — a partial rep misses the full range and limits muscle growth.',
     'ru': 'Неполное опускание — частичное повторение сокращает амплитуду и тормозит рост мышц.',
+    'hi': 'पूरी तरह नीचे न लाना — अधूरा रेप पूर्ण रेंज से चूक जाता है और मांसपेशियों की वृद्धि को सीमित करता है।',
+    'ja': '最後まで下ろさないこと — 部分的なレップは可動域全体を逃し、筋肉の成長を妨げる。',
+    'ko': '끝까지 내리지 않는 것 — 부분 반복은 전체 가동 범위를 놓치고 근육 성장을 제한한다。',
     'pt': 'Não baixar até o final — uma repetição parcial perde a amplitude completa e limita o crescimento muscular.',
     'es': 'No bajar hasta el final — una repetición parcial pierde el rango completo y limita el crecimiento muscular.',
     'id': 'Tidak menurunkan sampai penuh — repetisi parsial melewatkan rentang gerak penuh dan membatasi pertumbuhan otot.',
@@ -2672,6 +2783,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.hammer_curl.step1': {
     'en': 'Hold a dumbbell in each hand with a neutral grip (palms facing each other) and arms at your sides.',
     'ru': 'Держите гантели нейтральным хватом (ладони смотрят друг на друга), руки вдоль тела.',
+    'hi': 'हर हाथ में डंबल को न्यूट्रल ग्रिप से पकड़ें (हथेलियाँ एक-दूसरे की ओर) और बाहें शरीर के बगल में रखें।',
+    'ja': '両手にダンベルをニュートラルグリップ（手のひらを向かい合わせ）で持ち、腕を体の脇に下ろす。',
+    'ko': '양손에 덤벨을 뉴트럴 그립(손바닥이 서로 마주 보게)으로 잡고 팔을 몸 옆에 둔다.',
     'pt': 'Segure um halter em cada mão com pegada neutra (palmas voltadas uma para a outra) e braços ao lado do corpo.',
     'es': 'Sostén una mancuerna en cada mano con agarre neutro (palmas enfrentadas) y brazos a los lados.',
     'id': 'Pegang satu dumbbell di setiap tangan dengan pegangan netral (telapak tangan saling berhadapan) dan lengan di sisi tubuh.',
@@ -2682,6 +2796,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.hammer_curl.step2': {
     'en': 'Curl both (or alternating) dumbbells upward, keeping the neutral grip throughout — do not rotate the wrists; lower slowly.',
     'ru': 'Поднимайте гантели, сохраняя нейтральный хват на протяжении всего движения — не разворачивайте запястья; опускайте медленно.',
+    'hi': 'दोनों (या बारी-बारी से) डंबल को ऊपर कर्ल करें, पूरे मूवमेंट में न्यूट्रल ग्रिप बनाए रखें — कलाई न घुमाएँ; धीरे-धीरे नीचे लाएँ।',
+    'ja': 'ニュートラルグリップを終始保ったまま、両方（または交互に）ダンベルを上へカールする — 手首を回さず、ゆっくり下ろす。',
+    'ko': '동작 내내 뉴트럴 그립을 유지하며 양쪽(또는 번갈아) 덤벨을 위로 컬한다 — 손목을 돌리지 말고 천천히 내린다.',
     'pt': 'Faça o curl de ambos os halteres (ou alternando) para cima, mantendo a pegada neutra o tempo todo — não gire os pulsos; baixe devagar.',
     'es': 'Curl ambas mancuernas (o alternando) hacia arriba, manteniendo el agarre neutro en todo momento — no gires las muñecas; baja despacio.',
     'id': 'Curl kedua dumbbell (atau bergantian) ke atas, pertahankan pegangan netral sepanjang gerakan — jangan putar pergelangan tangan; turunkan perlahan.',
@@ -2692,6 +2809,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.hammer_curl.mistake1': {
     'en': 'Supinating the wrist at the top — maintain the hammer position to target the brachialis and brachioradialis.',
     'ru': 'Разворот запястья наверху — сохраняйте «молотковое» положение для нагрузки плечевой мышцы и плечелучевой.',
+    'hi': 'ऊपर कलाई को सुपिनेट करना — ब्राकिएलिस और ब्राकिओरेडियलिस पर भार डालने के लिए हैमर पोजीशन बनाए रखें।',
+    'ja': 'トップで手首を回外させてしまう — 上腕筋と腕橈骨筋に効かせるためにハンマーの姿勢を保つ。',
+    'ko': '정점에서 손목을 회외시키는 것 — 상완근과 상완요골근을 자극하기 위해 해머 자세를 유지한다.',
     'pt': 'Supinar o pulso no topo — mantenha a posição de martelo para atingir o braquial e o braquiorradial.',
     'es': 'Supinar la muñeca en la parte superior — mantén la posición de martillo para trabajar el braquial y el braquiorradial.',
     'id': 'Mensupinasi pergelangan tangan di puncak — pertahankan posisi palu untuk menargetkan brachialis dan brachioradialis.',
@@ -2706,6 +2826,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.triceps_pushdown.step1': {
     'en': 'Stand at a cable machine with a bar or rope attachment set at upper-chest height; grip it with both hands, elbows bent at 90° and pinned close to your body.',
     'ru': 'Встаньте у кабельного тренажёра с рукоятью (прямой или канат) на уровне верхней части груди; обхватите обеими руками, локти согнуты под 90° и прижаты к телу.',
+    'hi': 'केबल मशीन के सामने खड़े हों, जहाँ बार या रस्सी का अटैचमेंट ऊपरी छाती की ऊँचाई पर सेट हो; इसे दोनों हाथों से पकड़ें, कोहनियाँ 90° पर मुड़ी और शरीर के पास टिकी हों।',
+    'ja': 'ケーブルマシンの前に立ち、バーまたはロープのアタッチメントを胸上部の高さにセットする；両手で握り、肘を90°に曲げて体の近くに固定する。',
+    'ko': '케이블 머신 앞에 서서 바 또는 로프 어태치먼트를 가슴 윗부분 높이에 맞춘다; 양손으로 잡고 팔꿈치를 90°로 굽혀 몸에 붙인다.',
     'pt': 'Fique em pé na máquina de cabos com barra ou corda na altura da parte superior do peito; segure com ambas as mãos, cotovelos dobrados a 90° e fixos próximos ao corpo.',
     'es': 'Párate en la máquina de cables con barra o cuerda a la altura de la parte superior del pecho; agárrala con ambas manos, codos doblados a 90° y pegados al cuerpo.',
     'id': 'Berdiri di mesin kabel dengan bar atau tali yang dipasang setinggi bagian atas dada; pegang dengan kedua tangan, siku ditekuk 90° dan dirapatkan ke tubuh.',
@@ -2716,6 +2839,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.triceps_pushdown.step2': {
     'en': 'Push the attachment straight down by extending your elbows until your arms are fully locked out — keep elbows still at your sides.',
     'ru': 'Разгибайте локти вниз до полного выпрямления рук — локти неподвижны у боков.',
+    'hi': 'कोहनियों को सीधा करते हुए अटैचमेंट को सीधे नीचे धकेलें जब तक बाहें पूरी तरह लॉक न हो जाएँ — कोहनियाँ बगल में स्थिर रखें।',
+    'ja': '肘を伸ばしてアタッチメントをまっすぐ下へ押し下げ、腕が完全に伸び切るまで行う — 肘は脇に固定したまま動かさない。',
+    'ko': '팔꿈치를 펴면서 어태치먼트를 곧장 아래로 밀어 팔이 완전히 펴질 때까지 내린다 — 팔꿈치는 옆구리에 고정해 움직이지 않는다.',
     'pt': 'Empurre o acessório reto para baixo estendendo os cotovelos até os braços travarem completamente — mantenha os cotovelos fixos nos lados.',
     'es': 'Empuja el accesorio recto hacia abajo extendiendo los codos hasta que los brazos queden completamente bloqueados — mantén los codos fijos a los lados.',
     'id': 'Dorong acessori lurus ke bawah dengan meluruskan siku hingga lengan terkunci penuh — jaga siku tetap diam di sisi tubuh.',
@@ -2726,6 +2852,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.triceps_pushdown.step3': {
     'en': 'Allow the attachment to rise slowly back to the start, feeling the triceps stretch at the top.',
     'ru': 'Медленно верните рукоять в исходное положение, ощущая растяжение трицепсов наверху.',
+    'hi': 'अटैचमेंट को धीरे-धीरे शुरुआती स्थिति में वापस ऊपर आने दें, ऊपर ट्राइसेप्स में खिंचाव महसूस करें।',
+    'ja': 'アタッチメントをゆっくりとスタート位置まで戻し、トップで三頭筋のストレッチを感じる。',
+    'ko': '어태치먼트가 천천히 시작 위치로 올라오도록 하며, 정점에서 삼두근의 스트레치를 느낀다.',
     'pt': 'Deixe o acessório subir lentamente ao início, sentindo o alongamento do tríceps no topo.',
     'es': 'Deja que el accesorio suba lentamente al inicio, sintiendo el estiramiento del tríceps en la parte superior.',
     'id': 'Biarkan acessori naik perlahan ke posisi awal, rasakan peregangan trisep di puncak.',
@@ -2736,6 +2865,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.triceps_pushdown.mistake1': {
     'en': 'Elbows flaring out or lifting — keep them locked tight to isolate the triceps.',
     'ru': 'Локти разводятся или поднимаются — держите их прижатыми для изолированной нагрузки трицепса.',
+    'hi': 'कोहनियों का बाहर फैलना या उठना — ट्राइसेप्स को आइसोलेट करने के लिए उन्हें कसकर टिकाए रखें।',
+    'ja': '肘が外に開いたり浮いたりする — 三頭筋を集中させるために肘をしっかり固定する。',
+    'ko': '팔꿈치가 바깥으로 벌어지거나 들리는 것 — 삼두근을 고립시키기 위해 팔꿈치를 단단히 고정한다.',
     'pt': 'Cotovelos se abrindo ou subindo — mantenha-os fixos para isolar o tríceps.',
     'es': 'Codos que se abren o se levantan — mantenlos fijos para aislar el tríceps.',
     'id': 'Siku membuka atau terangkat — jaga tetap terkunci erat untuk mengisolasi trisep.',
@@ -2746,6 +2878,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.triceps_pushdown.mistake2': {
     'en': 'Leaning heavily over the bar — stay upright so the motion is pure elbow extension.',
     'ru': 'Сильный наклон вперёд над рукоятью — держитесь вертикально, чтобы работало только разгибание в локте.',
+    'hi': 'बार के ऊपर अधिक झुकना — सीधे खड़े रहें ताकि मूवमेंट केवल कोहनी का विस्तार हो।',
+    'ja': 'バーに大きく覆いかぶさる — 動作が純粋な肘の伸展になるよう、体をまっすぐ保つ。',
+    'ko': '바 위로 심하게 기대는 것 — 동작이 순수한 팔꿈치 신전이 되도록 상체를 곧게 세운다.',
     'pt': 'Inclinar-se demais sobre a barra — fique ereto para que o movimento seja pura extensão do cotovelo.',
     'es': 'Inclinarse mucho sobre la barra — mantente erguido para que el movimiento sea pura extensión de codo.',
     'id': 'Terlalu condong ke depan di atas bar — berdiri tegak agar gerakan murni berupa ekstensi siku.',
@@ -2760,6 +2895,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.overhead_triceps_extension.step1': {
     'en': 'Sit or stand holding a single dumbbell with both hands, arms extended directly overhead — grip the inner plate of the dumbbell with thumbs wrapped around.',
     'ru': 'Сядьте или встаньте с одной гантелью над головой на вытянутых руках — возьмитесь за внутренний блин обеими руками, большие пальцы обхватывают гриф.',
+    'hi': 'एक ही डंबल को दोनों हाथों से पकड़कर बैठें या खड़े हों, बाहें सीधे सिर के ऊपर फैली हों — डंबल की भीतरी प्लेट को पकड़ें, अंगूठे चारों ओर लिपटे हों।',
+    'ja': '1つのダンベルを両手で持って座るか立ち、腕を頭の真上に伸ばす — ダンベルの内側のプレートを親指で包み込むように握る。',
+    'ko': '하나의 덤벨을 양손으로 잡고 앉거나 서서 팔을 머리 바로 위로 뻗는다 — 덤벨 안쪽 플레이트를 엄지로 감싸 쥔다.',
     'pt': 'Sente ou fique em pé segurando um único halter com as duas mãos, braços estendidos diretamente acima da cabeça — segure o disco interno com os polegares envolvendo o cabo.',
     'es': 'Siéntate o párate sosteniendo una sola mancuerna con ambas manos, brazos extendidos directamente sobre la cabeza — agarra el disco interior con los pulgares envueltos.',
     'id': 'Duduk atau berdiri sambil memegang satu dumbbell dengan kedua tangan, lengan terentang langsung ke atas — pegang pelat dalam dumbbell dengan ibu jari melingkar.',
@@ -2770,6 +2908,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.overhead_triceps_extension.step2': {
     'en': 'Keeping your upper arms vertical and elbows pointing forward, lower the dumbbell behind your head by bending your elbows.',
     'ru': 'Удерживая плечи вертикально и локти направленными вперёд, опускайте гантель за голову, сгибая локти.',
+    'hi': 'ऊपरी बाहों को लंबवत और कोहनियों को आगे की ओर रखते हुए, कोहनियाँ मोड़कर डंबल को सिर के पीछे नीचे लाएँ।',
+    'ja': '上腕を垂直に、肘を前に向けたまま、肘を曲げてダンベルを頭の後ろへ下ろす。',
+    'ko': '상완을 수직으로, 팔꿈치를 앞쪽으로 향한 채 팔꿈치를 굽혀 덤벨을 머리 뒤로 내린다.',
     'pt': 'Mantendo os braços superiores verticais e cotovelos apontando para frente, abaixe o halter atrás da cabeça dobrando os cotovelos.',
     'es': 'Manteniendo los brazos superiores verticales y los codos apuntando hacia adelante, baja la mancuerna detrás de la cabeza doblando los codos.',
     'id': 'Jaga lengan atas tetap vertikal dan siku mengarah ke depan, turunkan dumbbell ke belakang kepala dengan menekuk siku.',
@@ -2780,6 +2921,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.overhead_triceps_extension.step3': {
     'en': 'Extend your elbows to press the dumbbell back overhead; exhale as you lock out.',
     'ru': 'Разгибайте локти, выжимая гантель обратно вверх; выдыхайте при выпрямлении.',
+    'hi': 'कोहनियों को सीधा करके डंबल को वापस सिर के ऊपर दबाएँ; लॉक आउट करते समय साँस छोड़ें।',
+    'ja': '肘を伸ばしてダンベルを再び頭上へ押し上げる；伸ばし切るときに息を吐く。',
+    'ko': '팔꿈치를 펴서 덤벨을 다시 머리 위로 밀어 올린다; 완전히 펴는 순간 숨을 내쉰다.',
     'pt': 'Estenda os cotovelos para pressionar o halter de volta acima da cabeça; expire ao travar.',
     'es': 'Extiende los codos para presionar la mancuerna de vuelta sobre la cabeza; exhala al bloquear.',
     'id': 'Luruskan siku untuk mendorong dumbbell kembali ke atas kepala; hembuskan napas saat mengunci.',
@@ -2790,6 +2934,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.overhead_triceps_extension.mistake1': {
     'en': 'Elbows flaring wide — keep them as narrow as possible to target the long head of the triceps.',
     'ru': 'Локти широко расходятся — держите их как можно ближе для нагрузки длинной головки трицепса.',
+    'hi': 'कोहनियों का चौड़ा फैलना — ट्राइसेप्स के लॉन्ग हेड पर भार डालने के लिए उन्हें यथासंभव संकरा रखें।',
+    'ja': '肘が大きく開く — 三頭筋の長頭に効かせるために、肘をできるだけ狭く保つ。',
+    'ko': '팔꿈치가 넓게 벌어지는 것 — 삼두근 장두를 자극하기 위해 팔꿈치를 최대한 좁게 유지한다.',
     'pt': 'Cotovelos se abrindo muito — mantenha-os o mais próximos possível para trabalhar a cabeça longa do tríceps.',
     'es': 'Codos que se abren demasiado — mantenlos lo más juntos posible para trabajar la cabeza larga del tríceps.',
     'id': 'Siku membuka terlalu lebar — jaga sedekat mungkin untuk menargetkan kepala panjang trisep.',
@@ -2804,6 +2951,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.close_grip_bench_press.step1': {
     'en': 'Lie on a flat bench; grip the barbell with hands about shoulder-width (narrower than a regular bench press), shoulder blades retracted, feet flat.',
     'ru': 'Лягте на горизонтальную скамью; хват примерно на ширине плеч (уже обычного жима), лопатки сведены, стопы на полу.',
+    'hi': 'समतल बेंच पर लेट जाएँ; बारबेल को लगभग कंधे-चौड़ाई पर पकड़ें (सामान्य बेंच प्रेस से सँकरा), कंधे के ब्लेड पीछे खिंचे हुए, पैर ज़मीन पर सपाट।',
+    'ja': 'フラットベンチに仰向けになり、バーベルを肩幅ほど（通常のベンチプレスより狭く）で握る。肩甲骨を寄せ、足裏は床にしっかりつける。',
+    'ko': '플랫 벤치에 누워 바벨을 어깨너비 정도로(일반 벤치프레스보다 좁게) 잡고, 견갑골을 모으고 발은 바닥에 평평하게 둡니다.',
     'pt': 'Deite num banco plano; agarre a barra com as mãos aproximadamente na largura dos ombros (mais estreito que o supino comum), escápulas retraídas, pés planos.',
     'es': 'Acuéstate en un banco plano; agarra la barra con las manos aproximadamente al ancho de los hombros (más estrecho que el press de banca regular), escápulas retraídas, pies planos.',
     'id': 'Berbaring di bangku datar; pegang barbell dengan tangan sekitar selebar bahu (lebih sempit dari bench press biasa), tulang belikat ditarik, kaki datar.',
@@ -2814,6 +2964,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.close_grip_bench_press.step2': {
     'en': 'Lower the bar to your lower chest with elbows staying close to your torso (~45° flare) — do not flare them wide.',
     'ru': 'Опускайте гриф к нижней части груди, локти прижаты к корпусу (~45° отведение) — не уводите их широко.',
+    'hi': 'बार को निचली छाती तक उतारें, कोहनियाँ धड़ के पास रखते हुए (~45° खुलाव) — उन्हें चौड़ा न फैलाएँ।',
+    'ja': '肘を体側に寄せたまま（約45度の開き）、バーを胸の下部へ下ろす — 肘を大きく外へ開かないこと。',
+    'ko': '팔꿈치를 몸통 가까이 둔 채(약 45° 벌림) 바를 가슴 아랫부분으로 내립니다 — 팔꿈치를 넓게 벌리지 마세요.',
     'pt': 'Baixe a barra para a parte inferior do peito com os cotovelos próximos ao tronco (~45° de abertura) — não os abra demais.',
     'es': 'Baja la barra hacia la parte inferior del pecho con los codos cerca del tronco (~45° de apertura) — no los abras demasiado.',
     'id': 'Turunkan bar ke bagian bawah dada dengan siku tetap dekat torso (~45° pembukaan) — jangan buka terlalu lebar.',
@@ -2824,6 +2977,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.close_grip_bench_press.step3': {
     'en': 'Press back up to full extension; exhale at the top.',
     'ru': 'Выжмите гриф до полного выпрямления рук; выдыхайте наверху.',
+    'hi': 'बार को वापस ऊपर पूरी तरह सीधा होने तक दबाएँ; ऊपर पहुँचकर साँस छोड़ें।',
+    'ja': '腕が完全に伸びるまでバーを押し上げ、トップで息を吐く。',
+    'ko': '팔이 완전히 펴질 때까지 바를 위로 밀어 올리고, 정점에서 숨을 내쉽니다.',
     'pt': 'Empurre de volta até a extensão completa; expire no topo.',
     'es': 'Presiona de vuelta hasta la extensión completa; exhala en la parte superior.',
     'id': 'Tekan kembali hingga ekstensi penuh; hembuskan napas di puncak.',
@@ -2834,6 +2990,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.close_grip_bench_press.mistake1': {
     'en': 'Gripping too narrow (hands touching) — this strains the wrists; keep hands about shoulder-width.',
     'ru': 'Слишком узкий хват (руки вплотную) — нагружает запястья; держите хват примерно на ширине плеч.',
+    'hi': 'बहुत सँकरी पकड़ (हाथ आपस में सटे) — इससे कलाइयों पर ज़ोर पड़ता है; हाथ लगभग कंधे-चौड़ाई पर रखें।',
+    'ja': '握りが狭すぎる（手が触れ合うほど）— 手首に負担がかかる。手は肩幅ほどに保つ。',
+    'ko': '그립이 너무 좁음(손이 서로 닿을 정도) — 손목에 무리가 갑니다; 손은 어깨너비 정도로 유지하세요.',
     'pt': 'Pegar muito estreito (mãos se tocando) — sobrecarrega os pulsos; mantenha as mãos aproximadamente na largura dos ombros.',
     'es': 'Agarre demasiado estrecho (manos tocándose) — esto tensiona las muñecas; mantén las manos aproximadamente al ancho de los hombros.',
     'id': 'Pegangan terlalu sempit (tangan saling bersentuhan) — ini memaksa pergelangan tangan; jaga tangan sekitar selebar bahu.',
@@ -2844,6 +3003,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.close_grip_bench_press.mistake2': {
     'en': 'Elbows flaring out wide — this shifts load to the chest and reduces triceps emphasis.',
     'ru': 'Локти уходят широко в стороны — нагрузка переходит на грудь, снижая акцент на трицепс.',
+    'hi': 'कोहनियों का चौड़ा बाहर फैलना — इससे भार छाती पर चला जाता है और ट्राइसेप्स पर ज़ोर कम हो जाता है।',
+    'ja': '肘が大きく外へ開く — 負荷が胸へ移り、上腕三頭筋への効果が薄れる。',
+    'ko': '팔꿈치가 넓게 벌어짐 — 부하가 가슴으로 옮겨가 삼두근 자극이 줄어듭니다.',
     'pt': 'Cotovelos se abrindo muito — isso transfere a carga para o peito e reduz a ênfase no tríceps.',
     'es': 'Codos que se abren demasiado — esto traslada la carga al pecho y reduce el énfasis en el tríceps.',
     'id': 'Siku membuka lebar — ini memindahkan beban ke dada dan mengurangi tekanan pada trisep.',
@@ -2858,6 +3020,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.hanging_leg_raise.step1': {
     'en': 'Hang from a pull-up bar with an overhand grip, arms fully extended and body still — avoid swinging.',
     'ru': 'Повисните на турнике прямым хватом, руки полностью выпрямлены, тело неподвижно — не раскачивайтесь.',
+    'hi': 'पुल-अप बार पर ओवरहैंड पकड़ से लटकें, बाँहें पूरी तरह सीधी और शरीर स्थिर — झूलने से बचें।',
+    'ja': '順手でプルアップバーにぶら下がり、腕を完全に伸ばして体を静止させる — 反動で揺れないこと。',
+    'ko': '오버핸드 그립으로 풀업 바에 매달려 팔을 완전히 펴고 몸을 고정합니다 — 흔들리지 않도록 하세요.',
     'pt': 'Pendure-se na barra de pull-up com pegada pronada, braços totalmente estendidos e corpo imóvel — evite balançar.',
     'es': 'Cuélgate de la barra de dominadas con agarre prono, brazos totalmente extendidos y cuerpo inmóvil — evita balancearte.',
     'id': 'Gantung di pull-up bar dengan pegangan overhand, lengan sepenuhnya terentang dan tubuh diam — hindari berayun.',
@@ -2868,6 +3033,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.hanging_leg_raise.step2': {
     'en': 'Engage your core and raise your legs until they are at least parallel to the floor (or higher if possible); avoid swinging hips.',
     'ru': 'Напрягите кор и поднимайте ноги до параллели с полом (или выше); не раскачивайте бёдра.',
+    'hi': 'अपने कोर को सक्रिय करें और पैरों को कम से कम ज़मीन के समानांतर (या संभव हो तो ऊँचा) तक उठाएँ; कूल्हों को न झुलाएँ।',
+    'ja': '体幹を引き締め、脚を少なくとも床と平行（可能ならそれ以上）まで持ち上げる。腰を揺らさないこと。',
+    'ko': '코어를 단단히 조이고 다리를 최소한 바닥과 평행(가능하면 더 높이)이 될 때까지 들어 올립니다; 엉덩이를 흔들지 마세요.',
     'pt': 'Ative o core e eleve as pernas até ficarem pelo menos paralelas ao chão (ou mais alto se possível); evite balançar os quadris.',
     'es': 'Activa el core y eleva las piernas hasta que queden al menos paralelas al suelo (o más arriba si es posible); evita balancear las caderas.',
     'id': 'Aktifkan core dan angkat kaki hingga setidaknya sejajar lantai (atau lebih tinggi jika memungkinkan); hindari mengayun pinggul.',
@@ -2878,6 +3046,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.hanging_leg_raise.step3': {
     'en': 'Lower your legs slowly with control; do not let them drop or swing forward.',
     'ru': 'Медленно с контролем опустите ноги; не бросайте их и не раскачивайтесь вперёд.',
+    'hi': 'पैरों को धीरे-धीरे नियंत्रण के साथ नीचे उतारें; उन्हें गिरने या आगे झूलने न दें।',
+    'ja': '脚をコントロールしながらゆっくり下ろす。落としたり前方へ振ったりしないこと。',
+    'ko': '다리를 천천히 통제하며 내립니다; 떨어뜨리거나 앞으로 흔들리게 하지 마세요.',
     'pt': 'Baixe as pernas lentamente com controle; não as deixe cair nem balançar para frente.',
     'es': 'Baja las piernas lentamente con control; no las dejes caer ni balancear hacia adelante.',
     'id': 'Turunkan kaki perlahan dengan terkontrol; jangan biarkan jatuh atau berayun ke depan.',
@@ -2888,6 +3059,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.hanging_leg_raise.mistake1': {
     'en': 'Using momentum and swinging — pause at the bottom of each rep to eliminate swing.',
     'ru': 'Использование инерции и раскачка — останавливайтесь в нижней точке каждого повторения.',
+    'hi': 'गति का उपयोग और झूलना — झूलन समाप्त करने के लिए हर दोहराव के निचले बिंदु पर रुकें।',
+    'ja': '反動を使って揺れること — 揺れをなくすため、各レップの最下点で一度止める。',
+    'ko': '반동을 이용해 흔들기 — 흔들림을 없애려면 매 반복의 최하점에서 멈추세요.',
     'pt': 'Usar impulso e balançar — pause na parte inferior de cada repetição para eliminar o balanço.',
     'es': 'Usar impulso y balancearse — haz una pausa en la parte inferior de cada repetición para eliminar el balanceo.',
     'id': 'Menggunakan momentum dan berayun — berhenti sejenak di bagian bawah setiap repetisi untuk menghilangkan ayunan.',
@@ -2898,6 +3072,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.hanging_leg_raise.mistake2': {
     'en': 'Bending the knees excessively — straighten legs for maximum hip flexor and ab involvement.',
     'ru': 'Чрезмерное сгибание колен — выпрямите ноги для максимальной нагрузки на сгибатели бедра и пресс.',
+    'hi': 'घुटनों को अत्यधिक मोड़ना — हिप फ्लेक्सर और एब्स पर अधिकतम भार के लिए पैरों को सीधा रखें।',
+    'ja': '膝を曲げすぎること — 股関節屈筋と腹筋を最大限に使うため脚を伸ばす。',
+    'ko': '무릎을 지나치게 굽힘 — 고관절 굴곡근과 복근을 최대한 사용하려면 다리를 펴세요.',
     'pt': 'Dobrar demais os joelhos — estique as pernas para máximo envolvimento dos flexores do quadril e do abdômen.',
     'es': 'Doblar las rodillas en exceso — estira las piernas para máxima implicación de flexores de cadera y abdominales.',
     'id': 'Menekuk lutut terlalu banyak — luruskan kaki untuk keterlibatan maksimal fleksor pinggul dan perut.',
@@ -2912,6 +3089,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.crunch.step1': {
     'en': 'Lie on your back with knees bent, feet flat on the floor hip-width apart; place hands lightly behind your head — do not pull on your neck.',
     'ru': 'Лягте на спину, колени согнуты, стопы на полу на ширине бёдер; руки легко за головой — не тяните шею.',
+    'hi': 'पीठ के बल लेट जाएँ, घुटने मुड़े हुए, पैर ज़मीन पर सपाट और कूल्हे-चौड़ाई पर; हाथ हल्के से सिर के पीछे रखें — गर्दन को न खींचें।',
+    'ja': '仰向けになり膝を曲げ、足は腰幅で床に平らにつける。手を頭の後ろに軽く添える — 首を引っ張らないこと。',
+    'ko': '등을 대고 누워 무릎을 굽히고 발은 엉덩이 너비로 바닥에 평평하게 둡니다; 손은 머리 뒤에 가볍게 받칩니다 — 목을 당기지 마세요.',
     'pt': 'Deite de costas com joelhos dobrados, pés planos no chão na largura do quadril; coloque as mãos levemente atrás da cabeça — não puxe o pescoço.',
     'es': 'Acuéstate boca arriba con las rodillas dobladas, pies planos en el suelo al ancho de las caderas; coloca las manos ligeramente detrás de la cabeza — no jales el cuello.',
     'id': 'Berbaring telentang dengan lutut ditekuk, kaki datar di lantai selebar pinggul; letakkan tangan ringan di belakang kepala — jangan tarik leher.',
@@ -2922,6 +3102,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.crunch.step2': {
     'en': 'Exhale and curl your shoulders off the floor by contracting your abs — stop when your lower back is still on the floor; do not sit all the way up.',
     'ru': 'Выдыхая, скручивайте плечи от пола сокращением пресса — остановитесь пока поясница на полу; не поднимайтесь в полный сед.',
+    'hi': 'साँस छोड़ते हुए एब्स को सिकोड़कर कंधों को ज़मीन से ऊपर उठाएँ — जब तक कमर ज़मीन पर है वहीं रुकें; पूरी तरह बैठ न जाएँ।',
+    'ja': '息を吐きながら腹筋を収縮させて肩を床から丸め上げる — 腰が床についたところで止め、完全に起き上がらないこと。',
+    'ko': '숨을 내쉬며 복근을 수축해 어깨를 바닥에서 말아 올립니다 — 허리가 바닥에 닿아 있는 지점에서 멈추고, 완전히 일어나 앉지 마세요.',
     'pt': 'Expire e enrole os ombros para fora do chão contraindo o abdômen — pare quando a lombar ainda estiver no chão; não se sente completamente.',
     'es': 'Exhala y enrolla los hombros desde el suelo contrayendo el abdomen — detente cuando la zona lumbar todavía esté en el suelo; no te incorpores completamente.',
     'id': 'Hembuskan napas dan gulung bahu dari lantai dengan mengontraksikan perut — berhenti saat punggung bawah masih di lantai; jangan duduk penuh.',
@@ -2932,6 +3115,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.crunch.step3': {
     'en': 'Inhale and slowly lower back to the start; keep tension in your abs throughout.',
     'ru': 'Вдыхая, медленно опустите плечи в исходное положение; сохраняйте напряжение в прессе.',
+    'hi': 'साँस लेते हुए धीरे-धीरे कंधों को प्रारंभिक स्थिति में लाएँ; पूरे समय एब्स में तनाव बनाए रखें।',
+    'ja': '息を吸いながらゆっくり肩を元の位置に戻す。終始、腹筋の緊張を保つ。',
+    'ko': '숨을 들이쉬며 천천히 시작 자세로 돌아옵니다; 동작 내내 복근의 긴장을 유지하세요.',
     'pt': 'Inspire e baixe lentamente ao início; mantenha a tensão no abdômen durante todo o movimento.',
     'es': 'Inhala y baja lentamente al inicio; mantén la tensión en el abdomen durante todo el movimiento.',
     'id': 'Tarik napas dan turunkan perlahan ke posisi awal; jaga ketegangan di perut sepanjang gerakan.',
@@ -2942,6 +3128,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.crunch.mistake1': {
     'en': 'Pulling on the neck with your hands — cross arms on your chest if this is a problem.',
     'ru': 'Тяга шеи руками — скрестите руки на груди, если это проблема.',
+    'hi': 'हाथों से गर्दन को खींचना — यदि यह समस्या हो तो बाँहों को छाती पर क्रॉस कर लें।',
+    'ja': '手で首を引っ張ること — 問題があれば腕を胸の前で組む。',
+    'ko': '손으로 목을 당김 — 이것이 문제라면 팔을 가슴 위에 교차시키세요.',
     'pt': 'Puxar o pescoço com as mãos — cruze os braços no peito se isso for um problema.',
     'es': 'Jalar el cuello con las manos — cruza los brazos sobre el pecho si esto es un problema.',
     'id': 'Menarik leher dengan tangan — silangkan lengan di dada jika ini menjadi masalah.',
@@ -2956,6 +3145,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.mountain_climber.step1': {
     'en': 'Start in a high-plank position: arms straight, hands under your shoulders, body forming a straight line from head to heels.',
     'ru': 'Примите упор лёжа на прямых руках: ладони под плечами, тело — прямая линия от головы до пяток.',
+    'hi': 'हाई-प्लैंक पोज़िशन में शुरू करें: बाहें सीधी, हाथ कंधों के नीचे, सिर से एड़ियों तक शरीर एक सीधी रेखा में।',
+    'ja': 'ハイプランクの姿勢から始めます。腕はまっすぐ、手は肩の真下に置き、頭からかかとまで体を一直線に保ちます。',
+    'ko': '하이 플랭크 자세로 시작합니다. 팔은 곧게 펴고 손은 어깨 바로 아래에 두며, 머리부터 발뒤꿈치까지 몸을 일직선으로 유지하세요.',
     'pt': 'Comece na posição de prancha alta: braços retos, mãos sob os ombros, corpo formando uma linha reta da cabeça aos calcanhares.',
     'es': 'Comienza en posición de plancha alta: brazos rectos, manos bajo los hombros, cuerpo formando una línea recta de la cabeza a los talones.',
     'id': 'Mulai dalam posisi high plank: lengan lurus, tangan di bawah bahu, tubuh membentuk garis lurus dari kepala hingga tumit.',
@@ -2966,6 +3158,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.mountain_climber.step2': {
     'en': 'Drive one knee toward your chest as fast as possible, then immediately switch legs — keep hips level and core tight.',
     'ru': 'Подтяните одно колено к груди как можно быстрее, затем сразу смените ногу — таз ровный, кор в напряжении.',
+    'hi': 'एक घुटने को जितनी तेज़ी से हो सके छाती की ओर खींचें, फिर तुरंत पैर बदलें — कूल्हे समतल और कोर टाइट रखें।',
+    'ja': '片方の膝をできるだけ速く胸へ引き寄せ、すぐに脚を入れ替えます。腰の高さを一定に保ち、体幹を締めたままにします。',
+    'ko': '한쪽 무릎을 최대한 빠르게 가슴 쪽으로 당긴 뒤 곧바로 다리를 바꿉니다. 골반은 수평으로, 코어는 단단히 유지하세요.',
     'pt': 'Leve um joelho em direção ao peito o mais rápido possível, depois troque imediatamente de perna — mantenha os quadris nivelados e o core firme.',
     'es': 'Lleva una rodilla hacia el pecho lo más rápido posible, luego cambia inmediatamente de pierna — mantén las caderas niveladas y el core apretado.',
     'id': 'Dorong satu lutut ke arah dada secepat mungkin, lalu segera ganti kaki — jaga pinggul rata dan core kencang.',
@@ -2976,6 +3171,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.mountain_climber.step3': {
     'en': 'Continue alternating legs for the set duration, maintaining a flat back throughout.',
     'ru': 'Продолжайте чередовать ноги в течение заданного времени, сохраняя ровную спину.',
+    'hi': 'तय की गई अवधि तक पैरों को बारी-बारी से बदलते रहें, पूरे समय पीठ को सीधा बनाए रखें।',
+    'ja': '設定した時間の間、脚を交互に動かし続け、その間ずっと背中をまっすぐに保ちます。',
+    'ko': '정해진 시간 동안 다리를 번갈아 움직이며, 내내 등을 평평하게 유지하세요.',
     'pt': 'Continue alternando as pernas pelo tempo determinado, mantendo as costas planas durante todo o exercício.',
     'es': 'Continúa alternando las piernas durante el tiempo establecido, manteniendo la espalda plana durante todo el ejercicio.',
     'id': 'Lanjutkan bergantian kaki selama durasi yang ditentukan, jaga punggung tetap rata sepanjang waktu.',
@@ -2986,6 +3184,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.mountain_climber.mistake1': {
     'en': 'Hips rising too high — keep them in line with your shoulders to prevent losing core tension.',
     'ru': 'Таз поднимается слишком высоко — держите его на линии плеч, чтобы не терять напряжение кора.',
+    'hi': 'कूल्हे बहुत ऊपर उठ जाना — कोर का तनाव न खोने के लिए उन्हें कंधों के स्तर पर रखें।',
+    'ja': '腰が高く上がりすぎる — 体幹の緊張を失わないよう、腰を肩のラインに合わせて保ちましょう。',
+    'ko': '골반이 너무 높이 올라가는 것 — 코어 긴장을 잃지 않도록 골반을 어깨 높이에 맞춰 유지하세요.',
     'pt': 'Quadris subindo alto demais — mantenha-os alinhados com os ombros para não perder a tensão do core.',
     'es': 'Caderas que suben demasiado — mantenlas alineadas con los hombros para no perder la tensión del core.',
     'id': 'Pinggul naik terlalu tinggi — jaga sejajar dengan bahu untuk mencegah kehilangan ketegangan core.',
@@ -3000,6 +3201,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.kettlebell_swing.step1': {
     'en': 'Stand with feet slightly wider than hip-width; place the kettlebell about a foot in front of you. Hinge at the hips and grip the bell with both hands, tilting it toward you.',
     'ru': 'Ноги чуть шире бёдер; гиря на полу примерно в 30 см перед вами. Наклонитесь в тазобедренном суставе, возьмитесь за гирю обеими руками, наклонив её к себе.',
+    'hi': 'पैरों को कूल्हे की चौड़ाई से थोड़ा अधिक रखकर खड़े हों; केटलबेल को अपने सामने लगभग एक फुट दूर रखें। कूल्हों से झुकें और बेल को दोनों हाथों से पकड़कर अपनी ओर झुकाएँ।',
+    'ja': '足を腰幅よりやや広めにして立ち、ケトルベルを体の約30cm前に置きます。股関節から折り曲げ、両手でベルを握って自分の方へ傾けます。',
+    'ko': '발을 골반 너비보다 약간 넓게 벌리고 서서, 케틀벨을 몸 앞 약 30cm 지점에 둡니다. 고관절을 접어 상체를 숙이고 두 손으로 케틀벨을 잡아 몸쪽으로 기울이세요.',
     'pt': 'Fique em pé com os pés levemente mais largos que o quadril; posicione o kettlebell a cerca de 30 cm à sua frente. Dobre nos quadris e segure a bola com as duas mãos, inclinando-a em sua direção.',
     'es': 'Párate con los pies ligeramente más anchos que las caderas; coloca el kettlebell a unos 30 cm frente a ti. Bisagra en las caderas y agarra la pesa con ambas manos, inclinándola hacia ti.',
     'id': 'Berdiri dengan kaki sedikit lebih lebar dari pinggul; tempatkan kettlebell sekitar 30 cm di depan kamu. Tekuk di pinggul dan pegang bell dengan kedua tangan, miringkan ke arahmu.',
@@ -3010,6 +3214,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.kettlebell_swing.step2': {
     'en': 'Hike the bell back between your legs (keep it above your knees), then explosively drive your hips forward to propel the bell up to chest height.',
     'ru': 'Заброситель гирю назад между ног (выше колен), затем взрывно вытолкните бёдра вперёд, выбрасывая гирю до уровня груди.',
+    'hi': 'बेल को पैरों के बीच पीछे की ओर झुलाएँ (इसे घुटनों से ऊपर रखें), फिर विस्फोटक रूप से कूल्हों को आगे धकेलकर बेल को छाती की ऊँचाई तक उछालें।',
+    'ja': 'ベルを脚の間で後方へ振り込み（膝より上に保つ）、そこから爆発的に股関節を前へ突き出してベルを胸の高さまで振り上げます。',
+    'ko': '케틀벨을 다리 사이로 뒤쪽으로 부쳐 보내고(무릎보다 위로 유지), 그런 다음 폭발적으로 골반을 앞으로 밀어내며 케틀벨을 가슴 높이까지 띄워 올리세요.',
     'pt': 'Lance a bola para trás entre as pernas (mantenha acima dos joelhos), depois empurre explosivamente os quadris para frente para propulsionar a bola até a altura do peito.',
     'es': 'Lanza la pesa hacia atrás entre las piernas (mantenla sobre las rodillas), luego impulsa explosivamente las caderas hacia adelante para propulsar la pesa hasta la altura del pecho.',
     'id': 'Ayunkan bell ke belakang di antara kaki (jaga di atas lutut), lalu dorong pinggul ke depan secara eksplosif untuk melontarkan bell hingga setinggi dada.',
@@ -3020,6 +3227,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.kettlebell_swing.step3': {
     'en': 'At the top, your body should be fully upright with glutes and core contracted — the bell floats; do not actively pull with your arms.',
     'ru': 'В верхней точке тело полностью выпрямлено, ягодицы и кор сжаты — гиря «плывёт»; не тяните её руками.',
+    'hi': 'शीर्ष पर आपका शरीर पूरी तरह सीधा होना चाहिए, ग्लूट्स और कोर सिकुड़े हुए — बेल "तैरती" है; इसे बाहों से सक्रिय रूप से न खींचें।',
+    'ja': 'トップでは体を完全に直立させ、臀筋と体幹を締めます。ベルは「浮く」ように上がります。腕で能動的に引き上げてはいけません。',
+    'ko': '정점에서는 몸을 완전히 곧게 세우고 둔근과 코어를 수축시킵니다. 케틀벨은 "떠오르듯" 올라갑니다. 팔로 능동적으로 당기지 마세요.',
     'pt': 'No topo, o corpo deve estar totalmente ereto com glúteos e core contraídos — a bola flutua; não puxe ativamente com os braços.',
     'es': 'En la parte superior, el cuerpo debe estar completamente erguido con glúteos y core contraídos — la pesa flota; no jales activamente con los brazos.',
     'id': 'Di puncak, tubuh harus sepenuhnya tegak dengan glutes dan core berkontraksi — bell melayang; jangan aktif menarik dengan lengan.',
@@ -3030,6 +3240,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.kettlebell_swing.step4': {
     'en': 'Allow the bell to swing back down, hinge to absorb the load, and immediately cycle into the next rep.',
     'ru': 'Позвольте гире опуститься назад, согнитесь в тазу для поглощения нагрузки и сразу начинайте следующее повторение.',
+    'hi': 'बेल को वापस नीचे झूलने दें, भार को सोखने के लिए कूल्हों से झुकें, और तुरंत अगली पुनरावृत्ति में चले जाएँ।',
+    'ja': 'ベルが下へ振り戻るのに任せ、負荷を受け止めるために股関節を折り曲げ、すぐに次のレップへ移ります。',
+    'ko': '케틀벨이 다시 아래로 스윙하도록 두고, 부하를 흡수하기 위해 고관절을 접은 뒤 곧바로 다음 반복으로 이어가세요.',
     'pt': 'Deixe a bola oscilar de volta, dobre nos quadris para absorver a carga e imediatamente passe para a próxima repetição.',
     'es': 'Deja que la pesa oscile hacia abajo, bisagra para absorber la carga e inmediatamente pasa a la siguiente repetición.',
     'id': 'Biarkan bell berayun kembali ke bawah, tekuk pinggul untuk menyerap beban, dan segera lanjutkan ke repetisi berikutnya.',
@@ -3040,6 +3253,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.kettlebell_swing.mistake1': {
     'en': 'Squatting the swing (knee-dominant) — this is a hip hinge; your shins should stay nearly vertical and the power comes from your glutes, not your quads.',
     'ru': 'Приседание вместо тяги (доминирование колена) — это тяга в тазобедренном суставе; голени почти вертикальны, сила идёт от ягодиц, не от квадрицепсов.',
+    'hi': 'स्विंग को स्क्वाट में बदलना (घुटना-प्रधान) — यह एक हिप हिंज है; आपकी पिंडलियाँ लगभग सीधी रहनी चाहिए और शक्ति ग्लूट्स से आती है, क्वाड्स से नहीं।',
+    'ja': 'スイングをスクワット化する（膝主導）— これは股関節のヒンジ動作です。すねはほぼ垂直に保ち、力は大腿四頭筋ではなく臀筋から生み出します。',
+    'ko': '스윙을 스쿼트처럼 하는 것(무릎 주도) — 이것은 힙 힌지 동작입니다. 정강이는 거의 수직으로 유지하고, 힘은 대퇴사두근이 아니라 둔근에서 나와야 합니다.',
     'pt': 'Agachar no swing (dominado pelos joelhos) — este é um hip hinge; as canelas devem ficar quase verticais e a potência vem dos glúteos, não dos quadríceps.',
     'es': 'Agacharse en el swing (dominado por las rodillas) — esto es una bisagra de cadera; las espinillas deben permanecer casi verticales y la potencia viene de los glúteos, no de los cuádriceps.',
     'id': 'Melakukan squat saat swing (dominan lutut) — ini adalah hip hinge; tulang kering harus hampir vertikal dan kekuatan berasal dari glutes, bukan quadrisep.',
@@ -3050,6 +3266,9 @@ const Map<String, Map<String, String>> workoutsLibraryStrings = {
   'exercise.kettlebell_swing.mistake2': {
     'en': 'Rounding the lower back at the bottom — maintain a neutral spine throughout; reduce the load if you lose position.',
     'ru': 'Скругление поясницы внизу — держите нейтральный позвоночник; снизьте вес, если не удаётся сохранить положение.',
+    'hi': 'नीचे की स्थिति में पीठ के निचले हिस्से का गोल हो जाना — पूरे समय रीढ़ को न्यूट्रल रखें; यदि स्थिति बिगड़े तो वज़न कम करें।',
+    'ja': 'ボトムで腰が丸まる — 動作中は常に脊柱をニュートラルに保ちます。姿勢を維持できない場合は重量を下げましょう。',
+    'ko': '맨 아래 지점에서 허리가 둥글게 말리는 것 — 동작 내내 척추를 중립으로 유지하세요. 자세가 무너지면 무게를 줄이세요.',
     'pt': 'Arredondar a lombar na parte inferior — mantenha a coluna neutra durante todo o movimento; reduza a carga se perder a posição.',
     'es': 'Redondear la zona lumbar en la parte inferior — mantén la columna neutral durante todo el movimiento; reduce la carga si pierdes la posición.',
     'id': 'Membulatkan punggung bawah di bagian bawah — pertahankan tulang belakang netral sepanjang gerakan; kurangi beban jika kehilangan posisi.',
