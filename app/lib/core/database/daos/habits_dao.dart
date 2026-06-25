@@ -161,7 +161,9 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
   /// Частота (ADR-053) опциональна и по умолчанию daily, чтобы текущие
   /// вызовы не менялись; будущие слайсы (диалог добавления) передают свои
   /// значения [frequencyType]/[weekdayMask]/[weeklyTarget]/[reminderMinutes].
-  Future<void> createHabit({
+  /// Возвращает сгенерированный id новой привычки, чтобы вызывающий код мог
+  /// сразу запланировать напоминание (ADR-053, slice 4) по этому id.
+  Future<String> createHabit({
     required String name,
     required String type,
     String emoji = '✅',
@@ -170,10 +172,11 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
     int weekdayMask = 127,
     int weeklyTarget = 0,
     int? reminderMinutes,
-  }) {
-    return into(habitsTable).insert(
+  }) async {
+    final id = uuidV4();
+    await into(habitsTable).insert(
       HabitsTableCompanion(
-        id: Value(uuidV4()),
+        id: Value(id),
         name: Value(name),
         type: Value(type),
         emoji: Value(emoji),
@@ -185,6 +188,7 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
         createdAt: Value(DateTime.now()),
       ),
     );
+    return id;
   }
 
   /// Архивировать привычку (скрыть без удаления).
@@ -402,6 +406,115 @@ bool isScheduledDay(DateTime day, String frequencyType, int weekdayMask) {
     return (weekdayMask & bit) != 0;
   }
   return true;
+}
+
+// ---------------------------------------------------------------------------
+// Напоминания привычек (ADR-053, slice 4). Чистая часть планирования —
+// вынесена сюда, чтобы тестировать БЕЗ БД и БЕЗ плагина уведомлений.
+// ---------------------------------------------------------------------------
+
+/// Одно запланированное локальное напоминание привычки.
+/// [weekday] == null → ежедневное напоминание (срабатывает каждый день);
+/// [weekday] 1..7 (Пн=1..Вс=7, как DateTime.weekday) → еженедельное в этот
+/// день недели. [hour]/[minute] — время от полуночи. [notificationId] —
+/// стабильный id, выведенный из id привычки (для замены/отмены).
+class HabitReminder {
+  const HabitReminder({
+    required this.notificationId,
+    required this.weekday,
+    required this.hour,
+    required this.minute,
+  });
+
+  final int notificationId;
+  final int? weekday;
+  final int hour;
+  final int minute;
+
+  @override
+  bool operator ==(Object other) =>
+      other is HabitReminder &&
+      other.notificationId == notificationId &&
+      other.weekday == weekday &&
+      other.hour == hour &&
+      other.minute == minute;
+
+  @override
+  int get hashCode => Object.hash(notificationId, weekday, hour, minute);
+
+  @override
+  String toString() =>
+      'HabitReminder(id:$notificationId, wd:$weekday, $hour:$minute)';
+}
+
+/// Сколько id-слотов резервируется под одну привычку: base (ежедневное) +
+/// base+1..base+7 (по одному на день недели). Отмена проходит по всему диапазону.
+const int kHabitReminderSlots = 8;
+
+/// Стабильный положительный базовый id уведомления из id привычки [habitId].
+/// Один и тот же habitId всегда даёт один base — поэтому повторное планирование
+/// перетирает прежнее, а отмена по диапазону [base, base+kHabitReminderSlots)
+/// гарантированно снимает все слоты. Базы разнесены шагом 10 (× 10), чтобы
+/// диапазоны соседних привычек не пересекались. Диапазон смещён в 2_000_000+,
+/// чтобы не пересекаться с review (1001/1002), posture (301..305) и
+/// task-напоминаниями (1_000_000+).
+int habitReminderBaseId(String habitId) {
+  // FNV-1a 32-бит.
+  var hash = 0x811c9dc5;
+  for (final code in habitId.codeUnits) {
+    hash ^= code;
+    hash = (hash * 0x01000193) & 0xffffffff;
+  }
+  return 2000000 + (hash % 1000000) * 10;
+}
+
+/// Чистый расчёт набора напоминаний для привычки (ADR-053, slice 4).
+///   - [reminderMinutes] == null (или вне 0..1439) → пустой список (выключено);
+///   - 'daily'        → одно ежедневное напоминание (weekday == null);
+///   - 'weekly_count' → одно ежедневное напоминание (v1-упрощение: бьём каждый
+///                      день, пока недельная цель не достигнута — это сложно для
+///                      v1, поэтому шлём ежедневно; см. ADR-053);
+///   - 'weekly_days'  → по одному напоминанию на каждый выставленный в
+///                      [weekdayMask] день недели (Пн=бит0..Вс=бит6).
+/// Время разбирается из [reminderMinutes]: hour = m ~/ 60, minute = m % 60.
+/// id выводятся из [habitId] через [habitReminderBaseId] (стабильны → заменяемы).
+List<HabitReminder> computeHabitReminders({
+  required String habitId,
+  required int? reminderMinutes,
+  required String frequencyType,
+  required int weekdayMask,
+}) {
+  final m = reminderMinutes;
+  if (m == null || m < 0 || m > 1439) return const [];
+  final hour = m ~/ 60;
+  final minute = m % 60;
+  final base = habitReminderBaseId(habitId);
+
+  if (frequencyType == 'weekly_days') {
+    final out = <HabitReminder>[];
+    for (var i = 0; i < 7; i++) {
+      if ((weekdayMask & (1 << i)) != 0) {
+        final weekday = i + 1; // Пн=1..Вс=7
+        out.add(HabitReminder(
+          notificationId: base + weekday,
+          weekday: weekday,
+          hour: hour,
+          minute: minute,
+        ));
+      }
+    }
+    return out;
+  }
+
+  // 'daily' и 'weekly_count' → одно ежедневное напоминание.
+  return [
+    HabitReminder(
+      notificationId: base,
+      weekday: null,
+      hour: hour,
+      minute: minute,
+    ),
+  ];
 }
 
 /// Понедельник ISO-недели для [day] (UTC-полночь).

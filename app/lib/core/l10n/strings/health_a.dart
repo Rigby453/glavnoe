@@ -1511,6 +1511,34 @@ const Map<String, Map<String, String>> healthAStrings = {
     'ja': '1日に何回',
     'ko': '하루 몇 회',
   },
+  // Тумблер напоминания в диалоге привычки (slice 4).
+  'habits.reminder_label': {
+    'en': 'Remind me',
+    'ru': 'Напоминать',
+    'de': 'Erinnere mich',
+    'fr': 'Me rappeler',
+    'it': 'Ricordamelo',
+    'pt': 'Lembrar-me',
+    'es': 'Recordarme',
+    'id': 'Ingatkan saya',
+    'hi': 'याद दिलाएं',
+    'ja': 'リマインド',
+    'ko': '알림 받기',
+  },
+  // Текст локального уведомления-напоминания привычки (заголовок = имя привычки).
+  'habits.reminder_body': {
+    'en': 'Time for your habit',
+    'ru': 'Время для привычки',
+    'de': 'Zeit für deine Gewohnheit',
+    'fr': "C'est l'heure de votre habitude",
+    'it': 'È ora della tua abitudine',
+    'pt': 'Hora do seu hábito',
+    'es': 'Hora de tu hábito',
+    'id': 'Waktunya kebiasaanmu',
+    'hi': 'आपकी आदत का समय',
+    'ja': '習慣の時間です',
+    'ko': '습관을 실천할 시간이에요',
+  },
 
   // ---------------------------------------------------------------------------
   // Health profile (health_profile_provider.dart, setup_flow.dart, profile_screen.dart)

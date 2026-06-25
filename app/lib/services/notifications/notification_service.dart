@@ -11,6 +11,9 @@ import 'package:flutter_timezone/flutter_timezone.dart';
 import 'package:timezone/data/latest_all.dart' as tzdata;
 import 'package:timezone/timezone.dart' as tz;
 
+import '../../core/database/daos/habits_dao.dart'
+    show HabitReminder, computeHabitReminders, habitReminderBaseId,
+        kHabitReminderSlots;
 import '../../core/settings/timezone_provider.dart';
 import '../../core/theme/theme_provider.dart'; // sharedPreferencesProvider
 
@@ -296,6 +299,95 @@ class NotificationService {
     if (kIsWeb) return;
     await init();
     await _plugin.cancel(id: taskReminderId(itemId));
+  }
+
+  // ---------------------------------------------------------------------------
+  // Напоминания привычек (ADR-053, slice 4)
+  // ---------------------------------------------------------------------------
+
+  static const _habitDetails = NotificationDetails(
+    android: AndroidNotificationDetails(
+      'kaizen_habits',
+      'Habit reminders',
+      channelDescription: 'Reminders for your habits',
+      importance: Importance.defaultImportance,
+      priority: Priority.defaultPriority,
+    ),
+    iOS: DarwinNotificationDetails(),
+  );
+
+  /// (Пере)планирует локальные напоминания привычки [habitId].
+  /// Чистый расчёт слотов — в [computeHabitReminders] (habits_dao, юнит-тест без
+  /// БД/плагина). Сначала отменяет все прежние слоты этой привычки (id стабильны
+  /// по habitId), затем планирует:
+  ///   - daily / weekly_count → одно ежедневное (matchDateTimeComponents: time);
+  ///   - weekly_days → по одному на каждый день недели маски
+  ///     (matchDateTimeComponents: dayOfWeekAndTime — нативное еженедельное
+  ///     повторение плагина).
+  /// При [reminderMinutes] == null список пуст → метод просто снимает прежние.
+  /// [title] обычно = имя привычки, [body] — локализованный текст напоминания.
+  Future<void> scheduleHabitReminders({
+    required String habitId,
+    required int? reminderMinutes,
+    required String frequencyType,
+    required int weekdayMask,
+    required String title,
+    required String body,
+  }) async {
+    if (kIsWeb) return;
+    await init();
+    await cancelHabitReminders(habitId);
+    final reminders = computeHabitReminders(
+      habitId: habitId,
+      reminderMinutes: reminderMinutes,
+      frequencyType: frequencyType,
+      weekdayMask: weekdayMask,
+    );
+    for (final HabitReminder r in reminders) {
+      await _plugin.zonedSchedule(
+        id: r.notificationId,
+        title: title.isEmpty ? 'Reminder' : title,
+        body: body,
+        scheduledDate: r.weekday == null
+            ? _nextInstanceOfTime(r.hour, r.minute)
+            : _nextInstanceOfWeekdayTime(r.weekday!, r.hour, r.minute),
+        notificationDetails: _habitDetails,
+        androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
+        matchDateTimeComponents: r.weekday == null
+            ? DateTimeComponents.time
+            : DateTimeComponents.dayOfWeekAndTime,
+      );
+    }
+  }
+
+  /// Отменяет все слоты напоминаний привычки [habitId] (весь диапазон id).
+  Future<void> cancelHabitReminders(String habitId) async {
+    if (kIsWeb) return;
+    await init();
+    final base = habitReminderBaseId(habitId);
+    for (var i = 0; i < kHabitReminderSlots; i++) {
+      await _plugin.cancel(id: base + i);
+    }
+  }
+
+  /// Следующее наступление времени [hour]:[minute] (сегодня или завтра).
+  tz.TZDateTime _nextInstanceOfTime(int hour, int minute) {
+    final now = tz.TZDateTime.now(tz.local);
+    var scheduled =
+        tz.TZDateTime(tz.local, now.year, now.month, now.day, hour, minute);
+    if (!scheduled.isAfter(now)) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    return scheduled;
+  }
+
+  /// Следующее наступление [hour]:[minute] в день недели [weekday] (Пн=1..Вс=7).
+  tz.TZDateTime _nextInstanceOfWeekdayTime(int weekday, int hour, int minute) {
+    var scheduled = _nextInstanceOfTime(hour, minute);
+    while (scheduled.weekday != weekday) {
+      scheduled = scheduled.add(const Duration(days: 1));
+    }
+    return scheduled;
   }
 }
 

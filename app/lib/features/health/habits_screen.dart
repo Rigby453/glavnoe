@@ -16,6 +16,7 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
 import '../../core/widgets/swipe_to_delete.dart';
 import '../../core/widgets/undo_snack_bar.dart';
+import '../../services/notifications/notification_service.dart';
 
 final _habitsProvider = StreamProvider.autoDispose<List<HabitsTableData>>((ref) {
   return ref.watch(habitsDaoProvider).watchActive();
@@ -193,11 +194,26 @@ class HabitsScreen extends ConsumerWidget {
     // Снапшот сделан до удаления (habit уже пришёл из stream — это актуальная запись)
     final snapshot = habit;
     await dao.deleteHabit(habit.id);
+    // Снимаем все слоты напоминаний удалённой привычки.
+    await ref.read(notificationServiceProvider).cancelHabitReminders(habit.id);
     if (!context.mounted) return;
+    final body = context.s('habits.reminder_body');
     showUndoSnackBar(
       context,
       message: '"${habit.name}" ${context.s('habits.removed')}',
-      onUndo: () => dao.restoreHabit(snapshot),
+      onUndo: () async {
+        await dao.restoreHabit(snapshot);
+        // Восстановили привычку → возвращаем её напоминание.
+        await _rescheduleHabitReminder(
+          ref,
+          habitId: snapshot.id,
+          reminderMinutes: snapshot.reminderMinutes,
+          frequencyType: snapshot.frequencyType,
+          weekdayMask: snapshot.weekdayMask,
+          title: snapshot.name,
+          body: body,
+        );
+      },
     );
   }
 
@@ -211,7 +227,7 @@ class HabitsScreen extends ConsumerWidget {
       builder: (_) => const _AddHabitDialog(),
     );
     if (result == null) return;
-    await ref.read(habitsDaoProvider).createHabit(
+    final id = await ref.read(habitsDaoProvider).createHabit(
           name: result.name,
           type: result.type,
           emoji: result.emoji,
@@ -219,9 +235,48 @@ class HabitsScreen extends ConsumerWidget {
           frequencyType: result.frequencyType,
           weekdayMask: result.weekdayMask,
           weeklyTarget: result.weeklyTarget,
-          // reminderMinutes — слайс 4, пока null.
+          reminderMinutes: result.reminderMinutes,
         );
+    if (!context.mounted) return;
+    // Планируем локальное напоминание (slice 4). Если время не задано —
+    // computeHabitReminders вернёт пусто, scheduleHabitReminders просто снимет
+    // прежние слоты (no-op для новой привычки).
+    await _rescheduleHabitReminder(
+      ref,
+      habitId: id,
+      reminderMinutes: result.reminderMinutes,
+      frequencyType: result.frequencyType,
+      weekdayMask: result.weekdayMask,
+      title: result.name,
+      body: context.s('habits.reminder_body'),
+    );
   }
+}
+
+/// (Пере)планирует напоминание привычки через сервис уведомлений.
+/// Если [reminderMinutes] задан — гарантирует разрешение (Android 13+/iOS).
+/// Best-effort: отказ в разрешении не блокирует (уведомление просто не придёт).
+Future<void> _rescheduleHabitReminder(
+  WidgetRef ref, {
+  required String habitId,
+  required int? reminderMinutes,
+  required String frequencyType,
+  required int weekdayMask,
+  required String title,
+  required String body,
+}) async {
+  final service = ref.read(notificationServiceProvider);
+  if (reminderMinutes != null) {
+    await service.ensurePermission();
+  }
+  await service.scheduleHabitReminders(
+    habitId: habitId,
+    reminderMinutes: reminderMinutes,
+    frequencyType: frequencyType,
+    weekdayMask: weekdayMask,
+    title: title,
+    body: body,
+  );
 }
 
 // ---------------------------------------------------------------------------
@@ -238,10 +293,14 @@ class _NewHabitResult {
     required this.frequencyType,
     required this.weekdayMask,
     required this.weeklyTarget,
+    required this.reminderMinutes,
   });
   final String name;
   final String type;
   final String emoji;
+
+  /// Время напоминания в минутах от полуночи (slice 4); null = без напоминания.
+  final int? reminderMinutes;
 
   /// Сколько раз в день нужно выполнить (1..N) — делает прогресс-бар осмысленным.
   final int targetPerDay;
@@ -291,6 +350,10 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
   int _weeklyTarget = 3; // для weekly_count
   int _targetPerDay = 1; // сколько раз в день
 
+  // Напоминание (slice 4). Выкл по умолчанию; при включении — время дня.
+  bool _reminderOn = false;
+  TimeOfDay _reminderTime = const TimeOfDay(hour: 9, minute: 0);
+
   @override
   void initState() {
     super.initState();
@@ -317,10 +380,23 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
     }
   }
 
+  /// Открывает Material time-picker и сохраняет выбранное время.
+  Future<void> _pickReminderTime() async {
+    final picked = await showTimePicker(
+      context: context,
+      initialTime: _reminderTime,
+    );
+    if (picked != null) setState(() => _reminderTime = picked);
+  }
+
   void _submit() {
     final name = _nameController.text.trim();
     // Пустое имя — ничего не делаем (валидация сохранена).
     if (name.isEmpty) return;
+    // Напоминание только для хороших привычек и только если тумблер включён.
+    final int? reminderMinutes = (_type == 'good' && _reminderOn)
+        ? _reminderTime.hour * 60 + _reminderTime.minute
+        : null;
     Navigator.of(context).pop(
       _NewHabitResult(
         name: name,
@@ -331,6 +407,7 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
         weekdayMask: _weekdayMask,
         // weeklyTarget важен только для weekly_count; иначе 0 (как дефолт БД).
         weeklyTarget: _frequencyType == 'weekly_count' ? _weeklyTarget : 0,
+        reminderMinutes: reminderMinutes,
       ),
     );
   }
@@ -439,6 +516,32 @@ class _AddHabitDialogState extends State<_AddHabitDialog> {
                 max: 10,
                 onChanged: (v) => setState(() => _targetPerDay = v),
               ),
+              const SizedBox(height: 8),
+              // Напоминание: тумблер + выбор времени (slice 4).
+              // Expanded на подписи — overflow-safe на 320px / textScale 1.5.
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.s('habits.reminder_label'),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  Switch(
+                    value: _reminderOn,
+                    onChanged: (v) => setState(() => _reminderOn = v),
+                  ),
+                ],
+              ),
+              if (_reminderOn)
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: OutlinedButton.icon(
+                    icon: const Icon(Icons.access_time, size: 18),
+                    label: Text(_reminderTime.format(context)),
+                    onPressed: _pickReminderTime,
+                  ),
+                ),
             ],
           ],
         ),
@@ -572,7 +675,13 @@ class _GoodHabitCard extends ConsumerWidget {
                     PopupMenuButton<String>(
                       icon: Icon(Icons.more_vert, color: ext.textMuted, size: 20),
                       onSelected: (v) {
-                        if (v == 'archive') dao.archive(habit.id);
+                        if (v == 'archive') {
+                          dao.archive(habit.id);
+                          // Архив = пауза → снимаем напоминания.
+                          ref
+                              .read(notificationServiceProvider)
+                              .cancelHabitReminders(habit.id);
+                        }
                         if (v == 'delete') onDelete();
                       },
                       itemBuilder: (_) => [
@@ -718,7 +827,13 @@ class _BadHabitCard extends ConsumerWidget {
                 PopupMenuButton<String>(
                   icon: Icon(Icons.more_vert, color: ext.textMuted, size: 20),
                   onSelected: (v) {
-                    if (v == 'archive') dao.archive(habit.id);
+                    if (v == 'archive') {
+                      dao.archive(habit.id);
+                      // Архив = пауза → снимаем напоминания.
+                      ref
+                          .read(notificationServiceProvider)
+                          .cancelHabitReminders(habit.id);
+                    }
                     if (v == 'delete') onDelete();
                   },
                   itemBuilder: (_) => [
@@ -878,13 +993,26 @@ class _ArchivedHabitCard extends ConsumerWidget {
             IconButton(
               icon: Icon(Icons.unarchive_outlined, color: ext.textMuted),
               tooltip: context.s('habits.unarchive'),
-              onPressed: () => dao.unarchive(habit.id),
+              onPressed: () async {
+                await dao.unarchive(habit.id);
+                if (!context.mounted) return;
+                // Разархивация → возвращаем напоминание привычки.
+                await _rescheduleHabitReminder(
+                  ref,
+                  habitId: habit.id,
+                  reminderMinutes: habit.reminderMinutes,
+                  frequencyType: habit.frequencyType,
+                  weekdayMask: habit.weekdayMask,
+                  title: habit.name,
+                  body: context.s('habits.reminder_body'),
+                );
+              },
             ),
             // Удалить навсегда — с подтверждением (деструктивное, без Undo).
             IconButton(
               icon: Icon(Icons.delete_outline, color: ext.ember),
               tooltip: context.s('habits.delete'),
-              onPressed: () => _confirmDelete(context, dao),
+              onPressed: () => _confirmDelete(context, ref, dao),
             ),
           ],
         ),
@@ -893,7 +1021,11 @@ class _ArchivedHabitCard extends ConsumerWidget {
     );
   }
 
-  Future<void> _confirmDelete(BuildContext context, HabitsDao dao) async {
+  Future<void> _confirmDelete(
+    BuildContext context,
+    WidgetRef ref,
+    HabitsDao dao,
+  ) async {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final ok = await showDialog<bool>(
       context: context,
@@ -913,7 +1045,11 @@ class _ArchivedHabitCard extends ConsumerWidget {
         ],
       ),
     );
-    if (ok == true) await dao.deleteHabit(habit.id);
+    if (ok == true) {
+      await dao.deleteHabit(habit.id);
+      // На всякий случай снимаем слоты (у архивных они уже сняты — no-op).
+      await ref.read(notificationServiceProvider).cancelHabitReminders(habit.id);
+    }
   }
 }
 
