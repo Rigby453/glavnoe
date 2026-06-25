@@ -99,6 +99,9 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
         dayCounts: counts,
         type: habit.type,
         targetPerDay: habit.targetPerDay,
+        frequencyType: habit.frequencyType,
+        weekdayMask: habit.weekdayMask,
+        weeklyTarget: habit.weeklyTarget,
         now: today,
       );
     });
@@ -111,6 +114,9 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
       dayCounts: counts,
       type: habit.type,
       targetPerDay: habit.targetPerDay,
+      frequencyType: habit.frequencyType,
+      weekdayMask: habit.weekdayMask,
+      weeklyTarget: habit.weeklyTarget,
       now: now ?? DateTime.now(),
     );
   }
@@ -133,11 +139,19 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
   }
 
   /// Создать новую привычку.
+  ///
+  /// Частота (ADR-053) опциональна и по умолчанию daily, чтобы текущие
+  /// вызовы не менялись; будущие слайсы (диалог добавления) передают свои
+  /// значения [frequencyType]/[weekdayMask]/[weeklyTarget]/[reminderMinutes].
   Future<void> createHabit({
     required String name,
     required String type,
     String emoji = '✅',
     int targetPerDay = 1,
+    String frequencyType = 'daily',
+    int weekdayMask = 127,
+    int weeklyTarget = 0,
+    int? reminderMinutes,
   }) {
     return into(habitsTable).insert(
       HabitsTableCompanion(
@@ -146,6 +160,10 @@ class HabitsDao extends DatabaseAccessor<AppDatabase> with _$HabitsDaoMixin {
         type: Value(type),
         emoji: Value(emoji),
         targetPerDay: Value(targetPerDay),
+        frequencyType: Value(frequencyType),
+        weekdayMask: Value(weekdayMask),
+        weeklyTarget: Value(weeklyTarget),
+        reminderMinutes: Value(reminderMinutes),
         createdAt: Value(DateTime.now()),
       ),
     );
@@ -233,11 +251,24 @@ class HabitStats {
 ///   - bestStreak — самая длинная серия чистых дней между нарушениями
 ///     (от первого лога до сегодня);
 ///   - totalCompletions — суммарное число нарушений.
+///
+/// Частота (ADR-053, только для good-привычек):
+///   - 'daily' — поведение как раньше (каждый день);
+///   - 'weekly_days' — стрик считает только ЗАПЛАНИРОВАННЫЕ дни (по [weekdayMask]);
+///     незапланированный день пропускается (не рвёт стрик), запланированный
+///     невыполненный день — рвёт;
+///   - 'weekly_count' — единица стрика = ISO-неделя (с понедельника); неделя
+///     «успешна», если суммарных выполнений за неделю >= [weeklyTarget];
+///     current/best считаются в успешных неделях, текущая (незавершённая)
+///     неделя стрик не рвёт.
 HabitStats computeHabitStats({
   required Map<String, int> dayCounts,
   required String type,
   required int targetPerDay,
   required DateTime now,
+  String frequencyType = 'daily',
+  int weekdayMask = 127,
+  int weeklyTarget = 0,
 }) {
   final target = targetPerDay < 1 ? 1 : targetPerDay;
   final todayUtc = DateTime.utc(now.year, now.month, now.day);
@@ -288,6 +319,16 @@ HabitStats computeHabitStats({
   // good-привычка.
   bool isDone(DateTime day) => (dayCounts[dayKey(day)] ?? 0) >= target;
 
+  // weekly_count — единица стрика — неделя.
+  if (frequencyType == 'weekly_count') {
+    return _weeklyCountStats(dayCounts, weeklyTarget, todayUtc);
+  }
+  // weekly_days — стрик по запланированным дням недели.
+  if (frequencyType == 'weekly_days') {
+    return _weeklyDaysStats(dayCounts, weekdayMask, todayUtc, isDone);
+  }
+
+  // daily (по умолчанию).
   final totalDone = dayCounts.values.where((c) => c >= target).length;
 
   // Текущий стрик: старт = сегодня (если выполнено) иначе вчера.
@@ -328,6 +369,156 @@ HabitStats computeHabitStats({
     currentStreak: current,
     bestStreak: best,
     totalCompletions: totalDone,
+    daysClean: current,
+  );
+}
+
+/// Запланирован ли [day] для привычки с данной частотой (ADR-053).
+/// - 'daily' → всегда true;
+/// - 'weekly_days' → бит дня недели выставлен в [weekdayMask]
+///   (Пн = бит 1, Вт = 2, Ср = 4 … Вс = 64; DateTime.weekday: Пн=1..Вс=7);
+/// - 'weekly_count' → всегда true (недели обрабатываются отдельно).
+bool isScheduledDay(DateTime day, String frequencyType, int weekdayMask) {
+  if (frequencyType == 'weekly_days') {
+    final bit = 1 << (day.weekday - 1);
+    return (weekdayMask & bit) != 0;
+  }
+  return true;
+}
+
+/// Понедельник ISO-недели для [day] (UTC-полночь).
+DateTime _mondayOf(DateTime day) {
+  final d = DateTime.utc(day.year, day.month, day.day);
+  return d.subtract(Duration(days: d.weekday - 1));
+}
+
+/// Стрик по запланированным дням недели ('weekly_days').
+/// Незапланированный день пропускается (не рвёт стрик); запланированный
+/// невыполненный день в прошлом — рвёт. Сегодня, если запланировано, но ещё
+/// не выполнено, стрик не рвёт (день не закончился).
+HabitStats _weeklyDaysStats(
+  Map<String, int> dayCounts,
+  int weekdayMask,
+  DateTime todayUtc,
+  bool Function(DateTime) isDone,
+) {
+  bool scheduled(DateTime d) => isScheduledDay(d, 'weekly_days', weekdayMask);
+
+  final totalDone =
+      dayCounts.keys.where((k) {
+        final d = DateTime.parse('${k}T00:00:00Z');
+        return scheduled(d) && isDone(d);
+      }).length;
+
+  // Текущий стрик: от сегодня назад по запланированным дням.
+  var current = 0;
+  var cursor = todayUtc;
+  var guard = 0;
+  while (guard < 3650) {
+    guard += 1;
+    if (scheduled(cursor)) {
+      if (isDone(cursor)) {
+        current += 1;
+      } else if (cursor != todayUtc) {
+        // Запланированный невыполненный день в прошлом — стрик прерывается.
+        break;
+      }
+      // Сегодня запланировано, но не выполнено → пропускаем (день не кончился).
+    }
+    // Незапланированный день — пропускаем без разрыва.
+    cursor = cursor.subtract(const Duration(days: 1));
+  }
+
+  // Лучший стрик: самая длинная серия запланированных выполненных дней
+  // (незапланированные дни не сбрасывают серию).
+  var best = current;
+  if (dayCounts.isNotEmpty) {
+    final keys = dayCounts.keys.toList()..sort();
+    var d = DateTime.parse('${keys.first}T00:00:00Z');
+    var run = 0;
+    while (!d.isAfter(todayUtc)) {
+      if (scheduled(d)) {
+        if (isDone(d)) {
+          run += 1;
+          if (run > best) best = run;
+        } else if (d != todayUtc) {
+          run = 0;
+        }
+      }
+      d = d.add(const Duration(days: 1));
+    }
+  }
+
+  return HabitStats(
+    currentStreak: current,
+    bestStreak: best,
+    totalCompletions: totalDone,
+    daysClean: current,
+  );
+}
+
+/// Стрик по неделям ('weekly_count'). Единица стрика — ISO-неделя (с Пн).
+/// Неделя «успешна», если суммарных выполнений за неделю >= [weeklyTarget].
+/// current — успешных недель подряд назад от текущей; текущая (незавершённая)
+/// неделя стрик не рвёт. best — самая длинная серия успешных недель.
+HabitStats _weeklyCountStats(
+  Map<String, int> dayCounts,
+  int weeklyTarget,
+  DateTime todayUtc,
+) {
+  final target = weeklyTarget < 1 ? 1 : weeklyTarget;
+
+  // Сумма выполнений по неделям (ключ — понедельник недели).
+  final weekCounts = <String, int>{};
+  dayCounts.forEach((k, v) {
+    final d = DateTime.parse('${k}T00:00:00Z');
+    final key = dayKey(_mondayOf(d));
+    weekCounts[key] = (weekCounts[key] ?? 0) + v;
+  });
+
+  final thisWeek = _mondayOf(todayUtc);
+  bool successful(DateTime weekStart) =>
+      (weekCounts[dayKey(weekStart)] ?? 0) >= target;
+
+  // Текущий стрик: от текущей недели назад.
+  var current = 0;
+  var wk = thisWeek;
+  var guard = 0;
+  while (guard < 520) {
+    guard += 1;
+    if (successful(wk)) {
+      current += 1;
+    } else if (wk != thisWeek) {
+      // Прошлая неудачная неделя — стрик прерывается.
+      break;
+    }
+    // Текущая неделя ещё не успешна → пропускаем (неделя не кончилась).
+    wk = wk.subtract(const Duration(days: 7));
+  }
+
+  // Лучший стрик: самая длинная серия успешных недель за всю историю.
+  final successfulWeeks =
+      weekCounts.values.where((c) => c >= target).length;
+  var best = current;
+  if (weekCounts.isNotEmpty) {
+    final keys = weekCounts.keys.toList()..sort();
+    var w = DateTime.parse('${keys.first}T00:00:00Z');
+    var run = 0;
+    while (!w.isAfter(thisWeek)) {
+      if (successful(w)) {
+        run += 1;
+        if (run > best) best = run;
+      } else if (w != thisWeek) {
+        run = 0;
+      }
+      w = w.add(const Duration(days: 7));
+    }
+  }
+
+  return HabitStats(
+    currentStreak: current,
+    bestStreak: best,
+    totalCompletions: successfulWeeks,
     daysClean: current,
   );
 }

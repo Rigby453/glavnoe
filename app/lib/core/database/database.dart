@@ -335,6 +335,17 @@ class HabitsTable extends Table {
   BoolColumn get archived => boolean().withDefault(const Constant(false))();
   DateTimeColumn get createdAt => dateTime()();
 
+  // Частота привычки (ADR-053). Добавлено в schemaVersion 19.
+  // frequencyType: 'daily' | 'weekly_days' | 'weekly_count'.
+  TextColumn get frequencyType =>
+      text().withDefault(const Constant('daily'))();
+  // Битовая маска дней недели Пн..Вс = биты 1..64; 127 = все дни (для 'weekly_days').
+  IntColumn get weekdayMask => integer().withDefault(const Constant(127))();
+  // Цель выполнений в неделю (для 'weekly_count', напр. 3 раза/нед).
+  IntColumn get weeklyTarget => integer().withDefault(const Constant(0))();
+  // Минуты от полуночи для напоминания; null = напоминания нет.
+  IntColumn get reminderMinutes => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 }
@@ -581,7 +592,7 @@ class AppDatabase extends _$AppDatabase {
   HabitsDao get habitsDao => HabitsDao(this);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -663,6 +674,15 @@ class AppDatabase extends _$AppDatabase {
           // НЕ синхронизируется — по образцу moduleLink/color/location.
           if (from < 18) {
             await m.addColumn(itemsTable, itemsTable.tags);
+          }
+          // v19: добавлены колонки частоты привычек (ADR-053) — frequencyType,
+          // weekdayMask, weeklyTarget, reminderMinutes. Существующие привычки
+          // мигрируют как daily/127/0/null (дефолты колонок).
+          if (from < 19) {
+            await m.addColumn(habitsTable, habitsTable.frequencyType);
+            await m.addColumn(habitsTable, habitsTable.weekdayMask);
+            await m.addColumn(habitsTable, habitsTable.weeklyTarget);
+            await m.addColumn(habitsTable, habitsTable.reminderMinutes);
           }
         },
       );

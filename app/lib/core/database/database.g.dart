@@ -6813,6 +6813,53 @@ class $HabitsTableTable extends HabitsTable
     type: DriftSqlType.dateTime,
     requiredDuringInsert: true,
   );
+  static const VerificationMeta _frequencyTypeMeta = const VerificationMeta(
+    'frequencyType',
+  );
+  @override
+  late final GeneratedColumn<String> frequencyType = GeneratedColumn<String>(
+    'frequency_type',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: false,
+    defaultValue: const Constant('daily'),
+  );
+  static const VerificationMeta _weekdayMaskMeta = const VerificationMeta(
+    'weekdayMask',
+  );
+  @override
+  late final GeneratedColumn<int> weekdayMask = GeneratedColumn<int>(
+    'weekday_mask',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(127),
+  );
+  static const VerificationMeta _weeklyTargetMeta = const VerificationMeta(
+    'weeklyTarget',
+  );
+  @override
+  late final GeneratedColumn<int> weeklyTarget = GeneratedColumn<int>(
+    'weekly_target',
+    aliasedName,
+    false,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+    defaultValue: const Constant(0),
+  );
+  static const VerificationMeta _reminderMinutesMeta = const VerificationMeta(
+    'reminderMinutes',
+  );
+  @override
+  late final GeneratedColumn<int> reminderMinutes = GeneratedColumn<int>(
+    'reminder_minutes',
+    aliasedName,
+    true,
+    type: DriftSqlType.int,
+    requiredDuringInsert: false,
+  );
   @override
   List<GeneratedColumn> get $columns => [
     id,
@@ -6822,6 +6869,10 @@ class $HabitsTableTable extends HabitsTable
     targetPerDay,
     archived,
     createdAt,
+    frequencyType,
+    weekdayMask,
+    weeklyTarget,
+    reminderMinutes,
   ];
   @override
   String get aliasedName => _alias ?? actualTableName;
@@ -6883,6 +6934,42 @@ class $HabitsTableTable extends HabitsTable
     } else if (isInserting) {
       context.missing(_createdAtMeta);
     }
+    if (data.containsKey('frequency_type')) {
+      context.handle(
+        _frequencyTypeMeta,
+        frequencyType.isAcceptableOrUnknown(
+          data['frequency_type']!,
+          _frequencyTypeMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weekday_mask')) {
+      context.handle(
+        _weekdayMaskMeta,
+        weekdayMask.isAcceptableOrUnknown(
+          data['weekday_mask']!,
+          _weekdayMaskMeta,
+        ),
+      );
+    }
+    if (data.containsKey('weekly_target')) {
+      context.handle(
+        _weeklyTargetMeta,
+        weeklyTarget.isAcceptableOrUnknown(
+          data['weekly_target']!,
+          _weeklyTargetMeta,
+        ),
+      );
+    }
+    if (data.containsKey('reminder_minutes')) {
+      context.handle(
+        _reminderMinutesMeta,
+        reminderMinutes.isAcceptableOrUnknown(
+          data['reminder_minutes']!,
+          _reminderMinutesMeta,
+        ),
+      );
+    }
     return context;
   }
 
@@ -6920,6 +7007,22 @@ class $HabitsTableTable extends HabitsTable
         DriftSqlType.dateTime,
         data['${effectivePrefix}created_at'],
       )!,
+      frequencyType: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}frequency_type'],
+      )!,
+      weekdayMask: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}weekday_mask'],
+      )!,
+      weeklyTarget: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}weekly_target'],
+      )!,
+      reminderMinutes: attachedDatabase.typeMapping.read(
+        DriftSqlType.int,
+        data['${effectivePrefix}reminder_minutes'],
+      ),
     );
   }
 
@@ -6937,6 +7040,10 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
   final int targetPerDay;
   final bool archived;
   final DateTime createdAt;
+  final String frequencyType;
+  final int weekdayMask;
+  final int weeklyTarget;
+  final int? reminderMinutes;
   const HabitsTableData({
     required this.id,
     required this.name,
@@ -6945,6 +7052,10 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
     required this.targetPerDay,
     required this.archived,
     required this.createdAt,
+    required this.frequencyType,
+    required this.weekdayMask,
+    required this.weeklyTarget,
+    this.reminderMinutes,
   });
   @override
   Map<String, Expression> toColumns(bool nullToAbsent) {
@@ -6956,6 +7067,12 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
     map['target_per_day'] = Variable<int>(targetPerDay);
     map['archived'] = Variable<bool>(archived);
     map['created_at'] = Variable<DateTime>(createdAt);
+    map['frequency_type'] = Variable<String>(frequencyType);
+    map['weekday_mask'] = Variable<int>(weekdayMask);
+    map['weekly_target'] = Variable<int>(weeklyTarget);
+    if (!nullToAbsent || reminderMinutes != null) {
+      map['reminder_minutes'] = Variable<int>(reminderMinutes);
+    }
     return map;
   }
 
@@ -6968,6 +7085,12 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
       targetPerDay: Value(targetPerDay),
       archived: Value(archived),
       createdAt: Value(createdAt),
+      frequencyType: Value(frequencyType),
+      weekdayMask: Value(weekdayMask),
+      weeklyTarget: Value(weeklyTarget),
+      reminderMinutes: reminderMinutes == null && nullToAbsent
+          ? const Value.absent()
+          : Value(reminderMinutes),
     );
   }
 
@@ -6984,6 +7107,10 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
       targetPerDay: serializer.fromJson<int>(json['targetPerDay']),
       archived: serializer.fromJson<bool>(json['archived']),
       createdAt: serializer.fromJson<DateTime>(json['createdAt']),
+      frequencyType: serializer.fromJson<String>(json['frequencyType']),
+      weekdayMask: serializer.fromJson<int>(json['weekdayMask']),
+      weeklyTarget: serializer.fromJson<int>(json['weeklyTarget']),
+      reminderMinutes: serializer.fromJson<int?>(json['reminderMinutes']),
     );
   }
   @override
@@ -6997,6 +7124,10 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
       'targetPerDay': serializer.toJson<int>(targetPerDay),
       'archived': serializer.toJson<bool>(archived),
       'createdAt': serializer.toJson<DateTime>(createdAt),
+      'frequencyType': serializer.toJson<String>(frequencyType),
+      'weekdayMask': serializer.toJson<int>(weekdayMask),
+      'weeklyTarget': serializer.toJson<int>(weeklyTarget),
+      'reminderMinutes': serializer.toJson<int?>(reminderMinutes),
     };
   }
 
@@ -7008,6 +7139,10 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
     int? targetPerDay,
     bool? archived,
     DateTime? createdAt,
+    String? frequencyType,
+    int? weekdayMask,
+    int? weeklyTarget,
+    Value<int?> reminderMinutes = const Value.absent(),
   }) => HabitsTableData(
     id: id ?? this.id,
     name: name ?? this.name,
@@ -7016,6 +7151,12 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
     targetPerDay: targetPerDay ?? this.targetPerDay,
     archived: archived ?? this.archived,
     createdAt: createdAt ?? this.createdAt,
+    frequencyType: frequencyType ?? this.frequencyType,
+    weekdayMask: weekdayMask ?? this.weekdayMask,
+    weeklyTarget: weeklyTarget ?? this.weeklyTarget,
+    reminderMinutes: reminderMinutes.present
+        ? reminderMinutes.value
+        : this.reminderMinutes,
   );
   HabitsTableData copyWithCompanion(HabitsTableCompanion data) {
     return HabitsTableData(
@@ -7028,6 +7169,18 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
           : this.targetPerDay,
       archived: data.archived.present ? data.archived.value : this.archived,
       createdAt: data.createdAt.present ? data.createdAt.value : this.createdAt,
+      frequencyType: data.frequencyType.present
+          ? data.frequencyType.value
+          : this.frequencyType,
+      weekdayMask: data.weekdayMask.present
+          ? data.weekdayMask.value
+          : this.weekdayMask,
+      weeklyTarget: data.weeklyTarget.present
+          ? data.weeklyTarget.value
+          : this.weeklyTarget,
+      reminderMinutes: data.reminderMinutes.present
+          ? data.reminderMinutes.value
+          : this.reminderMinutes,
     );
   }
 
@@ -7040,14 +7193,29 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
           ..write('emoji: $emoji, ')
           ..write('targetPerDay: $targetPerDay, ')
           ..write('archived: $archived, ')
-          ..write('createdAt: $createdAt')
+          ..write('createdAt: $createdAt, ')
+          ..write('frequencyType: $frequencyType, ')
+          ..write('weekdayMask: $weekdayMask, ')
+          ..write('weeklyTarget: $weeklyTarget, ')
+          ..write('reminderMinutes: $reminderMinutes')
           ..write(')'))
         .toString();
   }
 
   @override
-  int get hashCode =>
-      Object.hash(id, name, type, emoji, targetPerDay, archived, createdAt);
+  int get hashCode => Object.hash(
+    id,
+    name,
+    type,
+    emoji,
+    targetPerDay,
+    archived,
+    createdAt,
+    frequencyType,
+    weekdayMask,
+    weeklyTarget,
+    reminderMinutes,
+  );
   @override
   bool operator ==(Object other) =>
       identical(this, other) ||
@@ -7058,7 +7226,11 @@ class HabitsTableData extends DataClass implements Insertable<HabitsTableData> {
           other.emoji == this.emoji &&
           other.targetPerDay == this.targetPerDay &&
           other.archived == this.archived &&
-          other.createdAt == this.createdAt);
+          other.createdAt == this.createdAt &&
+          other.frequencyType == this.frequencyType &&
+          other.weekdayMask == this.weekdayMask &&
+          other.weeklyTarget == this.weeklyTarget &&
+          other.reminderMinutes == this.reminderMinutes);
 }
 
 class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
@@ -7069,6 +7241,10 @@ class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
   final Value<int> targetPerDay;
   final Value<bool> archived;
   final Value<DateTime> createdAt;
+  final Value<String> frequencyType;
+  final Value<int> weekdayMask;
+  final Value<int> weeklyTarget;
+  final Value<int?> reminderMinutes;
   final Value<int> rowid;
   const HabitsTableCompanion({
     this.id = const Value.absent(),
@@ -7078,6 +7254,10 @@ class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
     this.targetPerDay = const Value.absent(),
     this.archived = const Value.absent(),
     this.createdAt = const Value.absent(),
+    this.frequencyType = const Value.absent(),
+    this.weekdayMask = const Value.absent(),
+    this.weeklyTarget = const Value.absent(),
+    this.reminderMinutes = const Value.absent(),
     this.rowid = const Value.absent(),
   });
   HabitsTableCompanion.insert({
@@ -7088,6 +7268,10 @@ class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
     this.targetPerDay = const Value.absent(),
     this.archived = const Value.absent(),
     required DateTime createdAt,
+    this.frequencyType = const Value.absent(),
+    this.weekdayMask = const Value.absent(),
+    this.weeklyTarget = const Value.absent(),
+    this.reminderMinutes = const Value.absent(),
     this.rowid = const Value.absent(),
   }) : id = Value(id),
        name = Value(name),
@@ -7100,6 +7284,10 @@ class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
     Expression<int>? targetPerDay,
     Expression<bool>? archived,
     Expression<DateTime>? createdAt,
+    Expression<String>? frequencyType,
+    Expression<int>? weekdayMask,
+    Expression<int>? weeklyTarget,
+    Expression<int>? reminderMinutes,
     Expression<int>? rowid,
   }) {
     return RawValuesInsertable({
@@ -7110,6 +7298,10 @@ class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
       if (targetPerDay != null) 'target_per_day': targetPerDay,
       if (archived != null) 'archived': archived,
       if (createdAt != null) 'created_at': createdAt,
+      if (frequencyType != null) 'frequency_type': frequencyType,
+      if (weekdayMask != null) 'weekday_mask': weekdayMask,
+      if (weeklyTarget != null) 'weekly_target': weeklyTarget,
+      if (reminderMinutes != null) 'reminder_minutes': reminderMinutes,
       if (rowid != null) 'rowid': rowid,
     });
   }
@@ -7122,6 +7314,10 @@ class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
     Value<int>? targetPerDay,
     Value<bool>? archived,
     Value<DateTime>? createdAt,
+    Value<String>? frequencyType,
+    Value<int>? weekdayMask,
+    Value<int>? weeklyTarget,
+    Value<int?>? reminderMinutes,
     Value<int>? rowid,
   }) {
     return HabitsTableCompanion(
@@ -7132,6 +7328,10 @@ class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
       targetPerDay: targetPerDay ?? this.targetPerDay,
       archived: archived ?? this.archived,
       createdAt: createdAt ?? this.createdAt,
+      frequencyType: frequencyType ?? this.frequencyType,
+      weekdayMask: weekdayMask ?? this.weekdayMask,
+      weeklyTarget: weeklyTarget ?? this.weeklyTarget,
+      reminderMinutes: reminderMinutes ?? this.reminderMinutes,
       rowid: rowid ?? this.rowid,
     );
   }
@@ -7160,6 +7360,18 @@ class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
     if (createdAt.present) {
       map['created_at'] = Variable<DateTime>(createdAt.value);
     }
+    if (frequencyType.present) {
+      map['frequency_type'] = Variable<String>(frequencyType.value);
+    }
+    if (weekdayMask.present) {
+      map['weekday_mask'] = Variable<int>(weekdayMask.value);
+    }
+    if (weeklyTarget.present) {
+      map['weekly_target'] = Variable<int>(weeklyTarget.value);
+    }
+    if (reminderMinutes.present) {
+      map['reminder_minutes'] = Variable<int>(reminderMinutes.value);
+    }
     if (rowid.present) {
       map['rowid'] = Variable<int>(rowid.value);
     }
@@ -7176,6 +7388,10 @@ class HabitsTableCompanion extends UpdateCompanion<HabitsTableData> {
           ..write('targetPerDay: $targetPerDay, ')
           ..write('archived: $archived, ')
           ..write('createdAt: $createdAt, ')
+          ..write('frequencyType: $frequencyType, ')
+          ..write('weekdayMask: $weekdayMask, ')
+          ..write('weeklyTarget: $weeklyTarget, ')
+          ..write('reminderMinutes: $reminderMinutes, ')
           ..write('rowid: $rowid')
           ..write(')'))
         .toString();
@@ -12374,6 +12590,10 @@ typedef $$HabitsTableTableCreateCompanionBuilder =
       Value<int> targetPerDay,
       Value<bool> archived,
       required DateTime createdAt,
+      Value<String> frequencyType,
+      Value<int> weekdayMask,
+      Value<int> weeklyTarget,
+      Value<int?> reminderMinutes,
       Value<int> rowid,
     });
 typedef $$HabitsTableTableUpdateCompanionBuilder =
@@ -12385,6 +12605,10 @@ typedef $$HabitsTableTableUpdateCompanionBuilder =
       Value<int> targetPerDay,
       Value<bool> archived,
       Value<DateTime> createdAt,
+      Value<String> frequencyType,
+      Value<int> weekdayMask,
+      Value<int> weeklyTarget,
+      Value<int?> reminderMinutes,
       Value<int> rowid,
     });
 
@@ -12458,6 +12682,26 @@ class $$HabitsTableTableFilterComposer
     builder: (column) => ColumnFilters(column),
   );
 
+  ColumnFilters<String> get frequencyType => $composableBuilder(
+    column: $table.frequencyType,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get weekdayMask => $composableBuilder(
+    column: $table.weekdayMask,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get weeklyTarget => $composableBuilder(
+    column: $table.weeklyTarget,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<int> get reminderMinutes => $composableBuilder(
+    column: $table.reminderMinutes,
+    builder: (column) => ColumnFilters(column),
+  );
+
   Expression<bool> habitLogsTableRefs(
     Expression<bool> Function($$HabitLogsTableTableFilterComposer f) f,
   ) {
@@ -12527,6 +12771,26 @@ class $$HabitsTableTableOrderingComposer
     column: $table.createdAt,
     builder: (column) => ColumnOrderings(column),
   );
+
+  ColumnOrderings<String> get frequencyType => $composableBuilder(
+    column: $table.frequencyType,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get weekdayMask => $composableBuilder(
+    column: $table.weekdayMask,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get weeklyTarget => $composableBuilder(
+    column: $table.weeklyTarget,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<int> get reminderMinutes => $composableBuilder(
+    column: $table.reminderMinutes,
+    builder: (column) => ColumnOrderings(column),
+  );
 }
 
 class $$HabitsTableTableAnnotationComposer
@@ -12560,6 +12824,26 @@ class $$HabitsTableTableAnnotationComposer
 
   GeneratedColumn<DateTime> get createdAt =>
       $composableBuilder(column: $table.createdAt, builder: (column) => column);
+
+  GeneratedColumn<String> get frequencyType => $composableBuilder(
+    column: $table.frequencyType,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get weekdayMask => $composableBuilder(
+    column: $table.weekdayMask,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get weeklyTarget => $composableBuilder(
+    column: $table.weeklyTarget,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<int> get reminderMinutes => $composableBuilder(
+    column: $table.reminderMinutes,
+    builder: (column) => column,
+  );
 
   Expression<T> habitLogsTableRefs<T extends Object>(
     Expression<T> Function($$HabitLogsTableTableAnnotationComposer a) f,
@@ -12622,6 +12906,10 @@ class $$HabitsTableTableTableManager
                 Value<int> targetPerDay = const Value.absent(),
                 Value<bool> archived = const Value.absent(),
                 Value<DateTime> createdAt = const Value.absent(),
+                Value<String> frequencyType = const Value.absent(),
+                Value<int> weekdayMask = const Value.absent(),
+                Value<int> weeklyTarget = const Value.absent(),
+                Value<int?> reminderMinutes = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HabitsTableCompanion(
                 id: id,
@@ -12631,6 +12919,10 @@ class $$HabitsTableTableTableManager
                 targetPerDay: targetPerDay,
                 archived: archived,
                 createdAt: createdAt,
+                frequencyType: frequencyType,
+                weekdayMask: weekdayMask,
+                weeklyTarget: weeklyTarget,
+                reminderMinutes: reminderMinutes,
                 rowid: rowid,
               ),
           createCompanionCallback:
@@ -12642,6 +12934,10 @@ class $$HabitsTableTableTableManager
                 Value<int> targetPerDay = const Value.absent(),
                 Value<bool> archived = const Value.absent(),
                 required DateTime createdAt,
+                Value<String> frequencyType = const Value.absent(),
+                Value<int> weekdayMask = const Value.absent(),
+                Value<int> weeklyTarget = const Value.absent(),
+                Value<int?> reminderMinutes = const Value.absent(),
                 Value<int> rowid = const Value.absent(),
               }) => HabitsTableCompanion.insert(
                 id: id,
@@ -12651,6 +12947,10 @@ class $$HabitsTableTableTableManager
                 targetPerDay: targetPerDay,
                 archived: archived,
                 createdAt: createdAt,
+                frequencyType: frequencyType,
+                weekdayMask: weekdayMask,
+                weeklyTarget: weeklyTarget,
+                reminderMinutes: reminderMinutes,
                 rowid: rowid,
               ),
           withReferenceMapper: (p0) => p0
