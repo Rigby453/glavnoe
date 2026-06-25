@@ -3363,4 +3363,130 @@ const Map<String, Map<String, String>> healthBStrings = {
     'ja': 'もも上げ',
     'ko': '하이 니',
   },
+
+  // ---------------------------------------------------------------------------
+  // Имена 18 новых упражнений каталога (en + ru; прочие языки — в следующем sweep)
+  // ---------------------------------------------------------------------------
+  'exercise.front_squat': {
+    'en': 'Front Squat',
+    'ru': 'Фронтальный присед',
+  },
+  'exercise.goblet_squat': {
+    'en': 'Goblet Squat',
+    'ru': 'Гоблет-присед',
+  },
+  'exercise.walking_lunge': {
+    'en': 'Walking Lunge',
+    'ru': 'Выпады в ходьбе',
+  },
+  'exercise.leg_press': {
+    'en': 'Leg Press',
+    'ru': 'Жим ногами',
+  },
+  'exercise.romanian_deadlift': {
+    'en': 'Romanian Deadlift',
+    'ru': 'Румынская становая тяга',
+  },
+  'exercise.leg_curl': {
+    'en': 'Leg Curl',
+    'ru': 'Сгибание ног в тренажёре',
+  },
+  'exercise.leg_extension': {
+    'en': 'Leg Extension',
+    'ru': 'Разгибание ног в тренажёре',
+  },
+  'exercise.standing_calf_raise': {
+    'en': 'Standing Calf Raise',
+    'ru': 'Подъём на носки стоя',
+  },
+  'exercise.hip_thrust': {
+    'en': 'Hip Thrust',
+    'ru': 'Ягодичный мост со штангой',
+  },
+  'exercise.lat_pulldown': {
+    'en': 'Lat Pulldown',
+    'ru': 'Тяга верхнего блока',
+  },
+  'exercise.seated_cable_row': {
+    'en': 'Seated Cable Row',
+    'ru': 'Тяга нижнего блока сидя',
+  },
+  'exercise.face_pull': {
+    'en': 'Face Pull',
+    'ru': 'Тяга к лицу',
+  },
+  'exercise.t_bar_row': {
+    'en': 'T-Bar Row',
+    'ru': 'Тяга Т-образного грифа',
+  },
+  'exercise.incline_barbell_bench_press': {
+    'en': 'Incline Barbell Bench Press',
+    'ru': 'Жим штанги на наклонной скамье',
+  },
+  'exercise.incline_dumbbell_press': {
+    'en': 'Incline Dumbbell Press',
+    'ru': 'Жим гантелей на наклонной скамье',
+  },
+  'exercise.chest_dip': {
+    'en': 'Chest Dip',
+    'ru': 'Отжимания на брусьях (грудь)',
+  },
+
+  // ---------------------------------------------------------------------------
+  // Имена 17 новых упражнений каталога (en + ru; прочие языки — в следующем sweep)
+  // dumbbell_shoulder_press, barbell_curl, dumbbell_curl, mountain_climber
+  // уже присутствуют выше (добавлены предыдущим агентом).
+  // ---------------------------------------------------------------------------
+  'exercise.dumbbell_fly': {
+    'en': 'Dumbbell Fly',
+    'ru': 'Разведение гантелей лёжа',
+  },
+  'exercise.cable_crossover': {
+    'en': 'Cable Crossover',
+    'ru': 'Кроссовер на блоках',
+  },
+  'exercise.lateral_raise': {
+    'en': 'Lateral Raise',
+    'ru': 'Махи гантелями в стороны',
+  },
+  'exercise.front_raise': {
+    'en': 'Front Raise',
+    'ru': 'Махи гантелями вперёд',
+  },
+  'exercise.rear_delt_fly': {
+    'en': 'Rear Delt Fly',
+    'ru': 'Разведение гантелей в наклоне',
+  },
+  'exercise.arnold_press': {
+    'en': 'Arnold Press',
+    'ru': 'Жим Арнольда',
+  },
+  'exercise.hammer_curl': {
+    'en': 'Hammer Curl',
+    'ru': 'Молотковый подъём',
+  },
+  'exercise.triceps_pushdown': {
+    'en': 'Triceps Pushdown',
+    'ru': 'Разгибание рук на блоке',
+  },
+  'exercise.overhead_triceps_extension': {
+    'en': 'Overhead Triceps Extension',
+    'ru': 'Французский жим с гантелью',
+  },
+  'exercise.close_grip_bench_press': {
+    'en': 'Close-Grip Bench Press',
+    'ru': 'Жим штанги узким хватом',
+  },
+  'exercise.hanging_leg_raise': {
+    'en': 'Hanging Leg Raise',
+    'ru': 'Подъём ног в висе',
+  },
+  'exercise.crunch': {
+    'en': 'Crunch',
+    'ru': 'Скручивания',
+  },
+  'exercise.kettlebell_swing': {
+    'en': 'Kettlebell Swing',
+    'ru': 'Махи гирей',
+  },
 };
