@@ -6,16 +6,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../l10n/app_strings.dart';
-import '../theme/app_theme.dart'; // FocusThemeExtension (ember)
 import '../theme/theme_provider.dart'; // sharedPreferencesProvider
 
 enum AppTone { gentle, harsh }
 
-/// Визуальный «язык» тона — единый источник для оформления, чтобы связь
-/// «режим → вид» читалась мгновенно (gentle = мягко/спокойно, harsh = строго).
+/// Визуальный «язык» тона — единый источник для оформления.
 ///
-/// Резолвится из текущей темы (переиспользует дизайн-токены, не вводит новые
-/// цвета): gentle берёт accent (primary), harsh — ember (secondary/срочное).
+/// Тон НЕ имеет собственного цвета (оба берут accent/primary).
+/// Различие gentle vs harsh выражается через форму: иконка, радиус скругления,
+/// вес заголовка, исходящий флаг isHarsh (форма глаз/брови Kai).
 /// Используется в превью профиля и в шапках, где Kai обращается к пользователю.
 class ToneVisuals {
   const ToneVisuals._({
@@ -27,7 +26,8 @@ class ToneVisuals {
     required this.isHarsh,
   });
 
-  /// Акцентный цвет тона: gentle → accent (primary), harsh → ember.
+  /// Акцентный цвет тона: всегда accent (primary).
+  /// Тон различается формой/иконкой, а не цветом.
   final Color accent;
 
   /// Иконка-маркер тона: gentle → росток, harsh → молния.
@@ -48,12 +48,10 @@ class ToneVisuals {
   /// Построить визуалы тона из текущего контекста темы.
   factory ToneVisuals.of(BuildContext context, AppTone tone) {
     final scheme = Theme.of(context).colorScheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>();
     final harsh = tone == AppTone.harsh;
     return ToneVisuals._(
-      accent: harsh
-          ? (ext?.ember ?? scheme.secondary) // ember — «срочно/строго»
-          : scheme.primary, // accent — спокойный
+      // Цвет — всегда primary: тон не имеет собственного цвета (ADR: форма/иконка несут смысл)
+      accent: scheme.primary,
       icon: harsh ? Icons.bolt : Icons.spa_outlined,
       emoji: harsh ? '🔥' : '🌿',
       cornerRadius: harsh ? 8 : 18,

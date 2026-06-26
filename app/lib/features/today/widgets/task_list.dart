@@ -1,5 +1,5 @@
 // FL-TODAY-04: Список задач дня с двумя секциями.
-// - "Main today": задачи priority=main со значком щита.
+// - "Focus": задачи priority=main (акцент только через крупный шрифт, без значка щита).
 // - "Later": остальные задачи, по времени.
 // Действия свайпа НАСТРАИВАЕМЫ (swipe_action_provider): пользователь выбирает,
 // что делает свайп вправо и влево из набора done/skip/delete/snooze.
@@ -777,13 +777,7 @@ class _TaskCardState extends State<_TaskCard> {
       return Icon(Icons.remove_circle_outline,
           color: ext?.textFaint ?? colorScheme.onSurface.withAlpha(120));
     }
-    // Щит — accent только для main (03-components §1: active/selected state)
-    if (widget.item.priority == 'main') {
-      return Tooltip(
-        message: context.s('today.shield_tooltip'),
-        child: Icon(Icons.shield_outlined, color: colorScheme.primary, size: 20),
-      );
-    }
+    // Для main-задачи trailing не нужен — акцент уже даёт titleMedium шрифт (_TaskCard isMain)
     return null;
   }
 }

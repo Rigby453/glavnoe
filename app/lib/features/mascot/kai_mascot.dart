@@ -2,13 +2,15 @@
 // Источник истины: /docs/MASCOT.md (ADR-032).
 // Rive не используется; все анимации на AnimationController.
 //
-// Шесть выражений (KaiEmotion):
+// Пять выражений (KaiEmotion):
 //   neutral  — тире-глаза, ровный squircle. База.
 //   success  — арки глаз вверх (^ ^), форма пружинит к кругу.
 //   thinking — один глаз прищурен, форма вытянута вертикально, лёгкая пульсация.
-//   harsh    — глаза сплющены в тонкие тире, цвет → ember, «брови».
 //   anxious  — глаза чуть крупнее, форма сжата/дёрганая.
 //   away     — глаза-«нитки» (почти закрыты), форма немного осевшая.
+//
+// Жёсткость (isHarsh) — отдельный флаг-оверлей: узкие глаза + брови + резкие углы.
+// Это МАНЕРА (тон), не эмоция; компонуется поверх любой из пяти эмоций.
 //
 // v2 (2026-06): добавлен моргания (blink) + micro-look (горизонтальный дрейф взгляда)
 // для читаемой «живости» на idle, усиленный pulse для thinking.
@@ -28,12 +30,12 @@ import 'kai_speech_bubble.dart';
 // Enum выражений
 // ---------------------------------------------------------------------------
 
-/// Шесть выражений Kai из MASCOT.md §5.
+/// Пять выражений Kai из MASCOT.md §5.
+/// Жёсткость (строгость) — не эмоция; передаётся флагом [KaiMascot.isHarsh].
 enum KaiEmotion {
   neutral,
   success,
   thinking,
-  harsh,
   anxious,
   away,
 }
@@ -492,7 +494,7 @@ class _KaiMascotState extends State<KaiMascot>
 
   /// Амплитуда дыхания по 04-kai.md §3.1:
   ///   anxious / thinking → заменено другой анимацией (дыхание 0)
-  ///   harsh              → 0.01 (половина: напряжённое)
+  ///   isHarsh=true       → 0.01 (половина: напряжённое дыхание тона)
   ///   всё остальное      → 0.02 (±2%)
   double get _breathAmplitude {
     if (_effectiveEmotion == KaiEmotion.anxious) return 0;
@@ -506,8 +508,9 @@ class _KaiMascotState extends State<KaiMascot>
     final reduce = reduceMotionOf(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Цвет глаз: accent темы, при harsh → secondary (ember)
-    final eyeColor = widget.isHarsh
+    // Цвет глаз: оранжевый (secondary/ember) только для тревоги — эмоция.
+    // Тон (isHarsh) влияет на ФОРМУ (узкие глаза, брови), но НЕ на цвет.
+    final eyeColor = widget.emotion == KaiEmotion.anxious
         ? colorScheme.secondary
         : colorScheme.primary;
     final bodyColor = colorScheme.onSurface.withAlpha(28);
@@ -738,20 +741,6 @@ _KaiState _emotionBase(KaiEmotion emotion) {
         leftEyeOffsetY: leftBaseY,
         rightEyeOffsetY: rightBaseY,
         showBrow: 0,
-        opacity: 1,
-      );
-
-    case KaiEmotion.harsh:
-      return const _KaiState(
-        cornerRadius: 0.50,
-        scaleY: 1.06,
-        leftEyeHeight: 0.13,
-        rightEyeHeight: 0.13,
-        leftEyeArch: 0,
-        rightEyeArch: 0,
-        leftEyeOffsetY: leftBaseY,
-        rightEyeOffsetY: rightBaseY,
-        showBrow: 0.8,
         opacity: 1,
       );
 

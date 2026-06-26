@@ -186,7 +186,7 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
         '${s.tasksDone} / ${s.tasksTotal}'
       ),
       (
-        Icons.shield_outlined,
+        Icons.center_focus_strong,
         context.s('wrapped.stat_main_done'),
         '${s.mainDone} / ${s.mainTotal}'
       ),

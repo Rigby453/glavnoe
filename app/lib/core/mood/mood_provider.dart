@@ -1,15 +1,18 @@
-// Провайдер эффективного настроения: объединяет тон, интенсивность и реальные
-// сигналы дня → вычисляет EffectiveMood через чистые функции mood_engine.dart.
+// Провайдер эффективного настроения: вычисляет EffectiveMood из сигналов дня
+// через чистые функции mood_engine.dart.
 //
-// Зависимости:
-//   toneProvider             — gentle/harsh тон (tone_provider.dart)
-//   reactiveIntensityProvider — off/slight/full (reactive_intensity_provider.dart)
-//   overduePendingProvider   — просроченные задачи из morning_review_card.dart
-//   todayMainItemsProvider   — main-задачи сегодня (today_screen.dart)
-//   todayItemsProvider       — все задачи сегодня (today_screen.dart)
+// Уровень настроения (level) и harshness определяются ТОЛЬКО heat'ом:
+//   heat=0 → calm; heat=0.2..0.45 → neutral; heat=0.45..0.75 → stern; ≥0.75 → angry.
 //
-// При дефолтных настройках (intensity=off, tone=gentle):
-//   harshness = 0.0 → MoodLevel.calm — ВИД НЕ МЕНЯЕТСЯ (обратная совместимость).
+// Тон (gentle/harsh) и напор (ReactiveIntensity) НЕ влияют на MoodLevel/harshness.
+// Они читаются провайдерами-потребителями для:
+//   • тон  → KaiMascot.isHarsh (форма глаз/брови), тексты реплик;
+//   • напор → частота проактивных реплик.
+//
+// Зависимости для heat:
+//   overduePendingProvider — просроченные задачи
+//   todayMainItemsProvider — main-задачи сегодня
+//   todayItemsProvider     — все задачи сегодня
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -54,12 +57,11 @@ final _moodTodayMainProvider =
 // ---------------------------------------------------------------------------
 
 /// Эффективное настроение: MoodLevel + числовой harshness (0..1).
-/// Пересчитывается реактивно при изменении любого из сигналов.
-/// При дефолте (tone=gentle, intensity=off) → harshness=0, level=calm.
+/// Пересчитывается реактивно при изменении сигналов дня.
+/// MoodLevel зависит ТОЛЬКО от heat — тон и напор вид не меняют.
 final effectiveMoodProvider = Provider<EffectiveMood>((ref) {
-  final tone = ref.watch(toneProvider);
-  final intensity = ref.watch(reactiveIntensityProvider);
-
+  // Тон и напор НЕ наблюдаются здесь: они не входят в расчёт MoodLevel.
+  // Потребители (KaiMascot, _TonePreview, KaiCopy) читают toneProvider напрямую.
   final overdueItems = ref.watch(_moodOverdueProvider).valueOrNull ?? const [];
   final todayAll = ref.watch(_moodTodayAllProvider).valueOrNull ?? const [];
   final todayMain = ref.watch(_moodTodayMainProvider).valueOrNull ?? const [];
@@ -81,11 +83,7 @@ final effectiveMoodProvider = Provider<EffectiveMood>((ref) {
     streakAtRisk: streakAtRisk,
   );
 
-  return computeEffectiveMood(
-    harshTone: tone == AppTone.harsh,
-    intensityMultiplier: intensity.multiplier,
-    heat: heat,
-  );
+  return computeEffectiveMood(heat: heat);
 });
 
 // ---------------------------------------------------------------------------

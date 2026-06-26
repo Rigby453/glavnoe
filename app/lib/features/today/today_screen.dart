@@ -83,11 +83,12 @@ class TodayScreen extends ConsumerWidget {
     // Приоритет проверок (сверху вниз — первое совпавшее побеждает):
     //   1. success  — все главные задачи закрыты.
     //   2. away     — ничего не запланировано на сегодня (empty day, пустой список).
-    //   3. angry    — MoodLevel.angry → harsh (строгий режим полностью включён)
-    //   4. stern    — MoodLevel.stern → anxious (слегка обеспокоенный)
-    //   5. anxious  — есть просроченные pending main/important задачи СЕГОДНЯ.
-    //   6. thinking — показан утренний/вечерний разбор.
-    //   7. neutral  — иначе.
+    //   3. anxious  — MoodLevel.angry или stern (тепло дня высокое).
+    //   4. anxious  — есть просроченные pending main/important задачи СЕГОДНЯ.
+    //   5. thinking — показан утренний/вечерний разбор.
+    //   6. neutral  — иначе.
+    //
+    // Жёсткость (резкие углы, брови) — от тона (isHarsh = tone==harsh), НЕ от эмоции.
     final showKai = ref.watch(showKaiProvider);
     final moodLevel = ref.watch(effectiveMoodProvider).level;
     final overdueItems = ref.watch(overduePendingProvider).valueOrNull ??
@@ -115,11 +116,9 @@ class TodayScreen extends ConsumerWidget {
     } else if (isEmptyDay) {
       // away = «давно не заходил» / «день пуст» — глаза-нитки (MASCOT.md §6)
       kaiEmotion = KaiEmotion.away;
-    } else if (moodLevel == MoodLevel.angry) {
-      // Реактивное настроение: полностью сердитый режим → harsh
-      kaiEmotion = KaiEmotion.harsh;
-    } else if (moodLevel == MoodLevel.stern) {
-      // Реактивное настроение: строгий режим → anxious
+    } else if (moodLevel == MoodLevel.angry || moodLevel == MoodLevel.stern) {
+      // Реактивное настроение: тепло дня высокое → тревожный.
+      // Жёсткость (брови/узкие глаза) придёт от isHarsh-тона — отдельно.
       kaiEmotion = KaiEmotion.anxious;
     } else if (overdueToday.isNotEmpty) {
       kaiEmotion = KaiEmotion.anxious;
@@ -547,7 +546,22 @@ class _ToneToggle extends ConsumerWidget {
     final tone = ref.watch(toneProvider);
     final harsh = tone == AppTone.harsh;
     return TextButton.icon(
-      onPressed: () => ref.read(toneProvider.notifier).toggle(),
+      onPressed: () async {
+        // Переходная реплика: фраза уже в новом голосе (§5 ТЗ)
+        final willBeHarsh = !harsh;
+        await ref.read(toneProvider.notifier).toggle();
+        if (!context.mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.s(willBeHarsh
+                  ? 'kai.tone_flip_to_harsh'
+                  : 'kai.tone_flip_to_gentle'),
+            ),
+            duration: const Duration(milliseconds: 1500),
+          ),
+        );
+      },
       icon: Icon(harsh ? Icons.bolt : Icons.spa_outlined, size: 18),
       label: Text(harsh ? context.s('today.tone_harsh') : context.s('today.tone_gentle')),
     );

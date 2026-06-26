@@ -1578,15 +1578,14 @@ class _TonePreview extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final v = ToneVisuals.of(context, tone);
 
-    // Выражение Kai: harsh-тон делает его строгим, иначе ведём от настроения дня.
-    final previewEmotion = v.isHarsh
-        ? KaiEmotion.harsh
-        : switch (mood.level) {
-            MoodLevel.angry => KaiEmotion.harsh,
-            MoodLevel.stern => KaiEmotion.anxious,
-            MoodLevel.neutral => KaiEmotion.neutral,
-            MoodLevel.calm => KaiEmotion.success,
-          };
+    // Выражение Kai: эмоция ведётся ТОЛЬКО от mood.level (состояния дня).
+    // Манера (брови/узкие глаза) — отдельно через isHarsh ниже.
+    final previewEmotion = switch (mood.level) {
+      MoodLevel.angry => KaiEmotion.anxious,
+      MoodLevel.stern => KaiEmotion.anxious,
+      MoodLevel.neutral => KaiEmotion.neutral,
+      MoodLevel.calm => KaiEmotion.success,
+    };
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 220),

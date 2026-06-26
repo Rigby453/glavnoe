@@ -244,13 +244,7 @@ class _AgendaRow extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 8),
-            // Щит приоритета main — accent только для этого маркера (accent discipline)
-            if (item.priority == 'main')
-              Padding(
-                padding: const EdgeInsets.only(right: 6),
-                child: Icon(Icons.shield_outlined,
-                    size: 14, color: colorScheme.primary),
-              ),
+            // Для main-задачи бейдж не нужен — акцент идёт через шрифт/цвет заголовка
             // Иконка модуля — показывается если задача привязана к модулю
             if (moduleIcon != null)
               Padding(

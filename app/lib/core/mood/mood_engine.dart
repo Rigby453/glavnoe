@@ -61,42 +61,38 @@ double computeHeat({
 }
 
 // ---------------------------------------------------------------------------
-// computeEffectiveMood — эффективное настроение с учётом тона и интенсивности
+// computeEffectiveMood — эффективное настроение исключительно из тепла дня
 // ---------------------------------------------------------------------------
 //
 // harshness (0.0..1.0):
-//   базовая планка при harshTone = 0.5
-//   + heat * intensityMultiplier  → реактивная добавка
-//   clamp(0.0, 1.0)
+//   = heat (напрямую; тон и напор НЕ влияют на уровень/выражение Каи)
 //
 // MoodLevel:
 //   harshness < 0.20 → calm
 //   harshness < 0.45 → neutral
 //   harshness < 0.75 → stern
 //   else             → angry
+//
+// Тон (gentle/harsh) влияет только на манеру/форму (KaiMascot.isHarsh, текст).
+// Напор (ReactiveIntensity) влияет только на частоту проактивных реплик.
 
 /// Результат вычисления эффективного настроения.
 typedef EffectiveMood = ({MoodLevel level, double harshness});
 
-/// Вычислить итоговое настроение.
+/// Вычислить итоговое настроение — исключительно из [heat] состояния дня.
 ///
-/// [harshTone]            — включён ли жёсткий тон (toneProvider == AppTone.harsh).
-/// [intensityMultiplier]  — множитель реактивности (ReactiveIntensity.multiplier).
-/// [heat]                 — нагрев из computeHeat (0.0..1.0).
+/// [heat] — нагрев из computeHeat (0.0..1.0).
+///
+/// Тон и напор больше не входят в расчёт выражения Kai:
+///   • тон влияет на форму (isHarsh в KaiMascot) и тексты;
+///   • напор влияет только на частоту проактивных реплик.
 ///
 /// Возвращает запись с MoodLevel и числовым harshness.
 EffectiveMood computeEffectiveMood({
-  required bool harshTone,
-  required double intensityMultiplier,
   required double heat,
 }) {
-  // Базовая planка: harsh-тон даёт 0.5, gentle — 0.0
-  final base = harshTone ? 0.5 : 0.0;
-
-  // Реактивная добавка: heat * multiplier (при off=0 → добавки нет)
-  final reactive = heat * intensityMultiplier;
-
-  final harshness = (base + reactive).clamp(0.0, 1.0);
+  // harshness = heat: уровень настроения ведётся прямо от состояния дня
+  final harshness = heat.clamp(0.0, 1.0);
 
   final level = switch (harshness) {
     < 0.20 => MoodLevel.calm,

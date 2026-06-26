@@ -1527,12 +1527,12 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
               const SizedBox(height: 6),
               Builder(
                 builder: (context) {
-                  // success-цвет для подсказки «защищено» — позитивное состояние
+                  // success-цвет для подсказки «фокус» — позитивное состояние
                   final ext = Theme.of(context).extension<FocusThemeExtension>();
                   final hintColor = ext?.success ?? colorScheme.primary;
                   return Row(
                     children: [
-                      Icon(Icons.shield_outlined, size: 14, color: hintColor),
+                      Icon(Icons.push_pin_outlined, size: 14, color: hintColor),
                       const SizedBox(width: 4),
                       Text(
                         context.s('today.protected_hint'),
