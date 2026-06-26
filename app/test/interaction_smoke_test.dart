@@ -290,6 +290,10 @@ void main() {
       expect(tester.takeException(), isNull);
 
       // Уходим из плеера через «End session» → периодический Timer отменяется в dispose.
+      // Кнопка Пауза (добавлена в плеер) увеличила высоту контента, и «End session»
+      // может оказаться ниже 600px-viewport по умолчанию — прокручиваем перед тапом.
+      await tester.ensureVisible(find.text('End session'));
+      await tester.pump();
       await tester.tap(find.text('End session'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 100));
@@ -695,8 +699,9 @@ void main() {
 
       expect(find.byType(DiaryHistoryScreen), findsOneWidget);
 
-      // Шаг на предыдущий день (стрелка влево в стиппере дат — первая в дереве).
-      await tester.tap(find.byIcon(Icons.arrow_back).first);
+      // Шаг на предыдущий день: DateNavigator использует Icons.chevron_left
+      // (а не arrow_back, который остался только в AppBar и вызывает context.pop()).
+      await tester.tap(find.byIcon(Icons.chevron_left).first);
       await settle(tester);
       expect(tester.takeException(), isNull);
       // Вчерашняя заметка отрисовалась.

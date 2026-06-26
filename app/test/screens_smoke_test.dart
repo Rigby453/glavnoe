@@ -120,7 +120,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.textContaining('Good '), findsOneWidget); // приветствие
-      expect(find.text('Main today'), findsOneWidget);
+      // today.main_tasks = 'Focus' (EN) — hero-заголовок секции главных задач
+      expect(find.text('Focus'), findsOneWidget);
       expect(find.text('Write essay'), findsOneWidget);
       expect(find.byType(FloatingActionButton), findsOneWidget);
       expect(find.text('0/1'), findsOneWidget); // кольцо: main не закрыт

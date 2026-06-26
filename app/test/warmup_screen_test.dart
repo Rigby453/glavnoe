@@ -2,9 +2,10 @@
 //   1) смоук-рендер списка комплексов без краша;
 //   2) открытие гайдед-плеера (первое упражнение) без краша;
 //   3) overflow на 320px при textScale 1.5 (список и плеер);
-//   4) загрузка 2 комплексов с непустыми упражнениями;
+//   4) загрузка 3 комплексов с непустыми упражнениями;
 //   5) все l10n-ключи warmup имеют en + ru.
 
+import 'package:app/core/l10n/strings/health_b.dart';
 import 'package:app/core/l10n/strings/warmup.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/features/health/warmup_routines.dart';
@@ -89,8 +90,8 @@ void main() {
   });
 
   group('WarmupRoutine — данные', () {
-    test('ровно 2 комплекса, у каждого непустые упражнения', () {
-      expect(kWarmupRoutines.length, 2);
+    test('ровно 3 комплекса, у каждого непустые упражнения', () {
+      expect(kWarmupRoutines.length, 3);
       for (final r in kWarmupRoutines) {
         expect(r.steps, isNotEmpty);
         expect(r.steps.length, greaterThanOrEqualTo(6));
@@ -122,8 +123,16 @@ void main() {
         expect(warmupStrings, contains(r.nameKey));
         expect(warmupStrings, contains(r.descKey));
         for (final s in r.steps) {
-          expect(warmupStrings, contains(s.nameKey));
-          expect(warmupStrings, contains(s.descKey));
+          // Рутина 'posture' переиспользует ключи posture.*.name / posture.*.steps,
+          // которые живут в healthBStrings (health_b.dart), а не в warmupStrings.
+          // Runtime это ок: context.s() ищет по объединённой карте S._all.
+          // В тесте мы явно указываем правильный источник для каждого ключа.
+          final srcMap =
+              s.nameKey.startsWith('posture.') ? healthBStrings : warmupStrings;
+          expect(srcMap, contains(s.nameKey),
+              reason: '${s.nameKey} не найден в нужной карте строк');
+          expect(srcMap, contains(s.descKey),
+              reason: '${s.descKey} не найден в нужной карте строк');
         }
       }
     });
