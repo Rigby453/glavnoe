@@ -138,8 +138,11 @@ class _DaySection extends ConsumerWidget {
     final textFaint = ext?.textFaint ?? colorScheme.onSurface;
     final border = ext?.border ?? colorScheme.outline;
 
-    final allItems = ref.watch(dayItemsProvider(day)).valueOrNull ??
-        const <ItemsTableData>[];
+    final itemsAsync = ref.watch(dayItemsProvider(day));
+    // Пока данные ещё не пришли (первый emit) — флаг загрузки для секции дня.
+    // Образец: day_timeline.dart (isLoading && valueOrNull==null).
+    final isDayLoading = itemsAsync.isLoading && itemsAsync.valueOrNull == null;
+    final allItems = itemsAsync.valueOrNull ?? const <ItemsTableData>[];
     // Фильтр поиска: подстрока заголовка + #хэштег + тип (см. planSearchMatches).
     // Применяется и в недельной агенде, и в 3-дневной (общий _DaySection).
     final query = ref.watch(planSearchQueryProvider);
@@ -186,7 +189,18 @@ class _DaySection extends ConsumerWidget {
             ],
           ),
         ),
-        if (items.isEmpty)
+        if (isDayLoading)
+          // Тонкий горизонтальный прогресс-бар пока БД ещё не отдала данные.
+          // LinearProgressIndicator компактнее KaiLoader и не ломает ритм
+          // многострочной агенды (7 или 3 дня на одном экране).
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: SizedBox(
+              height: 2,
+              child: LinearProgressIndicator(),
+            ),
+          )
+        else if (items.isEmpty)
           Padding(
             padding: const EdgeInsets.only(bottom: 8),
             // Тире вместо пустоты — textFaint (01-color.md)

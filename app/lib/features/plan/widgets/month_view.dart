@@ -12,6 +12,7 @@ import 'package:intl/intl.dart';
 import '../../../core/database/database.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/widgets/kai_loader.dart';
 import 'plan_providers.dart';
 import 'time_grid.dart' show taskStripeColor;
 import 'week_strip.dart' show selectedDayProvider, dateOnly, isSameDate;
@@ -65,9 +66,13 @@ class MonthView extends ConsumerWidget {
 
     final monthStart = DateTime(year, month, 1);
     final monthEnd = DateTime(year, month + 1, 1);
-    final allItems =
-        ref.watch(rangeItemsProvider((monthStart, monthEnd))).valueOrNull ??
-        const <ItemsTableData>[];
+    final rangeAsync = ref.watch(rangeItemsProvider((monthStart, monthEnd)));
+    // Пока данные ещё не пришли (первый emit) — KaiLoader вместо пустых ячеек.
+    // Образец: day_timeline.dart (isLoading && valueOrNull==null).
+    if (rangeAsync.isLoading && rangeAsync.valueOrNull == null) {
+      return const Center(child: KaiLoader());
+    }
+    final allItems = rangeAsync.valueOrNull ?? const <ItemsTableData>[];
     // Фильтр поиска: подстрока заголовка + #хэштег + тип (см. planSearchMatches).
     // При активном запросе точки-полоски остаются только на днях с совпадениями.
     final query = ref.watch(planSearchQueryProvider);

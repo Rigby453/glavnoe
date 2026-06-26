@@ -17,6 +17,7 @@ import 'package:intl/intl.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/day_window.dart';
+import '../../../core/widgets/kai_loader.dart';
 import 'plan_providers.dart';
 import 'week_strip.dart' show selectedDayProvider, isSameDate;
 
@@ -69,9 +70,13 @@ class YearView extends ConsumerWidget {
     final year = sel.year;
 
     // ОДИН watch на весь год: агрегированные счётчики задач по локальным дням.
-    final counts =
-        ref.watch(yearTaskCountsProvider(year)).valueOrNull ??
-        const <String, int>{};
+    final countsAsync = ref.watch(yearTaskCountsProvider(year));
+    // Пока данные ещё не пришли (первый emit) — KaiLoader вместо пустых ячеек.
+    // Образец: day_timeline.dart (isLoading && valueOrNull==null).
+    if (countsAsync.isLoading && countsAsync.valueOrNull == null) {
+      return const Center(child: KaiLoader());
+    }
+    final counts = countsAsync.valueOrNull ?? const <String, int>{};
 
     final today = DateTime.now();
 
