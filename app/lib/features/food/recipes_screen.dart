@@ -12,6 +12,8 @@ import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
 import '../../core/settings/fab_position_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../core/widgets/swipe_to_delete.dart';
+import '../../core/widgets/undo_snack_bar.dart';
 import 'recipe_nutrition.dart';
 
 // ---------------------------------------------------------------------------
@@ -50,39 +52,29 @@ class RecipesScreen extends ConsumerWidget {
     if (context.mounted) context.push('/recipes/$id');
   }
 
+  /// Удалить рецепт с возможностью Undo (снапшот ДО удаления → восстановление).
+  /// Диалог-подтверждения нет: Undo-snackbar — это страховка (канон проекта).
   Future<void> _deleteRecipe(
     BuildContext context,
     WidgetRef ref,
     RecipesTableData recipe,
   ) async {
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(
-          'Delete "${recipe.name}"?',
-          style: ctx.textTheme.titleMedium,
-        ),
-        content: Text(ctx.s('food.delete_recipe_body')),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(ctx.s('btn.cancel')),
-          ),
-          // Деструктивное действие — FilledButton с ember стилем (03-components §2)
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.secondary,
-              foregroundColor: Theme.of(ctx).colorScheme.onSecondary,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(ctx.s('btn.delete')),
-          ),
-        ],
-      ),
+    final dao = ref.read(recipesDaoProvider);
+    // Снапшот ингредиентов ДО удаления (каскад удалит их вместе с рецептом)
+    final ingredientSnapshot =
+        ref.read(recipeIngredientsProvider(recipe.id)).valueOrNull ??
+            const <RecipeIngredientsTableData>[];
+
+    await dao.deleteRecipe(recipe.id);
+
+    if (!context.mounted) return;
+    showUndoSnackBar(
+      context,
+      message: '"${recipe.name}" — ${context.s('food.recipe_removed')}',
+      onUndo: () async {
+        await dao.restoreRecipe(recipe, ingredientSnapshot);
+      },
     );
-    if (ok == true) {
-      await ref.read(recipesDaoProvider).deleteRecipe(recipe.id);
-    }
   }
 
   @override
@@ -109,10 +101,14 @@ class RecipesScreen extends ConsumerWidget {
                 final r = recipes[i];
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 8),
-                  child: _RecipeTile(
-                    key: ValueKey(r.id),
-                    recipe: r,
+                  // SwipeToDelete: свайп влево → удаление + Undo-snackbar
+                  child: SwipeToDelete(
+                    key: ValueKey('recipe_${r.id}'),
                     onDelete: () => _deleteRecipe(context, ref, r),
+                    child: _RecipeTile(
+                      recipe: r,
+                      onDelete: () => _deleteRecipe(context, ref, r),
+                    ),
                   ),
                 );
               },
@@ -122,7 +118,8 @@ class RecipesScreen extends ConsumerWidget {
 }
 
 class _RecipeTile extends ConsumerWidget {
-  const _RecipeTile({required this.recipe, required this.onDelete, super.key});
+  // super.key убран: _RecipeTile — приватный виджет, ключ не нужен (Dismissible использует SwipeToDelete.key)
+  const _RecipeTile({required this.recipe, required this.onDelete});
 
   final RecipesTableData recipe;
   final VoidCallback onDelete;

@@ -1229,6 +1229,83 @@ const Map<String, Map<String, String>> foodStrings = {
     'ko': '지난 {day}에 기록된 것이 없어요',
   },
 
+  // ---------------------------------------------------------------------------
+  // Карточка итогов рецепта (_TotalsCard в recipe_editor_screen)
+  // ---------------------------------------------------------------------------
+
+  // Заголовок секции «Весь рецепт · N г»
+  'food.recipe_whole_title': {
+    'en': 'Whole recipe',
+    'ru': 'Весь рецепт',
+    'de': 'Ganzes Rezept',
+    'fr': 'Recette entière',
+    'it': 'Ricetta intera',
+    'pt': 'Receita inteira',
+    'es': 'Receta completa',
+    'id': 'Seluruh resep',
+    'hi': 'पूरी रेसिपी',
+    'ja': 'レシピ全体',
+    'ko': '전체 레시피',
+  },
+  // Строка макросов: «P {p} g · F {f} g · C {c} g» (EN) / «Б {p} г · Ж {f} г · У {c} г» (RU)
+  'food.recipe_macros_line': {
+    'en': 'P {p} g · F {f} g · C {c} g',
+    'ru': 'Б {p} г · Ж {f} г · У {c} г',
+    'de': 'E {p} g · F {f} g · K {c} g',
+    'fr': 'P {p} g · L {f} g · G {c} g',
+    'it': 'P {p} g · G {f} g · C {c} g',
+    'pt': 'P {p} g · G {f} g · C {c} g',
+    'es': 'P {p} g · G {f} g · C {c} g',
+    'id': 'P {p} g · L {f} g · K {c} g',
+    'hi': 'प {p} ग · व {f} ग · क {c} ग',
+    'ja': 'P {p} g · F {f} g · C {c} g',
+    'ko': '단 {p} g · 지 {f} g · 탄 {c} g',
+  },
+  // Строка «На 100 г: N ккал · Б/Ж/У» (EN: «Per 100 g: N kcal · P/F/C»)
+  'food.recipe_per100_line': {
+    'en': 'Per 100 g: {cal} kcal · P {p} · F {f} · C {c}',
+    'ru': 'На 100 г: {cal} ккал · Б {p} · Ж {f} · У {c}',
+    'de': 'Pro 100 g: {cal} kcal · E {p} · F {f} · K {c}',
+    'fr': 'Pour 100 g: {cal} kcal · P {p} · L {f} · G {c}',
+    'it': 'Per 100 g: {cal} kcal · P {p} · G {f} · C {c}',
+    'pt': 'Por 100 g: {cal} kcal · P {p} · G {f} · C {c}',
+    'es': 'Por 100 g: {cal} kcal · P {p} · G {f} · C {c}',
+    'id': 'Per 100 g: {cal} kkal · P {p} · L {f} · K {c}',
+    'hi': 'प्रति 100 ग: {cal} कैल · प {p} · व {f} · क {c}',
+    'ja': '100 g 当: {cal} kcal · P {p} · F {f} · C {c}',
+    'ko': '100 g 당: {cal} kcal · 단 {p} · 지 {f} · 탄 {c}',
+  },
+
+  // Undo-snackbar после удаления рецепта
+  'food.recipe_removed': {
+    'en': 'removed',
+    'ru': 'удалён',
+    'de': 'entfernt',
+    'fr': 'supprimée',
+    'it': 'rimossa',
+    'pt': 'removida',
+    'es': 'eliminada',
+    'id': 'dihapus',
+    'hi': 'हटाया गया',
+    'ja': '削除しました',
+    'ko': '삭제됨',
+  },
+
+  // Undo-тост списка покупок: «"{name}" removed» / «"{name}" удалено»
+  'food.shopping_item_removed': {
+    'en': '"{name}" removed',
+    'ru': '"{name}" удалено',
+    'de': '"{name}" entfernt',
+    'fr': '"{name}" supprimé',
+    'it': '"{name}" rimosso',
+    'pt': '"{name}" removido',
+    'es': '"{name}" eliminado',
+    'id': '"{name}" dihapus',
+    'hi': '"{name}" हटाया गया',
+    'ja': '"{name}" を削除しました',
+    'ko': '"{name}" 삭제됨',
+  },
+
   'food.scan_barcode_title': {
     'en': 'Scan barcode',
     'ru': 'Сканирование штрихкода',

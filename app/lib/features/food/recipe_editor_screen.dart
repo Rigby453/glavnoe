@@ -336,8 +336,9 @@ class _TotalsCard extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // «Весь рецепт · N г» — локализованный заголовок карточки итогов
             Text(
-              'Whole recipe · ${totals.totalGrams.round()} g',
+              '${context.s('food.recipe_whole_title')} · ${totals.totalGrams.round()} g',
               style: textTheme.titleSmall,
             ),
             const SizedBox(height: 6),
@@ -360,16 +361,22 @@ class _TotalsCard extends StatelessWidget {
               ],
             ),
             const SizedBox(height: 4),
-            // Макросы — мутед (не конкурируют с калориями)
+            // Макросы Б/Ж/У (EN: P/F/C) — локализованные аббревиатуры
             Text(
-              'P ${_fmt(t.protein)} g · F ${_fmt(t.fat)} g · C ${_fmt(t.carbs)} g',
+              context.s('food.recipe_macros_line')
+                  .replaceFirst('{p}', _fmt(t.protein))
+                  .replaceFirst('{f}', _fmt(t.fat))
+                  .replaceFirst('{c}', _fmt(t.carbs)),
               style: textTheme.bodySmall?.copyWith(color: mutedColor),
             ),
             const SizedBox(height: 8),
+            // На 100 г — локализованная строка с аббревиатурами Б/Ж/У
             Text(
-              'Per 100 g: ${_fmt(per100.calories)} kcal · '
-              'P ${_fmt(per100.protein)} · F ${_fmt(per100.fat)} · '
-              'C ${_fmt(per100.carbs)}',
+              context.s('food.recipe_per100_line')
+                  .replaceFirst('{cal}', _fmt(per100.calories))
+                  .replaceFirst('{p}', _fmt(per100.protein))
+                  .replaceFirst('{f}', _fmt(per100.fat))
+                  .replaceFirst('{c}', _fmt(per100.carbs)),
               style: textTheme.bodySmall?.copyWith(color: mutedColor),
             ),
           ],

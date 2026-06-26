@@ -67,6 +67,43 @@ class RecipesDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
+  /// Восстановить удалённый рецепт + все его ингредиенты (Undo-паттерн).
+  /// Вызывается из Undo-snackbar после удаления через SwipeToDelete.
+  Future<void> restoreRecipe(
+    RecipesTableData recipe,
+    List<RecipeIngredientsTableData> ingredients,
+  ) async {
+    await transaction(() async {
+      // Восстановить запись рецепта (insertOnConflictUpdate — безопасно при race)
+      await into(recipesTable).insertOnConflictUpdate(
+        RecipesTableCompanion(
+          id: Value(recipe.id),
+          name: Value(recipe.name),
+          createdAt: Value(recipe.createdAt),
+          updatedAt: Value(recipe.updatedAt),
+        ),
+      );
+      // Восстановить все ингредиенты в исходном порядке
+      for (final ing in ingredients) {
+        await into(recipeIngredientsTable).insertOnConflictUpdate(
+          RecipeIngredientsTableCompanion(
+            id: Value(ing.id),
+            recipeId: Value(ing.recipeId),
+            name: Value(ing.name),
+            grams: Value(ing.grams),
+            calories: Value(ing.calories),
+            protein: Value(ing.protein),
+            fat: Value(ing.fat),
+            carbs: Value(ing.carbs),
+            sugar: Value(ing.sugar),
+            fiber: Value(ing.fiber),
+            sortOrder: Value(ing.sortOrder),
+          ),
+        );
+      }
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Ингредиенты
   // ---------------------------------------------------------------------------

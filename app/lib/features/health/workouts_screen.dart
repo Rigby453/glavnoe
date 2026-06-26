@@ -15,6 +15,8 @@ import '../../core/l10n/plurals.dart';
 import '../../core/settings/fab_position_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
+import '../../core/widgets/swipe_to_delete.dart';
+import '../../core/widgets/undo_snack_bar.dart';
 import 'ai_workout_sheet.dart';
 import 'exercise_muscle_groups.dart';
 
@@ -83,37 +85,28 @@ class _WorkoutsScreenState extends ConsumerState<WorkoutsScreen> {
     if (context.mounted) context.push('/workouts/$id');
   }
 
+  /// Удалить тренировку с возможностью Undo (снапшот упражнений ДО удаления).
+  /// Диалог-подтверждения нет: Undo-snackbar — страховка (канон проекта).
   Future<void> _deleteWorkout(
     BuildContext context,
     WorkoutsTableData workout,
   ) async {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final ok = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('"${workout.name}" — ${ctx.s('workout.delete_title')}'),
-        content: Text(ctx.s('workout.delete_body')),
-        actions: [
-          // Отмена — TextButton (навигационный нудж)
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(ctx.s('btn.cancel')),
-          ),
-          // Удаление — деструктивное действие: ember border + ember foreground
-          OutlinedButton(
-            style: OutlinedButton.styleFrom(
-              foregroundColor: ext.ember,
-              side: BorderSide(color: ext.ember),
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(ctx.s('btn.delete')),
-          ),
-        ],
-      ),
+    final dao = ref.read(workoutsDaoProvider);
+    // Снапшот упражнений ДО каскадного удаления
+    final exerciseSnapshot =
+        ref.read(workoutExercisesProvider(workout.id)).valueOrNull ??
+            const <WorkoutExercisesTableData>[];
+
+    await dao.deleteWorkout(workout.id);
+
+    if (!context.mounted) return;
+    showUndoSnackBar(
+      context,
+      message: '"${workout.name}" — ${context.s('workout.removed')}',
+      onUndo: () async {
+        await dao.restoreWorkout(workout, exerciseSnapshot);
+      },
     );
-    if (ok == true) {
-      await ref.read(workoutsDaoProvider).deleteWorkout(workout.id);
-    }
   }
 
   @override
@@ -220,10 +213,15 @@ class _WorkoutsTabView extends ConsumerWidget {
             ...workouts.map(
               (w) => Padding(
                 padding: const EdgeInsets.only(bottom: 12),
-                child: _WorkoutCard(
-                  key: ValueKey(w.id),
-                  workout: w,
+                // SwipeToDelete: свайп влево → удаление + Undo-snackbar
+                child: SwipeToDelete(
+                  key: ValueKey('workout_${w.id}'),
                   onDelete: () => onDelete(context, w),
+                  child: _WorkoutCard(
+                    key: ValueKey(w.id),
+                    workout: w,
+                    onDelete: () => onDelete(context, w),
+                  ),
                 ),
               ),
             ),

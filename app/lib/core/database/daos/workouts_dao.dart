@@ -71,6 +71,41 @@ class WorkoutsDao extends DatabaseAccessor<AppDatabase>
     });
   }
 
+  /// Восстановить удалённый шаблон тренировки + все его упражнения (Undo-паттерн).
+  /// Вызывается из Undo-snackbar после удаления через SwipeToDelete.
+  Future<void> restoreWorkout(
+    WorkoutsTableData workout,
+    List<WorkoutExercisesTableData> exercises,
+  ) async {
+    await transaction(() async {
+      // Восстановить шаблон
+      await into(workoutsTable).insertOnConflictUpdate(
+        WorkoutsTableCompanion(
+          id: Value(workout.id),
+          name: Value(workout.name),
+          createdAt: Value(workout.createdAt),
+          updatedAt: Value(workout.updatedAt),
+        ),
+      );
+      // Восстановить все упражнения в исходном порядке
+      for (final ex in exercises) {
+        await into(workoutExercisesTable).insertOnConflictUpdate(
+          WorkoutExercisesTableCompanion(
+            id: Value(ex.id),
+            workoutId: Value(ex.workoutId),
+            name: Value(ex.name),
+            sets: Value(ex.sets),
+            reps: Value(ex.reps),
+            weightKg: Value(ex.weightKg),
+            restSeconds: Value(ex.restSeconds),
+            technique: Value(ex.technique),
+            sortOrder: Value(ex.sortOrder),
+          ),
+        );
+      }
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Упражнения
   // ---------------------------------------------------------------------------

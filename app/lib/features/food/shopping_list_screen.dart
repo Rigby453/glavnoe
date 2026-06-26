@@ -90,7 +90,8 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
     showAppToast(
       context,
       variant: AppToastVariant.removed,
-      message: '"${item.name}" removed',
+      // Локализованное сообщение с подстановкой имени позиции
+      message: context.s('food.shopping_item_removed').replaceFirst('{name}', item.name),
       onUndo: () {
         // Вставляем заново с новым UUID и теми же данными
         ref.read(shoppingDaoProvider).insertItem(
