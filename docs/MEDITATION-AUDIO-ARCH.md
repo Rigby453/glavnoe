@@ -1,9 +1,12 @@
 # Meditation Audio & Media — Architecture
 
-> Status: **proposed** (reviewed by user in the morning).
+> Status: **PROPOSED — NOT IMPLEMENTED.** This is a design/architecture proposal + ADR-054.
+> **None of it is in the code yet:** the meditation player today is **text-only** (stepped timer,
+> no audio). No `flutter_tts` / `just_audio` deps, no R2/CDN, no `/media/manifest` endpoint exist.
+> Implementing it is a future-phase task gated on the user decisions at the bottom.
 > Scope: narration voices (TTS), ambient/white-noise, and future video for the meditation
 > feature (`app/lib/features/health/meditation_screen.dart`).
-> This document is an architecture proposal + ADR. It recommends; it does not survey.
+> This document recommends; it does not survey.
 
 ---
 
