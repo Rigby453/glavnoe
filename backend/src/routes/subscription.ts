@@ -18,9 +18,19 @@ const subscriptionRoutes: FastifyPluginAsync = async (fastify) => {
     "/api/v1/subscription/dev-upgrade",
     { preHandler: requireAuth },
     async (request, reply) => {
-      // Жёсткий гейт: только вне production.
-      if (process.env["NODE_ENV"] === "production") {
-        return reply.status(404).send({ error: "Not found" });
+      // Гейт: доступен вне production ИЛИ когда задана ALLOW_DEV_UPGRADE.
+      // ALLOW_DEV_UPGRADE ('1'/'true') разрешает роут на Render для тестирования AI
+      // до реальных платежей. На боевом релизе переменную просто не задавать.
+      const allowDevUpgrade = Boolean(
+        process.env["ALLOW_DEV_UPGRADE"] &&
+          process.env["ALLOW_DEV_UPGRADE"] !== "0" &&
+          process.env["ALLOW_DEV_UPGRADE"] !== "false"
+      );
+      if (process.env["NODE_ENV"] === "production" && !allowDevUpgrade) {
+        return reply.status(403).send({
+          error:
+            "dev-upgrade is disabled in production. Set ALLOW_DEV_UPGRADE=1 to enable for testing.",
+        });
       }
 
       const parsed = devUpgradeSchema.safeParse(request.body ?? {});

@@ -64,6 +64,11 @@ services:
       - key: PUBLIC_BASE_URL
         sync: false
 
+      # Тест: разрешить dev-upgrade в проде (выдать себе premium без платежей).
+      # Задать вручную: ALLOW_DEV_UPGRADE=1. Убрать на боевом релизе.
+      - key: ALLOW_DEV_UPGRADE
+        sync: false
+
       # ── Фиксированные значения (не секреты) ─────────────────────────────────
 
       - key: NODE_ENV
