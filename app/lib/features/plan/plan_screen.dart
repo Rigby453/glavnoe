@@ -573,11 +573,14 @@ class _PlanViewSwitcher extends ConsumerWidget {
   }
 
   /// Помещаются ли 5 сегментов читаемым кеглем в [available] пикселей.
-  /// На сегмент закладываем горизонтальные паддинги/рамки (≈40dp).
+  /// M3 SegmentedButton: горизонтальный паддинг = 16dp с каждой стороны = 32dp;
+  /// плюс разделители и минимальные ограничения → консервативная оценка 40dp.
+  /// Занижение (было 24dp) давало ложное «влезает», и SegmentedButton рендерился
+  /// в стеснённое пространство с текстом по буквам в столбик.
   bool _segmentsFit(BuildContext context, double available) {
     final style = Theme.of(context).textTheme.labelLarge;
     final scaler = MediaQuery.textScalerOf(context);
-    const perSegmentPadding = 24.0;
+    const perSegmentPadding = 40.0;
     var needed = 0.0;
     for (final label in _labels(context)) {
       needed += _measure(label, style, scaler) + perSegmentPadding;
@@ -599,23 +602,28 @@ class _PlanViewSwitcher extends ConsumerWidget {
             segments: [
               ButtonSegment(
                 value: PlanView.day,
-                label: Text(labels[0], maxLines: 1, softWrap: false),
+                label: Text(labels[0], maxLines: 1, softWrap: false,
+                    overflow: TextOverflow.ellipsis),
               ),
               ButtonSegment(
                 value: PlanView.threeDay,
-                label: Text(labels[1], maxLines: 1, softWrap: false),
+                label: Text(labels[1], maxLines: 1, softWrap: false,
+                    overflow: TextOverflow.ellipsis),
               ),
               ButtonSegment(
                 value: PlanView.week,
-                label: Text(labels[2], maxLines: 1, softWrap: false),
+                label: Text(labels[2], maxLines: 1, softWrap: false,
+                    overflow: TextOverflow.ellipsis),
               ),
               ButtonSegment(
                 value: PlanView.month,
-                label: Text(labels[3], maxLines: 1, softWrap: false),
+                label: Text(labels[3], maxLines: 1, softWrap: false,
+                    overflow: TextOverflow.ellipsis),
               ),
               ButtonSegment(
                 value: PlanView.year,
-                label: Text(labels[4], maxLines: 1, softWrap: false),
+                label: Text(labels[4], maxLines: 1, softWrap: false,
+                    overflow: TextOverflow.ellipsis),
               ),
             ],
             selected: {view},

@@ -359,44 +359,56 @@ class _EmptyState extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textFaint = ext?.textFaint ?? colorScheme.onSurface;
 
-    return Center(
-      child: Padding(
-        // 32dp отступ с воздухом
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.calendar_today_outlined,
-              size: 48,
-              // textFaint для пустых состояний (01-color.md textFaint)
-              color: textFaint,
-            ),
-            const SizedBox(height: 16),
-            Text(
-              '${context.s('plan.empty_prefix')}${DateFormat.MMMd().format(day)}',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: ext?.textMuted ?? colorScheme.onSurface,
+    // LayoutBuilder + SingleChildScrollView + ConstrainedBox(minHeight) —
+    // стандартный паттерн Flutter «центрируй когда влезает, скролль когда нет».
+    // Без этого при 6-рядном раскрытом ExpandableWeekCalendar (~410px) на
+    // маленьком экране Expanded давал DayTimeline < 200px, а Column(mainSize.min)
+    // превышала доступное пространство → «BOTTOM OVERFLOWED BY 27 PIXELS».
+    return LayoutBuilder(
+      builder: (context, constraints) => SingleChildScrollView(
+        child: ConstrainedBox(
+          constraints: BoxConstraints(minHeight: constraints.maxHeight),
+          child: Center(
+            child: Padding(
+              // 32dp отступ с воздухом
+              padding: const EdgeInsets.all(32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.calendar_today_outlined,
+                    size: 48,
+                    // textFaint для пустых состояний (01-color.md textFaint)
+                    color: textFaint,
                   ),
-              textAlign: TextAlign.center,
+                  const SizedBox(height: 16),
+                  Text(
+                    '${context.s('plan.empty_prefix')}${DateFormat.MMMd().format(day)}',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                          color: ext?.textMuted ?? colorScheme.onSurface,
+                        ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    context.s('plan.empty_hint'),
+                    // bodySmall для подсказки (02-type-space §1)
+                    style: Theme.of(context).textTheme.bodySmall,
+                    textAlign: TextAlign.center,
+                  ),
+                  // Кнопка-призыв: главная студенческая фича — импорт расписания.
+                  // Показывается в пустом состоянии, чтобы пользователь сразу знал
+                  // о возможности импорта (иначе она скрыта в меню AppBar).
+                  const SizedBox(height: 20),
+                  OutlinedButton.icon(
+                    onPressed: () => showImportSheet(context, day: day),
+                    icon: const Icon(Icons.upload_file_outlined),
+                    label: Text(context.s('plan.import_tooltip')),
+                  ),
+                ],
+              ),
             ),
-            const SizedBox(height: 8),
-            Text(
-              context.s('plan.empty_hint'),
-              // bodySmall для подсказки (02-type-space §1)
-              style: Theme.of(context).textTheme.bodySmall,
-              textAlign: TextAlign.center,
-            ),
-            // Кнопка-призыв: главная студенческая фича — импорт расписания.
-            // Показывается в пустом состоянии, чтобы пользователь сразу знал
-            // о возможности импорта (иначе она скрыта в меню AppBar).
-            const SizedBox(height: 20),
-            OutlinedButton.icon(
-              onPressed: () => showImportSheet(context, day: day),
-              icon: const Icon(Icons.upload_file_outlined),
-              label: Text(context.s('plan.import_tooltip')),
-            ),
-          ],
+          ),
         ),
       ),
     );

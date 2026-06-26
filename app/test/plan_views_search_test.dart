@@ -276,7 +276,11 @@ void main() {
     testWidgets(
         'view switcher: tablet (SegmentedButton) + textScale 1.5 — нет overflow',
         (tester) async {
-      const size = Size(700, 900);
+      // 800px — ширина, при которой 5 сегментов по прежнему помещаются с новым
+      // порогом perSegmentPadding=40 (более консервативная проверка, чем было 24).
+      // 700px при textScale 1.5 больше не гарантирует SegmentedButton —
+      // фолбэк на _ViewDropdown не является регрессией (он тоже читаем).
+      const size = Size(800, 900);
       await setSize(tester, size);
       await tester.pumpWidget(buildScreen(size: size, textScale: 1.5));
       await settle(tester);
