@@ -12,6 +12,7 @@ import '../../core/animations/app_toast.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/settings/feature_modes_provider.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
@@ -144,7 +145,8 @@ class HealthScreen extends ConsumerWidget {
         const SizedBox(height: 16),
         const _SleepCard(),
         const SizedBox(height: 24),
-        ..._buildNavTileCards(context),
+        // Компактные входы только для включённых L2-режимов
+        ..._buildL2ModeEntries(context, ref),
       ],
     );
   }
@@ -158,7 +160,8 @@ class HealthScreen extends ConsumerWidget {
     final waterGoalMl = ref.watch(waterGoalProvider);
     final progress = (total / waterGoalMl).clamp(0.0, 1.0);
     final dao = ref.read(waterDaoProvider);
-    final navTiles = _buildNavTileCards(context);
+    // Компактные входы для включённых L2-режимов (0–4 плитки)
+    final l2Tiles = _buildL2ModeEntries(context, ref);
 
     return ListView(
       padding: const EdgeInsets.all(24),
@@ -180,17 +183,19 @@ class HealthScreen extends ConsumerWidget {
             ],
           ),
         ),
-        const SizedBox(height: 16),
-        // Navigation tiles in a 2-column grid
-        GridView.count(
-          shrinkWrap: true,
-          physics: const NeverScrollableScrollPhysics(),
-          crossAxisCount: 2,
-          childAspectRatio: 3.5,
-          mainAxisSpacing: 12,
-          crossAxisSpacing: 12,
-          children: navTiles,
-        ),
+        if (l2Tiles.isNotEmpty) ...[
+          const SizedBox(height: 16),
+          // L2-входы в сетке 2 колонки на планшете
+          GridView.count(
+            shrinkWrap: true,
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 2,
+            childAspectRatio: 3.5,
+            mainAxisSpacing: 12,
+            crossAxisSpacing: 12,
+            children: l2Tiles,
+          ),
+        ],
       ],
     );
   }
@@ -354,18 +359,21 @@ class HealthScreen extends ConsumerWidget {
     );
   }
 
-  /// Навигационные карточки-плитки.
-  /// ИСПРАВЛЕНИЕ ГЛАВНОЙ ПРОБЛЕМЫ: иконки нейтральные (textMuted),
-  /// НЕ colorScheme.primary — так на всех ~9 плитках не будет «стены лайма».
-  /// Accent зарезервирован для одного первичного/активного элемента.
-  List<Widget> _buildNavTileCards(BuildContext context) {
+  /// Компактные карточки-входы для включённых L2-режимов.
+  /// Показывает плитку только если соответствующий флаг-режим включён.
+  /// Если все флаги выключены — возвращает пустой список (норма: экран = Вода+Сон).
+  /// Растворяемые модули (Осанка, Привычки, Совместная учёба, Экранное время,
+  /// Зарядка, Фокус) сюда НЕ попадают — они выключены из навигации или
+  /// достигаются из блоков плана.
+  List<Widget> _buildL2ModeEntries(BuildContext context, WidgetRef ref) {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    // Нейтральный цвет для всех иконок навигационных плиток
+    // Нейтральный цвет иконок — accent зарезервирован для метрик/прогресса
     final iconColor = ext.textMuted;
+    final tiles = <Widget>[];
 
-    return [
-      // --- Еда ---
-      Card(
+    // nutritionMode=on → вход в полный модуль питания
+    if (ref.watch(nutritionModeProvider)) {
+      tiles.add(Card(
         child: ListTile(
           leading: Icon(Icons.restaurant_outlined, color: iconColor),
           title: Text(context.s('health.food')),
@@ -373,19 +381,12 @@ class HealthScreen extends ConsumerWidget {
           trailing: Icon(Icons.chevron_right, color: ext.textMuted),
           onTap: () => context.push('/food'),
         ),
-      ),
-      // --- Фокус-сессии ---
-      Card(
-        child: ListTile(
-          leading: Icon(Icons.timer_outlined, color: iconColor),
-          title: Text(context.s('health.focus_session')),
-          subtitle: Text(context.s('health.focus_session_subtitle')),
-          trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-          onTap: () => context.push('/focus'),
-        ),
-      ),
-      // --- Тренировки (Ф2) ---
-      Card(
+      ));
+    }
+
+    // workoutMode=on → вход в редактор/трекер тренировок
+    if (ref.watch(workoutModeProvider)) {
+      tiles.add(Card(
         child: ListTile(
           leading: Icon(Icons.fitness_center_outlined, color: iconColor),
           title: Text(context.s('health.workouts')),
@@ -393,29 +394,12 @@ class HealthScreen extends ConsumerWidget {
           trailing: Icon(Icons.chevron_right, color: ext.textMuted),
           onTap: () => context.push('/workouts'),
         ),
-      ),
-      // --- Зарядка / растяжка ---
-      Card(
-        child: ListTile(
-          leading: Icon(Icons.accessibility_new_outlined, color: iconColor),
-          title: Text(context.s('health.warmup')),
-          subtitle: Text(context.s('health.warmup_subtitle')),
-          trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-          onTap: () => context.push('/warmup'),
-        ),
-      ),
-      // --- Дыхание (Ф2) ---
-      Card(
-        child: ListTile(
-          leading: Icon(Icons.air, color: iconColor),
-          title: Text(context.s('health.breathing')),
-          subtitle: Text(context.s('health.breathing_subtitle')),
-          trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-          onTap: () => context.push('/breathing'),
-        ),
-      ),
-      // --- Медитация (Ф2) ---
-      Card(
+      ));
+    }
+
+    // meditationLibraryMode=on → вход в библиотеку медитаций
+    if (ref.watch(meditationLibraryModeProvider)) {
+      tiles.add(Card(
         child: ListTile(
           leading: Icon(Icons.spa_outlined, color: iconColor),
           title: Text(context.s('health.meditation')),
@@ -423,48 +407,23 @@ class HealthScreen extends ConsumerWidget {
           trailing: Icon(Icons.chevron_right, color: ext.textMuted),
           onTap: () => context.push('/meditation'),
         ),
-      ),
-      // --- Осанка (Ф2) ---
-      Card(
+      ));
+    }
+
+    // breathingEditorMode=on → вход в редактор техник дыхания
+    if (ref.watch(breathingEditorModeProvider)) {
+      tiles.add(Card(
         child: ListTile(
-          leading: Icon(Icons.self_improvement, color: iconColor),
-          title: Text(context.s('health.posture')),
-          subtitle: Text(context.s('health.posture_subtitle')),
+          leading: Icon(Icons.air, color: iconColor),
+          title: Text(context.s('health.breathing')),
+          subtitle: Text(context.s('health.breathing_subtitle')),
           trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-          onTap: () => context.push('/posture'),
+          onTap: () => context.push('/breathing'),
         ),
-      ),
-      // --- Экранное время ---
-      Card(
-        child: ListTile(
-          leading: Icon(Icons.phone_android_outlined, color: iconColor),
-          title: Text(context.s('health.screen_time')),
-          subtitle: Text(context.s('health.screen_time_subtitle')),
-          trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-          onTap: () => context.push('/screen-time'),
-        ),
-      ),
-      // --- Трекер привычек ---
-      Card(
-        child: ListTile(
-          leading: Icon(Icons.track_changes_outlined, color: iconColor),
-          title: Text(context.s('habits.title')),
-          subtitle: Text(context.s('habits.subtitle_hub')),
-          trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-          onTap: () => context.push('/habits'),
-        ),
-      ),
-      // --- Совместная учёба ---
-      Card(
-        child: ListTile(
-          leading: Icon(Icons.people_outline, color: iconColor),
-          title: Text(context.s('costudy.title')),
-          subtitle: Text(context.s('costudy.subtitle_hub')),
-          trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-          onTap: () => context.push('/costudy'),
-        ),
-      ),
-    ];
+      ));
+    }
+
+    return tiles;
   }
 }
 

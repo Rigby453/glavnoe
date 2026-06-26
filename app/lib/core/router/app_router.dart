@@ -28,7 +28,6 @@ import '../../features/food/shopping_list_screen.dart';
 import '../../features/food/recipes_screen.dart';
 import '../../features/food/recipe_editor_screen.dart';
 import '../../features/health/breathing_screen.dart';
-import '../../features/health/posture_screen.dart';
 import '../../features/health/warmup_screen.dart';
 import '../../features/health/workouts_screen.dart';
 import '../../features/health/workout_editor_screen.dart';
@@ -40,8 +39,6 @@ import '../../features/health/water_fullscreen_screen.dart';
 import '../../features/health/water_report_screen.dart';
 import '../../features/diary/diary_history_screen.dart';
 import '../../features/plan/goals_screen.dart';
-import '../../features/health/habits_screen.dart';
-import '../../features/health/costudy_screen.dart';
 import '../../features/health/meditation_screen.dart';
 import '../../features/health/screen_time_screen.dart';
 import '../../features/auth/forgot_password_screen.dart';
@@ -269,12 +266,6 @@ final routerProvider = Provider<GoRouter>((ref) {
         builder: (context, state) => const BreathingScreen(),
       ),
 
-      // /posture — упражнения + напоминания об осанке (SPEC C5, Ф2), вне оболочки
-      GoRoute(
-        path: '/posture',
-        builder: (context, state) => const PostureScreen(),
-      ),
-
       // /warmup — зарядка/растяжка: гайдед-рутины «проснуться», вне оболочки
       GoRoute(
         path: '/warmup',
@@ -329,18 +320,6 @@ final routerProvider = Provider<GoRouter>((ref) {
 
       // /goals — долгосрочные цели (SPEC C4), push-route вне оболочки
       GoRoute(path: '/goals', builder: (context, state) => const GoalsScreen()),
-
-      // /habits — трекер привычек (хорошие/плохие), вне оболочки
-      GoRoute(path: '/habits', builder: (context, state) => const HabitsScreen()),
-
-      // /habits/archive — список заархивированных привычек (разархивировать/удалить)
-      GoRoute(
-        path: '/habits/archive',
-        builder: (context, state) => const HabitsArchiveScreen(),
-      ),
-
-      // /costudy — совместная учёба с друзьями (Ф3), вне оболочки
-      GoRoute(path: '/costudy', builder: (context, state) => const CoStudyScreen()),
 
       // /meditation — текстовые медитации (Ф2), вне оболочки
       GoRoute(
