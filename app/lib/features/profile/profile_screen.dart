@@ -982,8 +982,14 @@ class _WorkoutDefaultsSection extends ConsumerWidget {
         suffixText: ctx.s('workout.seconds_short'),
         initialValue: current,
         confirmLabel: ctx.s('btn.done'),
-        // Кламп в разумные границы делает сам провайдер (set).
+        // Границы: значения вне [min, max] диалог отвергает (вернёт null),
+        // поэтому большой отдых не обрезается молча. Лимит показан в helperText
+        // в минутах, чтобы было понятнее, чем «3600 секунд».
         minValue: kRestDefaultMinSeconds,
+        maxValue: kRestDefaultMaxSeconds,
+        maxValueHint: ctx
+            .s('common.max_value_hint')
+            .replaceAll('{n}', (kRestDefaultMaxSeconds ~/ 60).toString()),
       ),
     );
     if (entered == null) return;

@@ -26,6 +26,8 @@ class NumberInputDialog extends StatefulWidget {
     this.suffixText,
     this.confirmLabel,
     this.minValue = 0,
+    this.maxValue,
+    this.maxValueHint,
     this.maxDigits = 4,
     this.backgroundColor,
     this.bordered = true,
@@ -48,6 +50,16 @@ class NumberInputDialog extends StatefulWidget {
 
   /// Минимально допустимое значение. Ввод меньше → возвращается null.
   final int minValue;
+
+  /// Максимально допустимое значение (в единицах поля). null — без верхней
+  /// границы. Ввод больше → возвращается null (как и при нарушении minValue),
+  /// поэтому значение НЕ обрезается молча — пользователь видит [maxValueHint].
+  final int? maxValue;
+
+  /// Готовая локализованная подсказка о максимуме (helperText под полем),
+  /// например «Max 60 min». Строится вызывающей стороной из l10n-ключа, чтобы
+  /// диалог оставался независимым от единиц (секунды/минуты/штуки). null — нет.
+  final String? maxValueHint;
 
   /// Ограничение длины ввода в цифрах.
   final int maxDigits;
@@ -82,9 +94,10 @@ class _NumberInputDialogState extends State<NumberInputDialog> {
   /// Парсит и валидирует текущий ввод, затем закрывает диалог.
   void _submit() {
     final parsed = int.tryParse(_controller.text.trim());
-    Navigator.of(context).pop(
-      parsed != null && parsed >= widget.minValue ? parsed : null,
-    );
+    final withinBounds = parsed != null &&
+        parsed >= widget.minValue &&
+        (widget.maxValue == null || parsed <= widget.maxValue!);
+    Navigator.of(context).pop(withinBounds ? parsed : null);
   }
 
   @override
@@ -103,6 +116,7 @@ class _NumberInputDialogState extends State<NumberInputDialog> {
         decoration: InputDecoration(
           labelText: widget.labelText,
           suffixText: widget.suffixText,
+          helperText: widget.maxValueHint,
           border: widget.bordered ? const OutlineInputBorder() : null,
         ),
         onSubmitted: (_) => _submit(),

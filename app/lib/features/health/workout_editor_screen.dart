@@ -513,9 +513,11 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
         ? null
         : _technique.text.trim();
 
-    // restSeconds: kUseDefaultRest (-1) проходит без клампа; явные значения зажаты.
-    final clampedRest =
-        restSeconds == kUseDefaultRest ? restSeconds : restSeconds.clamp(0, 3600);
+    // restSeconds: kUseDefaultRest (-1) проходит без клампа; явные значения зажаты
+    // в [0, kRestDefaultMaxSeconds] (тот же лимит, что показан в helperText).
+    final clampedRest = restSeconds == kUseDefaultRest
+        ? restSeconds
+        : restSeconds.clamp(0, kRestDefaultMaxSeconds);
 
     Navigator.of(context).pop(_ExerciseFormResult(
       name: name,
@@ -602,6 +604,12 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
                                   '{value}',
                                   _mmss(widget.defaultRestSeconds))
                           : null,
+                      // Лимит отдыха (clamp(0, 3600) в _submit) показан явно
+                      // в минутах, чтобы большие значения не обрезались молча.
+                      helperText: context
+                          .s('common.max_value_hint')
+                          .replaceAll(
+                              '{n}', (kRestDefaultMaxSeconds ~/ 60).toString()),
                     ),
                   ),
                 ),
@@ -635,3 +643,10 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
     );
   }
 }
+
+/// Тестовая обёртка: возвращает приватный диалог добавления упражнения, чтобы
+/// его можно было запумпить в виджет-тесте (проверка helperText лимита отдыха,
+/// overflow) без БД и провайдеров. Не использовать в продакшен-коде.
+@visibleForTesting
+Widget exerciseDialogForTest({String title = 'Add exercise'}) =>
+    _ExerciseDialog(title: title);

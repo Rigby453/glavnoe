@@ -394,6 +394,16 @@ class HealthScreen extends ConsumerWidget {
           onTap: () => context.push('/workouts'),
         ),
       ),
+      // --- Зарядка / растяжка ---
+      Card(
+        child: ListTile(
+          leading: Icon(Icons.accessibility_new_outlined, color: iconColor),
+          title: Text(context.s('health.warmup')),
+          subtitle: Text(context.s('health.warmup_subtitle')),
+          trailing: Icon(Icons.chevron_right, color: ext.textMuted),
+          onTap: () => context.push('/warmup'),
+        ),
+      ),
       // --- Дыхание (Ф2) ---
       Card(
         child: ListTile(

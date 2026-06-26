@@ -105,6 +105,19 @@ void main() {
       expect(kDefaultRestSeconds, 120);
     });
 
+    // Регресс: глобальный максимум отдыха поднят 600→3600 (60 мин), чтобы
+    // совпадать с per-exercise лимитом (clamp(0, 3600) в редакторе) и не
+    // обрезать большие значения молча. Минимум не трогаем.
+    test('глобальный максимум отдыха = 3600с (60 мин), минимум = 15с', () {
+      expect(kRestDefaultMaxSeconds, 3600);
+      expect(kRestDefaultMinSeconds, 15);
+    });
+
+    test('явное значение 1200с (20 мин) теперь в пределах [min, max]', () {
+      expect(1200, greaterThanOrEqualTo(kRestDefaultMinSeconds));
+      expect(1200, lessThanOrEqualTo(kRestDefaultMaxSeconds));
+    });
+
     test('упражнение с kUseDefaultRest + глобальный 30 → 30 (диапазон мин)', () {
       expect(
         effectiveRestSeconds(

@@ -29,6 +29,7 @@ import '../../features/food/recipes_screen.dart';
 import '../../features/food/recipe_editor_screen.dart';
 import '../../features/health/breathing_screen.dart';
 import '../../features/health/posture_screen.dart';
+import '../../features/health/warmup_screen.dart';
 import '../../features/health/workouts_screen.dart';
 import '../../features/health/workout_editor_screen.dart';
 import '../../features/health/workout_trainer_screen.dart';
@@ -272,6 +273,12 @@ final routerProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: '/posture',
         builder: (context, state) => const PostureScreen(),
+      ),
+
+      // /warmup — зарядка/растяжка: гайдед-рутины «проснуться», вне оболочки
+      GoRoute(
+        path: '/warmup',
+        builder: (context, state) => const WarmupScreen(),
       ),
 
       // /workouts — список шаблонов тренировок (Phase 2), вне оболочки

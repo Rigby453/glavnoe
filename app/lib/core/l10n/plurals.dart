@@ -580,6 +580,63 @@ String _secondOther(String lang, int n) {
 }
 
 // ---------------------------------------------------------------------------
+// ПОВТОРЫ (для шагов зарядки/растяжки по повторам)
+// ---------------------------------------------------------------------------
+
+/// «× N reps» с правильным склонением.
+///
+/// EN: × 1 rep / × 12 reps
+/// RU: × 1 повтор / × 2 повтора / × 12 повторов
+/// Остальные языки пока фолбэкают на en (контент warmup не переведён).
+String plReps(BuildContext context, int n) {
+  final locale = Localizations.localeOf(context).languageCode;
+  return Intl.plural(
+    n,
+    locale: locale,
+    one: _repOne(locale, n),
+    few: _repFew(locale, n),
+    many: _repMany(locale, n),
+    other: _repOther(locale, n),
+  );
+}
+
+String _repOne(String lang, int n) {
+  switch (lang) {
+    case 'ru':
+      return '× $n повтор';
+    default:
+      return '× $n rep';
+  }
+}
+
+String _repFew(String lang, int n) {
+  switch (lang) {
+    case 'ru':
+      return '× $n повтора';
+    default:
+      return '× $n reps';
+  }
+}
+
+String _repMany(String lang, int n) {
+  switch (lang) {
+    case 'ru':
+      return '× $n повторов';
+    default:
+      return '× $n reps';
+  }
+}
+
+String _repOther(String lang, int n) {
+  switch (lang) {
+    case 'ru':
+      return '× $n повторов';
+    default:
+      return '× $n reps';
+  }
+}
+
+// ---------------------------------------------------------------------------
 // СОСТАВНЫЕ ФУНКЦИИ
 // ---------------------------------------------------------------------------
 

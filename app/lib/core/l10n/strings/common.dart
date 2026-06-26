@@ -3,6 +3,21 @@
 // Формат: 'key': {'en': ..., 'ru': ..., 'de': ...}.
 // Эти ключи переиспользуются всеми экранами — не дублировать в других фрагментах.
 const Map<String, Map<String, String>> commonStrings = {
+  // Подсказка о верхнем лимите ввода (helperText). {n} — максимум в минутах.
+  // Используется в NumberInputDialog (отдых в Профиле) и в редакторе упражнения.
+  'common.max_value_hint': {
+    'en': 'Max {n} min',
+    'ru': 'Не больше {n} мин',
+    'de': 'Max. {n} Min.',
+    'fr': 'Max {n} min',
+    'it': 'Max {n} min',
+    'pt': 'Máx {n} min',
+    'es': 'Máx {n} min',
+    'id': 'Maks {n} mnt',
+    'hi': 'अधिकतम {n} मिनट',
+    'ja': '最大{n}分',
+    'ko': '최대 {n}분',
+  },
   // Навигация
   'nav.today': {
     'en': 'Today',

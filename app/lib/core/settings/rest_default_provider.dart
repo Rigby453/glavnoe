@@ -43,9 +43,11 @@ const int kUseDefaultRest = -1;
 /// Новые записи пишут kUseDefaultRest вместо этого значения.
 const int kLegacyRestMarkerSeconds = 60;
 
-/// Границы разумного глобального отдыха (секунды): 15с … 10 мин.
+/// Границы разумного глобального отдыха (секунды): 15с … 60 мин.
+/// Максимум совпадает с per-exercise лимитом (clamp(0, 3600) в редакторе
+/// упражнения), чтобы большие значения отдыха не обрезались молча.
 const int kRestDefaultMinSeconds = 15;
-const int kRestDefaultMaxSeconds = 600;
+const int kRestDefaultMaxSeconds = 3600;
 
 /// Возвращает true, если [restSeconds] означает «использовать глобальный дефолт».
 /// Охватывает и новый сентинель (kUseDefaultRest = -1), и легаси-маркер (60).
