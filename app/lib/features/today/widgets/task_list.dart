@@ -16,7 +16,6 @@
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/animations/animated_check.dart';
@@ -26,6 +25,7 @@ import '../../../core/animations/pressable.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/routing/block_tool_router.dart';
 import '../../../core/settings/swipe_action_provider.dart';
 import '../../../core/settings/swipe_hint_provider.dart';
 import '../../../core/theme/app_theme.dart';
@@ -592,11 +592,10 @@ class _CompletedSectionHeader extends StatelessWidget {
   }
 }
 
-/// Карточка задачи — StatefulWidget для корректного отслеживания
-/// перехода статуса pending→done через didUpdateWidget.
-/// AnimatedCheck анимирует галочку только при этом переходе,
-/// но не при первом открытии экрана (когда задача уже done).
-class _TaskCard extends StatefulWidget {
+/// Карточка задачи — ConsumerStatefulWidget для корректного отслеживания
+/// перехода статуса pending→done через didUpdateWidget и доступа к ref
+/// (нужен для openBlockTool при тапе по блоку-модулю).
+class _TaskCard extends ConsumerStatefulWidget {
   const _TaskCard({
     required this.item,
     required this.day,
@@ -607,10 +606,10 @@ class _TaskCard extends StatefulWidget {
   final DateTime day;
 
   @override
-  State<_TaskCard> createState() => _TaskCardState();
+  ConsumerState<_TaskCard> createState() => _TaskCardState();
 }
 
-class _TaskCardState extends State<_TaskCard> {
+class _TaskCardState extends ConsumerState<_TaskCard> {
   // true ровно на тот rebuild, в котором статус сменился на done —
   // AnimatedCheck получает animateOnAppear и проигрывает анимацию один раз.
   bool _justCompleted = false;
@@ -655,12 +654,15 @@ class _TaskCardState extends State<_TaskCard> {
     final card = Card(
         margin: const EdgeInsets.symmetric(vertical: 4),
         child: ListTile(
-          // Если задача привязана к модулю — тап открывает модуль;
-          // иначе — обычный лист редактирования.
-          onTap: widget.item.moduleLink != null
-              ? () => _openModule(context, widget.item.moduleLink!)
-              : () => showAddTaskSheet(context, day: widget.day, existing: widget.item),
-          // Долгое нажатие при наличии moduleLink → открыть лист редактирования
+          // Короткий тап: инструмент модуля (если есть moduleLink), иначе редактирование.
+          // openBlockTool возвращает false для null/неизвестных moduleLink →
+          // в этом случае падаем на showAddTaskSheet.
+          onTap: () {
+            if (!openBlockTool(context, ref, widget.item)) {
+              showAddTaskSheet(context, day: widget.day, existing: widget.item);
+            }
+          },
+          // Долгое нажатие при наличии moduleLink → всегда редактирование
           onLongPress: widget.item.moduleLink != null
               ? () => showAddTaskSheet(context, day: widget.day, existing: widget.item)
               : null,
@@ -725,7 +727,7 @@ class _TaskCardState extends State<_TaskCard> {
   }
 
   /// Возвращает иконку модуля для данного значения moduleLink.
-  /// null — если ссылка отсутствует.
+  /// null — если ссылка отсутствует или неизвестна.
   Widget? _moduleLinkIcon(
     String? moduleLink,
     FocusThemeExtension? ext,
@@ -734,9 +736,13 @@ class _TaskCardState extends State<_TaskCard> {
     if (moduleLink == null) return null;
     final color = ext?.textMuted ?? colorScheme.onSurface.withAlpha(160);
     final icon = switch (moduleLink) {
-      'workout'       => Icons.fitness_center,
-      'sleep'         => Icons.bedtime_outlined,
-      // meal:* — иконка ресторана для всех приёмов
+      'workout'    => Icons.fitness_center,
+      'sleep'      => Icons.bedtime_outlined,
+      'focus'      => Icons.timer_outlined,
+      'warmup'     => Icons.accessibility_new_outlined,
+      'breathing'  => Icons.air,
+      'meditation' => Icons.self_improvement,
+      // meal:* — иконка ресторана для всех приёмов пищи
       String s when s.startsWith('meal:') => Icons.restaurant_outlined,
       _ => null,
     };
@@ -744,19 +750,7 @@ class _TaskCardState extends State<_TaskCard> {
     return Icon(icon, size: 18, color: color);
   }
 
-  /// Навигирует в соответствующий модуль по значению moduleLink.
-  void _openModule(BuildContext context, String moduleLink) {
-    if (moduleLink == 'workout') {
-      context.push('/workouts');
-    } else if (moduleLink == 'sleep') {
-      context.push('/sleep-report');
-    } else if (moduleLink.startsWith('meal:')) {
-      // meal:<slot> → открыть Food и доскроллить к нужному приёму
-      // (FoodScreen.targetMeal, см. /food?meal=). Если приёма ещё нет в логе —
-      // экран откроется обычно, без доскролла.
-      context.push('/food?meal=${moduleLink.substring(5)}');
-    }
-  }
+  // _openModule удалён — используй openBlockTool из core/routing/block_tool_router.dart
 
   Widget? _trailing(
     BuildContext context,

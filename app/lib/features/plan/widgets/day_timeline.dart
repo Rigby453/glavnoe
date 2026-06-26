@@ -5,11 +5,11 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/l10n/app_strings.dart';
+import '../../../core/routing/block_tool_router.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/tag_parser.dart';
 import '../../../core/widgets/kai_loader.dart';
@@ -88,14 +88,15 @@ class DayTimeline extends ConsumerWidget {
 }
 
 /// Карточка одной задачи/события в таймлайне.
-class _ItemCard extends StatelessWidget {
+/// ConsumerWidget — нужен ref для openBlockTool (единая маршрутизация).
+class _ItemCard extends ConsumerWidget {
   const _ItemCard({required this.item, required this.selectedDay});
 
   final ItemsTableData item;
   final DateTime selectedDay;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final colorScheme = Theme.of(context).colorScheme;
     // ThemeExtension — источник дополнительных цветов (01-color.md)
     final ext = Theme.of(context).extension<FocusThemeExtension>();
@@ -117,11 +118,14 @@ class _ItemCard extends StatelessWidget {
     final taskColor = taskColorFromKey(item.color);
 
     return InkWell(
-      // Если задача привязана к модулю — тап открывает модуль.
-      // Долгий тап — открывает лист редактирования (как обычно).
-      onTap: item.moduleLink != null
-          ? () => _openModule(context, item.moduleLink!)
-          : () => showAddTaskSheet(context, day: selectedDay, existing: item),
+      // Короткий тап: инструмент модуля (если есть moduleLink), иначе редактирование.
+      // openBlockTool возвращает false для null/неизвестных moduleLink.
+      onTap: () {
+        if (!openBlockTool(context, ref, item)) {
+          showAddTaskSheet(context, day: selectedDay, existing: item);
+        }
+      },
+      // Долгий тап при наличии moduleLink → всегда редактирование
       onLongPress: item.moduleLink != null
           ? () => showAddTaskSheet(context, day: selectedDay, existing: item)
           : null,
@@ -243,7 +247,7 @@ class _TypeBadge extends StatelessWidget {
   }
 }
 
-/// Иконка для значения moduleLink. null если ссылки нет.
+/// Иконка для значения moduleLink. null если ссылки нет или moduleLink неизвестен.
 Widget? _moduleLinkIcon(
   String? moduleLink,
   FocusThemeExtension? ext,
@@ -252,8 +256,13 @@ Widget? _moduleLinkIcon(
   if (moduleLink == null) return null;
   final color = ext?.textMuted ?? colorScheme.onSurface.withAlpha(160);
   final icon = switch (moduleLink) {
-    'workout' => Icons.fitness_center,
-    'sleep'   => Icons.bedtime_outlined,
+    'workout'    => Icons.fitness_center,
+    'sleep'      => Icons.bedtime_outlined,
+    'focus'      => Icons.timer_outlined,
+    'warmup'     => Icons.accessibility_new_outlined,
+    'breathing'  => Icons.air,
+    'meditation' => Icons.self_improvement,
+    // meal:* — иконка ресторана для всех приёмов пищи
     String s when s.startsWith('meal:') => Icons.restaurant_outlined,
     _ => null,
   };
@@ -261,17 +270,7 @@ Widget? _moduleLinkIcon(
   return Icon(icon, size: 16, color: color);
 }
 
-/// Навигирует в соответствующий модуль по значению moduleLink.
-void _openModule(BuildContext context, String moduleLink) {
-  if (moduleLink == 'workout') {
-    context.push('/workouts');
-  } else if (moduleLink == 'sleep') {
-    context.push('/sleep-report');
-  } else if (moduleLink.startsWith('meal:')) {
-    // meal:<slot> → открыть Food и доскроллить к этому приёму.
-    context.push('/food?meal=${moduleLink.substring(5)}');
-  }
-}
+// _openModule удалён — используй openBlockTool из core/routing/block_tool_router.dart
 
 // ---------------------------------------------------------------------------
 // Заголовок задачи в таймлайне: чистый title (без #тегов) + чипы тегов.
