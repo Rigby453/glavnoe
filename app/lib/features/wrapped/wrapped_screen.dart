@@ -11,6 +11,7 @@ import '../../core/animations/ai_skeleton.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/settings/tone_provider.dart';
+import '../../core/widgets/kai_loader.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
 
@@ -163,7 +164,7 @@ class _WrappedScreenState extends ConsumerState<WrappedScreen> {
         ),
       ),
       body: async.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () => Center(child: KaiLoader(label: context.s('loading.generic'))),
         error: (e, _) => Center(
           child: Text(
             context.s('wrapped.err_load').replaceAll('{e}', '$e'),
