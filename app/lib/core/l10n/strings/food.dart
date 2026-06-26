@@ -1306,6 +1306,40 @@ const Map<String, Map<String, String>> foodStrings = {
     'ko': '"{name}" 삭제됨',
   },
 
+  // ---------------------------------------------------------------------------
+  // Лёгкая шторка приёма пищи (light_food_sheet.dart, nutritionMode = off)
+  // ---------------------------------------------------------------------------
+
+  /// Пустое состояние слота: ничего ещё не добавлено в этот приём.
+  'food.light_empty': {
+    'en': 'Nothing here yet — add your first item below.',
+    'ru': 'Пусто — добавь первое блюдо.',
+    'de': 'Noch nichts — füge das erste Gericht hinzu.',
+    'fr': 'Rien encore — ajoute ton premier aliment.',
+    'it': 'Niente ancora — aggiungi il primo alimento.',
+    'pt': 'Nada ainda — adicione o primeiro alimento.',
+    'es': 'Nada aún — agrega el primer alimento.',
+    'id': 'Masih kosong — tambahkan makanan pertamamu.',
+    'hi': 'अभी कुछ नहीं — पहला आइटम जोड़ें।',
+    'ja': 'まだ何もありません — 最初の食品を追加してください。',
+    'ko': '아직 비어 있어요 — 첫 번째 음식을 추가해보세요.',
+  },
+
+  /// Плейсхолдер поля ввода имени продукта.
+  'food.light_name_hint': {
+    'en': 'Food name…',
+    'ru': 'Название блюда…',
+    'de': 'Name des Gerichts…',
+    'fr': 'Nom de l\'aliment…',
+    'it': 'Nome del cibo…',
+    'pt': 'Nome do alimento…',
+    'es': 'Nombre del alimento…',
+    'id': 'Nama makanan…',
+    'hi': 'भोजन का नाम…',
+    'ja': '食品名…',
+    'ko': '음식 이름…',
+  },
+
   'food.scan_barcode_title': {
     'en': 'Scan barcode',
     'ru': 'Сканирование штрихкода',

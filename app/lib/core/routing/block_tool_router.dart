@@ -12,6 +12,7 @@ import 'package:go_router/go_router.dart';
 
 import '../database/database.dart';
 import '../settings/feature_modes_provider.dart';
+import '../../features/food/light_food_sheet.dart';
 
 // ---------------------------------------------------------------------------
 // Enum — все возможные «инструменты», к которым ведёт тап блока
@@ -128,9 +129,14 @@ bool openBlockTool(BuildContext context, WidgetRef ref, ItemsTableData item) {
     case BlockToolKind.none:
       return false;
 
-    // TODO Задача 3: заменить на лёгкую шторку еды без КБЖУ
+    // Задача 3: лёгкая шторка еды (nutritionMode = off) — без КБЖУ в UI.
+    // showLightFoodSheet показывает приём пищи без числовых полей.
     case BlockToolKind.foodLight:
-      context.push('/food?meal=$mealSlot');
+      showLightFoodSheet(
+        context,
+        mealSlot: mealSlot ?? 'snack',
+        day: item.scheduledAt,
+      );
       return true;
 
     case BlockToolKind.foodFull:
