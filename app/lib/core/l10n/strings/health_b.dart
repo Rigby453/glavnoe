@@ -3012,6 +3012,64 @@ const Map<String, Map<String, String>> healthBStrings = {
     'ko': '목표 달성!',
   },
 
+  // Формат кнопки быстрого добавления объёма — «+{ml} мл».
+  // {ml} заменяется на значение в коде.
+  'water.add_ml_fmt': {
+    'en': '+{ml} ml',
+    'ru': '+{ml} мл',
+    'de': '+{ml} ml',
+    'fr': '+{ml} ml',
+    'it': '+{ml} ml',
+    'pt': '+{ml} ml',
+    'es': '+{ml} ml',
+    'id': '+{ml} ml',
+    'hi': '+{ml} मिली',
+    'ja': '+{ml} ml',
+    'ko': '+{ml} ml',
+  },
+  // Кнопка «Своё количество» — открывает диалог ввода произвольного объёма.
+  'water.custom_btn': {
+    'en': 'Custom',
+    'ru': 'Своё',
+    'de': 'Eigene',
+    'fr': 'Autre',
+    'it': 'Altro',
+    'pt': 'Outro',
+    'es': 'Otro',
+    'id': 'Lainnya',
+    'hi': 'कस्टम',
+    'ja': 'カスタム',
+    'ko': '직접 입력',
+  },
+  // Заголовок диалога «Своё количество».
+  'water.custom_amount_title': {
+    'en': 'Custom amount',
+    'ru': 'Своё количество',
+    'de': 'Eigene Menge',
+    'fr': 'Quantité personnalisée',
+    'it': 'Quantità personalizzata',
+    'pt': 'Quantidade personalizada',
+    'es': 'Cantidad personalizada',
+    'id': 'Jumlah kustom',
+    'hi': 'कस्टम मात्रा',
+    'ja': 'カスタム量',
+    'ko': '직접 입력',
+  },
+  // Подсказка поля ввода в диалоге «Своё количество».
+  'water.custom_amount_hint': {
+    'en': 'Amount in ml',
+    'ru': 'Количество в мл',
+    'de': 'Menge in ml',
+    'fr': 'Quantité en ml',
+    'it': 'Quantità in ml',
+    'pt': 'Quantidade em ml',
+    'es': 'Cantidad en ml',
+    'id': 'Jumlah dalam ml',
+    'hi': 'मात्रा मिलीलीटर में',
+    'ja': 'ml単位の量',
+    'ko': 'ml 단위로 입력',
+  },
+
   // ---------------------------------------------------------------------------
   // workout.ai_* (Feature A) — анкета + лист «AI / шаблонная программа»
   // (ai_workout_sheet.dart). EN/RU; остальные языки откатываются на EN.

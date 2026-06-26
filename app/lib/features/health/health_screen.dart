@@ -20,6 +20,52 @@ import '../../core/utils/breakpoints.dart';
 import '../../core/widgets/kai_loader.dart';
 import 'sleep_stats.dart';
 
+/// Единый набор быстрых объёмов воды (мл) — карточка Здоровья и полный экран.
+/// Используйте эту константу в обоих местах, чтобы не было рассинхрона.
+const kWaterQuickMl = [150, 250, 350, 500];
+
+/// Диалог «Своё количество» — ввод произвольного объёма воды.
+/// Вызывается как из карточки Здоровья, так и с полного экрана воды.
+Future<void> showCustomWaterDialog(BuildContext context, dynamic dao) async {
+  final ctrl = TextEditingController();
+  final result = await showDialog<int>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: Text(ctx.s('water.custom_amount_title')),
+      content: TextField(
+        controller: ctrl,
+        keyboardType: TextInputType.number,
+        autofocus: true,
+        decoration: InputDecoration(
+          hintText: ctx.s('water.custom_amount_hint'),
+          suffixText: 'ml',
+        ),
+        onSubmitted: (_) {
+          final v = int.tryParse(ctrl.text.trim());
+          if (v != null && v > 0 && v <= 5000) {
+            Navigator.pop(ctx, v);
+          }
+        },
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(ctx),
+          child: Text(ctx.s('btn.cancel')),
+        ),
+        FilledButton(
+          onPressed: () {
+            final v = int.tryParse(ctrl.text.trim());
+            if (v != null && v > 0 && v <= 5000) Navigator.pop(ctx, v);
+          },
+          child: Text(ctx.s('btn.ok')),
+        ),
+      ],
+    ),
+  );
+  ctrl.dispose();
+  if (result != null) await dao.addWater(result);
+}
+
 /// Сумма выпитого за сегодня (реактивно).
 final todayWaterProvider = StreamProvider.autoDispose<int>((ref) {
   return ref.watch(waterDaoProvider).watchTodayTotalMl(DateTime.now());
@@ -278,32 +324,38 @@ class HealthScreen extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 16),
-            // Кнопки лога: Outlined (повторяемые действия — §2 BUTTON HIERARCHY)
-            Row(
+            // Кнопки лога: Outlined — повторяемые действия (§2 BUTTON HIERARCHY).
+            // Wrap предотвращает overflow на 320px при textScale > 1.
+            Wrap(
+              spacing: 8,
+              runSpacing: 8,
               children: [
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.local_drink, size: 18),
-                    label: Text(context.s('health.water_add_250')),
-                    onPressed: () => dao.addWater(250),
+                ...kWaterQuickMl.map(
+                  (ml) => OutlinedButton(
+                    onPressed: () => dao.addWater(ml),
+                    child: Text(
+                      context
+                          .s('water.add_ml_fmt')
+                          .replaceFirst('{ml}', '$ml'),
+                    ),
                   ),
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: OutlinedButton.icon(
-                    icon: const Icon(Icons.sports_bar, size: 18),
-                    label: Text(context.s('health.water_add_500')),
-                    onPressed: () => dao.addWater(500),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Undo — IconButton (tertiary, без акцента)
-                IconButton(
-                  tooltip: context.s('health.water_undo'),
-                  icon: Icon(Icons.undo, color: ext.textMuted),
-                  onPressed: () => dao.undoLast(DateTime.now()),
+                // «Своё количество» — открывает диалог числового ввода
+                OutlinedButton.icon(
+                  icon: const Icon(Icons.edit_outlined, size: 16),
+                  label: Text(context.s('water.custom_btn')),
+                  onPressed: () => showCustomWaterDialog(context, dao),
                 ),
               ],
+            ),
+            // Undo — справа, отдельной строкой (не в Wrap, не ломает макет)
+            Align(
+              alignment: Alignment.centerRight,
+              child: IconButton(
+                tooltip: context.s('health.water_undo'),
+                icon: Icon(Icons.undo, color: ext.textMuted),
+                onPressed: () => dao.undoLast(DateTime.now()),
+              ),
             ),
             const SizedBox(height: 8),
             // Тоггл напоминаний — нейтральная иконка
@@ -345,13 +397,6 @@ class HealthScreen extends ConsumerWidget {
                   ],
                 ),
               ),
-            ),
-            const SizedBox(height: 8),
-            // "View report" — TextButton (навигационный нудж, не основное действие)
-            TextButton.icon(
-              icon: const Icon(Icons.arrow_forward, size: 16),
-              label: Text(context.s('health.view_report')),
-              onPressed: () => context.push('/water-report'),
             ),
           ],
         ),
@@ -761,13 +806,6 @@ class _SleepCard extends ConsumerWidget {
                           ],
                         ),
                       ),
-                    ),
-                    const SizedBox(height: 8),
-                    // TextButton — навигационный нудж (не основное действие)
-                    TextButton.icon(
-                      icon: const Icon(Icons.arrow_forward, size: 16),
-                      label: Text(context.s('health.view_report')),
-                      onPressed: () => context.push('/sleep-report'),
                     ),
                   ],
                 );

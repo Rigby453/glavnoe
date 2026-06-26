@@ -9,7 +9,12 @@ import '../../core/database/database_providers.dart' show waterDaoProvider;
 import '../../core/l10n/app_strings.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/app_theme.dart';
-import 'health_screen.dart' show todayWaterProvider, waterReminderProvider;
+import 'health_screen.dart'
+    show
+        todayWaterProvider,
+        waterReminderProvider,
+        kWaterQuickMl,
+        showCustomWaterDialog;
 
 class WaterFullscreenScreen extends ConsumerWidget {
   const WaterFullscreenScreen({super.key});
@@ -67,7 +72,7 @@ class WaterFullscreenScreen extends ConsumerWidget {
               const SizedBox(height: 32),
 
               // Быстрые кнопки добавления: OutlinedButton — повторяемые низкорисковые
-              // действия (§2 BUTTON HIERARCHY — «+250 ml» / «+500 ml» pattern)
+              // действия (§2 BUTTON HIERARCHY). Набор kWaterQuickMl — единый с карточкой.
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
@@ -75,15 +80,28 @@ class WaterFullscreenScreen extends ConsumerWidget {
                 mainAxisSpacing: 12,
                 crossAxisSpacing: 12,
                 childAspectRatio: 2.8,
-                children: [150, 200, 250, 350].map((ml) {
+                children: kWaterQuickMl.map((ml) {
                   return OutlinedButton(
                     onPressed: () => dao.addWater(ml),
                     child: Text(
-                      '+$ml ml',
+                      context
+                          .s('water.add_ml_fmt')
+                          .replaceFirst('{ml}', '$ml'),
                       style: textTheme.labelLarge,
                     ),
                   );
                 }).toList(),
+              ),
+              const SizedBox(height: 12),
+
+              // «Своё количество» — произвольный объём через диалог числового ввода
+              SizedBox(
+                width: double.infinity,
+                child: OutlinedButton.icon(
+                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  label: Text(context.s('water.custom_btn')),
+                  onPressed: () => showCustomWaterDialog(context, dao),
+                ),
               ),
               const SizedBox(height: 4),
 
