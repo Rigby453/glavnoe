@@ -22,8 +22,19 @@ import '../../../core/theme/app_theme.dart';
 
 /// Редактор целей КБЖУ. Самодостаточный ConsumerStatefulWidget;
 /// встраивается в любой ScrollView без параметров.
+///
+/// [previewTargets] — необязательное live-превью расчётных норм из ЛОКАЛЬНЫХ
+/// (ещё не сохранённых) значений экрана редактирования антропометрии. Когда
+/// override ВЫКЛЮЧЕН и превью задано — read-only нормы (ккал/БЖУ/клетчатка/сахар)
+/// берутся из превью, чтобы реагировать на изменения веса/роста/возраста/пола/
+/// активности/цели немедленно (как live-норма воды). Когда override включён —
+/// превью игнорируется: калории берутся из пользовательских целей и не должны
+/// меняться от антропометрии.
 class MacroEditor extends ConsumerStatefulWidget {
-  const MacroEditor({super.key});
+  const MacroEditor({super.key, this.previewTargets});
+
+  /// Live-превью расчётных норм из локальных значений экрана (см. описание класса).
+  final NutritionTargets? previewTargets;
 
   @override
   ConsumerState<MacroEditor> createState() => _MacroEditorState();
@@ -112,7 +123,10 @@ class _MacroEditorState extends ConsumerState<MacroEditor> {
   // ---------------------------------------------------------------------------
 
   Future<void> _enableWithSeed() async {
-    final computed = ref.read(nutritionTargetsProvider);
+    // Засеваем из live-превью, если оно есть (отражает несохранённые поля),
+    // иначе — из сохранённых расчётных норм.
+    final NutritionTargets computed =
+        widget.previewTargets ?? ref.read(nutritionTargetsProvider);
     final notifier = ref.read(macroOverrideProvider.notifier);
     await notifier.setEnabled(true);
     await notifier.setKcalTarget(computed.kcal);
@@ -136,7 +150,13 @@ class _MacroEditorState extends ConsumerState<MacroEditor> {
   @override
   Widget build(BuildContext context) {
     final overrideState = ref.watch(macroOverrideProvider);
-    final targets = ref.watch(nutritionTargetsProvider);
+    final providerTargets = ref.watch(nutritionTargetsProvider);
+    // В авто-режиме (override выкл) при наличии live-превью показываем его —
+    // это даёт мгновенную реакцию на изменение антропометрии до Save.
+    // В режиме override превью игнорируем: калории берутся из целей пользователя.
+    final targets = (!overrideState.enabled && widget.previewTargets != null)
+        ? widget.previewTargets!
+        : providerTargets;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;

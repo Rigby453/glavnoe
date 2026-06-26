@@ -10,6 +10,7 @@ ItemsTableData _item(
   DateTime? scheduledAt,
   String priority = 'medium',
   bool isProtected = false,
+  int durationMinutes = 30,
 }) {
   return ItemsTableData(
     id: id,
@@ -20,7 +21,7 @@ ItemsTableData _item(
     status: 'pending',
     // null = задача без времени суток (полночь): должна распределиться по слотам.
     scheduledAt: scheduledAt ?? DateTime(2026, 6, 9),
-    durationMinutes: 30,
+    durationMinutes: durationMinutes,
     isProtected: isProtected,
     recurrenceRule: null,
     reminderMinutesBefore: null,
@@ -131,6 +132,68 @@ void main() {
 
       // 08:00 занят существующей задачей — новая встаёт позже.
       expect(assign['a'], isNot(DateTime(2026, 6, 10, 8, 0)));
+    });
+
+    test('long task (300 min) reserves its whole span — next task starts after',
+        () {
+      // Тренировка 5ч (10 слотов по 30 мин) + обычная задача 30 мин.
+      // Разный приоритет → детерминированный порядок раскладки (long первой).
+      final items = [
+        _item('long',
+            scheduledAt: DateTime(2026, 6, 9),
+            durationMinutes: 300,
+            priority: 'high'),
+        _item('next',
+            scheduledAt: DateTime(2026, 6, 9),
+            durationMinutes: 30,
+            priority: 'medium'),
+      ];
+      final assign = distributeToDay(items, day, const []);
+
+      final longStart = assign['long']!;
+      final nextStart = assign['next']!;
+      // long встаёт в начало окна (08:00) и занимает 10 слотов до 13:00.
+      expect(longStart, DateTime(2026, 6, 10, 8, 0));
+      final longEnd = longStart.add(const Duration(minutes: 300));
+      // next НЕ должна попасть ВНУТРЬ интервала длинной задачи.
+      expect(nextStart.isBefore(longEnd), isFalse,
+          reason: 'короткая задача не должна влезать в интервал 5-часовой');
+      expect(nextStart, DateTime(2026, 6, 10, 13, 0));
+    });
+
+    test('two movable tasks with duration never share a slot', () {
+      // Две переносимые задачи по 90 мин (3 слота каждая) без времени.
+      final items = [
+        _item('x', scheduledAt: DateTime(2026, 6, 9), durationMinutes: 90),
+        _item('y', scheduledAt: DateTime(2026, 6, 9), durationMinutes: 90),
+      ];
+      final assign = distributeToDay(items, day, const []);
+
+      final xStart = assign['x']!;
+      final yStart = assign['y']!;
+      final xEnd = xStart.add(const Duration(minutes: 90));
+      final yEnd = yStart.add(const Duration(minutes: 90));
+      // Интервалы [start, end) не пересекаются.
+      final overlap = xStart.isBefore(yEnd) && yStart.isBefore(xEnd);
+      expect(overlap, isFalse, reason: 'интервалы задач не должны пересекаться');
+    });
+
+    test('flexible task with own time reserves slots for its duration', () {
+      // Задача в 09:00 на 2ч (4 слота) + задача без времени.
+      final items = [
+        _item('block',
+            scheduledAt: DateTime(2026, 6, 9, 9, 0), durationMinutes: 120),
+        _item('fill', scheduledAt: DateTime(2026, 6, 9), durationMinutes: 30),
+      ];
+      final assign = distributeToDay(items, day, const []);
+
+      expect(assign['block'], DateTime(2026, 6, 10, 9, 0));
+      final fill = assign['fill']!;
+      // fill не должна попасть в 09:00–11:00 (слоты заняты block).
+      final inBlock = !fill.isBefore(DateTime(2026, 6, 10, 9, 0)) &&
+          fill.isBefore(DateTime(2026, 6, 10, 11, 0));
+      expect(inBlock, isFalse,
+          reason: 'fill не должна попасть в интервал block (09:00–11:00)');
     });
   });
 

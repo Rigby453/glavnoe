@@ -266,31 +266,10 @@ class _FoodPreferencesSectionState
           const SizedBox(height: 16),
 
           // ---- Цель ----
-          Text(
-            context.s('food_prefs.goal_label'),
-            style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
-          ),
-          const SizedBox(height: 8),
-          SegmentedButton<String>(
-            segments: [
-              ButtonSegment(
-                value: 'lose',
-                label: Text(context.s('food_prefs.goal_lose')),
-              ),
-              ButtonSegment(
-                value: 'maintain',
-                label: Text(context.s('food_prefs.goal_maintain')),
-              ),
-              ButtonSegment(
-                value: 'gain',
-                label: Text(context.s('food_prefs.goal_gain')),
-              ),
-            ],
-            selected: {_goal},
-            showSelectedIcon: false,
-            onSelectionChanged: (s) => setState(() => _goal = s.first),
-          ),
-          const SizedBox(height: 16),
+          // ПРИМЕЧАНИЕ: выбор цели (lose/maintain/gain) намеренно НЕ редактируется
+          // здесь — он живёт в секции «Параметры тела» того же экрана (my_data_screen),
+          // чтобы не было двух мест редактирования одного хранилища (kFoodGoalKey).
+          // Поле `_goal` сохраняется без изменений (round-trip), значение задаётся выше.
 
           // ---- Приёмы пищи ----
           Text(
@@ -381,16 +360,12 @@ class _FoodPreferencesView extends StatelessWidget {
       return context.s(key);
     }
 
-    String goalLabel() {
-      final key = 'food_prefs.goal_${prefs.goal}';
-      return context.s(key);
-    }
-
+    // Цель (goal) сюда не выводим: она показывается/редактируется в секции
+    // «Параметры тела» (my_data_screen). Дубль убран, чтобы не путать.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         if (prefs.diet != 'none') row(context.s('food_prefs.view_diet'), dietLabel()),
-        row(context.s('food_prefs.view_goal'), goalLabel()),
         row(context.s('food_prefs.view_meals'), '${prefs.mealsPerDay}'),
         if (prefs.dislikes.trim().isNotEmpty)
           row(context.s('food_prefs.view_dislikes'), prefs.dislikes),

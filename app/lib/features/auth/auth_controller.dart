@@ -10,8 +10,17 @@ import '../../services/api/api_client.dart';
 import '../../services/streak/freeze_accrual_service.dart'
     show kLocalPremiumUntilKey;
 import '../../services/sync/sync_service.dart';
+import '../onboarding/setup_flow.dart' show setupDoneKey;
 
 const _kGuestKey = 'guest_mode';
+
+/// Решает, нужно ли пометить локальный `setup_done` как пройденный по ответу
+/// сервера (объект `user` из auth-ответа или /me).
+/// Возвращает true ТОЛЬКО когда сервер явно сообщает `onboarding_done == true`.
+/// Серверный false/отсутствие поля НЕ должны стирать локально завершённый
+/// онбординг — поэтому здесь только «истина включает».
+bool shouldMarkSetupDone(Map<String, dynamic> user) =>
+    user['onboarding_done'] == true;
 
 class AuthController extends Notifier<bool> {
   @override
@@ -30,12 +39,13 @@ class AuthController extends Notifier<bool> {
     String? phone,
     required String password,
   }) async {
-    await ref.read(apiClientProvider).login(
+    final resp = await ref.read(apiClientProvider).login(
           email: email,
           phone: phone,
           password: password,
         );
     await _clearGuest();
+    await _reconcileSetupFlag(resp);
     state = true;
     _syncInBackground();
   }
@@ -47,15 +57,27 @@ class AuthController extends Notifier<bool> {
     required String password,
     required String name,
   }) async {
-    await ref.read(apiClientProvider).register(
+    final resp = await ref.read(apiClientProvider).register(
           email: email,
           phone: phone,
           password: password,
           name: name,
         );
     await _clearGuest();
+    await _reconcileSetupFlag(resp);
     state = true;
     _syncInBackground();
+  }
+
+  /// Сверяет серверный флаг онбординга с локальным `setup_done` ДО смены
+  /// state — чтобы роутер не показал setup-флоу при входе в уже настроенный
+  /// аккаунт (web/новое устройство). Серверный false НЕ стирает локальный
+  /// флаг (он — оффлайн-кэш): только server true ставит true.
+  Future<void> _reconcileSetupFlag(Map<String, dynamic> authResponse) async {
+    final user = authResponse['user'];
+    if (user is Map<String, dynamic> && shouldMarkSetupDone(user)) {
+      await ref.read(sharedPreferencesProvider).setBool(setupDoneKey, true);
+    }
   }
 
   /// Продолжить без аккаунта — данные остаются локально (Drift), без синхронизации.

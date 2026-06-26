@@ -36,11 +36,6 @@ import 'todoist_csv_parser.dart';
 /// Строка расписания: "9:00 Math lecture" или "09:30 Gym"
 final _lineRegex = RegExp(r'^\s*(\d{1,2}):(\d{2})\s+(.+?)\s*$');
 
-const _templateExample = '''09:00 Math lecture
-11:00 Library study
-14:30 Gym
-18:00 Project work''';
-
 class _ParsedLine {
   const _ParsedLine(this.hour, this.minute, this.title);
   final int hour;
@@ -429,6 +424,31 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
               style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
             ),
             const SizedBox(height: 16),
+            // Заметный выбор дня: явно показываем, на какую дату ляжет расписание.
+            // Full-width + label с датой, чтобы пользователь не пропустил выбор дня.
+            SizedBox(
+              width: double.infinity,
+              child: OutlinedButton(
+                onPressed: _pickDay,
+                child: Row(
+                  children: [
+                    const Icon(Icons.calendar_today_outlined, size: 18),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        context.s('import.day_label').replaceAll(
+                              '{date}',
+                              DateFormat.yMMMd().format(_day),
+                            ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const Icon(Icons.edit_calendar_outlined, size: 18),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
             // Текстовое поле расписания
             TextField(
               controller: _controller,
@@ -438,24 +458,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
                 hintText: context.s('import.text_hint'),
               ),
             ),
-            const SizedBox(height: 8),
-            // Строка: «Вставить пример» слева, «Выбрать день» справа
-            Row(
-              children: [
-                TextButton.icon(
-                  icon: const Icon(Icons.lightbulb_outline, size: 18),
-                  label: Text(context.s('import.btn_example')),
-                  onPressed: () => _controller.text = _templateExample,
-                ),
-                const Spacer(),
-                TextButton.icon(
-                  icon: const Icon(Icons.calendar_today_outlined, size: 18),
-                  label: Text(DateFormat.yMMMd().format(_day)),
-                  onPressed: _pickDay,
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
 
             // --- Вторичные источники импорта: OutlinedButton (03-components.md §5) ---
             // Каждая кнопка — полная ширина, состояние загрузки = KaiLoader вместо

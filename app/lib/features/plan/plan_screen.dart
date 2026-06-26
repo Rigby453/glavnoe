@@ -7,7 +7,9 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
+// intl также экспортирует TextDirection (Bidi) — прячем, чтобы _PlanViewSwitcher
+// мог использовать flutter-овский TextDirection.ltr в TextPainter без коллизии.
+import 'package:intl/intl.dart' hide TextDirection;
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/settings/fab_position_provider.dart';
@@ -91,8 +93,20 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               child: const Icon(Icons.add),
             ),
       body: isTablet
-          ? _buildTabletLayout(context, selectedDay, view, searchVisible, layout)
-          : _buildMobileLayout(context, selectedDay, view, searchVisible, layout),
+          ? _buildTabletLayout(
+              context,
+              selectedDay,
+              view,
+              searchVisible,
+              layout,
+            )
+          : _buildMobileLayout(
+              context,
+              selectedDay,
+              view,
+              searchVisible,
+              layout,
+            ),
     );
   }
 
@@ -111,8 +125,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
       children: [
         // Переключатель вида + раскладка + поиск + импорт
         _buildToolbar(context, selectedDay, view, searchVisible, layout),
-        // Строка поиска (разворачивается при searchVisible в режиме Day)
-        if (view == PlanView.day && searchVisible)
+        // Строка поиска (разворачивается при searchVisible — во всех видах).
+        if (searchVisible)
           Padding(
             // 24dp горизонтальный отступ экрана (02-type-space.md §4.1)
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
@@ -123,7 +137,9 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
           ),
         // Тонкий разделитель (hairline 0.5dp, убираем лишнюю высоту)
         Divider(height: 0.5, thickness: 0.5, color: border),
-        Expanded(child: _bodyContent(view, layout, searchVisible: searchVisible)),
+        Expanded(
+          child: _bodyContent(view, layout, searchVisible: searchVisible),
+        ),
       ],
     );
   }
@@ -143,142 +159,166 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     final textMuted = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface;
     final textTheme = Theme.of(context).textTheme;
 
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // --- Левая колонка: управление ---
+        // --- Полноширинная строка переключателя видов ---
+        // Раньше SegmentedButton жил в узкой левой колонке (flex:1) и его
+        // подписи ужимались FittedBox(scaleDown) в нечитаемую мелочь. Теперь он
+        // занимает всю ширину контента, где 5 кнопок помещаются обычным кеглем
+        // (labelLarge, без масштабирования). _PlanViewSwitcher адаптивен: при
+        // нехватке ширины (узко + крупный textScale) переходит в компактный
+        // _ViewDropdown, чтобы текст всегда оставался читаемым и без overflow.
+        Padding(
+          padding: const EdgeInsets.fromLTRB(24, 16, 24, 8),
+          child: Row(
+            children: [
+              Expanded(child: _PlanViewSwitcher(view: view)),
+              // Тумблер раскладки (список ↔ сетка времени) — рядом с
+              // переключателем (только Day/3 дня/Week; month/year — календарь).
+              if (_supportsLayoutToggle(view)) ...[
+                const SizedBox(width: 8),
+                _LayoutToggleButton(layout: layout),
+              ],
+            ],
+          ),
+        ),
+        Divider(height: 0.5, thickness: 0.5, color: border),
+        // --- Две колонки под строкой переключателя ---
         Expanded(
-          flex: 1,
-          child: SingleChildScrollView(
-            // 24dp горизонтальный отступ (02-type-space.md §4.1)
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // Переключатель вида — SegmentedButton (correct per 03-components §13)
-                SegmentedButton<PlanView>(
-                  segments: [
-                    ButtonSegment(value: PlanView.day, label: Text(context.s('plan.view_day'))),
-                    ButtonSegment(value: PlanView.threeDay, label: Text(context.s('plan.view_3day'))),
-                    ButtonSegment(value: PlanView.week, label: Text(context.s('plan.view_week'))),
-                    ButtonSegment(value: PlanView.month, label: Text(context.s('plan.view_month'))),
-                    ButtonSegment(value: PlanView.year, label: Text(context.s('plan.view_year'))),
-                  ],
-                  selected: {view},
-                  showSelectedIcon: false,
-                  onSelectionChanged: (s) =>
-                      ref.read(planViewProvider.notifier).state = s.first,
-                ),
-                // Тумблер раскладки (список ↔ сетка времени) — только Day/Week.
-                // Для threeDay и month скрыт (они всегда сетка/календарь).
-                if (_supportsLayoutToggle(view)) ...[
-                  const SizedBox(height: 12),
-                  Align(
-                    alignment: Alignment.centerLeft,
-                    child: _LayoutToggleButton(layout: layout),
-                  ),
-                ],
-                const SizedBox(height: 16),
-                // Выбор даты + Today
-                Row(
-                  children: [
-                    Builder(builder: (ctx) {
-                      final now = DateTime.now();
-                      final today = DateTime(now.year, now.month, now.day);
-                      if (!isSameDate(selectedDay, today)) {
-                        return TextButton(
-                          onPressed: () {
-                            ref.read(selectedDayProvider.notifier).state =
-                                today;
-                          },
-                          child: Text(ctx.s('plan.today')),
-                        );
-                      }
-                      return const SizedBox.shrink();
-                    }),
-                    GestureDetector(
-                      onTap: () => _pickDate(selectedDay),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 4, vertical: 8),
-                        child: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _formatSelectedDate(selectedDay),
-                              // bodySmall для метаданных/дат (02-type-space §1)
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // --- Левая колонка: управление (дата, неделя, поиск) ---
+              Expanded(
+                flex: 1,
+                child: SingleChildScrollView(
+                  // 24dp горизонтальный отступ (02-type-space.md §4.1)
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Выбор даты + Today
+                      Row(
+                        children: [
+                          Builder(
+                            builder: (ctx) {
+                              final now = DateTime.now();
+                              final today = DateTime(
+                                now.year,
+                                now.month,
+                                now.day,
+                              );
+                              if (!isSameDate(selectedDay, today)) {
+                                return TextButton(
+                                  onPressed: () {
+                                    ref
+                                            .read(selectedDayProvider.notifier)
+                                            .state =
+                                        today;
+                                  },
+                                  child: Text(ctx.s('plan.today')),
+                                );
+                              }
+                              return const SizedBox.shrink();
+                            },
+                          ),
+                          GestureDetector(
+                            onTap: () => _pickDate(selectedDay),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 4,
+                                vertical: 8,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Text(
+                                    _formatSelectedDate(selectedDay),
+                                    // bodySmall для метаданных/дат (02-type-space §1)
+                                    style: textTheme.bodySmall?.copyWith(
+                                      color: textMuted,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                  Icon(
+                                    Icons.arrow_drop_down,
+                                    size: 18,
+                                    color: textMuted,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      // WeekStrip на планшете в левой колонке.
+                      // Для threeDay скрыта — заголовок сетки уже показывает 3 дня.
+                      if (_showsWeekStrip(view)) const WeekStrip(),
+                      const SizedBox(height: 12),
+                      // Поиск (во всех видах). Левая колонка планшета — внутри
+                      // SingleChildScrollView, поэтому открытая клавиатура её не
+                      // переполняет (keyboard rule соблюдён скроллом).
+                      Row(
+                        children: [
+                          // Нейтральная иконка без акцента (accent discipline)
+                          IconButton(
+                            icon: Icon(
+                              searchVisible ? Icons.search_off : Icons.search,
+                              color: textMuted,
+                            ),
+                            tooltip: context.s('plan.search_tooltip'),
+                            onPressed: () {
+                              final notifier = ref.read(
+                                planSearchVisibleProvider.notifier,
+                              );
+                              notifier.state = !notifier.state;
+                              if (notifier.state == false) {
+                                ref
+                                        .read(planSearchQueryProvider.notifier)
+                                        .state =
+                                    '';
+                              }
+                            },
+                          ),
+                          const SizedBox(width: 4),
+                          Flexible(
+                            child: Text(
+                              context.s('plan.search_label'),
+                              maxLines: 1,
+                              softWrap: false,
+                              overflow: TextOverflow.fade,
                               style: textTheme.bodySmall?.copyWith(
                                 color: textMuted,
                               ),
                             ),
-                            const SizedBox(width: 2),
-                            Icon(
-                              Icons.arrow_drop_down,
-                              size: 18,
-                              color: textMuted,
-                            ),
-                          ],
+                          ),
+                        ],
+                      ),
+                      if (searchVisible)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: _SearchField(
+                            onChanged: (v) =>
+                                ref
+                                        .read(planSearchQueryProvider.notifier)
+                                        .state =
+                                    v,
+                          ),
                         ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 8),
-                // WeekStrip на планшете в левой колонке.
-                // Для threeDay скрыта — заголовок сетки уже показывает 3 дня.
-                if (_showsWeekStrip(view)) const WeekStrip(),
-                const SizedBox(height: 12),
-                // Поиск (только в режиме Day)
-                if (view == PlanView.day)
-                  Row(
-                    children: [
-                      // Нейтральная иконка без акцента (accent discipline)
-                      IconButton(
-                        icon: Icon(
-                          searchVisible
-                              ? Icons.search_off
-                              : Icons.search,
-                          color: textMuted,
-                        ),
-                        tooltip: context.s('plan.search_tooltip'),
-                        onPressed: () {
-                          final notifier =
-                              ref.read(planSearchVisibleProvider.notifier);
-                          notifier.state = !notifier.state;
-                          if (notifier.state == false) {
-                            ref.read(planSearchQueryProvider.notifier).state =
-                                '';
-                          }
-                        },
-                      ),
-                      const SizedBox(width: 4),
-                      Text(
-                        context.s('plan.search_label'),
-                        style: textTheme.bodySmall?.copyWith(color: textMuted),
-                      ),
+                      // «Цели» и «Импорт» перенесены в постоянные действия
+                      // AppBar (справа сверху) — одинаково во всех раскладках.
                     ],
                   ),
-                if (view == PlanView.day && searchVisible)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: _SearchField(
-                      onChanged: (v) =>
-                          ref.read(planSearchQueryProvider.notifier).state = v,
-                    ),
-                  ),
-                // «Цели» и «Импорт» перенесены в постоянные действия AppBar
-                // (справа сверху) — одинаково во всех раскладках, чтобы они не
-                // «скакали» между мобайл-меню и этой колонкой.
-              ],
-            ),
+                ),
+              ),
+              // Вертикальный разделитель — hairline (02-type-space §4.3)
+              VerticalDivider(width: 1, thickness: 0.5, color: border),
+              // --- Правая колонка: содержимое ---
+              Expanded(flex: 2, child: _bodyContentTablet(view, layout)),
+            ],
           ),
-        ),
-        // Вертикальный разделитель — hairline (02-type-space §4.3)
-        VerticalDivider(width: 1, thickness: 0.5, color: border),
-        // --- Правая колонка: содержимое ---
-        Expanded(
-          flex: 2,
-          child: _bodyContentTablet(view, layout),
         ),
       ],
     );
@@ -362,26 +402,25 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               ),
               child: Text(context.s('plan.today')),
             ),
-          // --- Иконка поиска (только в режиме Day) — нейтральный цвет. ---
-          if (view == PlanView.day)
-            IconButton(
-              visualDensity: VisualDensity.compact,
-              icon: Icon(
-                searchVisible ? Icons.search_off : Icons.search,
-                color: textMuted,
-              ),
-              tooltip: context.s('plan.search_tooltip'),
-              onPressed: () {
-                final notifier = ref.read(planSearchVisibleProvider.notifier);
-                notifier.state = !notifier.state;
-                if (notifier.state == false) {
-                  // Сбрасываем запрос при закрытии
-                  ref.read(planSearchQueryProvider.notifier).state = '';
-                }
-              },
+          // --- Иконка поиска (во всех видах) — нейтральный цвет. ---
+          IconButton(
+            visualDensity: VisualDensity.compact,
+            icon: Icon(
+              searchVisible ? Icons.search_off : Icons.search,
+              color: textMuted,
             ),
-          // --- Тумблер раскладки (список ↔ сетка времени) — только Day/Week.
-          // Для threeDay и month скрыт (всегда сетка/календарь). ---
+            tooltip: context.s('plan.search_tooltip'),
+            onPressed: () {
+              final notifier = ref.read(planSearchVisibleProvider.notifier);
+              notifier.state = !notifier.state;
+              if (notifier.state == false) {
+                // Сбрасываем запрос при закрытии
+                ref.read(planSearchQueryProvider.notifier).state = '';
+              }
+            },
+          ),
+          // --- Тумблер раскладки (список ↔ сетка времени) — Day/3 дня/Week.
+          // Для month/year скрыт (всегда календарь). ---
           if (_supportsLayoutToggle(view)) _LayoutToggleButton(layout: layout),
           // «Цели» и «Импорт» перенесены в постоянные действия AppBar (справа
           // сверху) — одинаково во всех раскладках. Здесь overflow-меню больше
@@ -396,7 +435,11 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   /// (Google-Calendar-стиль) вместо списка; Month всегда календарь.
   /// [searchVisible] — когда true и вид Day, прячем ExpandableWeekCalendar,
   /// чтобы клавиатура поиска не вызывала RenderFlex overflow (keyboard rule).
-  Widget _bodyContent(PlanView view, PlanLayout layout, {bool searchVisible = false}) {
+  Widget _bodyContent(
+    PlanView view,
+    PlanLayout layout, {
+    bool searchVisible = false,
+  }) {
     final ext = Theme.of(context).extension<FocusThemeExtension>();
     final border = ext?.border ?? Theme.of(context).colorScheme.outline;
     final isGrid = layout == PlanLayout.grid;
@@ -407,14 +450,16 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
       case PlanView.month:
         return const MonthView();
       case PlanView.threeDay:
-        // 3-дневная сетка ВСЕГДА блочная. Полосу дней недели/недельный календарь
-        // не показываем — заголовок сетки уже отображает 3 дня.
+        // 3 дня: сетка (блочная) ИЛИ агенда-список (3 секции-дня). Полосу дней
+        // недели не показываем — и сетка, и агенда сами озаглавливают дни.
         return Column(
           children: [
             Divider(height: 0.5, thickness: 0.5, color: border),
             // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
             const PinnedExamCard(),
-            Expanded(child: const ThreeDayTimeGrid()),
+            Expanded(
+              child: isGrid ? const ThreeDayTimeGrid() : const ThreeDayAgenda(),
+            ),
           ],
         );
       case PlanView.week:
@@ -422,15 +467,15 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
           children: [
             // Раскрывающийся календарь (полоса дней недели) — только для
             // списочной раскладки. В сетке (WeekTimeGrid) свой заголовок-ряд
-            // дней, иначе дни недели дублировались бы (Task D).
-            if (!isGrid) const ExpandableWeekCalendar(),
+            // дней, иначе дни недели дублировались бы (Task D). Прячем при
+            // открытом поиске: клавиатура занимает низ, высокий календарь над
+            // Expanded вызвал бы RenderFlex overflow (keyboard rule, CLAUDE.md §B).
+            if (!isGrid && !searchVisible) const ExpandableWeekCalendar(),
             // Тонкий разделитель (02-type-space §4.3 hairline)
             Divider(height: 0.5, thickness: 0.5, color: border),
             // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
             const PinnedExamCard(),
-            Expanded(
-              child: isGrid ? const WeekTimeGrid() : const WeekAgenda(),
-            ),
+            Expanded(child: isGrid ? const WeekTimeGrid() : const WeekAgenda()),
           ],
         );
       case PlanView.day:
@@ -443,9 +488,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
             Divider(height: 0.5, thickness: 0.5, color: border),
             // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
             const PinnedExamCard(),
-            Expanded(
-              child: isGrid ? const DayTimeGrid() : const DayTimeline(),
-            ),
+            Expanded(child: isGrid ? const DayTimeGrid() : const DayTimeline()),
           ],
         );
     }
@@ -463,13 +506,15 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
       case PlanView.month:
         return const MonthView();
       case PlanView.threeDay:
-        // 3-дневная сетка ВСЕГДА блочная (список-вариант не нужен).
+        // 3 дня: сетка (блочная) ИЛИ агенда-список — как Day/Week.
         return Column(
           children: [
             Divider(height: 0.5, thickness: 0.5, color: border),
             // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
             const PinnedExamCard(),
-            Expanded(child: const ThreeDayTimeGrid()),
+            Expanded(
+              child: isGrid ? const ThreeDayTimeGrid() : const ThreeDayAgenda(),
+            ),
           ],
         );
       case PlanView.week:
@@ -478,9 +523,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
             Divider(height: 0.5, thickness: 0.5, color: border),
             // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
             const PinnedExamCard(),
-            Expanded(
-              child: isGrid ? const WeekTimeGrid() : const WeekAgenda(),
-            ),
+            Expanded(child: isGrid ? const WeekTimeGrid() : const WeekAgenda()),
           ],
         );
       case PlanView.day:
@@ -489,19 +532,112 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
             Divider(height: 0.5, thickness: 0.5, color: border),
             // Закреплённая ember-карточка ближайшего экзамена/дедлайна (UX-LAYOUT §5)
             const PinnedExamCard(),
-            Expanded(
-              child: isGrid ? const DayTimeGrid() : const DayTimeline(),
-            ),
+            Expanded(child: isGrid ? const DayTimeGrid() : const DayTimeline()),
           ],
         );
     }
   }
 }
 
-/// Поддерживает ли вид тумблер раскладки список↔сетка. Day и Week — да;
-/// threeDay и month — нет (они всегда сетка/календарь).
+/// Адаптивный переключатель видов День/3 дня/Неделя/Месяц/Год.
+///
+/// Когда ширины хватает на 5 сегментов обычным кеглем (labelLarge,
+/// текущий textScale) — показывает читаемый [SegmentedButton] БЕЗ
+/// FittedBox-сжатия (подписи single-line, на 2 строки не переносятся).
+/// Когда ширины мало (узко + крупный textScale) — переходит в компактный
+/// [_ViewDropdown] (текущий вид + ▾), чтобы текст оставался нормального
+/// кегля и не возникал RenderFlex overflow.
+class _PlanViewSwitcher extends ConsumerWidget {
+  const _PlanViewSwitcher({required this.view});
+
+  final PlanView view;
+
+  /// Локализованные подписи всех видов в порядке отображения.
+  List<String> _labels(BuildContext context) => [
+    context.s('plan.view_day'),
+    context.s('plan.view_3day'),
+    context.s('plan.view_week'),
+    context.s('plan.view_month'),
+    context.s('plan.view_year'),
+  ];
+
+  /// Измеряет ширину текста при заданном стиле и масштабе (single-line).
+  static double _measure(String text, TextStyle? style, TextScaler scaler) {
+    final tp = TextPainter(
+      text: TextSpan(text: text, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    return tp.width;
+  }
+
+  /// Помещаются ли 5 сегментов читаемым кеглем в [available] пикселей.
+  /// На сегмент закладываем горизонтальные паддинги/рамки (≈40dp).
+  bool _segmentsFit(BuildContext context, double available) {
+    final style = Theme.of(context).textTheme.labelLarge;
+    final scaler = MediaQuery.textScalerOf(context);
+    const perSegmentPadding = 24.0;
+    var needed = 0.0;
+    for (final label in _labels(context)) {
+      needed += _measure(label, style, scaler) + perSegmentPadding;
+    }
+    return available >= needed;
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final labels = _labels(context);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Если ширина не ограничена (редко) — считаем, что место есть.
+        final available = constraints.maxWidth.isFinite
+            ? constraints.maxWidth
+            : double.infinity;
+        if (!available.isFinite || _segmentsFit(context, available)) {
+          return SegmentedButton<PlanView>(
+            segments: [
+              ButtonSegment(
+                value: PlanView.day,
+                label: Text(labels[0], maxLines: 1, softWrap: false),
+              ),
+              ButtonSegment(
+                value: PlanView.threeDay,
+                label: Text(labels[1], maxLines: 1, softWrap: false),
+              ),
+              ButtonSegment(
+                value: PlanView.week,
+                label: Text(labels[2], maxLines: 1, softWrap: false),
+              ),
+              ButtonSegment(
+                value: PlanView.month,
+                label: Text(labels[3], maxLines: 1, softWrap: false),
+              ),
+              ButtonSegment(
+                value: PlanView.year,
+                label: Text(labels[4], maxLines: 1, softWrap: false),
+              ),
+            ],
+            selected: {view},
+            showSelectedIcon: false,
+            onSelectionChanged: (s) =>
+                ref.read(planViewProvider.notifier).state = s.first,
+          );
+        }
+        // Узко: компактный выпадающий список (нормальный кегль, без overflow).
+        return Align(
+          alignment: Alignment.centerLeft,
+          child: _ViewDropdown(view: view),
+        );
+      },
+    );
+  }
+}
+
+/// Поддерживает ли вид тумблер раскладки список↔сетка. Day, threeDay и Week —
+/// да (есть и список, и сетка); month/year — нет (они всегда календарь).
 bool _supportsLayoutToggle(PlanView view) =>
-    view == PlanView.day || view == PlanView.week;
+    view == PlanView.day || view == PlanView.threeDay || view == PlanView.week;
 
 /// Показывать ли полосу недели (WeekStrip/ExpandableWeekCalendar) для вида.
 /// Для threeDay и month — нет (свой заголовок/календарь).
@@ -544,10 +680,7 @@ class _ViewDropdown extends ConsumerWidget {
       onSelected: (v) => ref.read(planViewProvider.notifier).state = v,
       itemBuilder: (ctx) => [
         for (final v in PlanView.values)
-          PopupMenuItem(
-            value: v,
-            child: Text(_label(ctx, v)),
-          ),
+          PopupMenuItem(value: v, child: Text(_label(ctx, v))),
       ],
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
@@ -556,6 +689,11 @@ class _ViewDropdown extends ConsumerWidget {
           children: [
             Text(
               _label(context, view),
+              // single-line: даже длинные подписи («Неделя») не переносятся
+              // на 2 строки в узком тулбаре (mobile, 320px / textScale 1.5).
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.fade,
               style: textTheme.bodyMedium?.copyWith(
                 color: onSurface,
                 fontWeight: FontWeight.w600,

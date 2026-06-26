@@ -21,7 +21,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/animations/constants.dart';
 import '../../../core/database/database.dart';
@@ -29,6 +28,7 @@ import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/utils/day_window.dart';
+import '../../../core/utils/weekday_label.dart';
 import '../../../core/widgets/kai_loader.dart';
 import '../../today/task_colors.dart';
 import '../../today/widgets/add_task_sheet.dart' show showAddTaskSheet;
@@ -651,7 +651,10 @@ class _WeekDayHeader extends StatelessWidget {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           Text(
-            DateFormat.E().format(day).substring(0, 3),
+            // Безопасная короткая подпись дня недели: на локалях с 1–2-символьной
+            // аббревиатурой (ru «пн», ja «月») substring(0,3) бросал RangeError,
+            // и заголовок КАЖДОЙ колонки падал в красный ErrorWidget.
+            shortWeekdayLabel(day),
             maxLines: 1,
             overflow: TextOverflow.clip,
             style: textTheme.labelSmall?.copyWith(

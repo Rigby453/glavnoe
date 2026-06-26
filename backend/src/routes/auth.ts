@@ -91,6 +91,11 @@ const loginSchema = z
     }
   });
 
+// Обновление флагов профиля (snake_case, все поля опциональны, лишние игнорируются)
+const updateMeSchema = z.object({
+  onboarding_done: z.boolean().optional(),
+});
+
 // ---------------------------------------------------------------------------
 // Маршруты аутентификации
 // ---------------------------------------------------------------------------
@@ -244,6 +249,42 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       return reply.status(200).send(serializeUser(user));
+    }
+  );
+
+  // AUTH-05: PATCH /api/v1/auth/me (защищённый маршрут)
+  // Обновление серверных флагов профиля. Сейчас — только onboarding_done
+  // (ADR-055: синхронизация завершения онбординга между устройствами/вебом).
+  fastify.patch(
+    "/api/v1/auth/me",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const parsed = updateMeSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: parsed.error.issues[0]?.message ?? "Validation error",
+        });
+      }
+
+      const { userId } = request.user;
+
+      const user = await prisma.user.findUnique({ where: { id: userId } });
+      if (!user) {
+        return reply.status(404).send({ error: "Not found" });
+      }
+
+      // Маппинг snake_case (API) → camelCase (Prisma); только переданные поля.
+      const data: { onboardingDone?: boolean } = {};
+      if (parsed.data.onboarding_done !== undefined) {
+        data.onboardingDone = parsed.data.onboarding_done;
+      }
+
+      const updated = await prisma.user.update({
+        where: { id: userId },
+        data,
+      });
+
+      return reply.status(200).send(serializeUser(updated));
     }
   );
 };

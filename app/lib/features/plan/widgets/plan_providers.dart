@@ -76,9 +76,15 @@ final yearTaskCountsProvider =
   final yearStart = DateTime(year, 1, 1);
   final yearEnd = DateTime(year + 1, 1, 1);
   final itemsAsync = ref.watch(expandedRangeItemsProvider((yearStart, yearEnd)));
+  // Фильтр поиска: при активном запросе год-вид считает «занятость» только по
+  // совпавшим задачам (точки-индикаторы остаются на днях с совпадениями).
+  final query = ref.watch(planSearchQueryProvider);
   return itemsAsync.whenData((items) {
+    final filtered = query.trim().isEmpty
+        ? items
+        : items.where((i) => planSearchMatches(i, query));
     final counts = <String, int>{};
-    for (final i in items) {
+    for (final i in filtered) {
       // День задачи = ЛОКАЛЬНАЯ дата scheduledAt (согласовано с watchTodayItems
       // и месячным видом). localDayKey считает по локальным Y/M/D без toUtc.
       final key = localDayKey(i.scheduledAt);

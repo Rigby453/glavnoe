@@ -101,7 +101,8 @@ export async function proposeRedistribution(
       (PRIORITY_WEIGHT[b.priority] ?? 0) - (PRIORITY_WEIGHT[a.priority] ?? 0)
   );
 
-  // 3. Задачи целевого дня — нужны для определения занятых слотов
+  // 3. Задачи целевого дня — нужны для определения занятых слотов.
+  //    Берём и длительность: каждая задача занимает ceil(duration/30) слотов.
   const dayItems = await prisma.item.findMany({
     where: {
       userId,
@@ -110,24 +111,48 @@ export async function proposeRedistribution(
         lte: end,
       },
     },
-    select: { scheduledAt: true },
+    select: { scheduledAt: true, durationMinutes: true },
   });
 
-  // 4. Множество занятых слотов — ключи в виде ISO-строки начала слота
-  const occupiedSlotKeys = new Set<string>(
-    dayItems.map((i) => floorToSlot(i.scheduledAt).toISOString())
-  );
+  // Сколько подряд идущих 30-мин слотов перекрывает задача по длительности
+  // (минимум 1). duration null/0 → 1 слот (30 мин).
+  const slotsFor = (durationMinutes: number | null | undefined): number => {
+    const d = durationMinutes ?? 0;
+    return d <= 0 ? 1 : Math.ceil(d / 30);
+  };
 
-  // 5. Свободные слоты в хронологическом порядке
+  // Все стартовые слоты окна 08:00–21:30 (последний кончается в 22:00).
   const allSlots = generateDaySlots(targetDate);
-  const freeSlots = allSlots.filter(
-    (slot) => !occupiedSlotKeys.has(slot.toISOString())
-  );
 
-  // 6. Распределяем задачи по свободным слотам
+  // 4. Множество занятых слотов: помечаем ВСЕ слоты, перекрываемые каждой
+  //    уже стоящей на дне задачей по её длительности (а не один слот).
+  const occupiedSlotKeys = new Set<string>();
+  const occupyRun = (startSlot: Date, count: number): void => {
+    for (let k = 0; k < count; k++) {
+      const slot = new Date(startSlot.getTime() + k * 30 * 60_000);
+      occupiedSlotKeys.add(slot.toISOString());
+    }
+  };
+  for (const i of dayItems) {
+    occupyRun(floorToSlot(i.scheduledAt), slotsFor(i.durationMinutes));
+  }
+
+  // Проверка: свободны ли count подряд идущих слотов начиная с allSlots[startIdx],
+  // и влезают ли они целиком в окно (до 22:00).
+  const runFree = (startIdx: number, count: number): boolean => {
+    if (startIdx + count > allSlots.length) return false;
+    for (let k = 0; k < count; k++) {
+      if (occupiedSlotKeys.has(allSlots[startIdx + k]!.toISOString())) {
+        return false;
+      }
+    }
+    return true;
+  };
+
+  // 5. Распределяем задачи: для каждой ищем первый старт, где свободны все
+  //    нужные ей подряд идущие слоты внутри окна.
   const proposed: Item[] = [];
   const skipped: Item[] = [];
-  let slotIndex = 0;
 
   for (const item of pendingItems) {
     if (item.isProtected) {
@@ -136,18 +161,21 @@ export async function proposeRedistribution(
       continue;
     }
 
-    if (slotIndex < freeSlots.length) {
-      const assignedSlot = freeSlots[slotIndex]!;
-      slotIndex++;
+    const need = slotsFor(item.durationMinutes);
+    let placed = false;
+    for (let startIdx = 0; startIdx + need <= allSlots.length; startIdx++) {
+      if (runFree(startIdx, need)) {
+        const assignedSlot = allSlots[startIdx]!;
+        occupyRun(assignedSlot, need); // резервируем все занятые слоты
+        // Копия Prisma-типа с новым scheduledAt (НЕ сохраняем в БД)
+        proposed.push({ ...item, scheduledAt: assignedSlot });
+        placed = true;
+        break;
+      }
+    }
 
-      // Создаём копию объекта Prisma-типа с новым scheduledAt (НЕ сохраняем в БД)
-      const proposedItem: Item = {
-        ...item,
-        scheduledAt: assignedSlot,
-      };
-      proposed.push(proposedItem);
-    } else {
-      // Свободных слотов больше нет
+    if (!placed) {
+      // Нет окна нужной длины — задача не влезла в день
       skipped.push(item);
     }
   }

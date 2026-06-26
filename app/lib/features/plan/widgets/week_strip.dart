@@ -6,10 +6,10 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:intl/intl.dart';
 
 import '../../../core/animations/constants.dart';
 import '../../../core/theme/app_theme.dart';
+import '../../../core/utils/weekday_label.dart';
 
 /// Возвращает [date] нормализованной до полуночи локального времени
 /// (отбрасывает компонент времени). Используется при записи в
@@ -226,8 +226,10 @@ class _DayCell extends StatelessWidget {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              // Короткое название дня: Mon, Tue, etc.
-              DateFormat.E().format(day).substring(0, 3),
+              // Короткое название дня: Mon, Tue, etc. Безопасно для локалей с
+              // 1–2-символьной аббревиатурой (ru «пн», ja «月»): иначе
+              // substring(0,3) бросал бы RangeError.
+              shortWeekdayLabel(day),
               maxLines: 1,
               overflow: TextOverflow.clip,
               // labelSmall для коротких меток (02-type-space §1)

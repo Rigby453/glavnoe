@@ -667,9 +667,17 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
       final effective = alreadyCountsSelf ? mainCount - 1 : mainCount;
       if (effective >= _maxMainPerDay) {
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.s('today.max_main_snackbar'))),
-          );
+          // Быстрые повторные тапы по «main» при исчерпанном лимите копили
+          // снекбары в очереди (потом они долго показывались по очереди).
+          // Чистим очередь и показываем только один актуальный, короткий.
+          ScaffoldMessenger.of(context)
+            ..clearSnackBars()
+            ..showSnackBar(
+              SnackBar(
+                content: Text(context.s('today.max_main_snackbar')),
+                duration: const Duration(seconds: 2),
+              ),
+            );
         }
         return;
       }
@@ -1852,14 +1860,19 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             // Кнопки добавления — три явных способа, иконка + подпись.
             Row(
               children: [
-                Expanded(
-                  child: _AttachAddButton(
-                    icon: Icons.photo_camera_outlined,
-                    label: context.s('today.attach_camera'),
-                    onTap: () => _pickAttachment(ImageSource.camera),
+                // Камера: только на мобильных. На вебе image_picker не умеет
+                // камеру и открывает файловый проводник — кнопка вводит в
+                // заблуждение, поэтому скрываем её (остаются «Галерея»/«Видео»).
+                if (!kIsWeb) ...[
+                  Expanded(
+                    child: _AttachAddButton(
+                      icon: Icons.photo_camera_outlined,
+                      label: context.s('today.attach_camera'),
+                      onTap: () => _pickAttachment(ImageSource.camera),
+                    ),
                   ),
-                ),
-                const SizedBox(width: 8),
+                  const SizedBox(width: 8),
+                ],
                 Expanded(
                   child: _AttachAddButton(
                     icon: Icons.photo_library_outlined,

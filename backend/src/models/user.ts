@@ -15,6 +15,7 @@ export interface SerializedUser {
   premium_source: string | null;
   theme: string;
   tone_preference: string;
+  onboarding_done: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -40,6 +41,7 @@ export function serializeUser(user: User): SerializedUser {
     premium_source: entitlement.source,
     theme: user.theme,
     tone_preference: user.tonePreference,
+    onboarding_done: user.onboardingDone,
     created_at: user.createdAt.toISOString(),
     updated_at: user.updatedAt.toISOString(),
   };

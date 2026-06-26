@@ -268,8 +268,13 @@ void main() {
       await tester.pumpWidget(harness(const MeditationScreen()));
       await tester.pump();
 
-      // Тап по сессии открывает _SessionPlayerScreen (push MaterialPageRoute).
+      // Тап по сессии открывает превью позы (ADR-054), затем «Start» — плеер.
       await tester.tap(find.text('Focus Reset'));
+      await tester.pump(); // навигация на превью позы
+      await tester.pump(const Duration(milliseconds: 350)); // переход доехал
+
+      // Превью позы → _SessionPlayerScreen (pushReplacement MaterialPageRoute).
+      await tester.tap(find.text('Start'));
       await tester.pump(); // навигация
       await tester.pump(const Duration(milliseconds: 100)); // первый кадр плеера
 

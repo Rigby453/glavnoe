@@ -217,6 +217,23 @@ class ApiClient {
     }
   }
 
+  /// Частичное обновление профиля текущего пользователя (PATCH /auth/me).
+  /// Поле onboarding_done добавляется в тело только если задано (non-null).
+  /// Возвращает обновлённого пользователя. snake_case в теле запроса.
+  Future<Map<String, dynamic>> updateProfile({bool? onboardingDone}) async {
+    try {
+      final body = <String, dynamic>{};
+      if (onboardingDone != null) body['onboarding_done'] = onboardingDone;
+      final response = await _dio.patch<Map<String, dynamic>>(
+        '/api/v1/auth/me',
+        data: body,
+      );
+      return response.data!;
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
   /// Запрос кода сброса пароля. Возвращает dev_code если есть (dev-режим).
   Future<String?> forgotPassword(String email) async {
     try {

@@ -22,6 +22,7 @@ model User {
   premiumSource    String?          // apple|google|rustore|stripe|yookassa|dev
   theme            String           @default("focus")
   tonePreference   String           @default("gentle")
+  onboardingDone   Boolean          @default(false)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   items            Item[]

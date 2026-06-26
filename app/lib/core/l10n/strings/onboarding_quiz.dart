@@ -1161,6 +1161,19 @@ const Map<String, Map<String, String>> onboardingQuizStrings = {
     'ja': '任意。睡眠中にタスクを入れないようにするためです。',
     'ko': '선택 사항. 수면 중 할 일이 배치되지 않도록 도와줍니다.',
   },
+  // Заголовок секции расписания сна на экране 14 (крупные карточки).
+  'onboarding_quiz.s14_sleep_section_title': {
+    'en': 'Your sleep schedule',
+    'ru': 'Твой режим сна',
+  },
+  'onboarding_quiz.s14_bedtime_q': {
+    'en': 'When do you go to sleep?',
+    'ru': 'Во сколько ложишься?',
+  },
+  'onboarding_quiz.s14_wake_q': {
+    'en': 'When do you wake up?',
+    'ru': 'Во сколько встаёшь?',
+  },
 
   // ---------------------------------------------------------------------------
   // Экран 15: итоговый саммари

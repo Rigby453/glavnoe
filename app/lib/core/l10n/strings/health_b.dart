@@ -2174,6 +2174,28 @@ const Map<String, Map<String, String>> healthBStrings = {
     'ru': 'Примите эту позу',
   },
 
+  // — Аудио-управление в плеере (ADR-054 Phase 1) —
+  // Тултип иконки, раскрывающей компактную панель аудио.
+  'meditation.audio.controls': {
+    'en': 'Sound',
+    'ru': 'Звук',
+  },
+  // Тумблер озвучки шагов (системный TTS).
+  'meditation.audio.narration': {
+    'en': 'Narration',
+    'ru': 'Озвучка',
+  },
+  // Тумблер фонового эмбиента (коричневый шум).
+  'meditation.audio.ambient': {
+    'en': 'Ambient sound',
+    'ru': 'Фоновый звук',
+  },
+  // Подпись слайдера громкости эмбиента.
+  'meditation.audio.volume': {
+    'en': 'Volume',
+    'ru': 'Громкость',
+  },
+
   // — Body Scan: лёжа на спине —
   'meditation.body_scan.pose_name': {
     'en': 'Resting pose',

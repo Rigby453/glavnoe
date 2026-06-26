@@ -96,6 +96,24 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Auth]
+      summary: Update current user's profile flags
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                onboarding_done: { type: boolean }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/items:
     get:
@@ -1326,6 +1344,7 @@ components:
           description: Billing channel that granted premium.
         theme: { type: string, enum: [focus, calm, black, white, contrast] }
         tone_preference: { $ref: '#/components/schemas/Tone' }
+        onboarding_done: { type: boolean, description: 'Onboarding/setup flow completed; syncs setup across devices/web' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 

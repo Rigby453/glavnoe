@@ -12,11 +12,13 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/animations/constants.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
+import '../../core/l10n/locale_provider.dart';
 import '../../core/l10n/plurals.dart';
 import '../../core/mood/meditation_mood_log.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/widgets/undo_snack_bar.dart';
+import 'meditation_audio.dart';
 import 'meditation_custom_providers.dart';
 import 'meditation_editor_screen.dart';
 
@@ -541,6 +543,28 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
   // AnimationController для дуги обратного отсчёта
   late AnimationController _arcController;
 
+  // — Аудио (ADR-054 Phase 1, аддитивно к таймеру/шагам) —
+  // Всё по умолчанию выключено: текстовый поток работает как раньше.
+  bool _narrationEnabled = false;
+  bool _ambientEnabled = false;
+  double _ambientVolume = kMeditationAmbientDefaultVolume;
+  bool _audioControlsOpen = false; // компактная панель скрыта по умолчанию
+
+  // Сервисы создаются ЛЕНИВО — только когда аудио реально включают. Так
+  // существующий текстовый поток (и тесты превью позы) не дёргают
+  // платформенные каналы flutter_tts/audioplayers.
+  MeditationNarrator? _narrator;
+  MeditationAmbientPlayer? _ambient;
+
+  // Тип выражения `field ??= value` в Dart остаётся nullable, поэтому `!`.
+  MeditationNarrator get _narratorOrCreate =>
+      (_narrator ??= ref.read(meditationNarratorProvider))!;
+  MeditationAmbientPlayer get _ambientOrCreate =>
+      (_ambient ??= ref.read(meditationAmbientPlayerProvider))!;
+
+  // Тег локали приложения для TTS ('en', 'ru', 'pt-BR'…).
+  String get _localeTag => localeTag(Localizations.localeOf(context));
+
   bool get _isLastStep => _stepIndex >= widget.session.steps.length - 1;
   _RunStep get _currentStep => widget.session.steps[_stepIndex];
 
@@ -556,7 +580,27 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     // Стартуем первый шаг один раз, когда MediaQuery уже доступен.
     if (!_started) {
       _started = true;
+      _loadAudioPrefs();
       _startStep(widget.session.steps[0]);
+    }
+  }
+
+  /// Загружает настройки аудио из SharedPreferences (всё off по умолчанию) и
+  /// запускает эмбиент, если он был включён. Защищено try/catch: если провайдер
+  /// prefs не переопределён (некоторые тесты) — просто остаёмся на дефолтах.
+  void _loadAudioPrefs() {
+    try {
+      final prefs = ref.read(sharedPreferencesProvider);
+      _narrationEnabled =
+          prefs.getBool(kMeditationNarrationEnabledKey) ?? false;
+      _ambientEnabled = prefs.getBool(kMeditationAmbientEnabledKey) ?? false;
+      _ambientVolume = prefs.getDouble(kMeditationAmbientVolumeKey) ??
+          kMeditationAmbientDefaultVolume;
+    } catch (_) {
+      // prefs недоступны — дефолты (всё выключено).
+    }
+    if (_ambientEnabled) {
+      _ambientOrCreate.start(_ambientVolume);
     }
   }
 
@@ -564,12 +608,68 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
   void dispose() {
     _timer?.cancel();
     _arcController.dispose();
+    // Глушим аудио (fire-and-forget — dispose не async).
+    _narrator?.stop();
+    _narrator?.dispose();
+    _ambient?.stop();
+    _ambient?.dispose();
     super.dispose();
+  }
+
+  // — Управление аудио —
+
+  Future<void> _setNarration(bool value) async {
+    setState(() => _narrationEnabled = value);
+    try {
+      await ref
+          .read(sharedPreferencesProvider)
+          .setBool(kMeditationNarrationEnabledKey, value);
+    } catch (_) {/* prefs недоступны — состояние всё равно применено */}
+    if (value) {
+      _narratorOrCreate.speak(_currentStep.text, _localeTag);
+    } else {
+      _narrator?.stop();
+    }
+  }
+
+  Future<void> _setAmbient(bool value) async {
+    setState(() => _ambientEnabled = value);
+    try {
+      await ref
+          .read(sharedPreferencesProvider)
+          .setBool(kMeditationAmbientEnabledKey, value);
+    } catch (_) {/* no-op */}
+    if (value) {
+      _ambientOrCreate.start(_ambientVolume);
+    } else {
+      _ambient?.stop();
+    }
+  }
+
+  /// Живое изменение громкости (drag) — применяем к плееру сразу, в prefs
+  /// пишем по окончании жеста ([_persistAmbientVolume]).
+  void _onAmbientVolumeChanged(double value) {
+    setState(() => _ambientVolume = value);
+    _ambient?.setVolume(value);
+  }
+
+  Future<void> _persistAmbientVolume(double value) async {
+    try {
+      await ref
+          .read(sharedPreferencesProvider)
+          .setDouble(kMeditationAmbientVolumeKey, value);
+    } catch (_) {/* no-op */}
   }
 
   void _startStep(_RunStep step) {
     _timer?.cancel();
     _remaining = step.seconds;
+
+    // Озвучка нового шага (если включена). Текст уже локализован (_RunStep.text);
+    // голос читает его на языке приложения. Никогда не бросает.
+    if (_narrationEnabled) {
+      _narratorOrCreate.speak(step.text, _localeTag);
+    }
 
     // reduce motion → не анимировать дугу
     final reduce = MediaQuery.disableAnimationsOf(context);
@@ -777,6 +877,18 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
       appBar: AppBar(
         title: Text(widget.session.name),
         centerTitle: true,
+        actions: [
+          // Компактный доступ к аудио: иконка раскрывает/прячет панель
+          // (озвучка + эмбиент). Не добавляет тапов в основной поток.
+          IconButton(
+            icon: Icon(
+              _audioControlsOpen ? Icons.tune : Icons.volume_up_outlined,
+            ),
+            tooltip: context.s('meditation.audio.controls'),
+            onPressed: () =>
+                setState(() => _audioControlsOpen = !_audioControlsOpen),
+          ),
+        ],
       ),
       body: SafeArea(
         // LayoutBuilder + SingleChildScrollView гарантируют, что контент НИКОГДА
@@ -798,6 +910,11 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
+                      // Панель аудио-управления (раскрывается иконкой в AppBar).
+                      if (_audioControlsOpen) ...[
+                        _buildAudioControls(context, ext, textTheme),
+                        const SizedBox(height: 16),
+                      ],
                       // Прогресс шагов — bodySmall + textMuted
                       Text(
                         '${context.s('meditation.step')} ${_stepIndex + 1} / $stepCount',
@@ -893,6 +1010,75 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
               ),
             );
           },
+        ),
+      ),
+    );
+  }
+
+  /// Компактная панель аудио: тумблер озвучки + тумблер эмбиента + слайдер
+  /// громкости (показывается, когда эмбиент включён). Переживает 320px /
+  /// textScale 2.0: SwitchListTile переносит заголовок, слайдер тянется на
+  /// доступную ширину, проценты — короткий хвост.
+  Widget _buildAudioControls(
+    BuildContext context,
+    FocusThemeExtension ext,
+    TextTheme textTheme,
+  ) {
+    return Card(
+      margin: EdgeInsets.zero,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Озвучка шагов.
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: Icon(
+                Icons.record_voice_over_outlined,
+                color: ext.textMuted,
+              ),
+              title: Text(
+                context.s('meditation.audio.narration'),
+                style: textTheme.bodyMedium,
+              ),
+              value: _narrationEnabled,
+              onChanged: _setNarration,
+            ),
+            // Фоновый эмбиент.
+            SwitchListTile(
+              contentPadding: EdgeInsets.zero,
+              secondary: Icon(Icons.waves_outlined, color: ext.textMuted),
+              title: Text(
+                context.s('meditation.audio.ambient'),
+                style: textTheme.bodyMedium,
+              ),
+              value: _ambientEnabled,
+              onChanged: _setAmbient,
+            ),
+            // Громкость эмбиента — только когда эмбиент включён.
+            if (_ambientEnabled) ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.s('meditation.audio.volume'),
+                      style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                    ),
+                  ),
+                  Text(
+                    '${(_ambientVolume * 100).round()}%',
+                    style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                  ),
+                ],
+              ),
+              Slider(
+                value: _ambientVolume,
+                onChanged: _onAmbientVolumeChanged,
+                onChangeEnd: _persistAmbientVolume,
+              ),
+            ],
+          ],
         ),
       ),
     );

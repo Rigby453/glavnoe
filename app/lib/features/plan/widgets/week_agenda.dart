@@ -15,6 +15,7 @@ import '../../../core/utils/day_window.dart';
 import '../../../core/utils/tag_parser.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import 'day_timeline.dart' show dayItemsProvider;
+import 'plan_providers.dart' show planSearchMatches, planSearchQueryProvider;
 import 'week_strip.dart' show selectedDayProvider;
 
 class WeekAgenda extends ConsumerWidget {
@@ -95,6 +96,35 @@ class WeekAgenda extends ConsumerWidget {
   }
 }
 
+/// 3-дневная агенда: список из секции выбранного дня и двух следующих
+/// (selectedDay, +1, +2), хронологически. Списочный аналог ThreeDayTimeGrid —
+/// переиспользует тот же _DaySection (заголовок дня + задачи + фильтр поиска),
+/// что и недельная агенда, поэтому поведение строк/поиска идентично.
+class ThreeDayAgenda extends ConsumerWidget {
+  const ThreeDayAgenda({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final selectedDay = ref.watch(selectedDayProvider);
+    final days = List.generate(
+      3,
+      (i) => DateTime(
+        selectedDay.year,
+        selectedDay.month,
+        selectedDay.day + i,
+      ),
+    );
+
+    return ListView(
+      // 24dp горизонтальный отступ (02-type-space §4.1); 96dp снизу под FAB
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
+      children: [
+        for (final day in days) _DaySection(day: day),
+      ],
+    );
+  }
+}
+
 class _DaySection extends ConsumerWidget {
   const _DaySection({required this.day});
 
@@ -108,8 +138,14 @@ class _DaySection extends ConsumerWidget {
     final textFaint = ext?.textFaint ?? colorScheme.onSurface;
     final border = ext?.border ?? colorScheme.outline;
 
-    final items = ref.watch(dayItemsProvider(day)).valueOrNull ??
+    final allItems = ref.watch(dayItemsProvider(day)).valueOrNull ??
         const <ItemsTableData>[];
+    // Фильтр поиска: подстрока заголовка + #хэштег + тип (см. planSearchMatches).
+    // Применяется и в недельной агенде, и в 3-дневной (общий _DaySection).
+    final query = ref.watch(planSearchQueryProvider);
+    final items = query.trim().isEmpty
+        ? allItems
+        : allItems.where((i) => planSearchMatches(i, query)).toList();
 
     final today = DateTime.now();
     final isToday =
@@ -122,13 +158,19 @@ class _DaySection extends ConsumerWidget {
           padding: const EdgeInsets.only(top: 12, bottom: 6),
           child: Row(
             children: [
-              Text(
-                DateFormat('EEE, MMM d').format(day),
-                // titleSmall для заголовков дней в week-agenda (02-type-space §1)
-                style: textTheme.titleSmall?.copyWith(
-                  // Акцент только на today-маркер (accent discipline)
-                  color: isToday ? colorScheme.primary : colorScheme.onSurface,
-                  fontWeight: FontWeight.w600,
+              // Flexible + ellipsis: при крупном textScale (1.5) длинная дата
+              // вместе с лейблом «today» не должна переполнять строку (overflow-гейт).
+              Flexible(
+                child: Text(
+                  DateFormat('EEE, MMM d').format(day),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  // titleSmall для заголовков дней в week-agenda (02-type-space §1)
+                  style: textTheme.titleSmall?.copyWith(
+                    // Акцент только на today-маркер (accent discipline)
+                    color: isToday ? colorScheme.primary : colorScheme.onSurface,
+                    fontWeight: FontWeight.w600,
+                  ),
                 ),
               ),
               if (isToday) ...[

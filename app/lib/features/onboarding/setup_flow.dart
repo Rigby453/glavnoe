@@ -1,26 +1,21 @@
-// Новый 16-экранный онбординг (quiz-style flow).
+// Онбординг (quiz-style flow) — персонализация после первого запуска.
 // Заменяет прежний 7-шаговый SetupFlowScreen.
 //
-// Архитектура: единый PageView с 16 «страницами».
+// Архитектура: единый PageView из 14 «страниц» (индексы 0–13).
 // Каждая страница — изолированный _build*() метод.
 // Состояние хранится в полях виджета-state; сохранение — в _finish().
 //
-// Флаг 'setup_done' сохраняется в конце; роутер делает redirect.
-// Прогресс-индикатор: точки X/16, отсутствуют на экранах 13 и 16.
+// Флаг 'setup_done' сохраняется в конце; роутер делает redirect. При входе по
+// реальному аккаунту флаг также пушится на сервер (onboarding_done) и читается
+// обратно при login/register — см. AuthController.
+// Прогресс-индикатор скрыт на демо-экране (индекс 8).
 //
-// Прим. по экранам:
-//   1–3: информационные (Hello/Problem/Solution)
-//   4:   язык (no skip)
-//   5–7: цели / время на планирование / горизонт (skip доступен)
-//   8:   проекция (derived, no skip)
-//   9:   возраст + пол
-//  10:   рост + вес
-//  11:   активность
-//  12:   первая задача (no skip, вставляется в Drift)
-//  13:   демо переноса (no progress bar)
-//  14:   время разборов
-//  15:   саммари (честный итог)
-//  16:   пейволл (переход на /paywall; setup_done уже установлен)
+// Прим. по экранам (0-based индексы PageView):
+//   0  цели · 1 время на планирование · 2 горизонт · 3 проекция (derived)
+//   4  возраст+пол · 5 рост+вес · 6 активность
+//   7  первая задача (вставляется в Drift) · 8 демо переноса (no progress bar)
+//   9  время разборов + расписание сна · 10 уведомления · 11 тон · 12 тема
+//   13 саммари (последний; CTA → _finish() → /paywall, отдельного экрана нет)
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -41,7 +36,9 @@ import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../core/utils/id.dart';
 import '../../core/widgets/voice_text_field.dart';
+import '../../services/api/api_client.dart'; // apiClientProvider (sync setup flag)
 import '../../services/notifications/notification_service.dart';
+import '../auth/auth_controller.dart'; // authControllerProvider (isAuthenticated)
 import '../mascot/kai_mascot.dart';
 import '../mascot/kai_speech_bubble.dart';
 
@@ -105,10 +102,11 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   int _page = 0;
 
   // Общее число экранов.
-  // 15 экранов: ценность и выбор языка перенесены в /onboarding (первый запуск),
+  // 14 экранов: ценность и выбор языка перенесены в /onboarding (первый запуск),
   // здесь — персонализация (цели → тело → первая задача → демо → время разборов →
-  // уведомления → тон → тема → саммари → пейвол).
-  static const _pageCount = 15;
+  // уведомления → тон → тема → саммари). Саммари — последний экран; его CTA ведёт
+  // прямо на /paywall через _finish() (отдельного экрана-хендоффа больше нет).
+  static const _pageCount = 14;
 
   // --- Экран 5: цели ---
   final Set<String> _selectedGoals = {};
@@ -280,6 +278,15 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
 
     await prefs.setBool(setupDoneKey, true);
 
+    // Синхронизируем флаг онбординга с аккаунтом, чтобы на web/новом устройстве
+    // онбординг не показывался снова. Только для реального аккаунта; гость/оффлайн
+    // ведут себя как раньше. Не блокируем и гасим ошибки — это второстепенно.
+    if (ref.read(authControllerProvider.notifier).isAuthenticated) {
+      try {
+        await ref.read(apiClientProvider).updateProfile(onboardingDone: true);
+      } catch (_) {}
+    }
+
     if (mounted) {
       // Показываем пейволл один раз; после него роутер пустит на /today.
       context.go('/paywall');
@@ -317,8 +324,8 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   // UI-helpers
   // ---------------------------------------------------------------------------
 
-  /// Показывать ли прогресс-индикатор (не на демо-экране 8 и пейволе 14).
-  bool get _showProgress => _page != 8 && _page != 14;
+  /// Показывать ли прогресс-индикатор (скрываем на демо-экране 8).
+  bool get _showProgress => _page != 8;
 
   /// Карточка-выбор (single select) с accent-границей у выбранной.
   Widget _choiceTile({
@@ -456,10 +463,8 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    // Лейбл CTA на последнем экране (экран 16 — пейволл, кнопка не нужна).
+    // Последний экран — саммари (индекс 13); его CTA вызывает _finish() → /paywall.
     final isLastPage = _page == _pageCount - 1;
-    // Экран хендоффа в пейволл (индекс 14) управляет собой сам — кнопок нет.
-    final showBottomButtons = _page != 14;
 
     return Scaffold(
       body: SafeArea(
@@ -495,15 +500,13 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   _buildNotifStep(),     // 10 Разрешение на уведомления
                   _buildToneStep(),      // 11 Тон gentle/harsh
                   _buildThemeStep(),     // 12 Тема оформления
-                  _buildScreen15(),      // 13 Сводка
-                  _buildScreen16(),      // 14 Хендофф в пейвол
+                  _buildScreen15(),      // 13 Сводка (последний; CTA → /paywall)
                 ],
               ),
             ),
 
             // --- Нижние кнопки ---
-            if (showBottomButtons)
-              _buildBottomButtons(isLastPage, ext),
+            _buildBottomButtons(isLastPage, ext),
           ],
         ),
       ),
@@ -511,7 +514,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Прогресс-индикатор (X/16, не показывается на экране 13 и 16)
+  // Прогресс-индикатор (X/14, скрыт на демо-экране 8)
   // ---------------------------------------------------------------------------
 
   Widget _buildProgressRow(
@@ -519,8 +522,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
     ColorScheme colorScheme,
     FocusThemeExtension ext,
   ) {
-    // Общее число экранов с прогрессом (без 13 и 16)
-    // Для простоты: нумеруем 1-based, показываем из 14 (1-12, 14-15)
+    // Нумеруем 1-based; на демо-экране 8 прогресс-бар скрыт (_showProgress).
     final displayPage = _page + 1;
     final total = _pageCount;
 
@@ -1337,63 +1339,116 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
           // --- Расписание сна (ITEM B) ---
           // TODO(sleep-distribution): значения будут читаться планировщиком
           // для «ночного окна» — никаких задач/напоминаний в [bedtime, wake].
-          const SizedBox(height: 24),
+          // Крупные карточки вместо тонких OutlinedButton — заметнее и понятнее.
+          // Стек вертикально (по карточке на строку), чтобы пережить 320px / 1.5x.
+          const SizedBox(height: 28),
           Text(
-            context.s('health_profile.sleep_schedule_label'),
-            style: textTheme.titleSmall,
+            context.s('onboarding_quiz.s14_sleep_section_title'),
+            style: textTheme.titleMedium,
           ),
           const SizedBox(height: 4),
           Text(
             context.s('onboarding_quiz.s14_sleep_hint'),
             style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
           ),
+          const SizedBox(height: 16),
+          _sleepTimeCard(
+            icon: Icons.bedtime_outlined,
+            label: context.s('onboarding_quiz.s14_bedtime_q'),
+            time: formatHour(_bedtimeHour),
+            onTap: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay(hour: _bedtimeHour, minute: 0),
+              );
+              if (picked != null) {
+                setState(() => _bedtimeHour = picked.hour);
+              }
+            },
+          ),
           const SizedBox(height: 12),
-          Row(
-            children: [
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.bedtime_outlined, size: 18),
-                  label: Flexible(
-                    child: Text(
-                      '${context.s('health_profile.bedtime_label')}: ${formatHour(_bedtimeHour)}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  onPressed: () async {
-                    final picked = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay(hour: _bedtimeHour, minute: 0),
-                    );
-                    if (picked != null) {
-                      setState(() => _bedtimeHour = picked.hour);
-                    }
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: OutlinedButton.icon(
-                  icon: const Icon(Icons.wb_sunny_outlined, size: 18),
-                  label: Flexible(
-                    child: Text(
-                      '${context.s('health_profile.wake_label')}: ${formatHour(_wakeHour)}',
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                  onPressed: () async {
-                    final picked = await showTimePicker(
-                      context: context,
-                      initialTime: TimeOfDay(hour: _wakeHour, minute: 0),
-                    );
-                    if (picked != null) {
-                      setState(() => _wakeHour = picked.hour);
-                    }
-                  },
-                ),
-              ),
-            ],
+          _sleepTimeCard(
+            icon: Icons.wb_sunny_outlined,
+            label: context.s('onboarding_quiz.s14_wake_q'),
+            time: formatHour(_wakeHour),
+            onTap: () async {
+              final picked = await showTimePicker(
+                context: context,
+                initialTime: TimeOfDay(hour: _wakeHour, minute: 0),
+              );
+              if (picked != null) {
+                setState(() => _wakeHour = picked.hour);
+              }
+            },
           ),
         ],
+      ),
+    );
+  }
+
+  /// Крупная карточка выбора времени сна/подъёма (экран 14). Заполненная
+  /// поверхность + рамка + иконка в кружке, под вопросом — крупное время.
+  /// Текст в Expanded с ellipsis → переживает узкий экран и крупный textScale.
+  Widget _sleepTimeCard({
+    required IconData icon,
+    required String label,
+    required String time,
+    required VoidCallback onTap,
+  }) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(16),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(color: ext.border),
+          ),
+          child: Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: colorScheme.primary.withAlpha(20),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(icon, size: 20, color: colorScheme.primary),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style:
+                          textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      time,
+                      style: textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 8),
+              Icon(Icons.edit_outlined, size: 18, color: ext.textMuted),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -1776,55 +1831,6 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
           ),
         ),
       ],
-    );
-  }
-
-  // ---------------------------------------------------------------------------
-  // Экран 16: Переход на пейволл
-  // ---------------------------------------------------------------------------
-
-  Widget _buildScreen16() {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            KaiMascot(size: 80, emotion: KaiEmotion.success),
-            const SizedBox(height: 24),
-            Text(
-              context.s('onboarding_quiz.s15_title'),
-              style: textTheme.headlineSmall,
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 40),
-            SizedBox(
-              width: double.infinity,
-              height: 52,
-              child: FilledButton(
-                onPressed: _finish,
-                child: Text(context.s('onboarding_quiz.s15_cta')),
-              ),
-            ),
-            const SizedBox(height: 12),
-            TextButton(
-              onPressed: () async {
-                // Бесплатный пропуск: сохраняем всё и идём на /today
-                final prefs = ref.read(sharedPreferencesProvider);
-                await prefs.setBool(setupDoneKey, true);
-                if (mounted) context.go('/today');
-              },
-              child: Text(
-                context.s('onboarding_quiz.s16_skip'),
-                style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

@@ -221,9 +221,15 @@ void main() {
       await tester.pumpWidget(harness(const MeditationScreen()));
       await tester.pump();
 
-      // Открываем плеер первой сессии — здесь жил red-screen краш
+      // Открываем превью позы первой сессии (ADR-054: перед плеером показывается
+      // поза), затем сам плеер — здесь жил red-screen краш
       // (MediaQuery.disableAnimationsOf в initState → старт Timer/анимации).
       await tester.tap(find.text('Body Scan'));
+      await tester.pump(); // навигация на превью позы
+      await tester.pump(const Duration(milliseconds: 350)); // переход доехал
+
+      // Превью позы → плеер по кнопке «Start».
+      await tester.tap(find.text('Start'));
       await tester.pump(); // навигация
       await tester.pump(const Duration(milliseconds: 100)); // первый кадр плеера
 

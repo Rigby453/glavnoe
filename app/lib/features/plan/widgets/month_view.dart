@@ -65,9 +65,15 @@ class MonthView extends ConsumerWidget {
 
     final monthStart = DateTime(year, month, 1);
     final monthEnd = DateTime(year, month + 1, 1);
-    final items =
+    final allItems =
         ref.watch(rangeItemsProvider((monthStart, monthEnd))).valueOrNull ??
         const <ItemsTableData>[];
+    // Фильтр поиска: подстрока заголовка + #хэштег + тип (см. planSearchMatches).
+    // При активном запросе точки-полоски остаются только на днях с совпадениями.
+    final query = ref.watch(planSearchQueryProvider);
+    final items = query.trim().isEmpty
+        ? allItems
+        : allItems.where((i) => planSearchMatches(i, query)).toList();
 
     // Группируем задачи по числу дня месяца (по локальной дате scheduledAt).
     // Сортировка устойчивая по времени старта — полоски идут хронологически.

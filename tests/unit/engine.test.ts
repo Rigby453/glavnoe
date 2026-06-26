@@ -25,7 +25,8 @@ async function createUserDirect(): Promise<string> {
 async function seedPending(
   userId: string,
   priority: string,
-  isProtected: boolean
+  isProtected: boolean,
+  durationMinutes = 30
 ): Promise<string> {
   const item = await prisma.item.create({
     data: {
@@ -36,6 +37,7 @@ async function seedPending(
       status: 'pending',
       scheduledAt: overdue,
       isProtected,
+      durationMinutes,
     },
   });
   return item.id;
@@ -125,6 +127,53 @@ describe('proposeRedistribution', () => {
 
     expect(proposed).toHaveLength(0);
     expect(skipped.map((i) => i.id)).toContain(overdueId);
+  });
+
+  test('long task (300 min) reserves its whole span — next starts after it', async () => {
+    const userId = await createUserDirect();
+    users.push(userId);
+    // Тренировка 5ч (300 мин = 10 слотов), high → раскладывается первой.
+    await seedPending(userId, 'high', false, 300);
+    // Обычная задача 30 мин, medium → после длинной.
+    await seedPending(userId, 'medium', false, 30);
+
+    const { proposed, skipped } = await proposeRedistribution(userId, target);
+
+    expect(skipped).toHaveLength(0);
+    expect(proposed).toHaveLength(2);
+
+    const long = proposed.find((i) => i.priority === 'high')!;
+    const next = proposed.find((i) => i.priority === 'medium')!;
+
+    // long встаёт на 08:00 и занимает 10 слотов до 13:00.
+    expect(long.scheduledAt.toISOString()).toBe('2026-06-10T08:00:00.000Z');
+    const longStart = long.scheduledAt.getTime();
+    const longEnd = longStart + 300 * 60_000;
+    // next НЕ должна попасть ВНУТРЬ интервала длинной задачи.
+    expect(next.scheduledAt.getTime()).toBeGreaterThanOrEqual(longEnd);
+    expect(next.scheduledAt.toISOString()).toBe('2026-06-10T13:00:00.000Z');
+  });
+
+  test('two movable tasks with duration never overlap', async () => {
+    const userId = await createUserDirect();
+    users.push(userId);
+    // Две переносимые задачи по 90 мин (3 слота каждая).
+    await seedPending(userId, 'medium', false, 90);
+    await seedPending(userId, 'medium', false, 90);
+
+    const { proposed, skipped } = await proposeRedistribution(userId, target);
+
+    expect(skipped).toHaveLength(0);
+    expect(proposed).toHaveLength(2);
+
+    const [a, b] = proposed;
+    const aStart = a!.scheduledAt.getTime();
+    const aEnd = aStart + (a!.durationMinutes ?? 30) * 60_000;
+    const bStart = b!.scheduledAt.getTime();
+    const bEnd = bStart + (b!.durationMinutes ?? 30) * 60_000;
+    // Интервалы [start, end) не пересекаются.
+    const overlap = aStart < bEnd && bStart < aEnd;
+    expect(overlap).toBe(false);
   });
 
   test('no pending items → empty proposed and skipped', async () => {

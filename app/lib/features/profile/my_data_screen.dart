@@ -36,6 +36,11 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
   late String _goal;     // 'maintain'|'lose'|'gain'
   late int _waterGoal;
 
+  // Live-превью норм КБЖУ из текущих (ещё не сохранённых) полей экрана.
+  // Передаётся в MacroEditor, чтобы калории/макросы реагировали мгновенно,
+  // как норма воды (пересчитывается в _recalc).
+  NutritionTargets _macroPreview = NutritionTargets.fallback;
+
   @override
   void initState() {
     super.initState();
@@ -83,7 +88,7 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Пересчёт нормы воды (live)
+  // Пересчёт live-норм воды и КБЖУ из текущих полей (до Save)
   // ---------------------------------------------------------------------------
 
   void _recalc() {
@@ -91,17 +96,39 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
     final height = double.tryParse(_heightCtrl.text.trim());
     final age = int.tryParse(_ageCtrl.text.trim());
 
-    if (weight != null && weight > 0) {
-      final recommended = recommendedWaterMl(
-        weightKg: weight,
-        activity: _activity,
-        heightCm: height,
-        age: age,
-      );
-      setState(() {
-        _waterGoal = recommended;
-      });
-    }
+    // Норма воды (нужен только корректный вес).
+    final int? recommendedWater = (weight != null && weight > 0)
+        ? recommendedWaterMl(
+            weightKg: weight,
+            activity: _activity,
+            heightCm: height,
+            age: age,
+          )
+        : null;
+
+    // Превью КБЖУ — повторяем логику nutritionTargetsProvider: если антропометрия
+    // неполна, отдаём fallback; иначе считаем по той же чистой функции, что и при
+    // Save, поэтому превью совпадает с тем, что сохранится.
+    final NutritionTargets macroPreview = (weight != null &&
+            weight > 0 &&
+            height != null &&
+            height > 0 &&
+            age != null &&
+            age > 0)
+        ? computeNutritionTargets(
+            weightKg: weight,
+            heightCm: height,
+            age: age,
+            sex: _sex,
+            activity: _activity,
+            goal: _goal,
+          )
+        : NutritionTargets.fallback;
+
+    setState(() {
+      if (recommendedWater != null) _waterGoal = recommendedWater;
+      _macroPreview = macroPreview;
+    });
   }
 
   // ---------------------------------------------------------------------------
@@ -140,10 +167,12 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
 
     if (!mounted) return;
 
+    // Остаёмся на экране: пользователь может продолжить править нижние блоки
+    // (Макросы, Пищевые привычки, Профиль здоровья) в один заход. Закрытие —
+    // кнопкой «назад». Снэкбар подтверждает сохранение.
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(content: Text(context.s('edit_goals.saved_snack'))),
     );
-    Navigator.of(context).pop();
   }
 
   // ---------------------------------------------------------------------------
@@ -273,29 +302,26 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
               segments: [
                 ButtonSegment(
                   value: 'lose',
-                  label: Flexible(
-                    child: Text(
-                      context.s('food_prefs.goal_lose'),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  label: Text(
+                    context.s('food_prefs.goal_lose'),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
                 ButtonSegment(
                   value: 'maintain',
-                  label: Flexible(
-                    child: Text(
-                      context.s('food_prefs.goal_maintain'),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  label: Text(
+                    context.s('food_prefs.goal_maintain'),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
                 ButtonSegment(
                   value: 'gain',
-                  label: Flexible(
-                    child: Text(
-                      context.s('food_prefs.goal_gain'),
-                      overflow: TextOverflow.ellipsis,
-                    ),
+                  label: Text(
+                    context.s('food_prefs.goal_gain'),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
                   ),
                 ),
               ],
@@ -361,7 +387,7 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
             const SizedBox(height: 32),
             Divider(color: ext.border),
             const SizedBox(height: 20),
-            const MacroEditor(),
+            MacroEditor(previewTargets: _macroPreview),
 
             // ================================================================
             // Секция: Пищевые предпочтения

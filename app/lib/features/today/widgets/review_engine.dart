@@ -127,10 +127,43 @@ Map<String, DateTime> distributeToDay(
   List<ItemsTableData> dayItems,
 ) {
   final assign = <String, DateTime>{};
-  // Занятые слоты: то, что уже стоит на дне, плюс то, что назначаем по ходу.
-  final occupied = dayItems.map((i) => slotKey(i.scheduledAt)).toSet();
+  // Занятые слоты: множество ключей 30-мин слотов. Каждая задача занимает
+  // ceil(durationMinutes/30) ПОДРЯД идущих слотов (минимум 1), а не один.
+  final occupied = <String>{};
 
   DateTime at(int h, int m) => DateTime(day.year, day.month, day.day, h, m);
+  // Старт слота (округление вниз до :00 / :30) на целевом дне.
+  DateTime floorSlot(DateTime t) =>
+      DateTime(day.year, day.month, day.day, t.hour, t.minute < 30 ? 0 : 30);
+
+  // Сколько 30-мин слотов перекрывает задача по длительности (минимум 1).
+  // durationMinutes null/0 → 1 слот (30 мин).
+  int slotsFor(ItemsTableData i) {
+    final d = i.durationMinutes;
+    return d <= 0 ? 1 : (d + 29) ~/ 30;
+  }
+
+  // Свободны ли n подряд идущих слотов, начиная со [start]?
+  bool runFree(DateTime start, int n) {
+    for (var k = 0; k < n; k++) {
+      if (occupied.contains(slotKey(start.add(Duration(minutes: 30 * k))))) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  // Пометить занятыми n подряд идущих слотов, начиная со [start].
+  void occupyRun(DateTime start, int n) {
+    for (var k = 0; k < n; k++) {
+      occupied.add(slotKey(start.add(Duration(minutes: 30 * k))));
+    }
+  }
+
+  // Уже стоящие на дне задачи занимают ВСЕ свои слоты по длительности.
+  for (final i in dayItems) {
+    occupyRun(floorSlot(i.scheduledAt), slotsFor(i));
+  }
 
   // 1) Сначала закрепляем «якорные» задачи (protected/main) с собственным
   //    временем суток — их слоты приоритетны и не уступаются.
@@ -141,48 +174,64 @@ Map<String, DateTime> distributeToDay(
     if (keepTime) {
       final newAt = at(item.scheduledAt.hour, item.scheduledAt.minute);
       assign[item.id] = newAt;
-      occupied.add(slotKey(newAt));
+      occupyRun(floorSlot(newAt), slotsFor(item));
     } else {
       flexible.add(item);
     }
   }
 
   // 2) Гибкие задачи. Со своим временем — пробуем сохранить его; без времени
-  //    или при коллизии — следующий свободный слот сетки. Сортируем по
-  //    приоритету, чтобы более важные занимали более ранние слоты при сливе.
+  //    или при коллизии — первый старт, где свободны все нужные ей подряд
+  //    идущие слоты. Сортируем по приоритету, чтобы более важные занимали
+  //    более ранние слоты при сливе.
   flexible.sort(
     (a, b) => priorityWeight(b.priority) - priorityWeight(a.priority),
   );
-  final slots = freeSlots(day, occupied); // свободные 30-мин слоты по порядку
-  var nextSlot = 0;
 
-  DateTime takeNextFreeSlot() {
-    while (nextSlot < slots.length && occupied.contains(slotKey(slots[nextSlot]))) {
-      nextSlot++;
+  // Сетка стартовых слотов окна 08:00–21:30 (последний слот заканчивается в 22:00).
+  final grid = <DateTime>[
+    for (var h = 8; h < 22; h++) ...[at(h, 0), at(h, 30)],
+  ];
+
+  // Первый стартовый слот, где свободны n подряд идущих слотов ВНУТРИ окна
+  // (задача целиком влезает до 22:00). Помечает их занятыми. null — не влезла.
+  DateTime? findRun(int n) {
+    for (var s = 0; s + n <= grid.length; s++) {
+      if (runFree(grid[s], n)) {
+        occupyRun(grid[s], n);
+        return grid[s];
+      }
     }
-    if (nextSlot < slots.length) {
-      final s = slots[nextSlot];
-      nextSlot++;
-      occupied.add(slotKey(s));
-      return s;
-    }
-    // Слоты дня закончились — кладём в конец дня с шагом 30 мин после 22:00,
-    // чтобы задачи всё равно не наложились друг на друга.
-    final overflow = at(22, 0).add(Duration(minutes: 30 * (assign.length)));
-    occupied.add(slotKey(overflow));
-    return overflow;
+    return null;
+  }
+
+  // Хвост дня для задач, не влезших в окно: кладём подряд после 22:00, чтобы
+  // они всё равно не накладывались друг на друга и на оконные задачи.
+  var overflow = at(22, 0);
+  DateTime placeOverflow(int n) {
+    final s = overflow;
+    occupyRun(s, n);
+    overflow = overflow.add(Duration(minutes: 30 * n));
+    return s;
   }
 
   for (final item in flexible) {
+    final n = slotsFor(item);
     if (_hasTimeOfDay(item.scheduledAt)) {
       final desired = at(item.scheduledAt.hour, item.scheduledAt.minute);
-      if (!occupied.contains(slotKey(desired))) {
+      final start = floorSlot(desired);
+      // Желаемое время сохраняем, только если задача целиком влезает в окно
+      // и все нужные ей слоты свободны.
+      final fitsWindow = !start
+          .add(Duration(minutes: 30 * n))
+          .isAfter(at(22, 0));
+      if (fitsWindow && runFree(start, n)) {
         assign[item.id] = desired;
-        occupied.add(slotKey(desired));
+        occupyRun(start, n);
         continue;
       }
     }
-    assign[item.id] = takeNextFreeSlot();
+    assign[item.id] = findRun(n) ?? placeOverflow(n);
   }
 
   return assign;

@@ -50,8 +50,11 @@ class YearView extends ConsumerWidget {
 
   /// Тап по дню: выбрать его и перейти на дневной вид (как в month_view).
   void _selectDay(WidgetRef ref, DateTime day) {
-    ref.read(selectedDayProvider.notifier).state =
-        DateTime(day.year, day.month, day.day);
+    ref.read(selectedDayProvider.notifier).state = DateTime(
+      day.year,
+      day.month,
+      day.day,
+    );
     ref.read(planViewProvider.notifier).state = PlanView.day;
   }
 
@@ -109,29 +112,58 @@ class YearView extends ConsumerWidget {
               ],
             ),
           ),
-          // Сетка 12 мини-месяцев. Кол-во колонок адаптивно по ширине:
-          // 1 (очень узко) / 2 (телефон) / 3 / 4 (планшет). LayoutBuilder
-          // считает ширину, GridView скроллит вертикально — без overflow.
+          // Сетка всех 12 мини-месяцев. Цель: на широком вебе ВСЕ 12 видны без
+          // прокрутки (как в Google Calendar). Кол-во колонок — от ширины
+          // (~220dp на колонку, 2..4). Высоту ячейки подбираем так, чтобы все
+          // ряды поместились по высоте; если для читаемости места не хватает
+          // (узкий телефон / крупный textScale) — даём небольшой вертикальный
+          // скролл вместо нечитаемого сжатия.
           Expanded(
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final w = constraints.maxWidth;
-                final cols = w >= 900
-                    ? 4
-                    : w >= 620
-                        ? 3
-                        : w >= 340
-                            ? 2
-                            : 1;
+                const padH = 12.0;
+                const padBottom = 12.0;
+                const spacing = 8.0;
+                // Минимальная читаемая высота мини-месяца (заголовок + шапка
+                // дней + строки недель). Ниже — лучше скролл, чем мелочь.
+                const minCellH = 132.0;
+
+                final cols = (constraints.maxWidth / 220).floor().clamp(2, 4);
+                final rows = (12 / cols).ceil();
+
+                final availW = constraints.maxWidth - padH * 2;
+                final cellW = (availW - spacing * (cols - 1)) / cols;
+                // Естественная (слегка портретная) высота мини-месяца.
+                final naturalH = cellW / 0.82;
+
+                final availH = constraints.maxHeight - padBottom;
+                final fitCellH = (availH - spacing * (rows - 1)) / rows;
+
+                double cellH;
+                ScrollPhysics physics;
+                if (naturalH <= fitCellH) {
+                  // Естественный размер помещается — без скролла.
+                  cellH = naturalH;
+                  physics = const NeverScrollableScrollPhysics();
+                } else if (fitCellH >= minCellH) {
+                  // Сжимаем до высоты экрана — всё ещё читаемо, без скролла
+                  // (целевой случай широкого веба: все 12 видны).
+                  cellH = fitCellH;
+                  physics = const NeverScrollableScrollPhysics();
+                } else {
+                  // Места мало для читаемости — фиксируем минимум и скроллим.
+                  cellH = minCellH;
+                  physics = const AlwaysScrollableScrollPhysics();
+                }
+
                 return GridView.builder(
-                  padding: const EdgeInsets.fromLTRB(12, 0, 12, 96),
+                  physics: physics,
+                  padding: const EdgeInsets.fromLTRB(padH, 0, padH, padBottom),
                   gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                     crossAxisCount: cols,
-                    // Мини-месяц чуть выше квадрата: заголовок + шапка дней + до
-                    // 6 строк недель. Чуть «портретный» аспект под это.
-                    childAspectRatio: 0.82,
-                    crossAxisSpacing: 8,
-                    mainAxisSpacing: 8,
+                    childAspectRatio: cellW / cellH,
+                    crossAxisSpacing: spacing,
+                    mainAxisSpacing: spacing,
                   ),
                   itemCount: 12,
                   itemBuilder: (context, index) {
@@ -286,23 +318,24 @@ class _MiniDayCell extends StatelessWidget {
     final double busyOpacity = count <= 0
         ? 0.0
         : count == 1
-            ? 0.30
-            : count == 2
-                ? 0.55
-                : 0.80;
+        ? 0.30
+        : count == 2
+        ? 0.55
+        : 0.80;
 
     // Цвет подложки: выбранный — полная accent; иначе — accent с busyOpacity.
     final Color? fill = isSelected
         ? colorScheme.primary
         : hasTasks
-            ? colorScheme.primary.withValues(alpha: busyOpacity)
-            : null;
+        ? colorScheme.primary.withValues(alpha: busyOpacity)
+        : null;
 
     // Цвет числа: поверх насыщенной заливки — onPrimary (контраст);
     // на бледной/без заливки — onSurface.
     final bool denseFill = isSelected || busyOpacity >= 0.55;
-    final Color textColor =
-        denseFill ? colorScheme.onPrimary : colorScheme.onSurface;
+    final Color textColor = denseFill
+        ? colorScheme.onPrimary
+        : colorScheme.onSurface;
 
     return GestureDetector(
       onTap: onTap,
