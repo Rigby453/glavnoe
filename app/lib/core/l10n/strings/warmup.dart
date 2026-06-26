@@ -204,4 +204,16 @@ const Map<String, Map<String, String>> warmupStrings = {
     'en': 'On hands and knees, arch and round your back with your breath. Move slowly through the spine.',
     'ru': 'На четвереньках прогибайте и округляйте спину в такт дыханию. Двигайтесь медленно вдоль позвоночника.',
   },
+
+  // ---------------------------------------------------------------------------
+  // Рутина «Осанка» (id: posture)
+  // ---------------------------------------------------------------------------
+  'warmup.posture.name': {
+    'en': 'Posture reset',
+    'ru': 'Сброс осанки',
+  },
+  'warmup.posture.desc': {
+    'en': 'Six exercises to release tension and align your spine',
+    'ru': 'Шесть упражнений для снятия напряжения и выравнивания позвоночника',
+  },
 };

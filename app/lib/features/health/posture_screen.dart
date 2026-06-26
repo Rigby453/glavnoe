@@ -1,58 +1,19 @@
 // Экран «Осанка» (SPEC C5 Ф2).
 // Тумблер ежедневных напоминаний «выпрямись» + список текстовых упражнений.
 // Нет БД, нет видео, нет новых пакетов.
+//
+// ПРИМЕЧАНИЕ: экран убран из навигации (задача 7 эпика), файл сохранён
+// компилируемым. Провайдер напоминаний перенесён в
+// core/settings/posture_reminder_provider.dart, где доступен из Профиля.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
+import '../../core/settings/posture_reminder_provider.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/theme_provider.dart';
-import '../../services/notifications/notification_service.dart';
 import 'posture_exercises.dart';
-
-// ---------------------------------------------------------------------------
-// Провайдер тумблера напоминаний об осанке
-// ---------------------------------------------------------------------------
-
-const _kPostureRemindersKey = 'posture_reminders_on';
-
-/// Состояние тумблера «Sit-up-straight reminders» — хранится в SharedPreferences.
-class PostureRemindersNotifier extends Notifier<bool> {
-  @override
-  bool build() =>
-      ref.read(sharedPreferencesProvider).getBool(_kPostureRemindersKey) ??
-      false;
-
-  /// Включает или выключает напоминания об осанке.
-  /// При включении — запрашивает разрешение, планирует уведомления.
-  /// Возвращает фактическое состояние после операции.
-  Future<bool> setEnabled(bool enabled) async {
-    final service = ref.read(notificationServiceProvider);
-    try {
-      if (enabled) {
-        final granted = await service.requestPermission();
-        if (!granted) return false;
-        await service.schedulePostureReminders();
-      } else {
-        await service.cancelPostureReminders();
-      }
-      await ref
-          .read(sharedPreferencesProvider)
-          .setBool(_kPostureRemindersKey, enabled);
-      state = enabled;
-      return enabled;
-    } catch (e) {
-      debugPrint('[PostureReminders] setEnabled($enabled) failed: $e');
-      return state;
-    }
-  }
-}
-
-final postureRemindersProvider =
-    NotifierProvider<PostureRemindersNotifier, bool>(
-        PostureRemindersNotifier.new);
 
 // ---------------------------------------------------------------------------
 // PostureScreen

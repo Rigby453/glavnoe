@@ -82,7 +82,7 @@ class WarmupRoutine {
   }
 }
 
-/// Две готовые рутины: «Утренняя зарядка» и «Растяжка».
+/// Три готовые рутины: «Утренняя зарядка», «Растяжка» и «Осанка».
 /// nameKey/descKey резолвятся через context.s() на UI-уровне.
 const kWarmupRoutines = <WarmupRoutine>[
   // --- Утренняя зарядка: суставная разминка + махи + приседания ---
@@ -184,6 +184,53 @@ const kWarmupRoutines = <WarmupRoutine>[
         nameKey: 'warmup.ex.cat_cow_stretch.name',
         descKey: 'warmup.ex.cat_cow_stretch.desc',
         seconds: 40,
+        icon: Icons.pets,
+      ),
+    ],
+  ),
+
+  // --- Осанка: 6 упражнений из posture_exercises.dart, адаптированных
+  //     под WarmupStep (nameKey/descKey переиспользуют ключи posture.*) ---
+  WarmupRoutine(
+    id: 'posture',
+    nameKey: 'warmup.posture.name',
+    descKey: 'warmup.posture.desc',
+    icon: Icons.accessibility,
+    steps: [
+      WarmupStep(
+        nameKey: 'posture.chin_tucks.name',
+        descKey: 'posture.chin_tucks.steps',
+        seconds: 30,
+        icon: Icons.face_retouching_natural,
+      ),
+      WarmupStep(
+        nameKey: 'posture.shoulder_blade_squeeze.name',
+        descKey: 'posture.shoulder_blade_squeeze.steps',
+        seconds: 30,
+        icon: Icons.accessibility_new,
+      ),
+      WarmupStep(
+        nameKey: 'posture.wall_angels.name',
+        descKey: 'posture.wall_angels.steps',
+        seconds: 60,
+        icon: Icons.back_hand_outlined,
+      ),
+      WarmupStep(
+        nameKey: 'posture.doorway_chest_stretch.name',
+        descKey: 'posture.doorway_chest_stretch.steps',
+        seconds: 30,
+        icon: Icons.open_with,
+      ),
+      WarmupStep(
+        nameKey: 'posture.upper_trap_stretch.name',
+        descKey: 'posture.upper_trap_stretch.steps',
+        seconds: 30,
+        icon: Icons.self_improvement,
+      ),
+      WarmupStep(
+        nameKey: 'posture.cat_cow.name',
+        descKey: 'posture.cat_cow.steps',
+        seconds: 60,
         icon: Icons.pets,
       ),
     ],

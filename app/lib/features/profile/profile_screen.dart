@@ -15,6 +15,7 @@ import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../mascot/kai_mascot.dart';
 import '../../core/settings/mascot_provider.dart';
+import '../../core/settings/posture_reminder_provider.dart';
 import '../../core/settings/reminder_default_provider.dart';
 import '../../core/settings/rest_default_provider.dart';
 import '../../core/settings/sound_provider.dart';
@@ -324,6 +325,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         const SizedBox(height: 8),
         const _NotificationsSetting(),
         const _CompletionSoundSetting(),
+        const _PostureReminderSetting(),
         const _ShowKaiSetting(),
         const _SwipeActionsSetting(),
         const _TimezoneSetting(),
@@ -2298,6 +2300,46 @@ class _PlanSheetContent extends StatelessWidget {
       default:
         return Icons.check_circle_outline;
     }
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Тумблер напоминаний «выпрямись» (осанка) в Профиле
+// ---------------------------------------------------------------------------
+
+/// Тумблер «Напоминания об осанке» — читает/пишет тот же ключ SharedPreferences
+/// ('posture_reminders_on'), что и postureRemindersProvider. Экран /posture убран
+/// из навигации (задача 7 эпика), поэтому единственная точка настройки — здесь.
+class _PostureReminderSetting extends ConsumerWidget {
+  const _PostureReminderSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(postureRemindersProvider);
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      // Иконка нейтральная (textMuted) — не accent; уведомление не единственное CTA
+      secondary: Icon(
+        Icons.accessibility,
+        color: Theme.of(context).extension<FocusThemeExtension>()!.textMuted,
+      ),
+      title: Text(context.s('posture.reminders_title')),
+      subtitle: Text(context.s('posture.reminders_subtitle')),
+      value: enabled,
+      onChanged: (want) async {
+        final result =
+            await ref.read(postureRemindersProvider.notifier).setEnabled(want);
+        // Если разрешение на уведомления не выдано — показать снэкбар
+        if (want && !result && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.s('posture.permission_required')),
+              duration: const Duration(seconds: 4),
+            ),
+          );
+        }
+      },
+    );
   }
 }
 
