@@ -51,35 +51,10 @@ class MorningReviewCard extends ConsumerStatefulWidget {
 }
 
 class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
-  // AI tone-aware утреннее сообщение (premium). null = ещё не запрашивали.
-  String? _aiMessage;
-  bool _messageLoading = false;
-
-  Future<void> _getAiMessage(int pendingCount) async {
-    final premium = await ref.read(isPremiumProvider.future);
-    if (!mounted) return;
-    if (!premium) {
-      showPremiumUpsell(context, 'AI nudges');
-      return;
-    }
-    setState(() => _messageLoading = true);
-    try {
-      final tone = ref.read(toneProvider) == AppTone.harsh ? 'harsh' : 'gentle';
-      final message = await ref.read(apiClientProvider).aiMorningMessage(
-            pendingCount: pendingCount,
-            tone: tone,
-          );
-      if (!mounted) return;
-      setState(() => _aiMessage = message.isEmpty ? null : message);
-    } on ApiException catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context)
-            .showSnackBar(SnackBar(content: Text(e.message)));
-      }
-    } finally {
-      if (mounted) setState(() => _messageLoading = false);
-    }
-  }
+  // Локально скрыта на текущую сессию (кнопка «Оставить»).
+  // Сбрасывается автоматически, когда список просроченных изменяется.
+  bool _dismissed = false;
+  int _lastKnownCount = -1;
 
   @override
   Widget build(BuildContext context) {
@@ -87,95 +62,124 @@ class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
         const <ItemsTableData>[];
     if (overdue.isEmpty) return const SizedBox.shrink();
 
+    // Сбрасываем dismissed если пришли новые просроченные (новый день).
+    final count = overdue.length;
+    if (count != _lastKnownCount) {
+      _dismissed = false;
+      _lastKnownCount = count;
+    }
+    if (_dismissed) return const SizedBox.shrink();
+
+    // Задачи сегодня — для распределения слотов при «Принять всё».
+    final today = ref.watch(_todayItemsForReviewProvider).valueOrNull ??
+        const <ItemsTableData>[];
+
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    final count = overdue.length;
     final tone = ref.watch(toneProvider);
-    // Визуалы тона: harsh даёт строгую подачу (ember-акцент, плотный заголовок).
-    final v = ToneVisuals.of(context, tone);
 
-    // Показываем ли Kai (04-kai.md T13): leading slot в заголовке карточки.
-    // Gated by showKaiProvider + reduce-motion. Не добавляет тапов (IgnorePointer).
+    // Ember — визуальный сигнал «срочно»; работает во всех 5 темах (токен urgent).
+    final ember = ext?.ember ?? colorScheme.error;
+
+    // Kai в шапке карточки (T13 MASCOT.md) — меньше (36dp), без анимации тапа.
+    // При showKai=false или reduce-motion — рассветная иконка.
     final showKai = ref.watch(showKaiProvider);
     final reduce = reduceMotionOf(context);
 
-    return Card(
-      child: Padding(
-        // md=16 внутренний отступ карточки (02-type-space.md §4.1)
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Kai «подаёт» карточку утреннего разбора (MASCOT.md §6, T13).
-                // При showKai=false или reduce-motion — обычная иконка.
-                if (showKai && !reduce)
-                  IgnorePointer(
-                    child: KaiMascot(
-                      size: 48,
-                      emotion: KaiEmotion.thinking,
-                      isHarsh: tone == AppTone.harsh,
-                    ),
-                  )
-                else
-                  // Иконка тона: gentle — рассвет, harsh — молния (ember).
-                  Icon(
-                    v.isHarsh ? Icons.bolt : Icons.wb_twilight,
-                    color: v.isHarsh
-                        ? v.accent
-                        : (ext?.ember ?? colorScheme.secondary),
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        // Тёплый ember-тинт фона — карточка выделяется среди нейтрального контента.
+        color: ember.withAlpha(20),
+        borderRadius: BorderRadius.circular(16), // radius.md
+        border: Border.all(color: ember.withAlpha(80), width: 1),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // --- Заголовок: иконка/Kai + название + счётчик задач ---
+          Row(
+            children: [
+              // Kai «подаёт» разбор (T13); меньше, чем в шапке экрана.
+              if (showKai && !reduce)
+                IgnorePointer(
+                  child: KaiMascot(
+                    size: 36,
+                    emotion: KaiEmotion.thinking,
+                    isHarsh: tone == AppTone.harsh,
                   ),
-                const SizedBox(width: 8),
-                // Expanded + ellipsis: на узких экранах (320px) заголовок сжимается
-                // вместо RenderFlex overflow; Expanded также отжимает иконку вправо
-                // (заменяет прежний Spacer).
-                Expanded(
-                  child: Text(
-                    context.s('today.morning_review'),
-                    // harsh — плотный/строгий заголовок и ember-тон.
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: v.headingWeight,
-                      color: v.isHarsh ? v.accent : null,
-                    ),
-                    overflow: TextOverflow.ellipsis,
+                )
+              else
+                Icon(Icons.wb_twilight, color: ember, size: 22),
+              const SizedBox(width: 8),
+              // Expanded защищает от RenderFlex overflow на 320px.
+              Expanded(
+                child: Text(
+                  context.s('today.morning_review'),
+                  style: textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w700,
+                    color: ember,
                   ),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                // AI-nudge кнопка: во время загрузки — пульс вместо спиннера (§7.1)
-                IconButton(
-                  tooltip: context.s('today.ai_nudge_tooltip'),
-                  visualDensity: VisualDensity.compact,
-                  icon: _messageLoading
-                      ? const AiPulseDot(size: 10)
-                      : const Icon(Icons.auto_awesome, size: 18),
-                  onPressed:
-                      _messageLoading ? null : () => _getAiMessage(count),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            // AI-сообщение появляется с reveal (§7.3); fallback — локализованный
-            // rule-based текст через KaiCopy (поддерживает EN/RU/DE).
-            if (_aiMessage != null)
-              AiInsightReveal(
-                child: Text(_aiMessage!, style: textTheme.bodyMedium),
-              )
-            else
-              Text(
-                KaiCopy.morningReview(context, tone, count),
-                style: textTheme.bodyMedium,
               ),
-            const SizedBox(height: 12),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton(
+              const SizedBox(width: 6),
+              // Счётчик просроченных задач.
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                decoration: BoxDecoration(
+                  color: ember.withAlpha(40),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Text(
+                  '$count',
+                  style: textTheme.labelMedium?.copyWith(
+                    color: ember,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          // --- Контекстное сообщение (rule-based, tone-aware) ---
+          Text(
+            KaiCopy.morningReview(context, tone, count),
+            style: textTheme.bodyMedium,
+          ),
+          const SizedBox(height: 12),
+          // --- Кнопки в одно касание ---
+          // Wrap предотвращает overflow: на 320px кнопки переносятся на следующую строку.
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              // «Принять всё» — перенести всё на сегодня.
+              FilledButton(
+                onPressed: () async {
+                  await moveAllToDay(ref, overdue, DateTime.now(), today);
+                },
+                child: Text(context.s('today.morning_review_accept')),
+              ),
+              // «Поправить» — открыть детальный лист (варианты, AI-план).
+              OutlinedButton(
                 onPressed: () => _showMorningReviewSheet(context),
-                child: Text(context.s('today.review_btn')),
+                child: Text(context.s('today.morning_review_adjust')),
               ),
-            ),
-          ],
-        ),
+              // «Оставить» — скрыть карточку до следующей сессии.
+              TextButton(
+                style: TextButton.styleFrom(
+                  foregroundColor: ext?.textMuted,
+                ),
+                onPressed: () => setState(() => _dismissed = true),
+                child: Text(context.s('today.morning_review_leave')),
+              ),
+            ],
+          ),
+        ],
       ),
     );
   }

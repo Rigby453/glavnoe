@@ -34,7 +34,8 @@ import 'widgets/streak_row.dart';
 import 'widgets/task_list.dart';
 import '../plan/widgets/recurrence_providers.dart';
 import 'widgets/overdue_section.dart';
-import 'widgets/habits_today_section.dart';
+// habits_today_section намеренно не импортируется:
+// HabitsTodaySection убрана с Today (задача 10 — уменьшить геймификацию).
 
 /// Все задачи на сегодня — раскрытые: конкретные строки дня + виртуальные
 /// повторы серий (recurrence_providers). Якоря-шаблоны исключены из
@@ -216,22 +217,27 @@ class TodayScreen extends ConsumerWidget {
                         .length,
                     allMainDone: allMainDone,
                   ),
-                  // xl=32 между шапкой и кольцом (02-type-space.md §4.1)
+                  // Утренний разбор — ПРИОРИТЕТНЫЙ блок сразу под Kai, когда есть
+                  // просроченные задачи. Скрывается если переносов нет.
+                  if (morningReviewVisible) ...[
+                    const SizedBox(height: 16),
+                    const MorningReviewCard(),
+                  ],
+                  // xl=32 между шапкой/разбором и кольцом (02-type-space.md §4.1)
                   const SizedBox(height: 32),
                   Center(child: ProgressRing(items: mainItems)),
                   // xl=32 между кольцом и streak-строкой
                   const SizedBox(height: 32),
                   const StreakRow(),
-                  // Карточки обзора — после streak, с разделителем xl=32
+                  // Вечерний разбор — после streak-строки (показывается с 17:00)
                   const SizedBox(height: 32),
-                  const MorningReviewCard(),
                   const EveningReviewCard(),
                   const SizedBox(height: 32),
                   // Секция «Просрочено» — вверху списка, ember-акцент (UX-LAYOUT §6)
                   const OverdueSection(),
+                  // Основной список задач (hero-стиль для main-задач внутри виджета)
                   TaskList(items: items, day: now),
-                  // Раздел «Привычки сегодня» — под задачами (ADR-053, slice 3).
-                  const HabitsTodaySection(),
+                  // HabitsTodaySection убрана (задача 10 — сократить геймификацию).
                 ],
               );
             },
@@ -285,7 +291,7 @@ class TodayScreen extends ConsumerWidget {
           body: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // --- Левая колонка: шапка, кольцо, серия, карточки обзора ---
+                // --- Левая колонка: шапка, разбор (если есть), кольцо, серия, вечерний ---
                 Expanded(
                   child: SingleChildScrollView(
                     padding: const EdgeInsets.all(24),
@@ -307,12 +313,16 @@ class TodayScreen extends ConsumerWidget {
                               .length,
                           allMainDone: allMainDone,
                         ),
+                        // Утренний разбор — приоритетный блок, сразу под Kai.
+                        if (morningReviewVisible) ...[
+                          const SizedBox(height: 16),
+                          const MorningReviewCard(),
+                        ],
                         const SizedBox(height: 32),
                         Center(child: ProgressRing(items: mainItems)),
                         const SizedBox(height: 32),
                         const StreakRow(),
                         const SizedBox(height: 32),
-                        const MorningReviewCard(),
                         const EveningReviewCard(),
                       ],
                     ),
@@ -328,9 +338,9 @@ class TodayScreen extends ConsumerWidget {
                       children: [
                         // Секция «Просрочено» — вверху, ember-акцент (UX-LAYOUT §6)
                         const OverdueSection(),
+                        // Задачи (hero-стиль для main внутри TaskList)
                         TaskList(items: items, day: now),
-                        // Раздел «Привычки сегодня» (ADR-053, slice 3).
-                        const HabitsTodaySection(),
+                        // HabitsTodaySection убрана (задача 10).
                       ],
                     ),
                   ),

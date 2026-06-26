@@ -148,6 +148,14 @@ class _TaskListState extends ConsumerState<TaskList>
   Widget build(BuildContext context) {
     final items = widget.items;
 
+    // Цвета для hero-секции главных задач (нужны до early-return, чтобы
+    // вычислить только один раз, а не копировать в каждую ветку).
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final colorScheme = Theme.of(context).colorScheme;
+    // colorScheme.primary = palette.accent во всех темах (_buildTheme строка 459).
+    // FocusThemeExtension не хранит accent напрямую — берём из ColorScheme.
+    final accent = colorScheme.primary;
+
     // Разделяем: pending отдельно, завершённые (done/skipped) — в секцию «Выполнено».
     final pendingItems =
         items.where((i) => i.status == 'pending').toList();
@@ -155,7 +163,6 @@ class _TaskListState extends ConsumerState<TaskList>
         items.where((i) => i.status != 'pending').toList();
 
     if (items.isEmpty) {
-      final ext = Theme.of(context).extension<FocusThemeExtension>();
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 48),
         child: Center(
@@ -180,9 +187,24 @@ class _TaskListState extends ConsumerState<TaskList>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // --- Секция «Главное» (только pending) ---
+        // --- Геройская секция «Главное» (pending main) ---
+        // Визуально тяжелее «Остального»: крупный заголовок с акцентом +
+        // тонкая акцентная полоса. Логика тапа/свайпа не меняется (_buildRow).
         if (mainItems.isNotEmpty) ...[
-          _SectionHeader(title: context.s('today.main_tasks')),
+          // Тонкая акцентная линия — визуальный маяк начала hero-зоны.
+          Container(
+            height: 2,
+            margin: const EdgeInsets.only(bottom: 4),
+            decoration: BoxDecoration(
+              color: accent.withAlpha(160),
+              borderRadius: BorderRadius.circular(1),
+            ),
+          ),
+          _HeroSectionHeader(
+            title: context.s('today.main_tasks'),
+            count: mainItems.length,
+            accent: accent,
+          ),
           ...mainItems.map((i) => _buildRow(context, i)),
           const SizedBox(height: 16),
         ],
@@ -522,6 +544,71 @@ class _SubtaskProgressBadge extends ConsumerWidget {
     );
   }
 }
+
+// ---------------------------------------------------------------------------
+// _HeroSectionHeader — заголовок геройской секции «Главное».
+// Крупнее и акцентнее обычного _SectionHeader (titleLarge + accent-цвет + счётчик).
+// Счётчик задач справа помогает сохранять баланс на 320px: заголовок + число,
+// оба в Expanded/Min-size — overflow исключён.
+// ---------------------------------------------------------------------------
+
+class _HeroSectionHeader extends StatelessWidget {
+  const _HeroSectionHeader({
+    required this.title,
+    required this.count,
+    required this.accent,
+  });
+
+  final String title;
+  final int count;
+  final Color accent;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      // sm=8 снизу, sm=8 сверху — полоса уже даёт визуальный отрыв.
+      padding: const EdgeInsets.only(bottom: 8, top: 8),
+      child: Row(
+        children: [
+          // Expanded + ellipsis: заголовок не переполняется даже при scale 1.5.
+          Expanded(
+            child: Text(
+              title,
+              // titleLarge (18sp w600) — тяжелее нейтрального titleSmall (14sp).
+              style: textTheme.titleLarge?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w700,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Пилюля-счётчик: accent bg + accent text.
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+            decoration: BoxDecoration(
+              color: accent.withAlpha(25),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              '$count',
+              style: textTheme.labelMedium?.copyWith(
+                color: accent,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _SectionHeader — стандартный нейтральный заголовок (для «Остальное»).
+// ---------------------------------------------------------------------------
 
 class _SectionHeader extends StatelessWidget {
   const _SectionHeader({required this.title});

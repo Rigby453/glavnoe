@@ -4,6 +4,14 @@
 > *Что обещали* (продукт) — в `docs/SPEC.md`. Архитектурные решения — в `docs/decisions.md`.
 > Статусы задач в журнале ниже: `[ ]` todo · `[~]` в работе · `[x]` сделано · `[!]` заблокировано.
 
+## Сводка для пользователя (обновлено 2026-06-26, задача 10 — иерархия Today)
+
+- **Задача 10 ЗАВЕРШЕНА (иерархия Today):** три точечных изменения без редизайна:
+  1. **Hero main-задачи:** в `task_list.dart` секция `priority='main'` теперь оформлена как визуальный герой — accent-разделитель 2dp + `_HeroSectionHeader` (titleLarge + pill-счётчик). Цвет через `colorScheme.primary` (= `palette.accent` во всех 5 темах). Тап/свайп — без изменений (все `_buildRow` вызовы сохранены).
+  2. **Заметный утренний разбор:** `MorningReviewCard` переработан: ember-фон (`withAlpha(20)`) + ember-бордер, счётчик задач в pill, три кнопки одного касания в `Wrap` (без overflow на 320px): «Accept all» → `moveAllToDay`, «Adjust» → `_MorningReviewSheet`, «Leave» → `_dismissed=true`. Кнопка перемещена в самый верх скролла (перед `ProgressRing`). 3 новых l10n-ключа × 11 языков.
+  3. **Уменьшена геймификация:** `HabitsTodaySection` убрана из Today (mobile + tablet). Файл сохранён, только не рендерится. Существующий тест `habits_today_section_test.dart` не затронут (тестирует виджет напрямую).
+  - `flutter analyze` → 0. Новый тест `test/today_hero_test.dart` — 7/7 зелёных.
+
 ## Сводка для пользователя (обновлено 2026-06-26, §3a mood_logs Drift)
 
 - **§3a ЗАВЕРШЕНО:** настроение после медитации перенесено из SharedPreferences в Drift-таблицу `mood_logs` (schemaVersion 21→22). Новый DAO `MoodLogsDao` с методами `insertMood`/`getSince`/`watchSince`/`getSinceBySource`. Провайдер `moodLogsDaoProvider`. `meditation_mood_log.dart` переписан: `appendMeditationMood(MoodLogsDao, entry)` и `readMeditationMoodLogs(MoodLogsDao)`. Вызов в `meditation_screen.dart` обновлён. Таблица локальная — синк не тронут. Старый prefs-ключ `'meditation_mood_logs'` не удаляем (beta-данные целы). 10 тестов (включая миграционный) — все зелёные. `flutter analyze` → 0. §3b (чтение инсайтами) — отдельная задача.
