@@ -5,6 +5,15 @@
 
 ---
 
+## ADR-056: Tolerant name matching + transient-error retry for AI menu/workout build
+**Date:** 2026-06-27
+**Проблема:** `/api/v1/ai/menu-build` почти всегда падал с 502 «AI service unavailable» из-за двух независимых причин: (A) Gemini возвращает имена продуктов с другим регистром/пробелами — строгое `validNames.has(it.name)` в `callAndClean` выбрасывало все позиции → `"AI returned no usable menu"`. (B) Одиночные временные сбои Gemini (rate-limit 429, кратковременный 503, битый JSON) пробрасывались напрямую, без ретрая.
+**Решение:**
+- **A — нормализация имён (menuBuild.ts):** добавлен `normalizeName(s)` (trim + toLowerCase + `/\s+/g → ' '`). В `buildMenu` строится `normToCanon: Map<string, string>` (normalized → canonical). В `callAndClean` фильтрация заменена: `normToCanon.get(normalizeName(it.name))` — если совпало, возвращается каноническое имя из БД (чтобы `byName.get()` и `computeTotals` работали). Если не совпало — позиция выбрасывается, как раньше.
+- **B — ретрай (retry.ts):** новый файл `backend/src/ai/retry.ts` с `withAiRetry(fn, {attempts=3})`. Ретраит при: 429/quota/503/overloaded/high demand/unparseable/no usable/unexpected shape/timeout/econnreset. Не ретраит гео-блок и бизнес-4xx. Детерминированные паузы 400ms, 900ms (нулевые в NODE_ENV=test). В `menuBuild.ts` `callAndClean` обёрнут в `withAiRetry` внутри валидационного цикла. В `workoutBuild.ts` старый `MAX_CALLS=2` цикл заменён на `withAiRetry({attempts:3})`.
+- **C — aiError (routes/ai.ts):** добавлена проверка `parseOrShape` (unparseable/no usable/unexpected shape) до `temporarilyUnavailable`. После исчерпания ретраев такие ошибки → 503 «AI couldn't build this right now — please tap retry.» (вместо 502). Лог сохраняется всегда.
+**Последствия:** menu-build теперь устойчив к нормальным вариациям ответа Gemini. Одиночный rate-limit/битый JSON прозрачно ретраится за ~400ms. Клиент получает 503 (ретраить осмысленно) вместо 502 («сервис мёртв»). Тесты: 35 тестов (menu-build-loop×13, workoutBuild×10, ai.test×12) — все зелёные; добавлены 3 новых теста нормализации.
+
 ## ADR-055: Server-synced onboarding flag + PATCH /api/v1/auth/me
 **Date:** 2026-06-26
 **Проблема:** Завершение онбординга/первичной настройки (`setup_done`) хранилось **только локально** (prefs на устройстве). Из-за этого онбординг **появлялся заново** при входе в веб-версию или на новом устройстве — сервер не знал, что пользователь уже прошёл настройку, а локальный кэш на другом клиенте пуст.
