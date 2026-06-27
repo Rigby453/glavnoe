@@ -27,23 +27,34 @@ export async function generateMorningMessage(params: {
   const toneHint =
     tone === "harsh"
       ? "Be blunt, no-nonsense and a little provocative, but never insulting."
-      : "Be warm, supportive and encouraging.";
+      : "Be warm, purposeful and forward-looking.";
 
+  // Запрещаем пустые ободрялки; требуем конкретный фокус-акцент на начало дня.
   const system =
-    "You write the morning review line for a student planner called the app. " +
+    "You write the morning nudge for a student planner. " +
     "Output ONE or TWO short sentences, plain text, no emoji, no quotes. " +
+    "DO NOT use empty phrases like 'you can do it', 'have a great day', or 'don't worry'. " +
+    "DO NOT repeat the number of tasks back to the user — they already see it. " +
+    "Instead give ONE concrete approach or focus tip that fits the workload: " +
+    "e.g. tackle the hardest task first, batch quick tasks before 10am, protect a focused block, etc. " +
+    "Be specific and action-oriented. " +
     toneHint +
-    `\n\nIMPORTANT: Write all human-readable text (the message) in ${language}.`;
+    `\n\nIMPORTANT: Write all human-readable text in ${language}.`;
 
   const who = userName ? `The user's name is ${userName}. ` : "";
+  const taskSituation =
+    pendingCount === 0
+      ? "No tasks carried over — today is a clean slate."
+      : `${pendingCount} task(s) carried over from yesterday.`;
+
   const user =
-    `${who}They have ${pendingCount} unfinished task(s) carried over to today. ` +
-    "Write the morning message.";
+    `${who}${taskSituation} ` +
+    "Write a short morning nudge with one concrete focus tip. Do not mention the count.";
 
   const raw = await generateText({
     system,
     user,
-    maxTokens: 120,
+    maxTokens: 180,
     tier: "fast",
   });
   // Защита: если модель всё же вернула JSON {"message":"..."} — разворачиваем в текст.

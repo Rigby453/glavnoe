@@ -28,28 +28,48 @@ export async function generateWrappedSummary(
   const periodLabel = stats.periodDays >= 28 ? "month" : "week";
   const language = stats.language ?? "English";
 
+  // Запрещаем перечисление входных чисел; требуем паттерн/сильную сторону/зону роста + совет.
   const system =
     (stats.tone === "harsh"
-      ? "You write blunt, funny (not mean) recaps for a student planner. " +
-        "Never shame food, body or weight. Under 60 words, one paragraph, " +
-        "plain text only."
-      : "You write warm, upbeat recaps for a student planner. " +
-        "Under 60 words, one paragraph, plain text only.") +
-    `\n\nIMPORTANT: Write all human-readable text (the summary paragraph) in ${language}.`;
+      ? "You write candid, sharp (not cruel) weekly recaps for a student planner. " +
+        "Never shame food, body or weight. "
+      : "You write warm, insightful weekly recaps for a student planner. ") +
+    "DO NOT list or repeat the numbers the student already sees in their stats panel. " +
+    "Instead: identify ONE strength visible in this period, ONE clear growth area, " +
+    "and give ONE specific recommendation for the next week. " +
+    "One paragraph, 3-4 sentences, plain text only, no emoji. " +
+    "Complete every sentence fully — never stop mid-thought. " +
+    `\n\nIMPORTANT: Write all human-readable text in ${language}. Always finish every sentence completely.`;
+
+  // Данные передаём как контекст для вывода, а не как список для пересказа.
+  const completionRate =
+    stats.tasksTotal > 0
+      ? Math.round((stats.tasksDone / stats.tasksTotal) * 100)
+      : null;
+  const mainRate =
+    stats.mainTotal > 0
+      ? Math.round((stats.mainDone / stats.mainTotal) * 100)
+      : null;
 
   const user =
-    `Summarize the student's ${periodLabel}: ` +
-    `${stats.tasksDone}/${stats.tasksTotal} tasks done, ` +
-    `${stats.mainDone}/${stats.mainTotal} main (protected) tasks done, ` +
-    `average mood ${stats.avgMood?.toFixed(1) ?? "unknown"}/5, ` +
-    `${stats.waterMl} ml of water logged` +
-    (stats.topIssue ? `, top setback reason: "${stats.topIssue}"` : "") +
-    ". Mention the strongest point and one gentle suggestion.";
+    `Student's ${periodLabel} context: ` +
+    (completionRate !== null
+      ? `overall task completion ${completionRate}%, `
+      : "") +
+    (mainRate !== null ? `priority-task completion ${mainRate}%, ` : "") +
+    (stats.avgMood !== null
+      ? `average mood ${stats.avgMood.toFixed(1)}/5, `
+      : "") +
+    (stats.waterMl > 0 ? `water ${stats.waterMl} ml logged, ` : "") +
+    (stats.topIssue ? `main obstacle: "${stats.topIssue}". ` : ". ") +
+    "Draw a conclusion about their performance pattern. " +
+    "Name one strength, one growth area, and one concrete next-week recommendation. " +
+    "Do not list these numbers back — give only your insight and advice.";
 
   const text = await generateText({
     system,
     user,
-    maxTokens: 120,
+    maxTokens: 350,
     tier: "fast",
   });
 

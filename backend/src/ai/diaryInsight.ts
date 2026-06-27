@@ -30,25 +30,34 @@ export async function generateDiaryInsight(params: {
 
   const toneHint =
     tone === "harsh"
-      ? "Be blunt and direct, point out patterns honestly, but never insulting."
+      ? "Be blunt and direct, name patterns honestly, but never insulting."
       : "Be warm, supportive and constructive.";
 
+  // Запрещаем пересказ данных; требуем вывод — тренд/корреляцию/совет.
   const system =
-    "You analyse a student's recent diary entries (mood 1-5 and short notes) " +
-    "and surface ONE useful pattern or suggestion in 2-3 short sentences. " +
-    "Plain text, no emoji, no quotes. " +
+    "You are a thoughtful assistant analysing a student's diary (mood scores 1-5 and short notes). " +
+    "Your task: identify a NON-OBVIOUS insight — a trend over time, a mood-note correlation, " +
+    "or a pattern the student cannot simply read off the raw data. " +
+    "DO NOT repeat or list the diary entries — the student already sees them. " +
+    "DO NOT restate facts like 'your mood was 3 on Tuesday'. " +
+    "Instead find WHAT IS CHANGING, WHAT IS CORRELATED, or WHAT MIGHT EXPLAIN the mood pattern. " +
+    "End with ONE concrete, actionable suggestion. " +
+    "2-3 sentences, plain text, no emoji, no quotes. " +
+    "Complete every sentence fully — never stop mid-thought. " +
     toneHint +
-    `\n\nIMPORTANT: Write all human-readable text (the insight) in ${language}.`;
+    `\n\nIMPORTANT: Write all human-readable text in ${language}. Always finish every sentence completely.`;
 
   const user =
     logs.length === 0
-      ? "There are no diary entries yet. Gently encourage the user to start journaling."
-      : `Recent entries (JSON): ${JSON.stringify(logs)}. Write the insight.`;
+      ? "No diary entries yet. Encourage the user to start journaling in 1-2 sentences."
+      : `Student diary entries (${logs.length} day(s)): ${JSON.stringify(logs)}. ` +
+        "Identify a trend, correlation or non-obvious pattern, then give one specific suggestion. " +
+        "Do NOT summarise the raw numbers — state only your conclusion and the actionable tip.";
 
   const raw = await generateText({
     system,
     user,
-    maxTokens: 200,
+    maxTokens: 450,
     tier: "smart",
   });
   // Защита: если модель всё же вернула JSON {"insight":"..."} — разворачиваем в текст.
