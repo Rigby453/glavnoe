@@ -11,6 +11,7 @@
 
 import { z } from "zod";
 import { generateText, stripJsonFences } from "./provider.js";
+import { withAiRetry } from "./retry.js";
 
 export interface MenuCandidate {
   name: string;
@@ -37,6 +38,15 @@ export interface MenuTotals {
   carbs: number;
   sugar: number;
   fiber: number;
+}
+
+/**
+ * Нормализует имя продукта для устойчивого сравнения:
+ * trim + toLowerCase + схлопывание последовательных пробелов.
+ * Экспортируется для unit-тестов (проверка нормализации без моков модели).
+ */
+export function normalizeName(s: string): string {
+  return s.trim().toLowerCase().replace(/\s+/g, " ");
 }
 
 // Модель возвращает приёмы пищи с позициями name+grams; note — одно предложение.
@@ -129,8 +139,15 @@ export async function buildMenu(params: {
     foodPrefs,
   } = params;
 
-  const validNames = new Set(candidates.map((c) => c.name));
+  // byName: canonical name → кандидат; используется в computeTotals.
   const byName = new Map(candidates.map((c) => [c.name, c]));
+  // normToCanon: normalized name → canonical name — для толерантного матчинга.
+  // Gemini часто меняет регистр/пробелы: «chicken breast» ≠ «Chicken Breast» строго,
+  // поэтому normToCanon.get(normalizeName(it.name)) подставит каноничное имя из БД,
+  // которое byName найдёт, и computeTotals посчитает КБЖУ корректно.
+  const normToCanon = new Map<string, string>(
+    candidates.map((c) => [normalizeName(c.name), c.name])
+  );
 
   // Кол-во приёмов: явный mealsPerDay имеет приоритет, иначе длина meals[], иначе 3.
   // Если просят больше слотов, чем имён — добавляем безопасные имена snack 2..n.
@@ -176,7 +193,12 @@ export async function buildMenu(params: {
 
   for (let attempt = 0; attempt < MAX_CALLS; attempt++) {
     const user = correction ? `${baseUser}\n\n${correction}` : baseUser;
-    const attemptResult = await callAndClean({ system, user, mealNames, validNames });
+    // withAiRetry повторяет callAndClean при временных сбоях Gemini (rate-limit,
+    // битый JSON, пустое меню после фильтрации). Коррекция макро-целей — во внешнем цикле.
+    const attemptResult = await withAiRetry(
+      () => callAndClean({ system, user, mealNames, normToCanon }),
+      { attempts: 3 }
+    );
     const totals = computeTotals(attemptResult.meals, byName);
     const score = targetScore(totals, targets);
 
@@ -435,9 +457,10 @@ async function callAndClean(args: {
   system: string;
   user: string;
   mealNames: string[];
-  validNames: Set<string>;
+  /** normalized→canonical карта кандидатов (для устойчивого матчинга имён). */
+  normToCanon: Map<string, string>;
 }): Promise<{ meals: MenuMeal[]; note: string }> {
-  const { system, user, mealNames, validNames } = args;
+  const { system, user, mealNames, normToCanon } = args;
 
   const text = await generateText({
     system,
@@ -457,13 +480,20 @@ async function callAndClean(args: {
 
   // Страховка от галлюцинаций: выбрасываем позиции, которых нет среди кандидатов,
   // и приёмы, которых не просили; граммы округляем до кратных 10.
+  // Имена матчатся ТОЛЕРАНТНО (нормализация регистра/пробелов): если Gemini вернул
+  // «chicken breast» или «  Chicken Breast  » — подставляем каноническое имя из БД,
+  // чтобы byName.get(item.name) и computeTotals работали корректно.
   const requested = new Set(mealNames);
   const cleaned: MenuMeal[] = result.data.meals
     .filter((m) => requested.has(m.meal))
     .map((m) => ({
       meal: m.meal,
       items: m.items
-        .filter((it) => validNames.has(it.name))
+        .map((it) => {
+          const canonical = normToCanon.get(normalizeName(it.name));
+          return canonical !== undefined ? { name: canonical, grams: it.grams } : null;
+        })
+        .filter((it): it is { name: string; grams: number } => it !== null)
         .map((it) => ({
           name: it.name,
           grams: Math.min(500, Math.max(30, Math.round(it.grams / 10) * 10)),

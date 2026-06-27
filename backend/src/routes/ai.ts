@@ -209,12 +209,25 @@ async function ensurePremium(
   return true;
 }
 
-/** Ответ при сбое апстрима (нет ключа / ошибка Claude). */
+/** Ответ при сбое апстрима (нет ключа / ошибка провайдера). */
 function aiError(fastify: FastifyInstance, reply: FastifyReply, err: unknown, ctx: string) {
+  // Лог сохраняем всегда — даже при 503, чтобы не терять телеметрию.
   fastify.log.error({ err }, `${ctx} AI call failed`);
-  // Отличаем временную недоступность апстрима (квота/перегрузка/регион) от прочих
-  // сбоев, чтобы клиент мог показать осмысленное сообщение и предложить повтор.
   const msg = (err instanceof Error ? err.message : String(err)).toLowerCase();
+
+  // Ошибки парсинга/формата ответа модели после исчерпания ретраев (retry.ts).
+  // Клиент понимает, что это временно, и предлагает повторить запрос.
+  const parseOrShape =
+    msg.includes("unparseable") ||
+    msg.includes("no usable") ||
+    (msg.includes("unexpected") && msg.includes("shape"));
+  if (parseOrShape) {
+    return reply.status(503).send({
+      error: "AI couldn't build this right now — please tap retry.",
+    });
+  }
+
+  // Временная недоступность апстрима (квота/перегрузка/регион).
   const temporarilyUnavailable =
     msg.includes("429") ||
     msg.includes("quota") ||
@@ -224,10 +237,10 @@ function aiError(fastify: FastifyInstance, reply: FastifyReply, err: unknown, ct
     msg.includes("user location is not supported");
   if (temporarilyUnavailable) {
     return reply.status(503).send({
-      error:
-        "AI is temporarily unavailable (quota/region) — please try again later.",
+      error: "AI is temporarily unavailable (quota/region) — please try again later.",
     });
   }
+
   return reply
     .status(502)
     .send({ error: "AI service unavailable. Please try again later." });

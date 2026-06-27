@@ -12,6 +12,7 @@
 
 import { z } from "zod";
 import { generateText, stripJsonFences } from "./provider.js";
+import { withAiRetry } from "./retry.js";
 
 export type WorkoutGoal =
   | "strength"
@@ -143,29 +144,13 @@ export async function buildWorkoutProgram(params: {
       : {}),
   });
 
-  // --- Ограниченный валидационный цикл: максимум 2 вызова модели (1 ретрай). ---
-  // Если первый ответ не парсится / не проходит схему — один ретрай, затем
-  // понятная ошибка. Мирроринг menuBuild.
-  const MAX_CALLS = 2;
-  let lastError: unknown = null;
-
-  for (let attempt = 0; attempt < MAX_CALLS; attempt++) {
-    try {
-      const program = await callAndClean({
-        system,
-        user: baseUser,
-        targetDays,
-      });
-      return program;
-    } catch (err) {
-      lastError = err;
-      // ретрай только если он ещё остался
-    }
-  }
-
-  throw lastError instanceof Error
-    ? lastError
-    : new Error("AI failed to build a workout program.");
+  // withAiRetry повторяет callAndClean при временных сбоях (rate-limit Gemini,
+  // битый JSON, пустая программа). Постоянные ошибки (гео-блок, 4xx) — сразу наверх.
+  // Максимум 3 попытки суммарно (ADR-051, мирроринг menuBuild + retry.ts).
+  return withAiRetry(
+    () => callAndClean({ system, user: baseUser, targetDays }),
+    { attempts: 3 }
+  );
 }
 
 // ---------------------------------------------------------------------------

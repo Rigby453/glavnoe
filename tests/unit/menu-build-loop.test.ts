@@ -3,8 +3,11 @@
  * Мокаем provider.generateText (никаких реальных вызовов модели) и прогоняем
  * НАСТОЯЩУЮ логику buildMenu: серверный расчёт итогов, ретрай при промахе,
  * cap в 1 ретрай, off_target, распределение по приёмам.
+ *
+ * Также проверяем толерантное матчинг имён (A-fix): Gemini возвращает имена
+ * в другом регистре/с пробелами — должны матчиться и возвращать canonical name.
  */
-import { buildMenu } from '../../backend/src/ai/menuBuild';
+import { buildMenu, normalizeName } from '../../backend/src/ai/menuBuild';
 
 // generateText замокан — он же используется внутри buildMenu через callAndClean.
 jest.mock('../../backend/src/ai/provider', () => {
@@ -269,4 +272,92 @@ test('totals are computed by code from candidates, never taken from the model', 
   expect(result.totals.calories).toBe(200);
   expect(result.totals.protein).toBe(30);
   expect(result.totals.fat).toBe(8);
+});
+
+// ---------------------------------------------------------------------------
+// A-fix: толерантное матчинг имён (регистр / пробелы / локализация Gemini)
+// ---------------------------------------------------------------------------
+
+test('normalizeName: trim, lowercase, collapse whitespace', () => {
+  expect(normalizeName('  Chicken Breast  ')).toBe('chicken breast');
+  expect(normalizeName('OATS')).toBe('oats');
+  expect(normalizeName('brown  rice')).toBe('brown rice');
+  expect(normalizeName('greek  yogurt ')).toBe('greek yogurt');
+});
+
+test('name matching is tolerant: model casing/whitespace normalized to canonical name', async () => {
+  // Кандидат в БД — "Chicken Breast" (с заглавными). Gemini вернул разные варианты.
+  const candidatesBreast = [
+    { name: 'Chicken Breast', per100g: { calories: 165, protein: 31, fat: 3.6, carbs: 0, sugar: 0, fiber: 0 } },
+    { name: 'Rice',           per100g: { calories: 100, protein: 2,  fat: 0,   carbs: 22, sugar: 0, fiber: 1 } },
+    { name: 'Egg',            per100g: { calories: 150, protein: 13, fat: 11,  carbs: 1,  sugar: 0, fiber: 0 } },
+    { name: 'Oats',           per100g: { calories: 380, protein: 13, fat: 7,   carbs: 67, sugar: 1, fiber: 10 } },
+    { name: 'Broccoli',       per100g: { calories: 35,  protein: 3,  fat: 0,   carbs: 7,  sugar: 1.5, fiber: 3 } },
+  ];
+
+  // Модель вернула имена: лишние пробелы + другой регистр
+  const modelResponse = JSON.stringify({
+    meals: [
+      // "  chicken breast  " → должен смэтчиться с "Chicken Breast"
+      { meal: 'breakfast', items: [{ name: '  chicken breast  ', grams: 200 }] },
+      { meal: 'lunch',     items: [{ name: 'Rice', grams: 300 }] },
+      // "EGG" → должен смэтчиться с "Egg"
+      { meal: 'dinner',    items: [{ name: 'EGG', grams: 100 }] },
+    ],
+    note: 'ok',
+  });
+  generateText.mockResolvedValue(modelResponse);
+
+  const result = await buildMenu({
+    candidates: candidatesBreast,
+    calorieGoal: 1500,
+    proteinGoalG: 50,
+    meals: ['breakfast', 'lunch', 'dinner'],
+    tone: 'gentle',
+  });
+
+  // "  chicken breast  " → canonical "Chicken Breast"
+  const breakfast = result.meals.find((m) => m.meal === 'breakfast');
+  expect(breakfast?.items[0]?.name).toBe('Chicken Breast');
+
+  // "EGG" → canonical "Egg"
+  const dinner = result.meals.find((m) => m.meal === 'dinner');
+  expect(dinner?.items[0]?.name).toBe('Egg');
+
+  // КБЖУ посчитаны корректно — имена не выброшены, byName находит кандидатов
+  expect(result.totals.protein).toBeGreaterThan(0);
+  expect(result.totals.calories).toBeGreaterThan(0);
+});
+
+test('items with completely unrecognized names are discarded even after normalization', async () => {
+  // Галлюцинация: "Grilled Unicorn" — вообще нет среди кандидатов → выбрасываем.
+  // Остальные позиции (реальные кандидаты) — сохраняем.
+  const mixedResponse = JSON.stringify({
+    meals: [
+      {
+        meal: 'breakfast',
+        items: [
+          { name: 'Oats',           grams: 100 }, // валидный
+          { name: 'Grilled Unicorn', grams: 200 }, // галлюцинация
+        ],
+      },
+      { meal: 'lunch',  items: [{ name: 'Chicken', grams: 200 }] },
+      { meal: 'dinner', items: [{ name: 'Rice', grams: 300 }] },
+    ],
+    note: 'ok',
+  });
+  generateText.mockResolvedValue(mixedResponse);
+
+  const result = await buildMenu({
+    candidates,
+    calorieGoal: 2000,
+    proteinGoalG: 75,
+    meals: ['breakfast', 'lunch', 'dinner'],
+    tone: 'gentle',
+  });
+
+  const breakfast = result.meals.find((m) => m.meal === 'breakfast');
+  // Только "Oats" остался; "Grilled Unicorn" выброшен
+  expect(breakfast?.items).toHaveLength(1);
+  expect(breakfast?.items[0]?.name).toBe('Oats');
 });
