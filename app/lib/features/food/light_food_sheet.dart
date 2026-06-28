@@ -13,6 +13,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/animations/app_sheet.dart';
 import '../../core/database/database.dart';
@@ -274,7 +275,7 @@ class _LightFoodSheetState extends ConsumerState<_LightFoodSheet> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(PhosphorIcons.x()),
                   tooltip: context.s('btn.close'),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
@@ -314,7 +315,7 @@ class _LightFoodSheetState extends ConsumerState<_LightFoodSheet> {
                         trailing: IconButton(
                           tooltip: context.s('food.remove_tooltip'),
                           icon: Icon(
-                            Icons.close,
+                            PhosphorIcons.x(),
                             size: 18,
                             color: ext?.textFaint,
                           ),
@@ -350,7 +351,7 @@ class _LightFoodSheetState extends ConsumerState<_LightFoodSheet> {
                           maxLines: 1,
                         ),
                         avatar: Icon(
-                          Icons.add,
+                          PhosphorIcons.plus(),
                           size: 16,
                           color: Theme.of(context).colorScheme.primary,
                         ),
@@ -389,7 +390,7 @@ class _LightFoodSheetState extends ConsumerState<_LightFoodSheet> {
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Индикатор загрузки поиска
+                    // Индикатор загрузки поиска (маленький, внутри поля)
                     if (_loading)
                       const Padding(
                         padding: EdgeInsets.all(12),
@@ -401,12 +402,12 @@ class _LightFoodSheetState extends ConsumerState<_LightFoodSheet> {
                       )
                     else
                       IconButton(
-                        icon: const Icon(Icons.search),
+                        icon: Icon(PhosphorIcons.magnifyingGlass()),
                         onPressed: _search,
                       ),
                     // Добавить то, что введено в поле (без поиска)
                     IconButton(
-                      icon: const Icon(Icons.add),
+                      icon: Icon(PhosphorIcons.plus()),
                       tooltip: context.s('btn.add'),
                       onPressed: () => _addByName(_controller.text),
                     ),

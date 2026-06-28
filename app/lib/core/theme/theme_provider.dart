@@ -1,5 +1,6 @@
-// Riverpod провайдер темы — хранит выбранный ключ в SharedPreferences
-// Значение по умолчанию: focus (согласно design-tokens.json "default": true)
+// Riverpod провайдеры темы — Kaname redesign v4.
+// Тема хранит только ключ поверхности (AppThemeKey); акцент и highContrast — отдельно.
+// По умолчанию: тема=day, акцент=indigo, highContrast=false.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -10,58 +11,123 @@ import 'custom_theme_provider.dart';
 import '../mood/mood_provider.dart';
 
 const _kThemePrefsKey = 'app_theme_key';
+const _kAccentPrefsKey = 'app_accent_key';
+const _kHighContrastPrefsKey = 'app_high_contrast';
 
-/// Провайдер SharedPreferences — инициализируется в main перед ProviderScope
+/// Провайдер SharedPreferences — инициализируется в main перед ProviderScope.
 final sharedPreferencesProvider = Provider<SharedPreferences>(
   (ref) => throw UnimplementedError(
     'SharedPreferences must be overridden in ProviderScope',
   ),
 );
 
-/// Нотифер: хранит и переключает тему, персистируя ключ в SharedPreferences
+// ---------------------------------------------------------------------------
+// Тема
+// ---------------------------------------------------------------------------
+
+/// Нотифер ключа темы. При первом запуске = day.
+/// Автоматически мигрирует старые ключи (focus→night, white→day, contrast→day, custom→day).
 class ThemeNotifier extends Notifier<AppThemeKey> {
   @override
   AppThemeKey build() {
     final prefs = ref.read(sharedPreferencesProvider);
     final saved = prefs.getString(_kThemePrefsKey);
-    if (saved == null) {
-      // Тема ещё не выбрана → по умолчанию следуем системной яркости:
-      // светлая система → White, тёмная → Black. В онбординге/профиле
-      // пользователь может выбрать другую (Focus/Calm/Contrast/свою) — выбор
-      // сохраняется и дальше имеет приоритет над системой.
-      final brightness =
-          WidgetsBinding.instance.platformDispatcher.platformBrightness;
-      return brightness == Brightness.dark
-          ? AppThemeKey.black
-          : AppThemeKey.white;
-    }
-
-    return AppThemeKey.values.firstWhere(
-      (k) => k.prefsKey == saved,
-      orElse: () => AppThemeKey.focus,
-    );
+    if (saved == null) return AppThemeKey.day; // умолчание Kaname = day
+    return _migrateKey(saved);
   }
 
-  /// Переключить тему и сохранить в SharedPreferences
   Future<void> setTheme(AppThemeKey key) async {
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setString(_kThemePrefsKey, key.prefsKey);
     state = key;
   }
+
+  /// Переводит старые prefs-ключи v3 в новые v4.
+  static AppThemeKey _migrateKey(String raw) => switch (raw) {
+        'focus' => AppThemeKey.night,    // Focus (тёплый тёмный) → Night
+        'white' => AppThemeKey.day,      // White (светлая)       → Day
+        'contrast' => AppThemeKey.day,   // Contrast (доступность) → Day + highContrast
+        'custom' => AppThemeKey.day,     // My Theme               → Day (Phase 4)
+        _ => AppThemeKey.values.firstWhere(
+            (k) => k.prefsKey == raw,
+            orElse: () => AppThemeKey.day,
+          ),
+      };
 }
 
-/// Провайдер ключа темы
+/// Провайдер ключа темы.
 final themeNotifierProvider =
     NotifierProvider<ThemeNotifier, AppThemeKey>(ThemeNotifier.new);
 
-/// Удобный провайдер ThemeData — используется в MaterialApp.router.
-/// Поддерживает custom-тему и реактивное настроение (mood harshness).
+// ---------------------------------------------------------------------------
+// Акцент
+// ---------------------------------------------------------------------------
+
+/// Нотифер выбранного акцента. По умолчанию indigo.
+class AccentNotifier extends Notifier<AccentKey> {
+  @override
+  AccentKey build() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    final saved = prefs.getString(_kAccentPrefsKey);
+    if (saved == null) return AccentKey.indigo;
+    return AccentKey.values.firstWhere(
+      (k) => k.name == saved,
+      orElse: () => AccentKey.indigo,
+    );
+  }
+
+  Future<void> setAccent(AccentKey key) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setString(_kAccentPrefsKey, key.name);
+    state = key;
+  }
+}
+
+/// Провайдер акцента (Phase 4 подключит picker в Profile→Appearance).
+final accentNotifierProvider =
+    NotifierProvider<AccentNotifier, AccentKey>(AccentNotifier.new);
+
+// ---------------------------------------------------------------------------
+// High-contrast (настройка доступности, не тема)
+// ---------------------------------------------------------------------------
+
+/// Нотифер настройки высокого контраста. По умолчанию false.
+class HighContrastNotifier extends Notifier<bool> {
+  @override
+  bool build() {
+    final prefs = ref.read(sharedPreferencesProvider);
+    return prefs.getBool(_kHighContrastPrefsKey) ?? false;
+  }
+
+  Future<void> setHighContrast(bool value) async {
+    final prefs = ref.read(sharedPreferencesProvider);
+    await prefs.setBool(_kHighContrastPrefsKey, value);
+    state = value;
+  }
+}
+
+/// Провайдер настройки высокого контраста.
+final highContrastProvider =
+    NotifierProvider<HighContrastNotifier, bool>(HighContrastNotifier.new);
+
+// ---------------------------------------------------------------------------
+// themeDataProvider — итоговый ThemeData
+// ---------------------------------------------------------------------------
+
+/// Итоговый ThemeData: наблюдает тему + акцент + highContrast + harshness (тон).
 /// При дефолтных настройках harshness=0.0 → цвета без изменений.
 final themeDataProvider = Provider<ThemeData>((ref) {
   final key = ref.watch(themeNotifierProvider);
-  final customConfig = ref.watch(customThemeNotifierProvider);
-  // Наблюдаем за harshness из effectiveMoodProvider.
-  // При дефолте (intensity=off, tone=gentle) harshness=0 → тема не меняется.
+  final accent = ref.watch(accentNotifierProvider);
+  final highContrast = ref.watch(highContrastProvider);
   final mood = ref.watch(effectiveMoodProvider);
-  return AppTheme.forKeyWithCustom(key, customConfig, harshness: mood.harshness);
+  // customThemeNotifierProvider оставлен (нужен CustomThemeEditorScreen),
+  // но в v4 custom-тема является shim → AppTheme.build игнорирует конфиг.
+  ref.watch(customThemeNotifierProvider); // подписка сохранена
+  return AppTheme.build(
+    theme: key,
+    accent: accent,
+    highContrast: highContrast,
+    harshness: mood.harshness,
+  );
 });

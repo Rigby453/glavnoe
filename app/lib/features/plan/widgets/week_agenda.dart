@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
@@ -84,7 +85,7 @@ class WeekAgenda extends ConsumerWidget {
         Align(
           alignment: Alignment.centerRight,
           child: TextButton.icon(
-            icon: const Icon(Icons.copy_all_outlined, size: 18),
+            icon: Icon(PhosphorIcons.copy(PhosphorIconsStyle.regular), size: 18),
             label: Text(context.s('plan.clone_week_button')),
             onPressed: () => _cloneWeek(context, ref, weekStart),
           ),
@@ -314,9 +315,9 @@ Widget? _moduleLinkIcon(
   if (moduleLink == null) return null;
   final color = ext?.textMuted ?? colorScheme.onSurface.withAlpha(160);
   final icon = switch (moduleLink) {
-    'workout' => Icons.fitness_center,
-    'sleep'   => Icons.bedtime_outlined,
-    String s when s.startsWith('meal:') => Icons.restaurant_outlined,
+    'workout' => PhosphorIcons.barbell(PhosphorIconsStyle.regular),
+    'sleep'   => PhosphorIcons.moon(PhosphorIconsStyle.regular),
+    String s when s.startsWith('meal:') => PhosphorIcons.forkKnife(PhosphorIconsStyle.regular),
     _ => null,
   };
   if (icon == null) return null;

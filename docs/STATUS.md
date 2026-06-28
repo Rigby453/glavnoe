@@ -4,6 +4,133 @@
 > *Что обещали* (продукт) — в `docs/SPEC.md`. Архитектурные решения — в `docs/decisions.md`.
 > Статусы задач в журнале ниже: `[ ]` todo · `[~]` в работе · `[x]` сделано · `[!]` заблокировано.
 
+## 🎨 Kaname Redesign — Phase 3 Today screen + add-task sheet (2026-06-28)
+
+- **[x] Today restyle (Phase 3 §6 — today portion):** `today_screen.dart`, `widgets/add_task_sheet.dart`, `widgets/morning_review_card.dart`, `core/l10n/strings/today.dart`
+  - `today_screen.dart` full rewrite: quiet header (date labelMedium+textMuted + greeting headlineSmall; gearSix→`/profile/appearance`, user-avatar circle→`/profile`). Thin Kai review row (`_KaiReviewRow` / `_KaiReviewCard`) shown only when `overduePendingProvider` has items OR evening (17+) + pending main; tapping expands inline Accept/Adjust/Leave card. `_MainCounter`: "Главное · X/Y" + up to 3 status dots. `_TodayTimeline`: unified time-ordered list of all today items interleaved by scheduledAt; mainPending/done/task/event nodes (Widget-based spine, no CustomPaint, for Dismissible compat); now-line; done items struck in place; hide/show completed toggle. All swipe logic (_doDone/_doSkip/_doSnooze/_doDelete with undo toasts) ported from task_list.dart. `CelebrationOverlay` preserved at 100%.
+  - REMOVED from Today: ProgressRing hero, streak_row, 7-dot strip, big KaiMascot, two separate review cards, "Main today" section block, HabitsTodaySection rendering (files kept).
+  - `add_task_sheet.dart` restyle (§4.4): Phosphor X close icon; Phosphor shield.fill in "main" hint; time OutlinedButton → `_TimeStepper` (±15min stepper, tap opens clock dialog); `_MainToggle` shield row (after priority chips, with max-3-main enforcement via `canSelect`); CategoryDot row (after MainToggle, shown when `categoriesEnabledProvider`+tags). New widget classes appended: `_TimeStepper`, `_StepButton`, `_MainToggle`. All existing parsing/saving/NL/subtask logic preserved.
+  - `morning_review_card.dart`: renamed `_showMorningReviewSheet` → public `showMorningReviewSheet` (called from today_screen.dart via explicit `show` import).
+  - l10n: 13 new keys added to `strings/today.dart` with all 11 languages: `today.morning_review_accept/adjust/leave`, `today.evening_review`, `today.now`, `today.main_counter_label`, `today.kai_review_text/moved`, `today.hide/show_completed`, `today.header_settings/profile_tooltip`, `today.main_toggle_label`, `today.category_dot_label`.
+  - Anti-regression: all Riverpod providers preserved (`todayItemsProvider`, `todayMainItemsProvider`, `overduePendingProvider`); public widget APIs unchanged; no Material `Icons.` references in modified files; all text via `context.s()`; Expanded/ellipsis on all flexible text; `IntrinsicHeight` timeline rows survive 320px + textScale 1.5.
+
+## 🎨 Kaname Redesign — Phase 3 Plan screens (2026-06-28)
+
+- **[x] Plan restyle (Phase 3 §6):** `plan_screen.dart`, `day_timeline.dart`, `pinned_exam_card.dart`, `expandable_week_calendar.dart`, `month_view.dart`, `week_strip.dart`, `week_agenda.dart`, `year_view.dart`, `task_detail_card.dart`, `time_grid.dart`
+  - `day_timeline.dart` full rewrite: replaces `_ItemCard`/`ListView.separated` with shared `TimelineList` + `TimelineEntry` (§4.1 spec). Mapping: `priority=='main'→mainPending`, `status=='done'→done`, `type=='event/exam/deadline'→event`, else `task`. CategoryDot via `item.tags` first tag. Module-link icons: `barbell/moon/timer/wind/flowerLotus/forkKnife` (Phosphor). Countdown Text(ember w600) as `trailing` widget for exam/deadline. Empty state: `calendarCheck(regular)` + `uploadSimple(regular)`. `dayItemsProvider` preserved unchanged.
+  - `plan_screen.dart`: All Material icons → Phosphor: FAB `plus`, toolbar `caretDown` (date/view dropdowns), search `magnifyingGlass(regular/fill)` + `x` (clear), layout toggle `listBullets`/`squaresFour`.
+  - `pinned_exam_card.dart`: `graduationCap`/`alarm`/`caretUp`/`caretDown` (Phosphor). Removed `.toUpperCase()` from type label (was violating NO ALL CAPS). `FontWeight.w700→w600` on ember label.
+  - `expandable_week_calendar.dart`: `caretLeft`/`caretRight` navigation. Anti-regression `maxCalendarHeight` clamp kept. Keyboard rule (calendar hides when search visible) preserved.
+  - `month_view.dart`: `caretLeft`/`caretRight`. Color stripes replaced with 6dp `_CategoryOrTypeDot` circle indicators (category color if tag present, else type/priority color). `taskStripeColor` kept as fallback. New `_CategoryOrTypeDot` widget added.
+  - `week_strip.dart`: `FontWeight.w700→w500` for selected/today day numbers.
+  - `week_agenda.dart`: `copy`/`barbell`/`moon`/`forkKnife` (Phosphor). Module link icons and clone-week button updated.
+  - `year_view.dart`: `caretLeft`/`caretRight` navigation.
+  - `task_detail_card.dart`: All Material icons → Phosphor (`x`/`clock`/`info`/`repeat`/`mapPin`/`check`/`minusCircle`/`pencilSimple`/`calendarX`/`broom`/`trash`/`listChecks`/`paperclip`). Removed 4dp left fill-bar; replaced with 10dp `CategoryDot` (from `item.tags`). Drag handle added (32×4dp, `textFaint@30%`). Sheet radius 16→20 (design-tokens). Title `FontWeight.w700→w500`. Removed `task_colors.dart` import (no longer needed). Added `phosphor_flutter` + `category_dot.dart` imports.
+  - `time_grid.dart`: `FontWeight.w700→w500` for today day header; `w700→w600` for block content titles (colored block context); `w700→w600` for time-chip label. No Material `Icons.` refs were present.
+  - Anti-regression kept: `_segmentsFit` clamp in plan_screen, `maxCalendarHeight` in expandable_week_calendar, tablet 2-column layout, search-collapses-calendar keyboard rule.
+
+## 🎨 Kaname Redesign — Phase 5 Food screens (2026-06-28)
+
+- **[x] Food restyle (Phase 5 §C):** `food_screen.dart`, `light_food_sheet.dart`, `ai_menu_sheet.dart`, `ai_menu.dart`, `food_icons.dart`
+  - `food_screen.dart` full restyle: `_TotalsCard` (surface1 + 0.5dp hairline + R14, no shadow; calories in `colorScheme.primary`/headlineMedium; macro triplet via `food.macro_value_of`; Sugar=ember+PhosphorIcons.warning, Fiber=muted+PhosphorIcons.leaf); `_BalanceCard` (hairline card, no left fill-bar; balanced→`checkCircle(fill)+success`, hints→`lightbulb`+muted); `_FoodRow` (surface1 + R14 + hairline, dense Row + `FoodIconTile`; Phosphor `x` trailing; subtitle via `food.row_grams_kcal`).
+  - Empty state: `KaiMascot(neutral, 64)` + `FilledButton.icon` (primary `food.empty_add_food`). ONE FilledButton per screen (§4.3).
+  - FAB unified add sheet: search + voice (Phosphor `microphone`/fill) + barcode (Phosphor `qrCode`) + AI-photo premium (Phosphor `camera`, KaiLoader while loading) + from recipe (Phosphor `notebook`, routes to `/recipes`) + recent (tap=repeat log).
+  - AppBar icons: `PhosphorIcons.notebook()` recipes, `PhosphorIcons.shoppingCart()` shopping.
+  - AI menu/repeat week: secondary `TextButton.icon` rows (Phosphor `sparkle`/`clockCounterClockwise`); `_repeatLastWeek` copies food_logs from 7 days ago with Undo snackbar.
+  - `ai_menu_sheet.dart`: Phosphor `sparkle`/`x`/`arrowsClockwise`/`check(fill)`/`info`; l10n totals row (`food.menu_totals_line`); l10n item line (`food.menu_item_line`); `KaiLoader` while building menu.
+  - `light_food_sheet.dart`: Phosphor `x`/`magnifyingGlass`/`plus`; inline CircularProgressIndicator kept (search spinner, not AI).
+  - `food_icons.dart`: Phosphor `forkKnife()` as fallback icon.
+  - l10n: 7 new keys added to `food.dart` (`food.totals_kcal_goal`, `food.macro_value_of`, `food.row_grams_kcal`, `food.menu_totals_line`, `food.menu_item_line`, `food.empty_add_food`, `food.from_recipe_btn`); all en+ru (11 langs).
+  - All Material icons removed from all 5 files. All strings via `context.s()`. Business logic, providers, DB/sync calls, public APIs preserved.
+
+## 🎨 Kaname Redesign — Phase 5 Workouts screens (2026-06-28)
+
+- **[x] Workouts restyle (Phase 5 §D):** `workouts_screen.dart`, `workout_editor_screen.dart`, `workout_trainer_screen.dart`, `exercise_history_screen.dart`, `exercise_detail_sheet.dart`, `ai_workout_sheet.dart`
+  - Segment bar: custom `_SegmentBar` (surface + hairline + R12, accentTint underlay + accent text when selected) replaces `SegmentedButton`.
+  - Program cards: `Material(surface1 + 0.5dp hairline + R14)` per §4.2; Phosphor `barbell(fill)` leading, `trash` (ember) delete, `caretRight` trailing.
+  - FAB: `FloatingActionButton` with Phosphor `plus`; empty state uses `KaiMascot(neutral, 64)` + `FilledButton` (new workout).
+  - Diary tab: past sessions in hairline-divided card (checkCircle(fill)+success icon, caretRight); exercise progress grouped by muscle in hairline-divided cards with chartLineUp icon.
+  - Editor: `Material(surface1 + hairline + R14)` exercise cards; Phosphor `barbell`/`pencilSimple`/`chartLineUp`/`trash`/`plus`/`play(fill)`; KaiMascot(neutral,64) empty state.
+  - Trainer: work phase — big `displaySmall` exercise name, `barbell(fill)` decorative, accent `FilledButton` "Done" (h52, R12); rest phase — big mono timer `displayLarge` + `FontFeature.tabularFigures`, ember color at ≤10s, Phosphor `minus`/`plus` adjusters, fact steppers with Phosphor `minus`/`plus`; done screen — `KaiMascot(success, 80)` replacing check_circle icon.
+  - Exercise detail sheet: Container (surface + R20 top + soft shadow), handle, Phosphor `x` close, `barbell(fill)` muscle chip, `wrench` equipment, `chartBar` difficulty, `playCircle` video, `warning` mistakes; chips are surface + 0.5dp hairline (no filled color).
+  - AI workout sheet: Container (surface + R20 + soft shadow), handle, Phosphor `barbell(fill)`/`x`/`lightning(fill)`/`sparkle`/`warningCircle`; choice chips — accentTint + accent border when selected (§4.3); `_Stepper` uses bordered icon buttons; `KaiLoader` for AI loading.
+  - All Material icons removed. Weight units via `context.s('workout.weight_short')` (no hardcoded "kg"). All strings via `context.s()`. Business logic, providers, public APIs preserved.
+
+## 🎨 Kaname Redesign — Phase 5 Breathing screens (2026-06-28)
+
+- **[x] Breathing restyle (Phase 5 §E):** `breathing_screen.dart` + `breathing_editor_screen.dart`
+  - Idle: `_TechChip` (pill, accentTint+accent border selected / surface+hairline unselected) replaces `ChoiceChip`/`InputChip`/`SegmentedButton`; custom techniques show Phosphor `x` delete; duration chips use `plMinutes()` (no hardcoded EN).
+  - Running: `_BreathCircle` outer ring → `ext.border` hairline (static guide); glow layer (color @ 8%); inner circle retains color fill + border; Pause/Stop use Phosphor `pause`/`play`/`stop`.
+  - Done: Phosphor `checkCircle(fill)` + `ext.success`; `plMinutes()` for duration in message.
+  - Editor: phase cards → `Container(surface + 0.5dp hairline + R14)` replacing `Card`; Phosphor `trash`/`minus`/`plus`/`timer`/`check`; AppBar title has `wind` icon prefix.
+  - All Material icons removed. All strings via `context.s()`. Business/engine logic preserved.
+
+## 🎨 Kaname Redesign — Phase 5 Meditation + Session screens (2026-06-28)
+
+- **[x] Meditation restyle (Phase 5 §E):** `meditation_screen.dart`, `meditation_editor_screen.dart`, `session_detail_screen.dart`
+  - Session list cards: `Card(elevation:0, surface1 + 0.5dp hairline ext.border + R14)` replacing old Card with shadow.
+  - All Material icons → Phosphor: `flowerLotus` (session avatar + completion dialog), `personSimpleTaiChi`, `bed`, `sun`, `moon` (pose icons per session type), `caretRight` (list chevron), `plus`/`trash` (add/delete), `play(fill)`/`pause(fill)` (player controls), `speakerHigh`/`slidersHorizontal` (audio panel toggle), `waveform` (narration), `wind` (ambient), `timer`/`check`/`minusCircle`/`plusCircle` (editor), `barbell` (session_detail empty state + exercise block).
+  - `_sessions` list made non-const (Phosphor `IconData` values from function calls are not const expressions).
+  - `_formatTime` / `_StaticArcTimer` label: MM:SS format `'$m:${s.padLeft(2,'0')}'` — removed hardcoded `'${sec}s'` (English "s" suffix).
+  - `_StaticArcTimer` takes explicit `trackColor` parameter (was using `ext.border` from context internally).
+  - Pose preview screen: large 96dp `accentMuted` circle + Phosphor pose icon in `colorScheme.primary`, `FilledButton.icon` with play-fill icon.
+  - Player progress bar: `LinearProgressIndicator` styled with `ext.border` background + accent value, thin 3dp.
+  - Player step text: `textSecondary` color + 1.55 line height.
+  - Audio controls card: `Card(elevation:0, surface1 + hairline + R12)`.
+  - Completion dialog: `flowerLotus(fill)` in `ext.success` (not accent per discipline), `Wrap` mood picker preserved.
+  - Editor step cards: `Card(elevation:0, surface1 + hairline + R12)`, stepper with `plSeconds()` plurals, `ConstrainedBox(minWidth:80)` for stable layout.
+  - `session_detail_screen.dart`: `ListView.separated` with 0.5dp hairline dividers (was manual spacing), `barbell` icon in exercise block header.
+  - All strings via `context.s()`, plurals via helpers. Business logic, providers, public APIs untouched.
+
+## 🎨 Kaname Redesign — Phase 5 Health screens (2026-06-28)
+
+- **[x] Health restyle (Phase 5):** `health_screen.dart` + `warmup_screen.dart` + `posture_screen.dart`
+  - Header: `displaySmall` (was `headlineMedium`).
+  - All Material icons → Phosphor: `drop`, `arrowSquareOut`, `arrowCounterClockwise`, `bell`,
+    `pencilSimple`, `caretRight`, `moon`/`moon(fill)`, `sun`, `forkKnife`, `flowerLotus`, `wind`,
+    `barbell`, `slidersHorizontal`, `personSimpleWalk`, `checkCircle(fill)`, `play`, `pause`.
+  - Cards: local `_KaCard` (surface1 + 0.5dp `ext.border` + R14, no shadow). Enabled module
+    tiles use `Material(shape: RoundedRectangleBorder)` + `InkWell` for ripple.
+  - Week charts: day letters via `DateFormat('EEEEE', locale)` (localized, was hardcoded EN).
+  - Tablet 2-col preserved (Nutrition+Sleep / Mind+Movement).
+  - posture_screen: Container + `clipBehavior: Clip.antiAlias` wraps `ExpansionTile`.
+  - warmup player: Phosphor play/pause/checkCircle(fill+success) for UI chrome; data-model
+    icons (routine.icon/step.icon from warmup_routines.dart) kept as Material (file out of scope).
+  - All strings via `context.s()`, plurals via helpers. Business logic untouched.
+
+## 🎨 Kaname Redesign — Phase 5 Diary screens (2026-06-28)
+
+- **[x] Diary restyle (Phase 5 partial):** `diary_screen.dart` + `diary_history_screen.dart`
+  - Phosphor icons: history→`clockCounterClockwise`, AI-insight→`sparkle`, this-week→`calendarCheck`,
+    plan-vs-fact→`listChecks`, weekly-insight→`chartLineUp`, life-insights→`chartLine`, screen-time→`deviceMobile`, back→`arrowLeft`.
+  - Extracted `_InsightCard` component (surface1 + hairline 0.5dp ext.border + R14) used by all 4 insight cards.
+  - VerticalDivider tablet layout: fixed from `colorScheme.outline` → `ext.border`.
+  - AI insight button uses `KaiLoader(size:16)` while loading (spec: KaiLoader on AI).
+  - All strings via `context.s()` — no hardcoded EN. All overflow guards preserved (Expanded + ellipsis).
+  - Business logic, providers, public APIs untouched.
+
+## 🎨 Kaname Redesign — Phase 1 Foundation (2026-06-28, ветка `night/2026-06-25-meditation-onboarding-audio`)
+
+- **[x] Phase 1 — Foundation (дизайн-система Kaname v4):**
+  - `app/lib/core/branding.dart` (NEW): `kAppWordmark='Kaname'`, `kAppTagline`
+  - `pubspec.yaml`: добавлен `phosphor_flutter: ^2.1.0`
+  - `app_theme.dart` переписан: 4 темы (day/night/black/calm), AccentKey (6 акцентов),
+    `_Surfaces`+`_Accent` struct, `AppTheme.build(...)` primary builder; deprecated compat-обёртки
+    (focusTheme→night, whiteTheme→day, blackTheme→black, calmTheme→calm, contrastTheme→day+highContrast).
+    Шрифт: HankenGrotesk (TODO: Geist, когда google_fonts ^6 его экспортирует); highContrast → Atkinson.
+    Type scale из токенов v4, tabular figures для числовых стилей.
+    `FocusThemeExtension`: все старые поля сохранены, добавлены `accentTint`, `accentInk`, `danger`, `textSecondary`.
+  - `theme_provider.dart`: default=day, prefs-миграция (focus→night/white→day/contrast→day/custom→day),
+    `accentNotifierProvider` (AccentKey, persist), `highContrastProvider` (bool, persist),
+    `themeDataProvider` → `AppTheme.build(theme+accent+highContrast+harshness)`.
+  - `main.dart`: `highContrastProvider` вместо `AppThemeKey.contrast` для scaler.
+  - `profile_screen.dart`: 4 чипа (Day/Night/Black/Calm), убран custom-чип (Phase 4).
+  - `setup_flow.dart`: 4 темы, новые свотчи, новые l10n-ключи.
+  - `widget_service.dart`: миграция старых ключей при чтении.
+  - `custom_theme_editor_screen.dart`: shim (Phase 4 заменит на accent-пикер).
+  - L10n: `profile.theme_day/night`, `onboarding_quiz.theme_day/night/black/calm` (11 языков).
+  - `flutter analyze` = 0, `screens_smoke_test` 8/8, `overflow_audit_test` 24/24.
+
 ## 🌙 Итог ночной сессии 2026-06-27 (оркестратор, ветка `night`)
 
 Параллельный прогон агентов по фидбэку с теста 2026-06-27. Все правки — на ветке `night`,

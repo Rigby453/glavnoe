@@ -1,12 +1,14 @@
-// FL-DIARY-01: Форма дневника за сегодня.
+// FL-DIARY-01: Форма дневника за сегодня — Kaname restyle.
 // - Настроение 1-5 (эмодзи), свободная заметка, мульти-выбор "What went wrong?".
 // - Сохранение — upsert в Drift через DayLogsDao (один ряд на день).
 // - Теги "What went wrong" кодируются в note (отдельной колонки в схеме нет).
 // Локальное эфемерное состояние формы → StatefulWidget; данные идут через Riverpod.
+// Иконки: Phosphor (phosphor_flutter ≥2.1); карточки — surface1 + hairline + R14.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/animations/constants.dart';
 import '../../core/database/database_providers.dart';
@@ -106,8 +108,6 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
     // Дополнительно пишем настроение в mood_logs — единый агрегат аналитики.
     // Дубли предотвращаем через «первая запись за день» (first-save-wins):
     // если mood_logs уже содержит diary-запись за сегодня, пропускаем.
-    // Это не мешает UI: дневник отображает mood из day_logs, mood_logs — только
-    // для инсайтов и Wrapped (где нужно объединить diary + meditation).
     if (_mood != null) {
       final moodDao = ref.read(moodLogsDaoProvider);
       final todayStart = DateTime(now.year, now.month, now.day);
@@ -191,7 +191,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
   /// Mobile single-column layout (< 600px): форма + карточки подряд.
   Widget _buildMobileLayout(BuildContext context) {
     return SingleChildScrollView(
-      // 24dp горизонтальные поля (02-type-space.md §4.1)
+      // 24dp горизонтальные поля (design-tokens §spacing)
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -208,6 +208,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
   /// Left column (flex 1): diary form.
   /// Right column (flex 1): plan-vs-fact + weekly insight + life insights.
   Widget _buildTabletLayout(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -222,11 +223,11 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
             ),
           ),
         ),
-        // Тонкий разделитель (используем border из темы, не тяжёлый divider)
+        // Тонкий разделитель — ext.border (hairline 0.5dp, Kaname spec)
         VerticalDivider(
           width: 1,
           thickness: 0.5,
-          color: Theme.of(context).colorScheme.outline,
+          color: ext.border,
         ),
         // --- Правая колонка: карточки инсайтов ---
         Expanded(
@@ -251,23 +252,23 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
     final reduce = reduceMotionOf(context);
 
     return [
-      // Заголовок экрана: headlineMedium — крупный serif (02-type-space.md §1)
+      // Заголовок экрана: headlineMedium (calm, sentence case)
       Text(context.s('diary.title'), style: textTheme.headlineMedium),
       const SizedBox(height: 8),
 
-      // История — TextButton (лёгкое навигационное действие, 03-components.md §6)
+      // История — TextButton с иконкой clockCounterClockwise (Phosphor)
       Align(
         alignment: Alignment.centerRight,
         child: TextButton.icon(
-          icon: const Icon(Icons.history, size: 16),
+          icon: Icon(PhosphorIcons.clockCounterClockwise(), size: 16),
           label: Text(context.s('diary.history')),
           onPressed: () => context.push('/diary-history'),
         ),
       ),
       const SizedBox(height: 16),
 
-      // Настроение 1..5
-      // titleSmall для меток секций (более сдержанно чем headlineSmall)
+      // --- Настроение 1..5 ---
+      // titleSmall для меток секций (сдержанно, textMuted)
       Text(
         context.s('diary.mood'),
         style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
@@ -281,14 +282,14 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
           return GestureDetector(
             onTap: () => setState(() => _mood = value),
             child: AnimatedContainer(
-              // snap=120ms (constants.dart kDurationSnap)
+              // snap=120ms (kDurationSnap)
               duration: reduce ? Duration.zero : kDurationSnap,
               curve: kCurveSnap,
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                // Выбранное настроение: accentMuted фон + accent бордер (accent discipline §1)
-                // Невыбранное: прозрачный фон + border бордер (нейтральный)
+                // Выбранное: accentMuted фон + accent бордер (accent discipline)
+                // Невыбранное: прозрачный фон + border (нейтральный)
                 color: selected ? ext.accentMuted : Colors.transparent,
                 border: Border.all(
                   color: selected ? colorScheme.primary : ext.border,
@@ -305,7 +306,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
       ),
       const SizedBox(height: 24),
 
-      // Свободная заметка
+      // --- Свободная заметка ---
       Text(
         context.s('diary.note_prompt'),
         style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
@@ -322,8 +323,8 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
       ),
       const SizedBox(height: 24),
 
-      // What went wrong — мульти-выбор FilterChip
-      // Тема чипов уже обеспечивает: selected=accent, unselected=surface+border
+      // --- What went wrong — мульти-выбор FilterChip ---
+      // Тема чипов: selected = accentTint + accent border; unselected = surface + border
       Text(
         context.s('diary.what_went_wrong'),
         style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
@@ -349,7 +350,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
       ),
       const SizedBox(height: 32),
 
-      // Сохранить день — FilledButton (единственное primary action, 03-components.md §2)
+      // --- Сохранить день — FilledButton (единственное primary action) ---
       SizedBox(
         width: double.infinity,
         child: FilledButton(
@@ -359,29 +360,29 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
       ),
       const SizedBox(height: 12),
 
-      // AI-инсайт — OutlinedButton (secondary, 03-components.md §5)
+      // --- AI-инсайт — OutlinedButton (secondary, premium-gated) ---
+      // KaiLoader вместо иконки во время загрузки (spec: KaiLoader on AI)
       SizedBox(
         width: double.infinity,
         child: OutlinedButton.icon(
-          // KaiLoader вместо спиннера/пульса (06-loading spec)
           icon: _insightLoading
-              ? const SizedBox(
+              ? SizedBox(
                   width: 16,
                   height: 16,
                   child: KaiLoader(size: 16),
                 )
-              : const Icon(Icons.auto_awesome, size: 18),
+              : Icon(PhosphorIcons.sparkle(), size: 18),
           label: Text(context.s('diary.get_insight_button')),
           onPressed: _insightLoading ? null : _getInsight,
         ),
       ),
       const SizedBox(height: 8),
 
-      // This Week / Wrapped — TextButton (лёгкое навигационное действие)
+      // --- This Week / Wrapped — OutlinedButton (лёгкое навигационное действие) ---
       SizedBox(
         width: double.infinity,
         child: OutlinedButton.icon(
-          icon: const Icon(Icons.calendar_view_week, size: 18),
+          icon: Icon(PhosphorIcons.calendarCheck(), size: 18),
           label: Text(context.s('diary.this_week_button')),
           onPressed: () => context.push('/wrapped'),
         ),
@@ -389,7 +390,7 @@ class _DiaryScreenState extends ConsumerState<DiaryScreen> {
     ];
   }
 
-  /// Карточки инсайтов (план vs факт, экранное время, недельный инсайт, жизненные инсайты).
+  /// Карточки инсайтов (план vs факт, экранное время, недельный инсайт, жизненные).
   List<Widget> _buildInsightWidgets() {
     return const [
       _PlanVsFactCard(),
@@ -429,58 +430,33 @@ class _ScreenTimeSignalCard extends ConsumerWidget {
         ? ' · ${context.s('screentime.cat_${top.key}')} ${screenTimeFmt(context, top.value)}'
         : '';
 
-    return Card(
-      child: Padding(
-        // 16dp внутренний отступ карточки (02-type-space.md §4.1)
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Иконка: textMuted (информационная, не CTA)
-                Icon(Icons.phone_android_outlined,
-                    color: ext.textMuted, size: 18),
-                const SizedBox(width: 8),
-                // Expanded предотвращает overflow при крупном тексте (scale 1.5+)
-                Expanded(
-                  child: Text(
-                    context.s('screentime.signal_card_title'),
-                    style: textTheme.titleSmall,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
+    return _InsightCard(
+      icon: PhosphorIcons.deviceMobile(),
+      title: context.s('screentime.signal_card_title'),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              '$totalStr$topPart',
+              style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+              overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '$totalStr$topPart',
-                    style: textTheme.bodyMedium
-                        ?.copyWith(color: ext.textMuted),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                // Ссылка «Подробнее» → /screen-time
-                TextButton(
-                  style: TextButton.styleFrom(
-                    minimumSize: Size.zero,
-                    padding: const EdgeInsets.symmetric(horizontal: 4),
-                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                  ),
-                  onPressed: () => context.push('/screen-time'),
-                  child: Text(
-                    context.s('screentime.signal_details'),
-                    style: textTheme.bodySmall,
-                  ),
-                ),
-              ],
+          ),
+          const SizedBox(width: 8),
+          // Ссылка «Подробнее» → /screen-time
+          TextButton(
+            style: TextButton.styleFrom(
+              minimumSize: Size.zero,
+              padding: const EdgeInsets.symmetric(horizontal: 4),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
             ),
-          ],
-        ),
+            onPressed: () => context.push('/screen-time'),
+            child: Text(
+              context.s('screentime.signal_details'),
+              style: textTheme.bodySmall,
+            ),
+          ),
+        ],
       ),
     );
   }
@@ -495,42 +471,16 @@ class _PlanVsFactCard extends ConsumerWidget {
     final pvf = ref.watch(todayPlanVsFactProvider).valueOrNull;
     if (pvf == null || pvf.isEmpty) return const SizedBox.shrink();
 
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-
-    return Card(
-      child: Padding(
-        // 16dp внутренний отступ карточки (02-type-space.md §4.1)
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Иконка: textMuted (не accent — не primary action, 03-components §1)
-                Icon(Icons.fact_check_outlined, color: ext.textMuted, size: 18),
-                const SizedBox(width: 8),
-                // Expanded предотвращает overflow при крупном тексте (scale 1.5+)
-                Expanded(
-                  child: Text(
-                    context.s('diary.pvf_title'),
-                    style: textTheme.titleSmall,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
-              children: [
-                _Stat(label: context.s('diary.pvf_planned'), value: pvf.planned),
-                _Stat(label: context.s('diary.pvf_done'), value: pvf.done),
-                _Stat(label: context.s('diary.pvf_skipped'), value: pvf.skipped),
-              ],
-            ),
-          ],
-        ),
+    return _InsightCard(
+      icon: PhosphorIcons.listChecks(),
+      title: context.s('diary.pvf_title'),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.spaceAround,
+        children: [
+          _Stat(label: context.s('diary.pvf_planned'), value: pvf.planned),
+          _Stat(label: context.s('diary.pvf_done'), value: pvf.done),
+          _Stat(label: context.s('diary.pvf_skipped'), value: pvf.skipped),
+        ],
       ),
     );
   }
@@ -548,11 +498,14 @@ class _Stat extends StatelessWidget {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     return Column(
       children: [
-        // Цифра: headlineSmall (serif, крупная)
+        // Цифра: headlineSmall (табличные цифры, крупная)
         Text('$value', style: textTheme.headlineSmall),
         const SizedBox(height: 2),
         // Метка: bodySmall (textMuted — вторичная метаинформация)
-        Text(label, style: textTheme.bodySmall?.copyWith(color: ext.textMuted)),
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+        ),
       ],
     );
   }
@@ -574,38 +527,23 @@ class _QuickInsightCard extends ConsumerWidget {
     if (lines.isEmpty) return const SizedBox.shrink();
 
     final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Иконка insights: textMuted (информационная, не CTA)
-                Icon(Icons.insights, color: ext.textMuted, size: 18),
-                const SizedBox(width: 8),
-                // Expanded предотвращает overflow при крупном тексте (scale 1.5+)
-                Expanded(
-                  child: Text(
-                    context.s('diary.this_week_card_title'),
-                    style: textTheme.titleSmall,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            ...lines.map(
+    return _InsightCard(
+      icon: PhosphorIcons.chartLineUp(),
+      title: context.s('diary.this_week_card_title'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: lines
+            .map(
               (line) => Padding(
                 padding: const EdgeInsets.only(bottom: 4),
-                child: Text('• $line', style: textTheme.bodyMedium),
+                child: Text(
+                  '• $line',
+                  style: textTheme.bodyMedium,
+                ),
               ),
-            ),
-          ],
-        ),
+            )
+            .toList(),
       ),
     );
   }
@@ -618,7 +556,6 @@ class _LifeInsightsCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     // Берём данные за последние 7 дней
     final nights = ref.watch(recentNightsProvider).valueOrNull ?? [];
@@ -654,7 +591,7 @@ class _LifeInsightsCard extends ConsumerWidget {
 
     // Анализ воды
     if (waterTotals.isNotEmpty) {
-      // Среднее за день, а не суммарный объём (запрос пользователя).
+      // Среднее за день, а не суммарный объём
       final avgWater =
           (waterTotals.fold<int>(0, (a, b) => a + b) / waterTotals.length)
               .round();
@@ -682,36 +619,72 @@ class _LifeInsightsCard extends ConsumerWidget {
       insights.add(context.s('diary.insight_no_data'));
     }
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                // Иконка: textMuted (информационная карточка, не CTA)
-                Icon(Icons.insights, color: ext.textMuted, size: 20),
-                const SizedBox(width: 8),
-                // Expanded предотвращает overflow при крупном тексте (scale 1.5+)
-                Expanded(
-                  child: Text(
-                    context.s('diary.life_insights_title'),
-                    style: textTheme.titleSmall,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            ...insights.map(
+    return _InsightCard(
+      icon: PhosphorIcons.chartLine(),
+      title: context.s('diary.life_insights_title'),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: insights
+            .map(
               (insight) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
                 child: Text(insight, style: textTheme.bodyMedium),
               ),
-            ),
-          ],
-        ),
+            )
+            .toList(),
+      ),
+    );
+  }
+}
+
+/// Базовая карточка инсайта: surface1 + hairline (ext.border) + R14.
+/// Общий шаблон для всех insight-карточек — заголовок с иконкой + body-слот.
+class _InsightCard extends StatelessWidget {
+  const _InsightCard({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return Container(
+      decoration: BoxDecoration(
+        // surface1 = colorScheme.surface (Kaname token mapping)
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ext.border, width: 0.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              // Иконка: textMuted (информационная, не CTA)
+              Icon(icon, color: ext.textMuted, size: 18),
+              const SizedBox(width: 8),
+              // Expanded предотвращает overflow при крупном тексте
+              Expanded(
+                child: Text(
+                  title,
+                  style: textTheme.titleSmall,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
       ),
     );
   }

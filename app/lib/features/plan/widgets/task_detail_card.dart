@@ -12,14 +12,15 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/animations/app_sheet.dart';
+import '../../../core/categories/category_dot.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
 import '../../../core/widgets/attachment_view.dart';
-import '../../today/task_colors.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import '../recurrence.dart';
 import 'recurrence_providers.dart';
@@ -36,8 +37,9 @@ Future<void> showTaskDetailSheet(
     context,
     isScrollControlled: true,
     backgroundColor: colorScheme.surface,
+    // R20 per design-tokens.json sheet.radius
     shape: const RoundedRectangleBorder(
-      borderRadius: BorderRadius.vertical(top: Radius.circular(16)),
+      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
     ),
     clipBehavior: Clip.antiAlias,
     builder: (_) => Material(
@@ -180,12 +182,15 @@ class TaskDetailCard extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final textMuted = ext?.textMuted ?? scheme.onSurface.withValues(alpha: 0.7);
 
-    // Цвет-полоса слева: пользовательский цвет имеет приоритет, иначе по типу.
-    final userColor = taskColorFromKey(item.color);
-    final stripeColor = userColor ??
-        (item.type == 'exam' || item.type == 'deadline'
-            ? (ext?.ember ?? scheme.secondary)
-            : (item.priority == 'main' ? scheme.primary : scheme.outline));
+    // Первый тег категории — для CategoryDot (Kaname §4: нет цветных полос,
+    // категория показывается 10dp точкой рядом с заголовком).
+    final tagsStr = item.tags ?? '';
+    final firstTag = tagsStr.isNotEmpty
+        ? tagsStr.split(',').map((t) => t.trim()).firstWhere(
+              (t) => t.isNotEmpty,
+              orElse: () => '',
+            )
+        : '';
 
     final timeRange = formatBlockTimeRange(item.scheduledAt, item.durationMinutes);
     final typeLabel = context.s('today.type_${item.type}');
@@ -195,37 +200,50 @@ class TaskDetailCard extends ConsumerWidget {
     return SafeArea(
       top: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 20),
+        padding: const EdgeInsets.fromLTRB(20, 12, 20, 20),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Заголовок с цветной полосой-меткой + крестик закрытия.
+            // Ручка-индикатор нижнего листа (§4.3 handle)
+            Center(
+              child: Container(
+                width: 32,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 12),
+                decoration: BoxDecoration(
+                  color: (ext?.textFaint ?? scheme.onSurface)
+                      .withValues(alpha: 0.3),
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            // Заголовок: CategoryDot (если есть тег) + текст + крестик.
+            // Нет цветной полосы (Kaname §4: no left colour fill-bars on cards).
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Container(
-                  width: 4,
-                  height: 36,
-                  margin: const EdgeInsets.only(top: 2, right: 12),
-                  decoration: BoxDecoration(
-                    color: stripeColor,
-                    borderRadius: BorderRadius.circular(2),
+                // 10dp категорийная точка вместо 4dp полосы
+                if (firstTag.isNotEmpty) ...[
+                  Padding(
+                    padding: const EdgeInsets.only(top: 4, right: 10),
+                    child: CategoryDot(tag: firstTag, size: 10),
                   ),
-                ),
+                ],
                 Expanded(
                   child: Text(
                     item.title,
                     style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+                      // w500 вместо w700 (design tokens: max w600, обычно w500)
+                      fontWeight: FontWeight.w500,
                       decoration:
                           isDone ? TextDecoration.lineThrough : null,
                     ),
                   ),
                 ),
-                // Крестик закрытия — видимый аффорданс шита
+                // Крестик закрытия — Phosphor X
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(PhosphorIcons.x(PhosphorIconsStyle.regular)),
                   tooltip: context.s('btn.close'),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -237,14 +255,14 @@ class TaskDetailCard extends ConsumerWidget {
 
             // Время.
             _DetailRow(
-              icon: Icons.access_time,
+              icon: PhosphorIcons.clock(PhosphorIconsStyle.regular),
               text: timeRange,
               color: textMuted,
             ),
             const SizedBox(height: 6),
             // Тип · приоритет.
             _DetailRow(
-              icon: Icons.label_outline,
+              icon: PhosphorIcons.info(PhosphorIconsStyle.regular),
               text: '$typeLabel · $priorityLabel',
               color: textMuted,
             ),
@@ -252,7 +270,7 @@ class TaskDetailCard extends ConsumerWidget {
             if (_isSeriesItem) ...[
               const SizedBox(height: 6),
               _DetailRow(
-                icon: Icons.event_repeat_outlined,
+                icon: PhosphorIcons.repeat(PhosphorIconsStyle.regular),
                 text: context.s(_repeatLabelKey),
                 color: textMuted,
               ),
@@ -262,7 +280,7 @@ class TaskDetailCard extends ConsumerWidget {
             if ((item.location ?? '').trim().isNotEmpty) ...[
               const SizedBox(height: 6),
               _DetailRow(
-                icon: Icons.place_outlined,
+                icon: PhosphorIcons.mapPin(PhosphorIconsStyle.regular),
                 text: item.location!.trim(),
                 color: textMuted,
               ),
@@ -293,7 +311,10 @@ class TaskDetailCard extends ConsumerWidget {
               children: [
                 Expanded(
                   child: FilledButton.tonalIcon(
-                    icon: const Icon(Icons.check, size: 18),
+                    icon: Icon(
+                      PhosphorIcons.check(PhosphorIconsStyle.regular),
+                      size: 18,
+                    ),
                     label: Text(context.s('btn.done')),
                     onPressed: () {
                       HapticFeedback.selectionClick();
@@ -304,7 +325,10 @@ class TaskDetailCard extends ConsumerWidget {
                 const SizedBox(width: 8),
                 Expanded(
                   child: OutlinedButton.icon(
-                    icon: const Icon(Icons.remove_circle_outline, size: 18),
+                    icon: Icon(
+                      PhosphorIcons.minusCircle(PhosphorIconsStyle.regular),
+                      size: 18,
+                    ),
                     label: Text(context.s('btn.skip')),
                     onPressed: () => _markStatus(context, ref, 'skipped'),
                   ),
@@ -316,7 +340,10 @@ class TaskDetailCard extends ConsumerWidget {
             SizedBox(
               width: double.infinity,
               child: FilledButton.icon(
-                icon: const Icon(Icons.edit_outlined, size: 18),
+                icon: Icon(
+                  PhosphorIcons.pencilSimple(PhosphorIconsStyle.regular),
+                  size: 18,
+                ),
                 label: Text(context.s('btn.edit')),
                 onPressed: () => _edit(context),
               ),
@@ -329,14 +356,20 @@ class TaskDetailCard extends ConsumerWidget {
                 children: [
                   Expanded(
                     child: TextButton.icon(
-                      icon: const Icon(Icons.event_busy_outlined, size: 18),
+                      icon: Icon(
+                        PhosphorIcons.calendarX(PhosphorIconsStyle.regular),
+                        size: 18,
+                      ),
                       label: Text(context.s('recur.stop')),
                       onPressed: () => _stopRepeating(context, ref),
                     ),
                   ),
                   Expanded(
                     child: TextButton.icon(
-                      icon: const Icon(Icons.delete_sweep_outlined, size: 18),
+                      icon: Icon(
+                        PhosphorIcons.broom(PhosphorIconsStyle.regular),
+                        size: 18,
+                      ),
                       label: Text(context.s('recur.delete_series')),
                       style: TextButton.styleFrom(
                         foregroundColor: scheme.error,
@@ -350,7 +383,10 @@ class TaskDetailCard extends ConsumerWidget {
               SizedBox(
                 width: double.infinity,
                 child: TextButton.icon(
-                  icon: const Icon(Icons.delete_outline, size: 18),
+                  icon: Icon(
+                    PhosphorIcons.trash(PhosphorIconsStyle.regular),
+                    size: 18,
+                  ),
                   label: Text(context.s('today.delete_task_btn')),
                   style: TextButton.styleFrom(foregroundColor: scheme.error),
                   onPressed: () => _delete(context, ref),
@@ -401,7 +437,11 @@ class _SubtaskChecklist extends ConsumerWidget {
             // Заголовок с прогрессом «N/M».
             Row(
               children: [
-                Icon(Icons.checklist_outlined, size: 16, color: textMuted),
+                Icon(
+                  PhosphorIcons.listChecks(PhosphorIconsStyle.regular),
+                  size: 16,
+                  color: textMuted,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   context.s('today.subtasks_label'),
@@ -485,7 +525,11 @@ class _AttachmentsSection extends ConsumerWidget {
             const SizedBox(height: 14),
             Row(
               children: [
-                Icon(Icons.attach_file, size: 16, color: textMuted),
+                Icon(
+                  PhosphorIcons.paperclip(PhosphorIconsStyle.regular),
+                  size: 16,
+                  color: textMuted,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   context.s('today.attachments_label'),

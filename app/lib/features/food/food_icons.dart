@@ -5,6 +5,7 @@
 // Использование: FoodIconTile(name: product['name'], category: product['category'])
 
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/theme/app_theme.dart';
 
@@ -410,7 +411,7 @@ class FoodIconTile extends StatelessWidget {
               style: TextStyle(fontSize: size * 0.55),
             )
           : Icon(
-              Icons.restaurant_outlined,
+              PhosphorIcons.forkKnife(),
               size: size * 0.55,
               color: ext?.textMuted ??
                   Theme.of(context).colorScheme.onSurface.withAlpha(120),

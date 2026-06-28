@@ -429,3 +429,20 @@ UI. До этого premium включается dev-кнопкой (`POST /subs
 **Date:** 2026-06
 **Decision:** Used `prisma migrate dev --name init` directly. No fallback to `migrate deploy` or `db push` was needed.
 **Reason:** Neon's serverless PostgreSQL allowed Prisma to create the shadow database. Migration SQL is recorded under `prisma/migrations/20260606183848_init/migration.sql` and the schema is in sync.
+
+## ADR-058: Redesign «Kaname» — design system overhaul (accent decoupled, one font, a11y as settings)
+**Date:** 2026-06-28
+**Decision:** Full visual/UX redesign per the «Kaname» TZ (functionality almost untouched). Theme is reduced to
+**surfaces+text+border only** (4 themes: Day default / Night / Black / Calm). The **accent is decoupled** into 6
+user-selectable curated accents (Indigo default / Emerald / Violet / Ochre / Rose / Slate), applied over any theme.
+**One font (Geist)** for the whole app and all themes (Atkinson Hyperlegible only when the high-contrast setting is on).
+**Accessibility (high-contrast + text-size) becomes orthogonal SETTINGS**, not themes (the old `contrast` theme is retired,
+the old `white`/`focus`/`custom` keys are migrated: white→day, focus→night, custom→day+chosen accent). Icons migrate from
+Material to **Phosphor** (regular default, fill+accent active). Three colour roles only: accent / category(8 fixed dots, off by
+default, mapped onto existing tags) / status(success/ember/danger). Kai becomes a **formless, faceless presence built in
+CustomPaint** (no Rive). Tokens: `docs/design-tokens.json` v4. Spec + tracker: `docs/REDESIGN-KANAME.md`.
+**Reason:** the old look read as "unfinished" — no hierarchy (5 hero elements on Today), Kai stuck between presence and
+character, every theme carried its own font/voice (theme switch felt like a different app), Material defaults + hardcoded values.
+The redesign enforces one focus per screen, calm premium minimalism, and a single disciplined accent.
+**Migration safety:** `FocusThemeExtension` (used in ~106 files) keeps its name + field names; only values/construction change,
+new fields are added — screens keep compiling and are restyled incrementally.

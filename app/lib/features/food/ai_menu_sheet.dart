@@ -4,6 +4,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/animations/ai_insight_reveal.dart';
@@ -220,7 +221,7 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
             Row(
               children: [
                 Icon(
-                  Icons.auto_awesome,
+                  PhosphorIcons.sparkle(),
                   size: 20,
                   color: mutedColor,
                 ),
@@ -229,7 +230,7 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
                   child: Text(context.s('food.ai_menu_title'), style: textTheme.headlineSmall),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(PhosphorIcons.x()),
                   tooltip: context.s('btn.close'),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
@@ -252,7 +253,7 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
               const SizedBox(height: 12),
               // Попробовать снова — OutlinedButton (вторичное, повторяемое действие)
               OutlinedButton.icon(
-                icon: const Icon(Icons.refresh, size: 18),
+                icon: Icon(PhosphorIcons.arrowsClockwise(), size: 18),
                 label: Text(context.s('food.try_again')),
                 onPressed: _build,
               ),
@@ -272,8 +273,12 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
                     ],
                     ..._meals.map((m) => _MealBlock(meal: m)),
                     const SizedBox(height: 8),
-                    // Итоги дня — titleSmall, калории accent
+                    // Итоги дня: калории акцентом + единица/белок через l10n
+                    // food.menu_totals_line: «{kcal} kcal · P {protein} g»
+                    // Заменяем {kcal} на '', trimLeft() → «kcal · P X g» (muted)
                     Row(
+                      crossAxisAlignment: CrossAxisAlignment.baseline,
+                      textBaseline: TextBaseline.alphabetic,
                       children: [
                         Text(
                           '${total.calories?.round() ?? 0}',
@@ -281,9 +286,18 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
                             color: colorScheme.primary,
                           ),
                         ),
-                        Text(
-                          ' kcal · P ${total.protein?.round() ?? 0} g',
-                          style: textTheme.bodyMedium?.copyWith(color: mutedColor),
+                        const SizedBox(width: 4),
+                        Flexible(
+                          child: Text(
+                            context
+                                .s('food.menu_totals_line')
+                                .replaceFirst('{kcal}', '')
+                                .replaceFirst(
+                                    '{protein}', '${total.protein?.round() ?? 0}')
+                                .trimLeft(),
+                            style: textTheme.bodyMedium?.copyWith(color: mutedColor),
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
                       ],
                     ),
@@ -303,7 +317,10 @@ class _AiMenuSheetState extends ConsumerState<_AiMenuSheet> {
                           child: FilledButton.icon(
                             icon: _applying
                                 ? const AiPulseDot(size: 10)
-                                : const Icon(Icons.check, size: 18),
+                                : Icon(
+                                    PhosphorIcons.check(PhosphorIconsStyle.fill),
+                                    size: 18,
+                                  ),
                             label: Text(context.s('food.log_all_btn')),
                             onPressed: _applying ? null : _applyAll,
                           ),
@@ -344,7 +361,7 @@ class _OffTargetWarning extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(Icons.info_outline, size: 18, color: ember),
+          Icon(PhosphorIcons.info(), size: 18, color: ember),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
@@ -403,9 +420,14 @@ class _MealBlock extends StatelessWidget {
             (i) => Padding(
               padding: const EdgeInsets.only(bottom: 2),
               child: Text(
-                '${i.name} — ${i.grams.round()} g · '
-                '${i.nutrition.calories?.round() ?? 0} kcal',
+                // l10n: '{name} — {g} г · {kcal} ккал'
+                context
+                    .s('food.menu_item_line')
+                    .replaceFirst('{name}', i.name)
+                    .replaceFirst('{g}', '${i.grams.round()}')
+                    .replaceFirst('{kcal}', '${i.nutrition.calories?.round() ?? 0}'),
                 style: textTheme.bodyMedium?.copyWith(color: mutedColor),
+                overflow: TextOverflow.ellipsis,
               ),
             ),
           ),

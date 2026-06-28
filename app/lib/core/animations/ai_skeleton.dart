@@ -5,6 +5,7 @@
 import 'package:flutter/material.dart';
 
 import 'constants.dart';
+import '../theme/app_theme.dart';
 
 /// Карточко-подобный блок из N строк-заглушек с shimmer-эффектом (§7.2).
 ///
@@ -59,9 +60,10 @@ class _AiSkeletonState extends State<AiSkeleton>
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    // Цвета shimmer из ColorScheme: surface → border → surface (§7.2)
-    final baseColor = colorScheme.surfaceContainerHighest;
-    final shineColor = colorScheme.outlineVariant;
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    // Цвета shimmer из FocusThemeExtension: border → borderStrong → border (§7.2)
+    final baseColor = ext?.border ?? colorScheme.surfaceContainerHighest;
+    final shineColor = ext?.borderStrong ?? colorScheme.outlineVariant;
     final n = widget.lines.clamp(1, 20);
     final lineH = widget.height;
     // Вертикальный отступ между строками = 8 логических пикселей

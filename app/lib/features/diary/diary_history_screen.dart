@@ -1,9 +1,12 @@
-// Просмотр записей дневника за прошлые даты
-// Календарь + выбор даты → отображение записи
+// Просмотр записей дневника за прошлые даты — Kaname restyle.
+// Календарь + выбор даты → отображение записи.
+// Иконки: Phosphor. Карточки: surface1 + hairline + R14.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
@@ -54,13 +57,13 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
     final dayLog = ref.watch(dayLogProvider(_selectedDate));
 
     return Scaffold(
-      // elevation=0, bg из темы — AppBar без тени (02-type-space.md §4.3)
+      // elevation=0 — AppBar без тени (Kaname: flat by default)
       appBar: AppBar(
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          // arrowLeft (Phosphor) — стандартная навигация «назад»
+          icon: Icon(PhosphorIcons.arrowLeft()),
           onPressed: () => context.pop(),
         ),
-        // headlineSmall — display font, заголовок экрана-модалки
         title: Text(
           context.s('diary.history_screen_title'),
           style: textTheme.headlineSmall,
@@ -69,7 +72,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
       ),
       body: Column(
         children: [
-          // Выбор даты — используем surface с hairline border (не surfaceContainer)
+          // Выбор даты — surface с hairline border снизу
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
             color: colorScheme.surface,
@@ -81,8 +84,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
                   style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
                 ),
                 const SizedBox(height: 12),
-                // Единый DateNavigator — chevron ‹ дата › (locale-aware,
-                // без хардкод-массивов месяцев/дней недели)
+                // Единый DateNavigator — locale-aware, без хардкод-массивов
                 DateNavigator(
                   date: _selectedDate,
                   onChanged: (d) => setState(() => _selectedDate = d),
@@ -90,13 +92,13 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
               ],
             ),
           ),
-          // Тонкий разделитель вместо тяжёлого divider
+          // Hairline разделитель (0.5dp, ext.border — Kaname spec)
           Divider(height: 1, thickness: 0.5, color: ext.border),
           // Содержимое записи
           Expanded(
             child: dayLog.when(
               data: (log) => _buildDayContent(context, log, textTheme, ext),
-              // KaiLoader вместо стандартного спиннера (spec §6)
+              // KaiLoader вместо стандартного спиннера
               loading: () => Center(
                 child: KaiLoader(label: context.s('loading.generic')),
               ),
@@ -119,11 +121,12 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
     TextTheme textTheme,
     FocusThemeExtension ext,
   ) {
+    // Пустое состояние — textFaint, нет лишних элементов
     if (log == null) {
       return Center(
         child: Text(
           context.s('diary.history_no_entry'),
-          // textFaint — tertiary, пустое состояние (01-color.md §New Tokens)
+          // textFaint — tertiary, пустое состояние
           style: textTheme.bodyMedium?.copyWith(color: ext.textFaint),
         ),
       );
@@ -139,14 +142,17 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
     }
 
     return SingleChildScrollView(
-      // 24dp горизонтальные поля (02-type-space.md §4.1)
+      // 24dp горизонтальные поля (design-tokens §spacing)
       padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Настроение
+          // --- Настроение ---
           if (log.mood != null) ...[
-            Text(context.s('diary.mood'), style: textTheme.titleSmall?.copyWith(color: ext.textMuted)),
+            Text(
+              context.s('diary.mood'),
+              style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
+            ),
             const SizedBox(height: 12),
             // Эмодзи большой — фиксированный размер (не текстовая роль)
             Text(
@@ -155,23 +161,28 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
             ),
             const SizedBox(height: 24),
           ],
-          // Заметка
+
+          // --- Заметка ---
           if (noteText.isNotEmpty) ...[
-            Text(context.s('diary.note'), style: textTheme.titleSmall?.copyWith(color: ext.textMuted)),
+            Text(
+              context.s('diary.note'),
+              style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
+            ),
             const SizedBox(height: 12),
+            // surface1 + hairline + R14 (Kaname card spec)
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                // surface fill + hairline border (02-type-space.md §4.3 «Content card at rest»)
                 color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: ext.border, width: 0.5),
               ),
               child: Text(noteText, style: textTheme.bodyLarge),
             ),
             const SizedBox(height: 24),
           ],
-          // Теги "что пошло не так"
+
+          // --- Теги «что пошло не так» ---
           if (issues.isNotEmpty) ...[
             Text(
               context.s('diary.history_what_went_wrong'),
@@ -195,7 +206,8 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
             ),
             const SizedBox(height: 24),
           ],
-          // AI-инсайт: accentMuted фон (low-emphasis accent fill, 01-color.md §New Tokens)
+
+          // --- AI-инсайт: accentMuted фон (low-emphasis accent fill) ---
           if (log.insight != null && log.insight!.isNotEmpty) ...[
             Text(
               context.s('diary.history_ai_insight'),
@@ -207,9 +219,12 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
               decoration: BoxDecoration(
                 // accentMuted: low-emphasis accent fill для AI-контента
                 color: ext.accentMuted,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(
-                  color: Theme.of(context).colorScheme.primary.withValues(alpha: 0.3),
+                  color: Theme.of(context)
+                      .colorScheme
+                      .primary
+                      .withValues(alpha: 0.3),
                   width: 0.5,
                 ),
               ),

@@ -1,11 +1,14 @@
 // Экран Health — хаб здоровья.
-// Рабочие модули: трекер воды (Phase 1) + трекер сна (Phase 2).
-// Остальное (тренировки/дыхание/осанка) — Phase 2/3, плитки «скоро».
+// Kaname redesign (Phase 5): §4.2 cards (surface1+hairline+R14), Phosphor icons,
+// displaySmall header, tablet 2-col preserved.
+// Вся бизнес-логика (провайдеры/Drift/уведомления) без изменений.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:timezone/timezone.dart' as tz;
 import '../../core/animations/app_toast.dart';
@@ -21,11 +24,9 @@ import '../../core/widgets/kai_loader.dart';
 import 'sleep_stats.dart';
 
 /// Единый набор быстрых объёмов воды (мл) — карточка Здоровья и полный экран.
-/// Используйте эту константу в обоих местах, чтобы не было рассинхрона.
 const kWaterQuickMl = [150, 250, 350, 500];
 
 /// Диалог «Своё количество» — ввод произвольного объёма воды.
-/// Вызывается как из карточки Здоровья, так и с полного экрана воды.
 Future<void> showCustomWaterDialog(BuildContext context, dynamic dao) async {
   final ctrl = TextEditingController();
   final result = await showDialog<int>(
@@ -42,9 +43,7 @@ Future<void> showCustomWaterDialog(BuildContext context, dynamic dao) async {
         ),
         onSubmitted: (_) {
           final v = int.tryParse(ctrl.text.trim());
-          if (v != null && v > 0 && v <= 5000) {
-            Navigator.pop(ctx, v);
-          }
+          if (v != null && v > 0 && v <= 5000) Navigator.pop(ctx, v);
         },
       ),
       actions: [
@@ -77,17 +76,15 @@ final weekWaterProvider = StreamProvider.autoDispose<List<int>>((ref) {
 });
 
 /// Открытая ночь (endAt == null), реактивно.
-final openNightProvider = StreamProvider.autoDispose<SleepLogsTableData?>((
-  ref,
-) {
+final openNightProvider = StreamProvider.autoDispose<SleepLogsTableData?>((ref) {
   return ref.watch(sleepDaoProvider).watchOpenNight();
 });
 
 /// Завершённые ночи за последние 7 дней, реактивно.
 final recentNightsProvider =
     StreamProvider.autoDispose<List<SleepLogsTableData>>((ref) {
-      return ref.watch(sleepDaoProvider).watchRecentNights(7);
-    });
+  return ref.watch(sleepDaoProvider).watchRecentNights(7);
+});
 
 /// Провайдер напоминаний о воде — включить/выключить расписание уведомлений.
 final waterReminderProvider =
@@ -100,7 +97,6 @@ class WaterReminderNotifier extends StateNotifier<bool> {
   WaterReminderNotifier(this._prefs)
       : super(_prefs.getBool('water_reminders') ?? false);
   final SharedPreferences _prefs;
-  // FlutterLocalNotificationsPlugin uses a factory/singleton — not const.
   static final _plugin = FlutterLocalNotificationsPlugin();
   static const _baseId = 400;
 
@@ -155,6 +151,33 @@ class WaterReminderNotifier extends StateNotifier<bool> {
   }
 }
 
+// ---------------------------------------------------------------------------
+// §4.2 card: surface1 + 0.5dp hairline + R14, no shadow.
+// ---------------------------------------------------------------------------
+
+class _KaCard extends StatelessWidget {
+  const _KaCard({required this.child, this.padding = const EdgeInsets.all(16)});
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border.all(color: ext.border, width: 0.5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(padding: padding, child: child),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// HealthScreen — 4-секционный хаб: Nutrition / Sleep / Mind / Movement.
+// ---------------------------------------------------------------------------
+
 class HealthScreen extends ConsumerWidget {
   const HealthScreen({super.key});
 
@@ -170,8 +193,7 @@ class HealthScreen extends ConsumerWidget {
     );
   }
 
-  /// Mobile single-column layout (< 600px).
-  /// Структура: 4 тематические секции — Nutrition / Sleep / Mind / Movement.
+  /// Mobile: единая колонка.
   Widget _buildMobileLayout(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final total = ref.watch(todayWaterProvider).valueOrNull ?? 0;
@@ -185,11 +207,10 @@ class HealthScreen extends ConsumerWidget {
     final breathingOn = ref.watch(breathingEditorModeProvider);
 
     return ListView(
-      // 24dp screen margin — spec §4.1
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
       children: [
-        // headlineMedium — display font (серифный), 32sp, w700
-        Text(context.s('health.title'), style: textTheme.headlineMedium),
+        // displaySmall — спокойный, не кричащий заголовок хаба
+        Text(context.s('health.title'), style: textTheme.displaySmall),
 
         // ── NUTRITION ──────────────────────────────────────────────────────
         _HealthSectionHeader(labelKey: 'health.section_nutrition'),
@@ -199,7 +220,7 @@ class HealthScreen extends ConsumerWidget {
           enabled: nutritionOn,
           titleKey: 'health.food',
           subtitleKey: 'health.food_subtitle',
-          icon: Icons.restaurant_outlined,
+          icon: PhosphorIcons.forkKnife(),
           route: '/food',
           onToggle: (v) => ref.read(nutritionModeProvider.notifier).set(v),
         ),
@@ -214,7 +235,7 @@ class HealthScreen extends ConsumerWidget {
           enabled: meditationOn,
           titleKey: 'health.meditation',
           subtitleKey: 'health.meditation_subtitle',
-          icon: Icons.spa_outlined,
+          icon: PhosphorIcons.flowerLotus(),
           route: '/meditation',
           onToggle: (v) => ref.read(meditationLibraryModeProvider.notifier).set(v),
         ),
@@ -223,7 +244,7 @@ class HealthScreen extends ConsumerWidget {
           enabled: breathingOn,
           titleKey: 'health.breathing',
           subtitleKey: 'health.breathing_subtitle',
-          icon: Icons.air,
+          icon: PhosphorIcons.wind(),
           route: '/breathing',
           onToggle: (v) => ref.read(breathingEditorModeProvider.notifier).set(v),
         ),
@@ -234,20 +255,18 @@ class HealthScreen extends ConsumerWidget {
           enabled: workoutOn,
           titleKey: 'health.workouts',
           subtitleKey: 'health.workouts_subtitle',
-          icon: Icons.fitness_center_outlined,
+          icon: PhosphorIcons.barbell(),
           route: '/workouts',
           onToggle: (v) => ref.read(workoutModeProvider.notifier).set(v),
         ),
 
-        // ── Manage ─────────────────────────────────────────────────────────
         const SizedBox(height: 16),
         _ManageModulesRow(),
       ],
     );
   }
 
-  /// Tablet 2-column layout (≥ 600px).
-  /// Nutrition и Sleep — рядом в верхней строке; Mind и Movement — ниже.
+  /// Tablet: 2-col (Nutrition+Sleep / Mind+Movement).
   Widget _buildTabletLayout(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final total = ref.watch(todayWaterProvider).valueOrNull ?? 0;
@@ -263,14 +282,13 @@ class HealthScreen extends ConsumerWidget {
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        Text(context.s('health.title'), style: textTheme.headlineMedium),
+        Text(context.s('health.title'), style: textTheme.displaySmall),
         const SizedBox(height: 8),
 
         // ── NUTRITION + SLEEP side by side ─────────────────────────────────
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Nutrition column
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -284,16 +302,14 @@ class HealthScreen extends ConsumerWidget {
                     enabled: nutritionOn,
                     titleKey: 'health.food',
                     subtitleKey: 'health.food_subtitle',
-                    icon: Icons.restaurant_outlined,
+                    icon: PhosphorIcons.forkKnife(),
                     route: '/food',
-                    onToggle: (v) =>
-                        ref.read(nutritionModeProvider.notifier).set(v),
+                    onToggle: (v) => ref.read(nutritionModeProvider.notifier).set(v),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 16),
-            // Sleep column
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -311,7 +327,6 @@ class HealthScreen extends ConsumerWidget {
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Mind column
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -321,7 +336,7 @@ class HealthScreen extends ConsumerWidget {
                     enabled: meditationOn,
                     titleKey: 'health.meditation',
                     subtitleKey: 'health.meditation_subtitle',
-                    icon: Icons.spa_outlined,
+                    icon: PhosphorIcons.flowerLotus(),
                     route: '/meditation',
                     onToggle: (v) =>
                         ref.read(meditationLibraryModeProvider.notifier).set(v),
@@ -331,7 +346,7 @@ class HealthScreen extends ConsumerWidget {
                     enabled: breathingOn,
                     titleKey: 'health.breathing',
                     subtitleKey: 'health.breathing_subtitle',
-                    icon: Icons.air,
+                    icon: PhosphorIcons.wind(),
                     route: '/breathing',
                     onToggle: (v) =>
                         ref.read(breathingEditorModeProvider.notifier).set(v),
@@ -340,7 +355,6 @@ class HealthScreen extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 16),
-            // Movement column
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -350,10 +364,9 @@ class HealthScreen extends ConsumerWidget {
                     enabled: workoutOn,
                     titleKey: 'health.workouts',
                     subtitleKey: 'health.workouts_subtitle',
-                    icon: Icons.fitness_center_outlined,
+                    icon: PhosphorIcons.barbell(),
                     route: '/workouts',
-                    onToggle: (v) =>
-                        ref.read(workoutModeProvider.notifier).set(v),
+                    onToggle: (v) => ref.read(workoutModeProvider.notifier).set(v),
                   ),
                 ],
               ),
@@ -361,16 +374,13 @@ class HealthScreen extends ConsumerWidget {
           ],
         ),
 
-        // ── Manage ─────────────────────────────────────────────────────────
         const SizedBox(height: 16),
         _ManageModulesRow(),
       ],
     );
   }
 
-  /// Карточка трекера воды.
-  /// ACCENT DISCIPLINE: только кнопки лога — Outlined (повторяемые действия).
-  /// Иконка воды — нейтральная (textMuted); акцент только на прогресс-дуге.
+  /// Карточка трекера воды — §4.2 стиль, Phosphor icons.
   Widget _buildWaterCard(
     BuildContext context,
     WidgetRef ref,
@@ -380,162 +390,158 @@ class HealthScreen extends ConsumerWidget {
     double progress,
     dynamic dao,
   ) {
-    // Берём ext для доступа к textMuted / success без хардкода hex
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Заголовок карточки — иконка нейтральная (textMuted)
-            Row(
-              children: [
-                Icon(Icons.water_drop_outlined, color: ext.textMuted),
-                const SizedBox(width: 8),
-                Text(context.s('health.water'), style: textTheme.titleMedium),
-                const Spacer(),
-                // Метрика: текст нейтральный (bodyMedium), акцент НЕ применяется.
-                // Flexible предотвращает overflow на 320px: длинная строка усекается.
-                Flexible(
-                  child: Text(
-                    '$total / $waterGoalMl ml',
-                    style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
-                    overflow: TextOverflow.ellipsis,
-                  ),
+    return _KaCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Заголовок: Phosphor drop icon + метрика + кнопка полного экрана
+          Row(
+            children: [
+              Icon(PhosphorIcons.drop(), color: ext.textMuted, size: 20),
+              const SizedBox(width: 8),
+              Text(context.s('health.water'), style: textTheme.titleMedium),
+              const Spacer(),
+              Flexible(
+                child: Text(
+                  '$total / $waterGoalMl ml',
+                  style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(width: 4),
-                IconButton(
-                  icon: Icon(Icons.open_in_new, size: 18, color: ext.textMuted),
-                  tooltip: context.s('health.water_full_view'),
-                  onPressed: () => context.push('/water'),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            Row(
-              children: [
-                _AnimatedWaterGlass(progress: progress),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      // Первичная метрика — headlineSmall, display font, accent color
-                      Text(
-                        '$total ml',
-                        style: textTheme.headlineSmall?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      Text(
-                        context.s('health.water_goal_of').replaceFirst('{goal}', '$waterGoalMl'),
-                        style: textTheme.bodySmall,
-                      ),
-                      const SizedBox(height: 6),
-                      // Прогресс-бар: accent только когда он несёт смысл метрики
-                      LinearProgressIndicator(
-                        value: progress,
-                        minHeight: 4,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // Кнопки лога: Outlined — повторяемые действия (§2 BUTTON HIERARCHY).
-            // Wrap предотвращает overflow на 320px при textScale > 1.
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: [
-                ...kWaterQuickMl.map(
-                  (ml) => OutlinedButton(
-                    onPressed: () => dao.addWater(ml),
-                    child: Text(
-                      context
-                          .s('water.add_ml_fmt')
-                          .replaceFirst('{ml}', '$ml'),
-                    ),
-                  ),
-                ),
-                // «Своё количество» — открывает диалог числового ввода
-                OutlinedButton.icon(
-                  icon: const Icon(Icons.edit_outlined, size: 16),
-                  label: Text(context.s('water.custom_btn')),
-                  onPressed: () => showCustomWaterDialog(context, dao),
-                ),
-              ],
-            ),
-            // Undo — справа, отдельной строкой (не в Wrap, не ломает макет)
-            Align(
-              alignment: Alignment.centerRight,
-              child: IconButton(
-                tooltip: context.s('health.water_undo'),
-                icon: Icon(Icons.undo, color: ext.textMuted),
-                onPressed: () => dao.undoLast(DateTime.now()),
               ),
-            ),
-            const SizedBox(height: 8),
-            // Тоггл напоминаний — нейтральная иконка
-            Row(
-              children: [
-                Icon(Icons.notifications_outlined, size: 16, color: ext.textMuted),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    context.s('health.water_reminders'),
-                    style: textTheme.bodySmall,
-                  ),
+              const SizedBox(width: 4),
+              IconButton(
+                icon: Icon(
+                  PhosphorIcons.arrowSquareOut(),
+                  size: 18,
+                  color: ext.textMuted,
                 ),
-                Switch.adaptive(
-                  value: ref.watch(waterReminderProvider),
-                  onChanged: (v) =>
-                      ref.read(waterReminderProvider.notifier).toggle(v),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            // График: последние 7 дней — нажимаемая зона → отчёт о воде.
-            // InkWell охватывает только график, не кнопки лога выше.
-            InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => context.push('/water-report'),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Row(
+                tooltip: context.s('health.water_full_view'),
+                onPressed: () => context.push('/water'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Анимированный стакан + метрика прогресса
+          Row(
+            children: [
+              _AnimatedWaterGlass(progress: progress),
+              const SizedBox(width: 16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _WeekWaterChart(goalMl: waterGoalMl)),
-                    Icon(
-                      Icons.chevron_right,
-                      size: 18,
-                      color: Theme.of(context)
-                          .extension<FocusThemeExtension>()!
-                          .textMuted,
+                    Text(
+                      '$total ml',
+                      style: textTheme.headlineSmall?.copyWith(
+                        color: Theme.of(context).colorScheme.primary,
+                      ),
+                    ),
+                    Text(
+                      context.s('health.water_goal_of')
+                          .replaceFirst('{goal}', '$waterGoalMl'),
+                      style: textTheme.bodySmall,
+                    ),
+                    const SizedBox(height: 6),
+                    LinearProgressIndicator(
+                      value: progress,
+                      minHeight: 4,
+                      borderRadius: BorderRadius.circular(2),
                     ),
                   ],
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 16),
+
+          // Кнопки лога: Outlined — повторяемые действия; Wrap предотвращает overflow
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ...kWaterQuickMl.map(
+                (ml) => OutlinedButton(
+                  onPressed: () => dao.addWater(ml),
+                  child: Text(
+                    context.s('water.add_ml_fmt').replaceFirst('{ml}', '$ml'),
+                  ),
+                ),
+              ),
+              OutlinedButton.icon(
+                icon: Icon(PhosphorIcons.pencilSimple(), size: 16),
+                label: Text(context.s('water.custom_btn')),
+                onPressed: () => showCustomWaterDialog(context, dao),
+              ),
+            ],
+          ),
+
+          // Undo — справа
+          Align(
+            alignment: Alignment.centerRight,
+            child: IconButton(
+              tooltip: context.s('health.water_undo'),
+              icon: Icon(
+                PhosphorIcons.arrowCounterClockwise(),
+                color: ext.textMuted,
+              ),
+              onPressed: () => dao.undoLast(DateTime.now()),
             ),
-          ],
-        ),
+          ),
+          const SizedBox(height: 4),
+
+          // Тоггл напоминаний
+          Row(
+            children: [
+              Icon(PhosphorIcons.bell(), size: 16, color: ext.textMuted),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.s('health.water_reminders'),
+                  style: textTheme.bodySmall,
+                ),
+              ),
+              Switch.adaptive(
+                value: ref.watch(waterReminderProvider),
+                onChanged: (v) =>
+                    ref.read(waterReminderProvider.notifier).toggle(v),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+
+          // Мини-график 7 дней — нажимаемая зона → отчёт
+          InkWell(
+            borderRadius: BorderRadius.circular(8),
+            onTap: () => context.push('/water-report'),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Row(
+                children: [
+                  Expanded(child: _WeekWaterChart(goalMl: waterGoalMl)),
+                  Icon(
+                    PhosphorIcons.caretRight(),
+                    size: 18,
+                    color: ext.textMuted,
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
       ),
     );
   }
-
 }
 
 // ---------------------------------------------------------------------------
-// _HealthSectionHeader — мутированный заголовок тематической секции
-// Используется для 4 групп: Nutrition / Sleep / Mind / Movement.
+// _HealthSectionHeader — мутированный заголовок тематической секции.
 // ---------------------------------------------------------------------------
 
 class _HealthSectionHeader extends StatelessWidget {
   const _HealthSectionHeader({required this.labelKey});
-
   final String labelKey;
 
   @override
@@ -545,7 +551,7 @@ class _HealthSectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(top: 24, bottom: 10),
       child: Text(
         context.s(labelKey),
-        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+        style: Theme.of(context).textTheme.labelLarge?.copyWith(
           color: ext.textMuted,
           letterSpacing: 0.4,
         ),
@@ -555,10 +561,9 @@ class _HealthSectionHeader extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// _HealthModuleTile — плитка модуля здоровья.
-// enabled=true → навигационная карточка (тап → route).
-// enabled=false → карточка с Switch(false) для прямого включения прямо с Health.
-// Прямой тоггл провайдера = те же SharedPreferences, что и Profile → Behavior.
+// _HealthModuleTile — §4.2 object card.
+// enabled=true  → nav card с caretRight (Material+InkWell для ripple).
+// enabled=false → инлайн Switch (_KaCard).
 // ---------------------------------------------------------------------------
 
 class _HealthModuleTile extends StatelessWidget {
@@ -582,54 +587,95 @@ class _HealthModuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final textTheme = Theme.of(context).textTheme;
+    final surface = Theme.of(context).colorScheme.surface;
 
     if (enabled) {
-      // Включён → навигационная карточка с chevron
-      return Card(
-        child: ListTile(
-          leading: Icon(icon, color: ext.textMuted),
-          title: Text(context.s(titleKey)),
-          subtitle: Text(
-            context.s(subtitleKey),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-          ),
-          trailing: Icon(Icons.chevron_right, color: ext.textMuted),
+      // Включён → навигационная карточка, InkWell ripple внутри Material
+      return Material(
+        color: surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: ext.border, width: 0.5),
+        ),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
           onTap: () => context.push(route),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                Icon(icon, size: 20, color: ext.textMuted),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        context.s(titleKey),
+                        style: textTheme.bodyLarge,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        context.s(subtitleKey),
+                        style: textTheme.bodySmall?.copyWith(
+                          color: ext.textMuted,
+                        ),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Icon(PhosphorIcons.caretRight(), size: 16, color: ext.textMuted),
+              ],
+            ),
+          ),
         ),
       );
     }
 
-    // Выключен → инлайн-переключатель; тоггл прямо на экране Health
-    return Card(
-      child: ListTile(
-        leading: Icon(icon, color: ext.textMuted.withValues(alpha: 0.45)),
-        title: Text(
-          context.s(titleKey),
-          style: textTheme.bodyMedium?.copyWith(
-            color: ext.textMuted,
+    // Выключен → инлайн-переключатель
+    return _KaCard(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: ext.textMuted.withValues(alpha: 0.45)),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  context.s(titleKey),
+                  style: textTheme.bodyLarge?.copyWith(color: ext.textMuted),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  context.s(subtitleKey),
+                  style: textTheme.bodySmall?.copyWith(
+                    color: ext.textMuted.withValues(alpha: 0.7),
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
           ),
-        ),
-        subtitle: Text(
-          context.s(subtitleKey),
-          style: textTheme.bodySmall?.copyWith(
-            color: ext.textMuted.withValues(alpha: 0.7),
-          ),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
-        trailing: Switch.adaptive(
-          value: false,
-          onChanged: onToggle,
-        ),
+          const SizedBox(width: 8),
+          Switch.adaptive(value: false, onChanged: onToggle),
+        ],
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// _ManageModulesRow — ссылка на Profile → Behavior для управления всеми модулями.
-// Нижний глобальный affordance: один тап → экран настроек.
+// _ManageModulesRow — ссылка на Profile → Behavior.
 // ---------------------------------------------------------------------------
 
 class _ManageModulesRow extends StatelessWidget {
@@ -643,7 +689,7 @@ class _ManageModulesRow extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         child: Row(
           children: [
-            Icon(Icons.tune_outlined, size: 18, color: ext.textMuted),
+            Icon(PhosphorIcons.slidersHorizontal(), size: 18, color: ext.textMuted),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -654,7 +700,7 @@ class _ManageModulesRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            Icon(Icons.chevron_right, size: 18, color: ext.textMuted),
+            Icon(PhosphorIcons.caretRight(), size: 16, color: ext.textMuted),
           ],
         ),
       ),
@@ -662,8 +708,10 @@ class _ManageModulesRow extends StatelessWidget {
   }
 }
 
-/// Анимированный стакан с водой — заменяет плоский прогресс-бар.
-/// При достижении 100% через 600 мс — тост.
+// ---------------------------------------------------------------------------
+// _AnimatedWaterGlass — анимированный стакан воды (бизнес-логика не изменена).
+// ---------------------------------------------------------------------------
+
 class _AnimatedWaterGlass extends StatefulWidget {
   const _AnimatedWaterGlass({required this.progress});
   final double progress;
@@ -681,9 +729,7 @@ class _AnimatedWaterGlassState extends State<_AnimatedWaterGlass>
   @override
   void initState() {
     super.initState();
-    // ВАЖНО: MediaQuery.of(context) НЕЛЬЗЯ вызывать в initState — это кидает
-    // ассерт «dependOnInheritedWidgetOfExactType before initState completed»
-    // и каскадом валит весь экран. reduce-motion читаем в didChangeDependencies.
+    // MediaQuery.of(context) нельзя в initState — читаем в didChangeDependencies.
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -696,8 +742,6 @@ class _AnimatedWaterGlassState extends State<_AnimatedWaterGlass>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Respect reduce-motion: при отключённой анимации duration=0.
-    // didChangeDependencies вызывается после initState и при смене зависимостей.
     final reduce = MediaQuery.of(context).disableAnimations;
     _ctrl.duration =
         reduce ? Duration.zero : const Duration(milliseconds: 600);
@@ -711,7 +755,6 @@ class _AnimatedWaterGlassState extends State<_AnimatedWaterGlass>
   void didUpdateWidget(_AnimatedWaterGlass old) {
     super.didUpdateWidget(old);
     if (old.progress != widget.progress) {
-      // Норма достигнута → задержка 600 мс → тост
       if (old.progress < 1.0 && widget.progress >= 1.0) {
         Future.delayed(const Duration(milliseconds: 600), () {
           if (mounted) {
@@ -740,7 +783,6 @@ class _AnimatedWaterGlassState extends State<_AnimatedWaterGlass>
 
   @override
   Widget build(BuildContext context) {
-    // Стакан рисуется акцентным цветом — это первичная метрика прогресса воды
     final color = Theme.of(context).colorScheme.primary;
     return Tooltip(
       message: context.s('health.water_goal_reached'),
@@ -768,7 +810,6 @@ class _GlassPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
-    // Контур стакана (трапеция: снизу уже)
     final glassPath = Path()
       ..moveTo(w * 0.1, 0)
       ..lineTo(w * 0.9, 0)
@@ -776,7 +817,6 @@ class _GlassPainter extends CustomPainter {
       ..lineTo(w * 0.22, h)
       ..close();
 
-    // Заливка воды (клипируется формой стакана)
     final waterTop = h * (1 - fill.clamp(0.0, 1.0));
     final waterPath = Path()
       ..moveTo(w * 0.1 + (w * 0.12) * (waterTop / h), waterTop)
@@ -785,13 +825,10 @@ class _GlassPainter extends CustomPainter {
       ..lineTo(w * 0.22, h)
       ..close();
 
-    // Рисуем воду
     canvas.drawPath(
       waterPath,
       Paint()..color = color.withValues(alpha: 0.35),
     );
-
-    // Рисуем контур стакана
     canvas.drawPath(
       glassPath,
       Paint()
@@ -800,7 +837,6 @@ class _GlassPainter extends CustomPainter {
         ..strokeWidth = 2,
     );
 
-    // Линия на поверхности воды
     if (fill > 0.02) {
       canvas.drawLine(
         Offset(w * 0.1 + (w * 0.12) * (waterTop / h) + 2, waterTop),
@@ -817,15 +853,16 @@ class _GlassPainter extends CustomPainter {
       old.fill != fill || old.color != color;
 }
 
-/// Мини-график воды за последние 7 дней (высота столбца — доля от нормы).
-/// Столбцы успешных дней — accent; остальные — textMuted c opacity.
+// ---------------------------------------------------------------------------
+// _WeekWaterChart — мини-график воды за 7 дней.
+// День недели через DateFormat (локализовано).
+// ---------------------------------------------------------------------------
+
 class _WeekWaterChart extends ConsumerWidget {
   const _WeekWaterChart({required this.goalMl});
-
   final int goalMl;
 
   static const _chartHeight = 56.0;
-  static const _letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -836,6 +873,7 @@ class _WeekWaterChart extends ConsumerWidget {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final textTheme = Theme.of(context).textTheme;
     final today = DateTime.now();
+    final locale = Localizations.localeOf(context).toString();
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.end,
@@ -844,6 +882,8 @@ class _WeekWaterChart extends ConsumerWidget {
         final frac = goalMl <= 0 ? 0.0 : (totals[i] / goalMl).clamp(0.0, 1.0);
         final isToday = i == 6;
         final reached = totals[i] >= goalMl && goalMl > 0;
+        // Локализованная узкая аббревиатура дня недели (EEEEE = 'M','T','W'…)
+        final dayLetter = DateFormat('EEEEE', locale).format(day);
 
         return Expanded(
           child: Padding(
@@ -854,8 +894,6 @@ class _WeekWaterChart extends ConsumerWidget {
                 Container(
                   height: (_chartHeight * frac).clamp(3.0, _chartHeight),
                   decoration: BoxDecoration(
-                    // Accent только для дней где достигнута цель (success moment)
-                    // Остальные — нейтральная textMuted c пониженной opacity
                     color: reached
                         ? colorScheme.primary
                         : ext.textMuted.withValues(
@@ -866,9 +904,10 @@ class _WeekWaterChart extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _letters[day.weekday - 1],
+                  dayLetter,
                   style: textTheme.bodySmall?.copyWith(
-                    fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                    fontWeight:
+                        isToday ? FontWeight.w600 : FontWeight.w400,
                     color: isToday ? ext.textMuted : ext.textFaint,
                   ),
                 ),
@@ -882,12 +921,9 @@ class _WeekWaterChart extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Sleep tracker card
+// _SleepCard — §4.2 карточка трекера сна.
 // ---------------------------------------------------------------------------
 
-/// Карточка трекера сна. Два состояния:
-/// • нет открытой ночи → кнопка «Going to bed» + недельный график
-/// • есть открытая ночь → «Sleeping since HH:MM» + кнопка «I'm awake»
 class _SleepCard extends ConsumerWidget {
   const _SleepCard();
 
@@ -895,128 +931,115 @@ class _SleepCard extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    // Используем .when для разбора состояния загрузки корректно.
     final openAsync = ref.watch(openNightProvider);
     final dao = ref.read(sleepDaoProvider);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // Заголовок: иконка нейтральная (textMuted), не primary
-            Row(
-              children: [
-                Icon(Icons.bedtime_outlined, color: ext.textMuted),
-                const SizedBox(width: 8),
-                Text(context.s('health.sleep'), style: textTheme.titleMedium),
-              ],
-            ),
-            const SizedBox(height: 12),
-            openAsync.when(
-              // Async spinner → KaiLoader (заменяет базовый CircularProgressIndicator)
-              loading: () => Center(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 12),
-                  child: KaiLoader(label: context.s('loading.sleep')),
-                ),
+    return _KaCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(PhosphorIcons.moon(), color: ext.textMuted, size: 20),
+              const SizedBox(width: 8),
+              Text(context.s('health.sleep'), style: textTheme.titleMedium),
+            ],
+          ),
+          const SizedBox(height: 12),
+          openAsync.when(
+            loading: () => Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: KaiLoader(label: context.s('loading.sleep')),
               ),
-              error: (_, e) => const SizedBox.shrink(),
-              data: (open) {
-                if (open != null) {
-                  // Ночь идёт — показываем время начала и кнопку «проснулся»
-                  final timeStr = TimeOfDay.fromDateTime(
-                    open.startAt,
-                  ).format(context);
-                  return Column(
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Text(
-                        '${context.s('health.sleep_sleeping_since')} $timeStr',
-                        style: textTheme.bodyLarge,
-                      ),
-                      const SizedBox(height: 12),
-                      // FilledButton — единственное первичное действие в карточке
-                      FilledButton.icon(
-                        icon: const Icon(Icons.wb_sunny_outlined),
-                        label: Text(context.s('health.sleep_im_awake')),
-                        onPressed: () async {
-                          await dao.endNight();
-                          // Считаем длительность для снэкбара
-                          final dur = DateTime.now().difference(open.startAt);
-                          final h = dur.inHours;
-                          final m = dur.inMinutes % 60;
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  context.s('health.sleep_night_logged')
-                                      .replaceAll('{h}', '$h')
-                                      .replaceAll('{m}', '$m'),
-                                ),
-                                duration: const Duration(seconds: 3),
-                              ),
-                            );
-                          }
-                        },
-                      ),
-                    ],
-                  );
-                }
-
-                // Ночи нет — кнопка «Ложусь спать» + недельный график
+            ),
+            error: (_, __) => const SizedBox.shrink(),
+            data: (open) {
+              if (open != null) {
+                final timeStr =
+                    TimeOfDay.fromDateTime(open.startAt).format(context);
                 return Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    // FilledButton — единственное первичное действие в карточке
-                    FilledButton.icon(
-                      icon: const Icon(Icons.bedtime),
-                      label: Text(context.s('health.sleep_going_to_bed')),
-                      onPressed: () => dao.startNight(),
+                    Text(
+                      '${context.s('health.sleep_sleeping_since')} $timeStr',
+                      style: textTheme.bodyLarge,
                     ),
-                    const SizedBox(height: 16),
-                    // График: последние 7 дней — нажимаемая зона → отчёт о сне.
-                    // InkWell охватывает только график, не кнопку «Ложусь спать».
-                    InkWell(
-                      borderRadius: BorderRadius.circular(8),
-                      onTap: () => context.push('/sleep-report'),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 4),
-                        child: Row(
-                          children: [
-                            Expanded(child: _WeekSleepChart(goalHours: 7)),
-                            Icon(
-                              Icons.chevron_right,
-                              size: 18,
-                              color: Theme.of(context)
-                                  .extension<FocusThemeExtension>()!
-                                  .textMuted,
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      icon: Icon(PhosphorIcons.sun()),
+                      label: Text(context.s('health.sleep_im_awake')),
+                      onPressed: () async {
+                        await dao.endNight();
+                        final dur =
+                            DateTime.now().difference(open.startAt);
+                        final h = dur.inHours;
+                        final m = dur.inMinutes % 60;
+                        if (context.mounted) {
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                context
+                                    .s('health.sleep_night_logged')
+                                    .replaceAll('{h}', '$h')
+                                    .replaceAll('{m}', '$m'),
+                              ),
+                              duration: const Duration(seconds: 3),
                             ),
-                          ],
-                        ),
-                      ),
+                          );
+                        }
+                      },
                     ),
                   ],
                 );
-              },
-            ),
-          ],
-        ),
+              }
+
+              // Ночи нет — кнопка «Ложусь спать» + недельный график
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  FilledButton.icon(
+                    icon: Icon(PhosphorIcons.moon(PhosphorIconsStyle.fill)),
+                    label: Text(context.s('health.sleep_going_to_bed')),
+                    onPressed: () => dao.startNight(),
+                  ),
+                  const SizedBox(height: 16),
+                  InkWell(
+                    borderRadius: BorderRadius.circular(8),
+                    onTap: () => context.push('/sleep-report'),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      child: Row(
+                        children: [
+                          Expanded(child: _WeekSleepChart(goalHours: 7)),
+                          Icon(
+                            PhosphorIcons.caretRight(),
+                            size: 18,
+                            color: ext.textMuted,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
+        ],
       ),
     );
   }
 }
 
-/// Мини-график сна за последние 7 дней (аналог _WeekWaterChart).
-/// Цель подсветки — ≥ 7 часов (accent color); остальные — textMuted.
+// ---------------------------------------------------------------------------
+// _WeekSleepChart — мини-график сна за 7 дней (аналог _WeekWaterChart).
+// ---------------------------------------------------------------------------
+
 class _WeekSleepChart extends ConsumerWidget {
   const _WeekSleepChart({required this.goalHours});
-
   final double goalHours;
 
   static const _chartHeight = 56.0;
-  static const _letters = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -1025,8 +1048,8 @@ class _WeekSleepChart extends ConsumerWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
     final today = DateTime.now();
+    final locale = Localizations.localeOf(context).toString();
 
-    // Если данных нет вообще (null = загружается) или пустой список
     if (nights == null) return const SizedBox.shrink();
     if (nights.isEmpty) {
       return Text(
@@ -1046,6 +1069,7 @@ class _WeekSleepChart extends ConsumerWidget {
             : (slot.hours / goalHours).clamp(0.0, 1.0);
         final isToday = i == 6;
         final reached = slot.hours >= goalHours && goalHours > 0;
+        final dayLetter = DateFormat('EEEEE', locale).format(slot.day);
 
         return Expanded(
           child: Padding(
@@ -1056,7 +1080,6 @@ class _WeekSleepChart extends ConsumerWidget {
                 Container(
                   height: (_chartHeight * frac).clamp(3.0, _chartHeight),
                   decoration: BoxDecoration(
-                    // Accent для успешных дней; нейтральная textMuted для остальных
                     color: reached
                         ? colorScheme.primary
                         : ext.textMuted.withValues(
@@ -1067,9 +1090,10 @@ class _WeekSleepChart extends ConsumerWidget {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  _letters[slot.day.weekday - 1],
+                  dayLetter,
                   style: textTheme.bodySmall?.copyWith(
-                    fontWeight: isToday ? FontWeight.w700 : FontWeight.w400,
+                    fontWeight:
+                        isToday ? FontWeight.w600 : FontWeight.w400,
                     color: isToday ? ext.textMuted : ext.textFaint,
                   ),
                 ),

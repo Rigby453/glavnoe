@@ -12,6 +12,7 @@
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:intl/intl.dart';
 
 import '../../../core/l10n/app_strings.dart';
@@ -98,7 +99,10 @@ class YearView extends ConsumerWidget {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 IconButton(
-                  icon: Icon(Icons.chevron_left, color: textMuted),
+                  icon: Icon(
+                    PhosphorIcons.caretLeft(PhosphorIconsStyle.regular),
+                    color: textMuted,
+                  ),
                   onPressed: () => _changeYear(ref, -1),
                 ),
                 Expanded(
@@ -111,7 +115,10 @@ class YearView extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.chevron_right, color: textMuted),
+                  icon: Icon(
+                    PhosphorIcons.caretRight(PhosphorIconsStyle.regular),
+                    color: textMuted,
+                  ),
                   onPressed: () => _changeYear(ref, 1),
                 ),
               ],

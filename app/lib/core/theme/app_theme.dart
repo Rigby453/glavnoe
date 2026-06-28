@@ -1,6 +1,13 @@
-// Темы приложения Kaizen — источник правды: /docs/design-tokens.json
-// Реализованы все 5 предустановленных тем + пользовательская тема (custom).
-// Тема собирается из палитры единым билдером, чтобы все темы были консистентны.
+// Темы приложения Kaizen — «Kaname» redesign v4.
+// Источник правды: /docs/design-tokens.json v4 + /docs/REDESIGN-KANAME.md
+//
+// Ключевые изменения относительно v3:
+//   • Тема = поверхности + текст + border ONLY. 4 темы: day/night/black/calm.
+//   • Акцент ОТВЯЗАН от темы: 6 пользовательских акцентов (AccentKey).
+//   • ОДИН шрифт (HankenGrotesk; TODO: Geist) для display и body, всех тем.
+//   • Высокий контраст — НАСТРОЙКА (highContrast: bool), не отдельная тема.
+//   • FocusThemeExtension: имя и все старые поля СОХРАНЕНЫ (106 файлов),
+//     добавлены: accentTint, accentInk, danger, textSecondary.
 
 import 'dart:math' as math;
 
@@ -10,34 +17,259 @@ import 'package:google_fonts/google_fonts.dart';
 import 'custom_theme_provider.dart' show CustomThemeConfig;
 
 // Алгоритм вывода пользовательской палитры — часть этой библиотеки,
-// чтобы получить доступ к приватному классу _Palette.
+// чтобы получить доступ к приватному классу _Palette (нужен CustomThemePalette).
 part 'custom_theme_palette.dart';
 
-/// Ключи тем — соответствуют ключам в design-tokens.json + custom (6-я тема)
-enum AppThemeKey {
-  focus,
-  calm,
-  black,
-  white,
-  contrast,
-  custom, // Пользовательская тема («Мой стиль»)
-}
+// ---------------------------------------------------------------------------
+// Ключи акцентов (6 кураторских вариантов, выбираются пользователем)
+// ---------------------------------------------------------------------------
 
-/// Человекочитаемые метки (из design-tokens.json .label)
+/// 6 кураторских акцентов. Пользователь выбирает один, независимо от темы.
+enum AccentKey { indigo, emerald, violet, ochre, rose, slate }
+
+// ---------------------------------------------------------------------------
+// Новые ключи тем (4 вместо 6 — v4 redesign)
+// ---------------------------------------------------------------------------
+
+/// Ключи тем Kaname v4. Значение по умолчанию = day.
+enum AppThemeKey { day, night, black, calm }
+
+/// Читаемые метки и ключи SharedPreferences.
 extension AppThemeKeyLabel on AppThemeKey {
   String get label => switch (this) {
-        AppThemeKey.focus => 'Focus (warm dark, default)',
-        AppThemeKey.calm => 'Calm (low-saturation blue-green)',
-        AppThemeKey.black => 'Black (OLED full-black)',
-        AppThemeKey.white => 'White (clean light)',
-        AppThemeKey.contrast => 'Contrast (accessibility, large type)',
-        AppThemeKey.custom => 'My Theme',
+        AppThemeKey.day => 'Day',
+        AppThemeKey.night => 'Night',
+        AppThemeKey.black => 'Black',
+        AppThemeKey.calm => 'Calm',
       };
 
-  String get prefsKey => name; // 'focus', 'calm', ..., 'custom'
+  String get prefsKey => name; // 'day', 'night', 'black', 'calm'
 }
 
-/// Палитра одной темы (значения из design-tokens.json + 01-color.md).
+// ---------------------------------------------------------------------------
+// Внутренние структуры
+// ---------------------------------------------------------------------------
+
+/// Поверхности одной темы (точные hex из design-tokens.json §themes).
+class _Surfaces {
+  const _Surfaces({
+    required this.brightness,
+    required this.bg,
+    required this.surface1,
+    required this.surface2,
+    required this.ink,
+    required this.textSecondary,
+    required this.textMuted,
+    required this.textFaint,
+    required this.border,
+    required this.borderStrong,
+  });
+
+  final Brightness brightness;
+  final Color bg;
+  final Color surface1;     // основные карточки
+  final Color surface2;     // поднятые поверхности (модалки, попапы)
+  final Color ink;          // основной текст / иконки
+  final Color textSecondary; // вторичный текст
+  final Color textMuted;    // приглушённый текст
+  final Color textFaint;    // плейсхолдеры, timestamps, disabled
+  final Color border;       // границы по умолчанию (hairline)
+  final Color borderStrong; // фокусированный input, активная карточка
+}
+
+/// Разрешённый акцент (light: из токенов напрямую; dark: вычисляется).
+class _Accent {
+  const _Accent({
+    required this.accent,
+    required this.tint,
+    required this.ink,
+    required this.on,
+  });
+
+  final Color accent; // заливка кнопок, иконок
+  final Color tint;   // мягкий underlay
+  final Color ink;    // текст на tint-фоне
+  final Color on;     // текст/иконки поверх accent-заливки
+}
+
+// ---------------------------------------------------------------------------
+// Таблицы поверхностей (hex из design-tokens.json §themes)
+// ---------------------------------------------------------------------------
+
+const _daySurfaces = _Surfaces(
+  brightness: Brightness.light,
+  bg: Color(0xFFF6F5F2),
+  surface1: Color(0xFFFFFFFF),
+  surface2: Color(0xFFFCFBF9),
+  ink: Color(0xFF1B1A18),
+  textSecondary: Color(0xFF6E6B66),
+  textMuted: Color(0xFF8E8A85),
+  textFaint: Color(0xFFB9B5B0),
+  border: Color(0xFFE6E4DE),
+  borderStrong: Color(0xFFD8D5CE),
+);
+
+const _nightSurfaces = _Surfaces(
+  brightness: Brightness.dark,
+  bg: Color(0xFF16140F),
+  surface1: Color(0xFF201D17),
+  surface2: Color(0xFF262219),
+  ink: Color(0xFFF2EFE9),
+  textSecondary: Color(0xFFA8A39A),
+  textMuted: Color(0xFF827D74),
+  textFaint: Color(0xFF5A554E),
+  border: Color(0xFF2C2820),
+  borderStrong: Color(0xFF3A352B),
+);
+
+const _blackSurfaces = _Surfaces(
+  brightness: Brightness.dark,
+  bg: Color(0xFF000000),
+  surface1: Color(0xFF0D0D0D),
+  surface2: Color(0xFF141414),
+  ink: Color(0xFFFFFFFF),
+  textSecondary: Color(0xFFB4B4B4),
+  textMuted: Color(0xFF8A8A8A),
+  textFaint: Color(0xFF555555),
+  border: Color(0xFF1E1E1E),
+  borderStrong: Color(0xFF2E2E2E),
+);
+
+const _calmSurfaces = _Surfaces(
+  brightness: Brightness.light,
+  bg: Color(0xFFEEF3F2),
+  surface1: Color(0xFFFBFDFC),
+  surface2: Color(0xFFF2F7F6),
+  ink: Color(0xFF1A2422),
+  textSecondary: Color(0xFF4F5E5B),
+  textMuted: Color(0xFF6B7A77),
+  textFaint: Color(0xFF9DACA9),
+  border: Color(0xFFDCE6E4),
+  borderStrong: Color(0xFFC7D4D1),
+);
+
+// ---------------------------------------------------------------------------
+// Акцентный резолвер (design-tokens.json §accents)
+// ---------------------------------------------------------------------------
+
+/// Вычисляет _Accent для заданного ключа и яркости темы.
+/// Для светлых тем — значения из токенов напрямую.
+/// Для тёмных тем — tint и ink вычисляются на месте.
+_Accent _accentFor(AccentKey key, Brightness brightness, Color surface1) {
+  final isDark = brightness == Brightness.dark;
+
+  switch (key) {
+    case AccentKey.indigo:
+      if (!isDark) {
+        return const _Accent(
+          accent: Color(0xFF4B57C9),
+          tint: Color(0xFFECEDFA),
+          ink: Color(0xFF3A45A8),
+          on: Color(0xFFFFFFFF),
+        );
+      }
+      const accent = Color(0xFF7E89E0);
+      return _Accent(
+        accent: accent,
+        tint: Color.alphaBlend(accent.withValues(alpha: 0.16), surface1),
+        ink: accent,
+        on: const Color(0xFF15140F),
+      );
+
+    case AccentKey.emerald:
+      if (!isDark) {
+        return const _Accent(
+          accent: Color(0xFF1D9E75),
+          tint: Color(0xFFE1F5EE),
+          ink: Color(0xFF0F6E56),
+          on: Color(0xFFFFFFFF),
+        );
+      }
+      const accent = Color(0xFF3FBF93);
+      return _Accent(
+        accent: accent,
+        tint: Color.alphaBlend(accent.withValues(alpha: 0.16), surface1),
+        ink: accent,
+        on: const Color(0xFF15140F),
+      );
+
+    case AccentKey.violet:
+      if (!isDark) {
+        return const _Accent(
+          accent: Color(0xFF7A4FC9),
+          tint: Color(0xFFEFE9FB),
+          ink: Color(0xFF5A33A8),
+          on: Color(0xFFFFFFFF),
+        );
+      }
+      const accent = Color(0xFFA488E6);
+      return _Accent(
+        accent: accent,
+        tint: Color.alphaBlend(accent.withValues(alpha: 0.16), surface1),
+        ink: accent,
+        on: const Color(0xFF15140F),
+      );
+
+    case AccentKey.ochre:
+      if (!isDark) {
+        return const _Accent(
+          accent: Color(0xFFB5772A),
+          tint: Color(0xFFF7EEDD),
+          ink: Color(0xFF7E4F10),
+          on: Color(0xFFFFFFFF),
+        );
+      }
+      const accent = Color(0xFFD9A04A);
+      return _Accent(
+        accent: accent,
+        tint: Color.alphaBlend(accent.withValues(alpha: 0.16), surface1),
+        ink: accent,
+        on: const Color(0xFF15140F),
+      );
+
+    case AccentKey.rose:
+      if (!isDark) {
+        return const _Accent(
+          accent: Color(0xFFC24E78),
+          tint: Color(0xFFFBE9F0),
+          ink: Color(0xFF923556),
+          on: Color(0xFFFFFFFF),
+        );
+      }
+      const accent = Color(0xFFE07AA0);
+      return _Accent(
+        accent: accent,
+        tint: Color.alphaBlend(accent.withValues(alpha: 0.16), surface1),
+        ink: accent,
+        on: const Color(0xFF15140F),
+      );
+
+    case AccentKey.slate:
+      if (!isDark) {
+        return const _Accent(
+          accent: Color(0xFF3F6E9E),
+          tint: Color(0xFFE7EFF7),
+          ink: Color(0xFF214B73),
+          on: Color(0xFFFFFFFF),
+        );
+      }
+      const accent = Color(0xFF6F9BC4);
+      return _Accent(
+        accent: accent,
+        tint: Color.alphaBlend(accent.withValues(alpha: 0.16), surface1),
+        ink: accent,
+        on: const Color(0xFF15140F),
+      );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _Palette — ОСТАВЛЕН для обратной совместимости с custom_theme_palette.dart.
+// В основном потоке тем НЕ ИСПОЛЬЗУЕТСЯ начиная с Kaname v4.
+// ---------------------------------------------------------------------------
+
+/// Палитра одной темы (v3, необходима для CustomThemePalette в part-файле).
+/// В v4 заменена на _Surfaces + _Accent; оставлена как dead-code-stub.
 class _Palette {
   const _Palette({
     required this.brightness,
@@ -59,459 +291,349 @@ class _Palette {
   final Brightness brightness;
   final Color bg;
   final Color surface;
-  final Color surfaceElevated; // NEW: модалки, дропдауны, поповеры
+  final Color surfaceElevated;
   final Color text;
   final Color textMuted;
-  final Color textFaint; // NEW: плейсхолдеры, disabled, timestamps
+  final Color textFaint;
   final Color accent;
-  final Color accentMuted; // NEW: выделение чипа, hover bg, selection highlight
-  final Color onAccent; // цвет текста/иконок поверх accent
+  final Color accentMuted;
+  final Color onAccent;
   final Color ember;
-  final Color success; // NEW: завершение, стрики, позитивные состояния
+  final Color success;
   final Color border;
-  final Color borderStrong; // NEW: фокусированные input, активные карточки
+  final Color borderStrong;
 }
 
-// --- Focus (тёплый тёмный, по умолчанию) ---
-const _focusPalette = _Palette(
-  brightness: Brightness.dark,
-  bg: Color(0xFF141009),
-  surface: Color(0xFF241D11),
-  surfaceElevated: Color(0xFF2E2618),
-  text: Color(0xFFF6EFE1),
-  textMuted: Color(0xFF9E9070),
-  textFaint: Color(0xFF736850),
-  accent: Color(0xFFD9F24B),
-  accentMuted: Color(0xFF26290F),
-  onAccent: Color(0xFF141009),
-  ember: Color(0xFFFF6A3D),
-  success: Color(0xFF4BAF6F),
-  border: Color(0xFF3A3020),
-  borderStrong: Color(0xFF524630),
-);
+// ---------------------------------------------------------------------------
+// AppTheme — фабрика ThemeData
+// ---------------------------------------------------------------------------
 
-// --- Black (OLED full-black) ---
-const _blackPalette = _Palette(
-  brightness: Brightness.dark,
-  bg: Color(0xFF000000),
-  surface: Color(0xFF0E0E0E),
-  surfaceElevated: Color(0xFF161616),
-  text: Color(0xFFFFFFFF),
-  textMuted: Color(0xFF8A8A8A),
-  textFaint: Color(0xFF636363),
-  accent: Color(0xFFC8FF4D),
-  accentMuted: Color(0xFF1A1F0A),
-  onAccent: Color(0xFF000000),
-  ember: Color(0xFFFF6A3D),
-  success: Color(0xFF4BAF6F),
-  border: Color(0xFF1C1C1C),
-  borderStrong: Color(0xFF2E2E2E),
-);
-
-// --- White (светлая) ---
-const _whitePalette = _Palette(
-  brightness: Brightness.light,
-  bg: Color(0xFFFFFFFF),
-  surface: Color(0xFFF5F4F1),
-  surfaceElevated: Color(0xFFECEAE5),
-  text: Color(0xFF16130E),
-  textMuted: Color(0xFF6B675F),
-  textFaint: Color(0xFF858178),
-  accent: Color(0xFF2B2A26),
-  accentMuted: Color(0xFFEDECEA),
-  onAccent: Color(0xFFFFFFFF),
-  ember: Color(0xFFE5533A),
-  success: Color(0xFF1A7A3E),
-  border: Color(0xFFE3E0DA),
-  borderStrong: Color(0xFFC8C4BC),
-);
-
-// --- Calm (приглушённый сине-зелёный) ---
-const _calmPalette = _Palette(
-  brightness: Brightness.dark,
-  bg: Color(0xFF11171A),
-  surface: Color(0xFF18232A),
-  surfaceElevated: Color(0xFF1F2E38),
-  text: Color(0xFFE8F0F0),
-  textMuted: Color(0xFF8AA0A0),
-  textFaint: Color(0xFF617E7E),
-  accent: Color(0xFF6FB6A3),
-  accentMuted: Color(0xFF172628),
-  onAccent: Color(0xFF11171A),
-  ember: Color(0xFFE08A6B),
-  success: Color(0xFF5AB594),
-  border: Color(0xFF243640),
-  borderStrong: Color(0xFF365060),
-);
-
-// --- Contrast (доступность, крупный шрифт) ---
-const _contrastPalette = _Palette(
-  brightness: Brightness.dark,
-  bg: Color(0xFF000000),
-  surface: Color(0xFF0A0A0A),
-  surfaceElevated: Color(0xFF141414),
-  text: Color(0xFFFFFFFF),
-  textMuted: Color(0xFFD0D0D0),
-  textFaint: Color(0xFFA0A0A0),
-  accent: Color(0xFFFFE600),
-  accentMuted: Color(0xFF2A2600),
-  onAccent: Color(0xFF000000),
-  ember: Color(0xFFFF5230),
-  success: Color(0xFF00E5A0),
-  border: Color(0xFFFFFFFF),
-  borderStrong: Color(0xFFFFFFFF),
-);
-
-/// Фабрика ThemeData для каждой темы.
+/// Фабрика ThemeData для всех тем.
 class AppTheme {
   AppTheme._();
 
-  // --- Focus (тёплый тёмный, по умолчанию) — Fraunces + Hanken Grotesk ---
-  static ThemeData focusTheme({double harshness = 0.0}) => _buildTheme(
-        _focusPalette,
-        bodyTextTheme: GoogleFonts.hankenGroteskTextTheme,
-        displayFont: ({textStyle, color}) =>
-            GoogleFonts.fraunces(textStyle: textStyle, color: color),
-        harshness: harshness,
-      );
+  // --- Новый основной билдер (Kaname v4) ---
 
-  // --- Black (OLED) — Schibsted Grotesk для дисплея и текста ---
-  static ThemeData blackTheme({double harshness = 0.0}) => _buildTheme(
-        _blackPalette,
-        bodyTextTheme: GoogleFonts.schibstedGroteskTextTheme,
-        displayFont: ({textStyle, color}) =>
-            GoogleFonts.schibstedGrotesk(textStyle: textStyle, color: color),
-        harshness: harshness,
-      );
-
-  // --- White (светлая) — Instrument Serif (дисплей) + Plus Jakarta Sans (текст) ---
-  static ThemeData whiteTheme({double harshness = 0.0}) => _buildTheme(
-        _whitePalette,
-        bodyTextTheme: GoogleFonts.plusJakartaSansTextTheme,
-        displayFont: ({textStyle, color}) =>
-            GoogleFonts.instrumentSerif(textStyle: textStyle, color: color),
-        harshness: harshness,
-      );
-
-  // --- Calm (приглушённый сине-зелёный) — Newsreader (дисплей) + DM Sans (текст) ---
-  static ThemeData calmTheme({double harshness = 0.0}) => _buildTheme(
-        _calmPalette,
-        bodyTextTheme: GoogleFonts.dmSansTextTheme,
-        displayFont: ({textStyle, color}) =>
-            GoogleFonts.newsreader(textStyle: textStyle, color: color),
-        harshness: harshness,
-      );
-
-  // --- Contrast (доступность, крупный шрифт) — Atkinson Hyperlegible ---
-  // Масштаб шрифта 1.15 (font_scale.contrast) применяется через MediaQuery.textScaler
-  // в main.dart — это безопасно (TextTheme.apply падает на стилях с fontSize==null).
-  static ThemeData contrastTheme({double harshness = 0.0}) => _buildTheme(
-        _contrastPalette,
-        bodyTextTheme: GoogleFonts.atkinsonHyperlegibleTextTheme,
-        displayFont: ({textStyle, color}) =>
-            GoogleFonts.atkinsonHyperlegible(textStyle: textStyle, color: color),
-        isContrast: true,
-        harshness: harshness,
-      );
-
-  /// Получить ThemeData по ключу темы (только предустановленные — без custom).
-  /// harshness=0.0 по умолчанию → поведение как раньше.
-  static ThemeData forKey(AppThemeKey key, {double harshness = 0.0}) =>
-      switch (key) {
-        AppThemeKey.focus => focusTheme(harshness: harshness),
-        AppThemeKey.calm => calmTheme(harshness: harshness),
-        AppThemeKey.black => blackTheme(harshness: harshness),
-        AppThemeKey.white => whiteTheme(harshness: harshness),
-        AppThemeKey.contrast => contrastTheme(harshness: harshness),
-        // custom без config → откат на focus (защита от ошибочного вызова)
-        AppThemeKey.custom => focusTheme(harshness: harshness),
-      };
-
-  /// Получить ThemeData с поддержкой custom-темы и реактивного harshness.
-  /// Использовать в [themeDataProvider] вместо [forKey].
-  /// harshness=0.0 → цвета ровно как раньше (обратная совместимость).
-  static ThemeData forKeyWithCustom(
-      AppThemeKey key, CustomThemeConfig? config, {double harshness = 0.0}) {
-    if (key == AppThemeKey.custom) {
-      // Нет сохранённой конфигурации → откат на focus
-      if (config == null) return focusTheme(harshness: harshness);
-      final result = CustomThemePalette.derive(config);
-      return _buildTheme(
-        result.palette,
-        bodyTextTheme: GoogleFonts.hankenGroteskTextTheme,
-        displayFont: ({textStyle, color}) =>
-            GoogleFonts.fraunces(textStyle: textStyle, color: color),
-        harshness: harshness,
-      );
-    }
-    return forKey(key, harshness: harshness);
-  }
-
-  /// Универсальный билдер темы из палитры.
+  /// Строит ThemeData из поверхностей темы + акцента + настроек доступности.
   ///
-  /// [harshness] — 0.0..1.0; при 0 всё как раньше. При > 0 акцент
-  /// интерполируется в сторону ember: Color.lerp(accent, ember, harshness*0.7).
-  /// При MoodLevel.angry (harshness≥0.75) поверхности слегка «охлаждаются»
-  /// (тонкий rgba-оверлей ember на surface). onAccent пересчитывается для
-  /// сохранения контраста: при светлом ember берём тёмный текст, при тёмном — светлый.
-  static ThemeData _buildTheme(
-    _Palette p, {
-    required TextTheme Function(TextTheme) bodyTextTheme,
-    required TextStyle Function({TextStyle? textStyle, Color? color}) displayFont,
-    bool isContrast = false,
+  /// [theme]       — одна из 4 тем (day/night/black/calm).
+  /// [accent]      — один из 6 акцентов (по умолчанию indigo).
+  /// [highContrast]— применяет шрифт Atkinson + увеличенный межстрочный интервал.
+  /// [harshness]   — 0.0..1.0; при > 0 акцент плавно смещается в сторону ember.
+  static ThemeData build({
+    required AppThemeKey theme,
+    AccentKey accent = AccentKey.indigo,
+    bool highContrast = false,
     double harshness = 0.0,
   }) {
-    // --- Реактивная «злая» тема ---
-    // При harshness=0 нет никаких изменений (Color.lerp с t=0 = первый цвет).
-    final resolvedAccent = harshness > 0.0
-        ? Color.lerp(p.accent, p.ember, (harshness * 0.7).clamp(0.0, 1.0))!
-        : p.accent;
+    final s = _surfacesFor(theme);
+    final a = _accentFor(accent, s.brightness, s.surface1);
+    return _buildNewTheme(s, a, highContrast: highContrast, harshness: harshness);
+  }
 
-    // onAccent: при высоком harshness ember светлый → нужен тёмный текст;
-    // при тёмном ember (white theme) нужен светлый. Определяем по luminance.
+  // --- Устаревшие compat-обёртки (сохраняют компиляцию 106 файлов и тестов) ---
+
+  /// Focus (тёплый тёмный) → night.
+  @Deprecated('Kaname redesign — use AppTheme.build(theme: AppThemeKey.night)')
+  static ThemeData focusTheme({double harshness = 0.0}) =>
+      build(theme: AppThemeKey.night, harshness: harshness);
+
+  /// White (светлая) → day.
+  @Deprecated('Kaname redesign — use AppTheme.build(theme: AppThemeKey.day)')
+  static ThemeData whiteTheme({double harshness = 0.0}) =>
+      build(theme: AppThemeKey.day, harshness: harshness);
+
+  /// Black (OLED) → black.
+  @Deprecated('Kaname redesign — use AppTheme.build(theme: AppThemeKey.black)')
+  static ThemeData blackTheme({double harshness = 0.0}) =>
+      build(theme: AppThemeKey.black, harshness: harshness);
+
+  /// Calm → calm.
+  @Deprecated('Kaname redesign — use AppTheme.build(theme: AppThemeKey.calm)')
+  static ThemeData calmTheme({double harshness = 0.0}) =>
+      build(theme: AppThemeKey.calm, harshness: harshness);
+
+  /// Contrast (доступность) → day + highContrast: true.
+  @Deprecated('Kaname redesign — use AppTheme.build(theme: AppThemeKey.day, highContrast: true)')
+  static ThemeData contrastTheme({double harshness = 0.0}) =>
+      build(theme: AppThemeKey.day, highContrast: true, harshness: harshness);
+
+  /// Получить ThemeData по ключу (все 4 новые темы + compat для тестов/виджет-сервиса).
+  @Deprecated('Kaname redesign — use AppTheme.build(theme: key)')
+  static ThemeData forKey(AppThemeKey key, {double harshness = 0.0}) =>
+      build(theme: key, harshness: harshness);
+
+  /// Получить ThemeData с поддержкой custom-конфига.
+  /// В Kaname v4 custom-тема → shim: возвращает day+indigo (Phase 4 заменит).
+  @Deprecated('Kaname redesign — use AppTheme.build')
+  static ThemeData forKeyWithCustom(
+      AppThemeKey key, CustomThemeConfig? config, {double harshness = 0.0}) =>
+      build(theme: key, harshness: harshness);
+
+  // ---------------------------------------------------------------------------
+  // Внутренний резолвер поверхностей
+  // ---------------------------------------------------------------------------
+
+  static _Surfaces _surfacesFor(AppThemeKey key) => switch (key) {
+        AppThemeKey.day => _daySurfaces,
+        AppThemeKey.night => _nightSurfaces,
+        AppThemeKey.black => _blackSurfaces,
+        AppThemeKey.calm => _calmSurfaces,
+      };
+
+  // ---------------------------------------------------------------------------
+  // Основной строитель ThemeData (Kaname v4)
+  // ---------------------------------------------------------------------------
+
+  static ThemeData _buildNewTheme(
+    _Surfaces s,
+    _Accent a, {
+    required bool highContrast,
+    required double harshness,
+  }) {
+    final isLight = s.brightness == Brightness.light;
+
+    // --- Статусные цвета (semantic, из §status токенов) ---
+    final ember =
+        isLight ? const Color(0xFFC2510C) : const Color(0xFFF0894B);
+    final success =
+        isLight ? const Color(0xFF1A7A3E) : const Color(0xFF46C08C);
+    final danger =
+        isLight ? const Color(0xFFC0362C) : const Color(0xFFE8685C);
+
+    // --- Harshness: плавный сдвиг акцента в сторону ember ---
+    final resolvedAccent = harshness > 0.0
+        ? Color.lerp(a.accent, ember, (harshness * 0.7).clamp(0.0, 1.0))!
+        : a.accent;
+
+    // onAccent: при высоком harshness пересчитываем по luminance.
     final resolvedOnAccent = harshness > 0.0
         ? (resolvedAccent.computeLuminance() > 0.35
-            ? const Color(0xFF0A0A0A)  // тёмный текст поверх светлого
-            : const Color(0xFFFAFAFA)) // светлый текст поверх тёмного
-        : p.onAccent;
+            ? const Color(0xFF0A0A0A)
+            : const Color(0xFFFAFAFA))
+        : a.on;
 
-    // Лёгкое «охлаждение» поверхности при angry (harshness>=0.75): едва заметный тинт ember
-    final angryOverlay = harshness >= 0.75 ? (harshness - 0.75) / 0.25 : 0.0;
-    final resolvedSurface = angryOverlay > 0.0
-        ? Color.lerp(p.surface, p.ember.withValues(alpha: 0.06), angryOverlay * 0.4)!
-        : p.surface;
+    // «Гневный» оверлей surface1 при harshness ≥ 0.75.
+    final angryFactor = harshness >= 0.75 ? (harshness - 0.75) / 0.25 : 0.0;
+    final resolvedSurface1 = angryFactor > 0.0
+        ? Color.lerp(
+            s.surface1, ember.withValues(alpha: 0.06), angryFactor * 0.4)!
+        : s.surface1;
 
-    // Пересобираем «рабочую» палитру с новыми цветами (остальные поля — без изменений).
-    final rp = _Palette(
-      brightness: p.brightness,
-      bg: p.bg,
-      surface: resolvedSurface,
-      surfaceElevated: p.surfaceElevated,
-      text: p.text,
-      textMuted: p.textMuted,
-      textFaint: p.textFaint,
-      accent: resolvedAccent,
-      accentMuted: p.accentMuted,
-      onAccent: resolvedOnAccent,
-      ember: p.ember,
-      success: p.success,
-      border: p.border,
-      borderStrong: p.borderStrong,
-    );
+    // --- Шрифт ---
+    // TODO(redesign): переключиться на Geist, когда google_fonts его экспортирует.
+    final TextTheme baseDefaults = isLight
+        ? ThemeData.light().textTheme
+        : ThemeData.dark().textTheme;
+    final TextTheme baseTT = highContrast
+        ? GoogleFonts.atkinsonHyperlegibleTextTheme(baseDefaults)
+        : GoogleFonts.hankenGroteskTextTheme(baseDefaults);
 
-    // Всё остальное строится из effective (когда harshness=0, effective == p).
-    // ignore: unused_local_variable (p используется выше для инициализации effective)
-    final _Palette effective = rp;
-    final TextTheme baseDefaults = effective.brightness == Brightness.dark
-        ? ThemeData.dark().textTheme
-        : ThemeData.light().textTheme;
-    final TextTheme baseTextTheme = bodyTextTheme(baseDefaults);
+    // Параметры body для доступности
+    final bodyHeight = highContrast ? 1.60 : 1.50;
+    final bodyLetterSpacing = highContrast ? 0.2 : 0.0;
 
-    TextStyle? display(TextStyle? base) => displayFont(textStyle: base, color: effective.text);
-
-    // --- Универсальный типографический масштаб (02-type-space.md §1) ---
-    // Contrast-тема: display/headline w700→w800, body letterSpacing +0.2, body lineHeight 1.60
-    final FontWeight displayWeight = isContrast ? FontWeight.w800 : FontWeight.w700;
-    final FontWeight headlineSmallWeight = isContrast ? FontWeight.w800 : FontWeight.w600;
-    const double bodyHeight = 1.50;
-    final double contrastBodyHeight = isContrast ? 1.60 : bodyHeight;
-    const double bodyLetterSpacing = 0.0;
-    final double contrastBodyLetterSpacing = isContrast ? 0.2 : bodyLetterSpacing;
-
-    // Фолбэк-шрифты для хинди (деванагари), японского и корейского.
-    // Шрифты вшиты как локальные ассеты (assets/fonts/) — не требуют сети,
-    // рисуются сразу без "вспышки квадратиков". Имена семейств совпадают
-    // с объявлением в pubspec.yaml flutter.fonts.
-    const List<String> scriptFallbacks = [
+    // Fallback-шрифты для хинди / японского / корейского
+    const scriptFallbacks = [
       'Noto Sans Devanagari',
       'Noto Sans JP',
       'Noto Sans KR',
     ];
 
-    // Вспомогательная функция: добавляет fontFamilyFallback к TextStyle.
     TextStyle? withFallback(TextStyle? style) {
       if (style == null) return null;
       return style.copyWith(fontFamilyFallback: scriptFallbacks);
     }
 
-    final TextTheme mergedTextTheme = baseTextTheme.copyWith(
-      // --- display (BOLD RESTYLE: 48→56, tight -0.8 tracking) ---
-      displayLarge: withFallback(display(baseTextTheme.displayLarge)?.copyWith(
-        fontSize: 56,
-        fontWeight: displayWeight,
-        height: 1.00,
-        letterSpacing: -0.8,
-        color: effective.text,
-      )),
-      // displayMedium / displaySmall — промежуточные ступени дисплея
-      displayMedium: withFallback(display(baseTextTheme.displayMedium)?.copyWith(
+    final textTheme = baseTT.copyWith(
+      // --- Display (w500, tight tracking) — из type_scale токенов ---
+      displayLarge: withFallback(baseTT.displayLarge?.copyWith(
         fontSize: 40,
-        fontWeight: displayWeight,
-        height: 1.05,
+        height: 1.10,
+        fontWeight: FontWeight.w500,
         letterSpacing: -0.5,
-        color: effective.text,
+        color: s.ink,
       )),
-      displaySmall: withFallback(display(baseTextTheme.displaySmall)?.copyWith(
+      displayMedium: withFallback(baseTT.displayMedium?.copyWith(
         fontSize: 32,
-        fontWeight: displayWeight,
-        height: 1.08,
-        letterSpacing: -0.3,
-        color: effective.text,
-      )),
-      // --- headline slots — display font, BOLD RESTYLE ---
-      // headlineLarge 34→40 (экранные заголовки — Today greeting, Plan month header)
-      headlineLarge: withFallback(display(baseTextTheme.headlineLarge)?.copyWith(
-        fontSize: 40,
-        fontWeight: displayWeight,
-        height: 1.05,
-        letterSpacing: -0.5,
-        color: effective.text,
-      )),
-      // headlineMedium 28→32 (секционные заголовки, заголовки модалок)
-      headlineMedium: withFallback(display(baseTextTheme.headlineMedium)?.copyWith(
-        fontSize: 32,
-        fontWeight: displayWeight,
-        height: 1.08,
-        letterSpacing: -0.3,
-        color: effective.text,
-      )),
-      // headlineSmall 22 → остаётся, но тоже display font
-      headlineSmall: withFallback(display(baseTextTheme.headlineSmall)?.copyWith(
-        fontSize: 22,
-        fontWeight: headlineSmallWeight,
         height: 1.15,
-        letterSpacing: -0.1,
-        color: effective.text,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.4,
+        color: s.ink,
       )),
-      // --- title roles — body font (без изменений в размерах) ---
-      titleLarge: withFallback(baseTextTheme.titleLarge?.copyWith(
+      displaySmall: withFallback(baseTT.displaySmall?.copyWith(
+        fontSize: 28,
+        height: 1.20,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.3,
+        color: s.ink,
+      )),
+      // --- Headline ---
+      headlineLarge: withFallback(baseTT.headlineLarge?.copyWith(
+        fontSize: 24,
+        height: 1.22,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.25,
+        color: s.ink,
+      )),
+      headlineMedium: withFallback(baseTT.headlineMedium?.copyWith(
+        fontSize: 22,
+        height: 1.25,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.2,
+        color: s.ink,
+      )),
+      headlineSmall: withFallback(baseTT.headlineSmall?.copyWith(
+        fontSize: 20,
+        height: 1.30,
+        fontWeight: FontWeight.w500,
+        letterSpacing: -0.2,
+        color: s.ink,
+      )),
+      // --- Title ---
+      titleLarge: withFallback(baseTT.titleLarge?.copyWith(
         fontSize: 18,
-        fontWeight: FontWeight.w600,
-        height: 1.20,
+        height: 1.35,
+        fontWeight: FontWeight.w500,
         letterSpacing: 0.0,
-        color: effective.text,
+        color: s.ink,
       )),
-      titleMedium: withFallback(baseTextTheme.titleMedium?.copyWith(
+      titleMedium: withFallback(baseTT.titleMedium?.copyWith(
         fontSize: 16,
-        fontWeight: FontWeight.w600,
-        height: 1.25,
+        height: 1.40,
+        fontWeight: FontWeight.w500,
         letterSpacing: 0.0,
-        color: effective.text,
+        color: s.ink,
       )),
-      titleSmall: withFallback(baseTextTheme.titleSmall?.copyWith(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        height: 1.25,
-        letterSpacing: 0.1,
-        color: effective.text,
-      )),
-      // --- body roles — body font (без изменений) ---
-      bodyLarge: withFallback(baseTextTheme.bodyLarge?.copyWith(
-        fontSize: 16,
-        fontWeight: FontWeight.w400,
-        height: contrastBodyHeight,
-        letterSpacing: contrastBodyLetterSpacing,
-        color: effective.text,
-      )),
-      bodyMedium: withFallback(baseTextTheme.bodyMedium?.copyWith(
-        fontSize: 14,
-        fontWeight: FontWeight.w400,
-        height: contrastBodyHeight,
-        letterSpacing: contrastBodyLetterSpacing,
-        color: effective.text,
-      )),
-      bodySmall: withFallback(baseTextTheme.bodySmall?.copyWith(
-        fontSize: 12,
-        fontWeight: FontWeight.w400,
+      titleSmall: withFallback(baseTT.titleSmall?.copyWith(
+        fontSize: 15,
         height: 1.45,
-        letterSpacing: isContrast ? 0.3 : 0.1,
-        color: effective.textMuted,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.0,
+        color: s.ink,
       )),
-      // --- label roles — body font; labelLarge w500→w600 для кнопок ---
-      labelLarge: withFallback(baseTextTheme.labelLarge?.copyWith(
-        fontSize: 14,
-        fontWeight: FontWeight.w600,
-        height: 1.20,
-        letterSpacing: 0.4,
-        color: effective.text,
+      // --- Body (tabular figures для цифр) ---
+      bodyLarge: withFallback(baseTT.bodyLarge?.copyWith(
+        fontSize: 16,
+        height: bodyHeight,
+        fontWeight: FontWeight.w400,
+        letterSpacing: bodyLetterSpacing,
+        color: s.ink,
+        fontFeatures: const [FontFeature.tabularFigures()],
       )),
-      labelMedium: withFallback(baseTextTheme.labelMedium?.copyWith(
+      bodyMedium: withFallback(baseTT.bodyMedium?.copyWith(
+        fontSize: 15,
+        height: bodyHeight,
+        fontWeight: FontWeight.w400,
+        letterSpacing: bodyLetterSpacing,
+        color: s.ink,
+      )),
+      bodySmall: withFallback(baseTT.bodySmall?.copyWith(
+        fontSize: 13,
+        height: 1.40,
+        fontWeight: FontWeight.w400,
+        letterSpacing: 0.1,
+        color: s.textMuted,
+      )),
+      // --- Label ---
+      labelLarge: withFallback(baseTT.labelLarge?.copyWith(
+        fontSize: 13,
+        height: 1.40,
+        fontWeight: FontWeight.w500,
+        letterSpacing: 0.1,
+        color: s.ink,
+        fontFeatures: const [FontFeature.tabularFigures()],
+      )),
+      labelMedium: withFallback(baseTT.labelMedium?.copyWith(
         fontSize: 12,
+        height: 1.40,
         fontWeight: FontWeight.w500,
-        height: 1.20,
-        letterSpacing: 0.4,
-        color: effective.textMuted,
+        letterSpacing: 0.2,
+        color: s.textMuted,
       )),
-      labelSmall: withFallback(baseTextTheme.labelSmall?.copyWith(
-        fontSize: 10,
+      labelSmall: withFallback(baseTT.labelSmall?.copyWith(
+        fontSize: 11,
+        height: 1.30,
         fontWeight: FontWeight.w500,
-        height: 1.20,
-        letterSpacing: 0.6,
-        color: effective.textMuted,
+        letterSpacing: 0.3,
+        color: s.textMuted,
       )),
     );
 
-    final ColorScheme colorSchemeBase = effective.brightness == Brightness.dark
-        ? const ColorScheme.dark()
-        : const ColorScheme.light();
-    final ColorScheme colorScheme = colorSchemeBase.copyWith(
-      surface: effective.surface,
-      primary: effective.accent,
-      onPrimary: effective.onAccent,
-      onSurface: effective.text,
-      secondary: effective.ember,
-      onSecondary: effective.onAccent,
-      outline: effective.border,
-      // surfaceContainerHighest используется LinearProgressIndicator как track color
-      surfaceContainerHighest: effective.border,
+    // --- ColorScheme ---
+    final colorSchemeBase =
+        isLight ? const ColorScheme.light() : const ColorScheme.dark();
+    final colorScheme = colorSchemeBase.copyWith(
+      surface: resolvedSurface1,
+      primary: resolvedAccent,
+      onPrimary: resolvedOnAccent,
+      onSurface: s.ink,
+      secondary: ember,
+      onSecondary: resolvedOnAccent,
+      outline: s.border,
+      // surfaceContainerHighest используется LinearProgressIndicator как track
+      surfaceContainerHighest: s.border,
+    );
+
+    // --- FocusThemeExtension (имена полей сохранены для 106 файлов) ---
+    final ext = FocusThemeExtension(
+      textMuted: s.textMuted,
+      ember: ember,
+      border: s.border,
+      surfaceElevated: s.surface2, // маппинг: старый surfaceElevated = новый surface2
+      textFaint: s.textFaint,
+      accentMuted: a.tint,         // маппинг: старый accentMuted = новый tint
+      success: success,
+      borderStrong: s.borderStrong,
+      // Новые поля v4
+      accentTint: a.tint,
+      accentInk: a.ink,
+      danger: danger,
+      textSecondary: s.textSecondary,
     );
 
     return ThemeData(
       useMaterial3: true,
-      brightness: effective.brightness,
-      scaffoldBackgroundColor: effective.bg,
+      brightness: s.brightness,
+      scaffoldBackgroundColor: s.bg,
       colorScheme: colorScheme,
-      textTheme: mergedTextTheme,
+      textTheme: textTheme,
 
-      // --- AppBar (display font, чуть крупнее для editorial feel) ---
+      // --- AppBar ---
       appBarTheme: AppBarTheme(
-        backgroundColor: effective.bg,
-        foregroundColor: effective.text,
+        backgroundColor: s.bg,
+        foregroundColor: s.ink,
         elevation: 0,
         scrolledUnderElevation: 0,
         centerTitle: true,
-        titleTextStyle: display(
-          const TextStyle(fontSize: 22, fontWeight: FontWeight.w700),
-        )?.copyWith(color: effective.text),
+        titleTextStyle: textTheme.headlineSmall?.copyWith(color: s.ink),
       ),
 
       // --- Bottom navigation ---
       bottomNavigationBarTheme: BottomNavigationBarThemeData(
-        backgroundColor: effective.surface,
-        selectedItemColor: effective.accent,
-        unselectedItemColor: effective.textMuted,
+        backgroundColor: s.surface1,
+        selectedItemColor: resolvedAccent,
+        unselectedItemColor: s.textMuted,
         type: BottomNavigationBarType.fixed,
         elevation: 0,
-        selectedLabelStyle: mergedTextTheme.labelSmall?.copyWith(
-          fontWeight: FontWeight.w600,
-        ),
-        unselectedLabelStyle: mergedTextTheme.labelSmall,
+        selectedLabelStyle:
+            textTheme.labelSmall?.copyWith(fontWeight: FontWeight.w600),
+        unselectedLabelStyle: textTheme.labelSmall,
       ),
 
       // --- FAB ---
       floatingActionButtonTheme: FloatingActionButtonThemeData(
-        backgroundColor: effective.accent,
-        foregroundColor: effective.onAccent,
+        backgroundColor: resolvedAccent,
+        foregroundColor: resolvedOnAccent,
         elevation: 0,
         focusElevation: 0,
         hoverElevation: 0,
         shape: const StadiumBorder(),
         extendedTextStyle:
-            mergedTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
+            textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w600),
       ),
 
-      // --- Filled Button (primary CTA): h 48→52, горизонтальный отступ 24→28 ---
-      // RECONCILIATION: 12dp radius per orchestrator override (not pill/stadium)
+      // --- Filled Button (primary CTA): radius 12, h 52 ---
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
           minimumSize: const Size(64, 52),
@@ -519,13 +641,11 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          // labelLarge уже w600 в mergedTextTheme — берём напрямую
-          textStyle: mergedTextTheme.labelLarge,
+          textStyle: textTheme.labelLarge,
         ),
       ),
 
-      // --- Outlined Button: h 48→52, боковой бордер — border (не borderStrong) ---
-      // RECONCILIATION: 12dp radius per orchestrator override (not pill/stadium)
+      // --- Outlined Button: radius 12, h 52 ---
       outlinedButtonTheme: OutlinedButtonThemeData(
         style: OutlinedButton.styleFrom(
           minimumSize: const Size(64, 52),
@@ -533,15 +653,14 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          side: BorderSide(color: effective.border),
-          foregroundColor: effective.text,
+          side: BorderSide(color: s.border),
+          foregroundColor: s.ink,
           textStyle:
-              mergedTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
+              textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w500),
         ),
       ),
 
-      // --- Text Button (лёгкие действия): w400 для контраста с filled ---
-      // RECONCILIATION: 12dp radius per orchestrator override (not 8dp from spec, matching buttons)
+      // --- Text Button ---
       textButtonTheme: TextButtonThemeData(
         style: TextButton.styleFrom(
           minimumSize: const Size(48, 48),
@@ -549,110 +668,110 @@ class AppTheme {
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12),
           ),
-          foregroundColor: effective.textMuted,
+          foregroundColor: s.textMuted,
           textStyle:
-              mergedTextTheme.labelLarge?.copyWith(fontWeight: FontWeight.w400),
+              textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w400),
         ),
       ),
 
       // --- Divider ---
-      dividerColor: effective.border,
+      dividerColor: s.border,
       dividerTheme: DividerThemeData(
-        color: effective.border,
+        color: s.border,
         thickness: 1,
         space: 1,
       ),
 
-      // --- Card: hairline border 0.5dp для лучшей структуры на тёмных темах ---
-      cardColor: effective.surface,
+      // --- Card: hairline 0.5dp, R14 ---
+      cardColor: s.surface1,
       cardTheme: CardThemeData(
-        color: effective.surface,
+        color: s.surface1,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         clipBehavior: Clip.antiAlias,
         margin: EdgeInsets.zero,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(color: effective.border, width: 0.5),
+          borderRadius: BorderRadius.circular(14),
+          side: BorderSide(color: s.border, width: 0.5),
         ),
       ),
 
       // --- Chip ---
       chipTheme: ChipThemeData(
-        backgroundColor: effective.surface,
-        selectedColor: effective.accent,
-        disabledColor: effective.surface.withValues(alpha: 0.5),
-        labelStyle: mergedTextTheme.labelMedium?.copyWith(color: effective.text),
+        backgroundColor: s.surface1,
+        selectedColor: resolvedAccent,
+        disabledColor: s.surface1.withValues(alpha: 0.5),
+        labelStyle: textTheme.labelMedium?.copyWith(color: s.ink),
         secondaryLabelStyle:
-            mergedTextTheme.labelMedium?.copyWith(color: effective.onAccent),
-        side: BorderSide(color: effective.border),
+            textTheme.labelMedium?.copyWith(color: resolvedOnAccent),
+        side: BorderSide(color: s.border),
         shape: const StadiumBorder(),
         padding: const EdgeInsets.symmetric(horizontal: 4),
         labelPadding: const EdgeInsets.symmetric(horizontal: 12),
         showCheckmark: false,
       ),
 
-      // --- Input Decoration: padding 14→16v, border strong on focus (borderStrong) ---
+      // --- Input Decoration ---
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: effective.surface,
+        fillColor: s.surface1,
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: effective.border),
+          borderSide: BorderSide(color: s.border),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: effective.border),
+          borderSide: BorderSide(color: s.border),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: effective.borderStrong, width: 1.5),
+          borderSide: BorderSide(color: s.borderStrong, width: 1.5),
         ),
         errorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: effective.ember, width: 1.5),
+          borderSide: BorderSide(color: ember, width: 1.5),
         ),
         focusedErrorBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: effective.ember, width: 1.5),
+          borderSide: BorderSide(color: ember, width: 1.5),
         ),
         disabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(8),
-          borderSide: BorderSide(color: effective.border.withValues(alpha: 0.38)),
+          borderSide:
+              BorderSide(color: s.border.withValues(alpha: 0.38)),
         ),
-        hintStyle: mergedTextTheme.bodyMedium?.copyWith(color: effective.textMuted),
-        labelStyle: mergedTextTheme.bodySmall?.copyWith(color: effective.textMuted),
+        hintStyle: textTheme.bodyMedium?.copyWith(color: s.textMuted),
+        labelStyle: textTheme.bodySmall?.copyWith(color: s.textMuted),
         floatingLabelStyle:
-            mergedTextTheme.labelSmall?.copyWith(color: effective.accent),
-        errorStyle: mergedTextTheme.labelSmall?.copyWith(color: effective.ember),
+            textTheme.labelSmall?.copyWith(color: resolvedAccent),
+        errorStyle: textTheme.labelSmall?.copyWith(color: ember),
       ),
 
       // --- Bottom Sheet ---
       bottomSheetTheme: BottomSheetThemeData(
-        backgroundColor: effective.surface,
+        backgroundColor: s.surface1,
         surfaceTintColor: Colors.transparent,
         elevation: 0,
         clipBehavior: Clip.antiAlias,
         showDragHandle: true,
-        dragHandleColor: effective.border,
+        dragHandleColor: s.border,
         dragHandleSize: const Size(36, 4),
         shape: const RoundedRectangleBorder(
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
         ),
       ),
 
       // --- Snack Bar ---
       snackBarTheme: SnackBarThemeData(
-        backgroundColor:
-            effective.brightness == Brightness.dark ? effective.surface : effective.text,
-        contentTextStyle: mergedTextTheme.bodyMedium?.copyWith(
-          color: effective.brightness == Brightness.dark ? effective.text : effective.bg,
+        backgroundColor: isLight ? s.ink : s.surface1,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: isLight ? s.bg : s.ink,
         ),
-        actionTextColor: effective.accent,
+        actionTextColor: resolvedAccent,
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(14),
         ),
         behavior: SnackBarBehavior.floating,
         elevation: 4,
@@ -662,14 +781,14 @@ class AppTheme {
       // --- Switch ---
       switchTheme: SwitchThemeData(
         thumbColor: WidgetStateProperty.resolveWith((states) {
-          if (states.contains(WidgetState.selected)) return effective.accent;
-          return effective.textMuted;
+          if (states.contains(WidgetState.selected)) return resolvedAccent;
+          return s.textMuted;
         }),
         trackColor: WidgetStateProperty.resolveWith((states) {
           if (states.contains(WidgetState.selected)) {
-            return effective.accent.withValues(alpha: 0.5);
+            return resolvedAccent.withValues(alpha: 0.5);
           }
-          return effective.border;
+          return s.border;
         }),
       ),
 
@@ -677,98 +796,100 @@ class AppTheme {
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: SegmentedButton.styleFrom(
           backgroundColor: Colors.transparent,
-          foregroundColor: effective.textMuted,
-          selectedForegroundColor: effective.onAccent,
-          selectedBackgroundColor: effective.accent,
-          side: BorderSide(color: effective.border),
+          foregroundColor: s.textMuted,
+          selectedForegroundColor: resolvedOnAccent,
+          selectedBackgroundColor: resolvedAccent,
+          side: BorderSide(color: s.border),
           shape: const StadiumBorder(),
           minimumSize: const Size(0, 40),
-          textStyle: mergedTextTheme.labelMedium,
+          textStyle: textTheme.labelMedium,
         ),
       ),
 
-      // --- List Tile: больше воздуха — vertical 4→8, minVerticalPadding 8→12 ---
+      // --- List Tile ---
       listTileTheme: ListTileThemeData(
         contentPadding:
             const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
         minVerticalPadding: 12,
         minLeadingWidth: 24,
-        iconColor: effective.textMuted,
-        titleTextStyle: mergedTextTheme.bodyLarge?.copyWith(color: effective.text),
+        iconColor: s.textMuted,
+        titleTextStyle:
+            textTheme.bodyLarge?.copyWith(color: s.ink),
         subtitleTextStyle:
-            mergedTextTheme.bodySmall?.copyWith(color: effective.textMuted),
+            textTheme.bodySmall?.copyWith(color: s.textMuted),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        selectedTileColor: effective.accent.withValues(alpha: 0.08),
+        selectedTileColor: resolvedAccent.withValues(alpha: 0.08),
       ),
 
-      // --- Popup Menu (PopupMenuButton): непрозрачный фон, иначе контент просвечивает ---
-      // Берём elevated-поверхность (модалки/дропдауны), как у карточек/боттом-шитов.
+      // --- Popup Menu ---
       popupMenuTheme: PopupMenuThemeData(
-        color: effective.surfaceElevated,
+        color: s.surface2,
         surfaceTintColor: Colors.transparent,
         elevation: 8,
-        textStyle: mergedTextTheme.bodyMedium?.copyWith(color: effective.text),
+        textStyle: textTheme.bodyMedium?.copyWith(color: s.ink),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: effective.border),
+          side: BorderSide(color: s.border),
         ),
       ),
 
-      // --- Dropdown Menu (DropdownMenu, Material 3): тот же непрозрачный фон ---
+      // --- Dropdown Menu ---
       dropdownMenuTheme: DropdownMenuThemeData(
         menuStyle: MenuStyle(
-          backgroundColor: WidgetStatePropertyAll(effective.surfaceElevated),
+          backgroundColor: WidgetStatePropertyAll(s.surface2),
           surfaceTintColor: const WidgetStatePropertyAll(Colors.transparent),
         ),
       ),
 
-      extensions: [
-        FocusThemeExtension(
-          textMuted: effective.textMuted,
-          ember: effective.ember,
-          border: effective.border,
-          // новые поля
-          surfaceElevated: effective.surfaceElevated,
-          textFaint: effective.textFaint,
-          accentMuted: effective.accentMuted,
-          success: effective.success,
-          borderStrong: effective.borderStrong,
-        ),
-      ],
+      extensions: [ext],
     );
   }
 }
 
-/// ThemeExtension — дополнительные цвета, не покрытые стандартным ColorScheme.
-/// Имя историческое (введено для Focus), но используется всеми темами.
-/// Новые поля добавлены по 01-color.md: surfaceElevated, textFaint, accentMuted,
-/// success, borderStrong.
+// ---------------------------------------------------------------------------
+// FocusThemeExtension — ИМЯ И ВСЕ СТАРЫЕ ПОЛЯ СОХРАНЕНЫ (106 файлов).
+// Новые поля добавлены с дефолтными значениями для совместимости с тестами.
+// ---------------------------------------------------------------------------
+
+/// ThemeExtension с дополнительными цветами, не покрытыми стандартным ColorScheme.
+/// Имя «Focus» историческое — используется всеми темами.
+/// В Kaname v4 добавлены: accentTint, accentInk, danger, textSecondary.
+/// Старые поля (textMuted, ember, border, surfaceElevated, textFaint,
+/// accentMuted, success, borderStrong) сохранены AS IS.
 class FocusThemeExtension extends ThemeExtension<FocusThemeExtension> {
   const FocusThemeExtension({
     required this.textMuted,
     required this.ember,
     required this.border,
-    // новые поля
     required this.surfaceElevated,
     required this.textFaint,
     required this.accentMuted,
     required this.success,
     required this.borderStrong,
+    // Новые поля v4 — опциональны для обратной совместимости с тестами
+    this.accentTint = const Color(0xFFECEDFA),     // indigo light tint как fallback
+    this.accentInk = const Color(0xFF3A45A8),      // indigo light ink как fallback
+    this.danger = const Color(0xFFC0362C),          // status.light.danger
+    this.textSecondary = const Color(0xFF6E6B66),  // day theme text_secondary
   });
 
-  // --- Существующие поля (имена/типы сохранены для обратной совместимости) ---
+  // --- Существующие поля (сохранены для обратной совместимости) ---
   final Color textMuted;
   final Color ember;
   final Color border;
-
-  // --- Новые поля (01-color.md) ---
-  final Color surfaceElevated;
+  final Color surfaceElevated; // = surface2 в v4
   final Color textFaint;
-  final Color accentMuted;
+  final Color accentMuted;    // = accentTint в v4 (маппинг)
   final Color success;
   final Color borderStrong;
+
+  // --- Новые поля v4 ---
+  final Color accentTint;
+  final Color accentInk;
+  final Color danger;
+  final Color textSecondary;
 
   @override
   FocusThemeExtension copyWith({
@@ -780,6 +901,10 @@ class FocusThemeExtension extends ThemeExtension<FocusThemeExtension> {
     Color? accentMuted,
     Color? success,
     Color? borderStrong,
+    Color? accentTint,
+    Color? accentInk,
+    Color? danger,
+    Color? textSecondary,
   }) =>
       FocusThemeExtension(
         textMuted: textMuted ?? this.textMuted,
@@ -790,6 +915,10 @@ class FocusThemeExtension extends ThemeExtension<FocusThemeExtension> {
         accentMuted: accentMuted ?? this.accentMuted,
         success: success ?? this.success,
         borderStrong: borderStrong ?? this.borderStrong,
+        accentTint: accentTint ?? this.accentTint,
+        accentInk: accentInk ?? this.accentInk,
+        danger: danger ?? this.danger,
+        textSecondary: textSecondary ?? this.textSecondary,
       );
 
   @override
@@ -804,6 +933,10 @@ class FocusThemeExtension extends ThemeExtension<FocusThemeExtension> {
       accentMuted: Color.lerp(accentMuted, other.accentMuted, t)!,
       success: Color.lerp(success, other.success, t)!,
       borderStrong: Color.lerp(borderStrong, other.borderStrong, t)!,
+      accentTint: Color.lerp(accentTint, other.accentTint, t)!,
+      accentInk: Color.lerp(accentInk, other.accentInk, t)!,
+      danger: Color.lerp(danger, other.danger, t)!,
+      textSecondary: Color.lerp(textSecondary, other.textSecondary, t)!,
     );
   }
 }

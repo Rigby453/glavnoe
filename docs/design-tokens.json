@@ -1,164 +1,113 @@
 {
-  "$schema-note": "Design tokens for Kaizen. Single source of truth for colours, fonts, spacing. Flutter and the landing page must read from here. Animation durations/curves live in /docs/ANIMATIONS.md (the animation source of truth) — the values below mirror its section 0 constants. Exact colours for themes 1-5 come from docs/design/01-color.md; all tokens are confirmed with WCAG contrast ratios.",
-  "version": 3,
-  "animation": {
+  "$schema-note": "Design tokens for Kaizen — REDESIGN 'Kaname' v1.0 (2026-06-28). Single source of truth for colour/type/space. Flutter hardcodes these into app/lib/core/theme/. Key change vs v3: ACCENT is decoupled from THEME (6 accents chosen by user, any theme); ONE font (Geist) for the whole app and all themes; accessibility (high-contrast + text-size) are SETTINGS, not themes. Icons = Phosphor. Implementation spec + per-screen tracker: docs/REDESIGN-KANAME.md. Animations: docs/ANIMATIONS.md. Old v3 (5 baked-accent themes) is superseded.",
+  "version": 4,
+  "icons": {
+    "family": "Phosphor",
+    "rule": "default = regular (outline); active/selected = fill + accent. Sizes: 20 navbar/inline, 16 captions, 24 decorative ceiling. No Material defaults, no mixed sets."
+  },
+  "font": {
+    "family": "Geist",
+    "rationale": "One family for the entire app and all themes (variable, precise, premium). Numbers in Geist tabular/monospace figures for stable width in timers/counters.",
+    "fallback_warmth": "Hanken Grotesk (sanctioned alternative if Geist unavailable in google_fonts at build time)",
+    "high_contrast_font": "Atkinson Hyperlegible (ONLY when the high-contrast setting is on)",
+    "script_fallbacks": ["Noto Sans Devanagari", "Noto Sans JP", "Noto Sans KR"],
+    "case": "sentence case everywhere — NO ALL CAPS in labels/metas"
+  },
+  "spacing": { "xxs": 4, "xs": 8, "sm": 12, "md": 16, "lg": 24, "xl": 32, "xxl": 48,
+    "_note": "base working unit = 16; phone screen padding = 24" },
+  "radius": { "soft": 8, "control": 12, "card": 14, "card_lg": 16, "sheet": 20, "pill": 999,
+    "_note": "NO one-sided rounded borders. Cards 14-16, big cards/sheets 20, buttons/inputs 12." },
+  "border": { "hairline": 0.5, "selected": 1.0,
+    "_note": "default flat; hairline on cards. Shadows ONLY on bottom sheets + popovers (soft 0 8 24 / 12%)." },
+  "motion": {
     "source_of_truth": "/docs/ANIMATIONS.md",
-    "snap_ms": 120,
-    "fast_ms": 180,
-    "normal_ms": 280,
-    "slow_ms": 300,
-    "curve_snap": "easeOut",
-    "curve_spring": "elasticOut",
-    "curve_lift": "easeOutCubic",
-    "curve_slide": "easeInOutCubic",
-    "note": "Mirrors ANIMATIONS.md section 0 — if they ever differ, ANIMATIONS.md wins. Per-tab character: Today=lift+spring, Plan=lateral, Health=fluid, Diary=calm/slower. All animations must be disableable (MediaQuery.disableAnimations)."
+    "instant_ms": 120, "transition_ms": 180, "card_ms": 240, "sheet_ms": 280, "screen_ms": 300,
+    "spring_note": "overshoot/spring ONLY in joy moments (ring at 100%, day complete). Calorie/streak numbers update instantly, no animation.",
+    "per_tab": "Today=light card lift, Plan=lateral slide, Health=fluid fill, Diary=calmer.",
+    "disable": "ALL motion off under reduce-motion / high-contrast. Kai freezes neutral."
   },
-  "spacing": { "xs": 4, "sm": 8, "md": 16, "lg": 24, "xl": 32, "xxl": 48 },
-  "radius": { "sm": 8, "md": 16, "lg": 24, "pill": 999 },
-  "font_scale": { "default": 1.0, "contrast": 1.15 },
+  "content_max_width": 1160,
+  "_content_max_width_note": "readable centred column on expanded/large (>905dp). Phone = single column.",
   "type_scale": {
-    "_note": "Bold restyle 2026-06-19. displayLarge 48→56, headlineLarge 34→40, headlineMedium 28→32. Source of truth: docs/design/02-type-space.md",
-    "displayLarge":   { "fontSize": 56, "fontWeight": 700, "height": 1.00, "letterSpacing": -0.8 },
-    "displayMedium":  { "fontSize": 40, "fontWeight": 700, "height": 1.05, "letterSpacing": -0.5 },
-    "displaySmall":   { "fontSize": 32, "fontWeight": 700, "height": 1.08, "letterSpacing": -0.3 },
-    "headlineLarge":  { "fontSize": 40, "fontWeight": 700, "height": 1.05, "letterSpacing": -0.5 },
-    "headlineMedium": { "fontSize": 32, "fontWeight": 700, "height": 1.08, "letterSpacing": -0.3 },
-    "headlineSmall":  { "fontSize": 22, "fontWeight": 600, "height": 1.15, "letterSpacing": -0.1 },
-    "titleLarge":     { "fontSize": 18, "fontWeight": 600, "height": 1.20, "letterSpacing": 0.0 },
-    "titleMedium":    { "fontSize": 16, "fontWeight": 600, "height": 1.25, "letterSpacing": 0.0 },
-    "titleSmall":     { "fontSize": 14, "fontWeight": 600, "height": 1.25, "letterSpacing": 0.1 },
-    "bodyLarge":      { "fontSize": 16, "fontWeight": 400, "height": 1.50, "letterSpacing": 0.0 },
-    "bodyMedium":     { "fontSize": 14, "fontWeight": 400, "height": 1.50, "letterSpacing": 0.0 },
-    "bodySmall":      { "fontSize": 12, "fontWeight": 400, "height": 1.45, "letterSpacing": 0.1 },
-    "labelLarge":     { "fontSize": 14, "fontWeight": 600, "height": 1.20, "letterSpacing": 0.4 },
-    "labelMedium":    { "fontSize": 12, "fontWeight": 500, "height": 1.20, "letterSpacing": 0.4 },
-    "labelSmall":     { "fontSize": 10, "fontWeight": 500, "height": 1.20, "letterSpacing": 0.6 }
+    "_note": "Geist, weights 400/500 (600 rare). Sentence case. TZ role -> Flutter slot mapping below.",
+    "displayLarge":   { "fontSize": 40, "height": 1.10, "fontWeight": 500, "letterSpacing": -0.5, "_tz": "display-l" },
+    "displayMedium":  { "fontSize": 32, "height": 1.15, "fontWeight": 500, "letterSpacing": -0.4, "_tz": "display-m" },
+    "displaySmall":   { "fontSize": 28, "height": 1.20, "fontWeight": 500, "letterSpacing": -0.3, "_tz": "display-s" },
+    "headlineLarge":  { "fontSize": 24, "height": 1.22, "fontWeight": 500, "letterSpacing": -0.25, "_tz": "between display-s/title-l" },
+    "headlineMedium": { "fontSize": 22, "height": 1.25, "fontWeight": 500, "letterSpacing": -0.2, "_tz": "title-l" },
+    "headlineSmall":  { "fontSize": 20, "height": 1.30, "fontWeight": 500, "letterSpacing": -0.2, "_tz": "title-m" },
+    "titleLarge":     { "fontSize": 18, "height": 1.35, "fontWeight": 500, "letterSpacing": 0.0, "_tz": "title-s" },
+    "titleMedium":    { "fontSize": 16, "height": 1.40, "fontWeight": 500, "letterSpacing": 0.0 },
+    "titleSmall":     { "fontSize": 15, "height": 1.45, "fontWeight": 500, "letterSpacing": 0.0 },
+    "bodyLarge":      { "fontSize": 16, "height": 1.50, "fontWeight": 400, "letterSpacing": 0.0, "_tz": "body-l" },
+    "bodyMedium":     { "fontSize": 15, "height": 1.50, "fontWeight": 400, "letterSpacing": 0.0, "_tz": "body-m" },
+    "bodySmall":      { "fontSize": 13, "height": 1.40, "fontWeight": 400, "letterSpacing": 0.1 },
+    "labelLarge":     { "fontSize": 13, "height": 1.40, "fontWeight": 500, "letterSpacing": 0.1, "_tz": "label" },
+    "labelMedium":    { "fontSize": 12, "height": 1.40, "fontWeight": 500, "letterSpacing": 0.2, "_tz": "label-s" },
+    "labelSmall":     { "fontSize": 11, "height": 1.30, "fontWeight": 500, "letterSpacing": 0.3, "_tz": "micro" }
   },
-  "component_bold": {
-    "_note": "Bold restyle component overrides 2026-06-19",
-    "button_min_height": 52,
-    "button_radius": 12,
-    "button_padding_h_filled": 28,
-    "button_padding_h_outlined": 24,
-    "input_padding_v": 16,
-    "input_padding_h": 16,
-    "card_border_width": 0.5,
-    "list_tile_padding_v": 8,
-    "list_tile_min_vertical_padding": 12,
-    "appbar_title_size": 22,
-    "appbar_title_weight": 700
+  "accents": {
+    "_note": "6 curated accents. User picks one (onboarding + Profile->Appearance), independent of theme. light = for Day/Calm (light themes); dark = for Night/Black. tint = soft underlay, ink = text on tint, on = text/icon ON the accent fill. For DARK themes: tint and ink are DERIVED at build time (tint = alphaBlend(accentDark @16%, surface); ink = accentDark), on = theme bg ink.",
+    "indigo":  { "default": true, "light": { "accent": "#4B57C9", "tint": "#ECEDFA", "ink": "#3A45A8", "on": "#FFFFFF" }, "dark": { "accent": "#7E89E0", "on": "#15140F" } },
+    "emerald": { "light": { "accent": "#1D9E75", "tint": "#E1F5EE", "ink": "#0F6E56", "on": "#FFFFFF" }, "dark": { "accent": "#3FBF93", "on": "#15140F" } },
+    "violet":  { "light": { "accent": "#7A4FC9", "tint": "#EFE9FB", "ink": "#5A33A8", "on": "#FFFFFF" }, "dark": { "accent": "#A488E6", "on": "#15140F" } },
+    "ochre":   { "light": { "accent": "#B5772A", "tint": "#F7EEDD", "ink": "#7E4F10", "on": "#FFFFFF" }, "dark": { "accent": "#D9A04A", "on": "#15140F" } },
+    "rose":    { "light": { "accent": "#C24E78", "tint": "#FBE9F0", "ink": "#923556", "on": "#FFFFFF" }, "dark": { "accent": "#E07AA0", "on": "#15140F" } },
+    "slate":   { "light": { "accent": "#3F6E9E", "tint": "#E7EFF7", "ink": "#214B73", "on": "#FFFFFF" }, "dark": { "accent": "#6F9BC4", "on": "#15140F" } }
+  },
+  "categories": {
+    "_note": "Fixed 8-colour palette for category dots/tags ONLY (10dp dot or thin chip). Theme-independent. Reuses the existing tag/subject concept (no schema change). Optional, OFF by default.",
+    "blue": "#378ADD", "green": "#639922", "amber": "#BA7517", "coral": "#D85A30",
+    "rose": "#D4537E", "violet": "#7F77DD", "teal": "#1D9E75", "gray": "#888780"
+  },
+  "status": {
+    "_note": "semantic, constant meaning across themes. success=done/ok, ember=overdue/urgent/overflow, danger=destructive. Provide per-brightness values for WCAG.",
+    "light": { "success": "#1A7A3E", "ember": "#C2510C", "danger": "#C0362C" },
+    "dark":  { "success": "#46C08C", "ember": "#F0894B", "danger": "#E8685C" }
   },
   "themes": {
-    "focus": {
-      "label": "Focus (warm dark, default)",
-      "mode": "dark",
-      "default": true,
+    "_note": "Theme = surfaces + text + border ONLY. NO accent, NO font baked in. 4 themes. Day is DEFAULT.",
+    "day": {
+      "label": "Day", "mode": "light", "default": true,
       "colors": {
-        "bg": "#141009",
-        "surface": "#241D11",
-        "surface_elevated": "#2E2618",
-        "text": "#F6EFE1",
-        "text_muted": "#9E9070",
-        "text_faint": "#736850",
-        "accent": "#D9F24B",
-        "accent_muted": "#26290F",
-        "ember": "#FF6A3D",
-        "success": "#4BAF6F",
-        "border": "#3A3020",
-        "border_strong": "#524630"
-      },
-      "semantic": { "important": "#D9F24B", "urgent": "#FF6A3D", "done": "#4BAF6F" },
-      "fonts": { "display": "Fraunces", "body": "Hanken Grotesk" }
+        "bg": "#F6F5F2", "surface1": "#FFFFFF", "surface2": "#FCFBF9",
+        "ink": "#1B1A18", "text_secondary": "#6E6B66", "text_muted": "#8E8A85", "text_faint": "#B9B5B0",
+        "border": "#E6E4DE", "border_strong": "#D8D5CE"
+      }
     },
-    "calm": {
-      "label": "Calm (low-saturation blue-green)",
-      "mode": "dark",
+    "night": {
+      "label": "Night", "mode": "dark",
       "colors": {
-        "bg": "#11171A",
-        "surface": "#18232A",
-        "surface_elevated": "#1F2E38",
-        "text": "#E8F0F0",
-        "text_muted": "#8AA0A0",
-        "text_faint": "#617E7E",
-        "accent": "#6FB6A3",
-        "accent_muted": "#172628",
-        "ember": "#E08A6B",
-        "success": "#5AB594",
-        "border": "#243640",
-        "border_strong": "#365060"
-      },
-      "semantic": { "important": "#6FB6A3", "urgent": "#E08A6B", "done": "#5AB594" },
-      "fonts": { "display": "Newsreader", "body": "DM Sans" }
+        "bg": "#16140F", "surface1": "#201D17", "surface2": "#262219",
+        "ink": "#F2EFE9", "text_secondary": "#A8A39A", "text_muted": "#827D74", "text_faint": "#5A554E",
+        "border": "#2C2820", "border_strong": "#3A352B"
+      }
     },
     "black": {
-      "label": "Black (OLED full-black)",
-      "mode": "dark",
+      "label": "Black", "mode": "dark",
       "colors": {
-        "bg": "#000000",
-        "surface": "#0E0E0E",
-        "surface_elevated": "#161616",
-        "text": "#FFFFFF",
-        "text_muted": "#8A8A8A",
-        "text_faint": "#636363",
-        "accent": "#C8FF4D",
-        "accent_muted": "#1A1F0A",
-        "ember": "#FF6A3D",
-        "success": "#4BAF6F",
-        "border": "#1C1C1C",
-        "border_strong": "#2E2E2E"
-      },
-      "semantic": { "important": "#C8FF4D", "urgent": "#FF6A3D", "done": "#4BAF6F" },
-      "fonts": { "display": "Schibsted Grotesk", "body": "Schibsted Grotesk" }
+        "bg": "#000000", "surface1": "#0D0D0D", "surface2": "#141414",
+        "ink": "#FFFFFF", "text_secondary": "#B4B4B4", "text_muted": "#8A8A8A", "text_faint": "#555555",
+        "border": "#1E1E1E", "border_strong": "#2E2E2E"
+      }
     },
-    "white": {
-      "label": "White (clean light)",
-      "mode": "light",
+    "calm": {
+      "label": "Calm", "mode": "light",
       "colors": {
-        "bg": "#FFFFFF",
-        "surface": "#F5F4F1",
-        "surface_elevated": "#ECEAE5",
-        "text": "#16130E",
-        "text_muted": "#6B675F",
-        "text_faint": "#858178",
-        "accent": "#2B2A26",
-        "accent_muted": "#EDECEA",
-        "accent_alt": "#3558E8",
-        "ember": "#E5533A",
-        "success": "#1A7A3E",
-        "border": "#E3E0DA",
-        "border_strong": "#C8C4BC"
-      },
-      "notes": {
-        "accent_alt": "Use #3558E8 (not #5B7CFA) wherever accentAlt appears as rendered text or icon. #5B7CFA (old) fails 4.5:1 body text threshold (3.68:1 on bg). #3558E8 passes at 5.66:1. #5B7CFA may only be used as a large badge background with bg/text on top.",
-        "accent": "#2B2A26 is near-black ink — the primary accent. accentAlt (#3558E8) is semantic-only (badge/chip indicator)."
-      },
-      "semantic": { "important": "#3558E8", "urgent": "#E5533A", "done": "#1A7A3E" },
-      "fonts": { "display": "Instrument Serif", "body": "Plus Jakarta Sans" }
-    },
-    "contrast": {
-      "label": "Contrast (accessibility, large type)",
-      "mode": "dark",
-      "colors": {
-        "bg": "#000000",
-        "surface": "#0A0A0A",
-        "surface_elevated": "#141414",
-        "text": "#FFFFFF",
-        "text_muted": "#D0D0D0",
-        "text_faint": "#A0A0A0",
-        "accent": "#FFE600",
-        "accent_muted": "#2A2600",
-        "ember": "#FF5230",
-        "success": "#00E5A0",
-        "border": "#FFFFFF",
-        "border_strong": "#FFFFFF"
-      },
-      "notes": {
-        "_placeholder_resolved": "Contrast palette fully specified and WCAG-verified in docs/design/01-color.md. All pairs pass 4.5:1 for body text. _placeholder flag removed.",
-        "type_overrides": "display/headline fontWeight w800, body letterSpacing +0.2, body lineHeight 1.60 — applied in _buildTheme contrastTheme branch in app_theme.dart.",
-        "scale": "font_scale.contrast = 1.15 applied via MediaQuery.textScaler in main.dart"
-      },
-      "semantic": { "important": "#FFE600", "urgent": "#FF5230", "done": "#00E5A0" },
-      "fonts": { "display": "Atkinson Hyperlegible", "body": "Atkinson Hyperlegible" }
+        "bg": "#EEF3F2", "surface1": "#FBFDFC", "surface2": "#F2F7F6",
+        "ink": "#1A2422", "text_secondary": "#4F5E5B", "text_muted": "#6B7A77", "text_faint": "#9DACA9",
+        "border": "#DCE6E4", "border_strong": "#C7D4D1"
+      }
     }
+  },
+  "accessibility": {
+    "_note": "Orthogonal SETTINGS layered on top of any theme+accent. NOT themes.",
+    "high_contrast": {
+      "font": "Atkinson Hyperlegible",
+      "size_boost": 1.15,
+      "effects": "text/borders -> AAA, accent contrast boosted, body letterSpacing +0.2, body lineHeight 1.60. Kai freezes neutral, motion off."
+    },
+    "text_size": { "small": 0.9, "normal": 1.0, "large": 1.15, "xlarge": 1.3,
+      "_impl": "multiplier via MediaQuery.textScaler; reuse core/settings/text_scale_provider.dart" }
   }
 }

@@ -1,15 +1,18 @@
 // Экран совместной учёбы (Co-study, Ф3).
-// Позволяет добавлять друзей, видеть кто учится прямо сейчас,
-// запускать/завершать собственную сессию и смотреть таблицу лидеров за неделю.
+// Restyle: Kaname §4.2 — плоские карточки (surface1 + hairline + R14),
+// hairline-разделители вместо ListTile, Phosphor-иконки, KaiMascot в
+// пустых состояниях, overflow-safe на 320px / textScale 1.5.
 
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
+import '../../features/mascot/kai_mascot.dart';
 import '../../services/api/api_client.dart';
 
 // Активная сессия: null = нет сессии, иначе ID сессии
@@ -68,13 +71,18 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
         });
         final studying = friends.where((f) => f['in_session'] == true).toList();
         if (studying.isNotEmpty && mounted && ref.read(_activeSessionProvider) == null) {
-          final names = studying.map((f) => (f['email'] as String).split('@').first).join(', ');
+          final names =
+              studying.map((f) => (f['email'] as String).split('@').first).join(', ');
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 studying.length == 1
-                    ? context.s('costudy.friends_studying_one').replaceFirst('{name}', names)
-                    : context.s('costudy.friends_studying_many').replaceFirst('{names}', names),
+                    ? context
+                        .s('costudy.friends_studying_one')
+                        .replaceFirst('{name}', names)
+                    : context
+                        .s('costudy.friends_studying_many')
+                        .replaceFirst('{names}', names),
               ),
               action: SnackBarAction(
                 label: context.s('costudy.start_too'),
@@ -106,7 +114,6 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
             onPressed: () => Navigator.pop(ctx),
             child: Text(ctx.s('btn.cancel')),
           ),
-          // FilledButton — единственное первичное действие в диалоге
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             child: Text(ctx.s('btn.add')),
@@ -160,7 +167,10 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
           textCapitalization: TextCapitalization.none,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.s('btn.cancel'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.s('btn.cancel')),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             child: Text(ctx.s('costudy.join')),
@@ -196,7 +206,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
         ),
       );
       if (confirmed == true) await _startSession();
-    } catch (e) {
+    } catch (_) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text(context.s('costudy.session_not_found'))),
@@ -222,7 +232,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
   }
 
   // ---------------------------------------------------------------------------
-  // Study groups (настоящие группы)
+  // Study groups (настоящие учебные группы)
   // ---------------------------------------------------------------------------
 
   Future<void> _createGroup() async {
@@ -238,7 +248,10 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
           textCapitalization: TextCapitalization.sentences,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.s('btn.cancel'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.s('btn.cancel')),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             child: Text(ctx.s('costudy.create_group')),
@@ -260,15 +273,15 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
           content: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Text(
-                '${ctx.s('costudy.session_code_label')} $code',
-                style: Theme.of(ctx).textTheme.titleLarge?.copyWith(
-                      letterSpacing: 4,
-                      fontWeight: FontWeight.bold,
-                    ),
+              Expanded(
+                child: Text(
+                  '${ctx.s('costudy.session_code_label')} $code',
+                  style: Theme.of(ctx).textTheme.titleLarge?.copyWith(letterSpacing: 4),
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
               IconButton(
-                icon: const Icon(Icons.copy_outlined, size: 18),
+                icon: Icon(PhosphorIcons.copy(), size: 18),
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: code));
                   ScaffoldMessenger.of(ctx).showSnackBar(
@@ -306,7 +319,10 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
           textCapitalization: TextCapitalization.none,
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: Text(ctx.s('btn.cancel'))),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text(ctx.s('btn.cancel')),
+          ),
           FilledButton(
             onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
             child: Text(ctx.s('costudy.request_join')),
@@ -360,8 +376,7 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
     } catch (_) {}
   }
 
-  /// Открывает детали группы. Для владельца показывает pending-заявки
-  /// с кнопками «Принять» / «Отклонить».
+  /// Открывает детали группы. Для владельца показывает pending-заявки.
   Future<void> _openGroup(Map<String, dynamic> group) async {
     await showModalBottomSheet<void>(
       context: context,
@@ -373,17 +388,26 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
     );
   }
 
-  String _formatElapsed() {
+  /// Форматирует elapsed-секунды для таймера сессии.
+  /// >= 1 часа: локализованный шаблон costudy.timer_hm ({h}ч {m}м).
+  /// < 1 часа:  MM:SS (числа — универсальный формат).
+  String _formatElapsed(BuildContext context) {
     final h = _elapsed ~/ 3600;
     final m = (_elapsed % 3600) ~/ 60;
     final s = _elapsed % 60;
-    if (h > 0) return '${h}h ${m.toString().padLeft(2, '0')}m';
+    if (h > 0) {
+      return context
+          .s('costudy.timer_hm')
+          .replaceFirst('{h}', '$h')
+          .replaceFirst('{m}', m.toString().padLeft(2, '0'));
+    }
     return '${m.toString().padLeft(2, '0')}:${s.toString().padLeft(2, '0')}';
   }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final inSession = ref.watch(_activeSessionProvider) != null;
 
@@ -391,12 +415,15 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
       appBar: AppBar(
         title: Text(context.s('costudy.title')),
         actions: [
+          // Обновить — нейтральный, не акцентный
           IconButton(
-            icon: Icon(Icons.refresh, color: ext.textMuted),
+            icon: Icon(PhosphorIcons.arrowsClockwise(), size: 20, color: ext.textMuted),
             onPressed: _load,
           ),
+          // Добавить друга — нейтральный
           IconButton(
-            icon: Icon(Icons.person_add_outlined, color: ext.textMuted),
+            icon: Icon(PhosphorIcons.userPlus(), size: 20, color: ext.textMuted),
+            tooltip: context.s('costudy.add_buddy_title'),
             onPressed: _addFriend,
           ),
         ],
@@ -404,98 +431,23 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
       body: RefreshIndicator(
         onRefresh: _load,
         child: ListView(
-          // 24dp screen margin — spec §4.1
+          // 24dp screen margin — spec §4
           padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
           children: [
-            // Карточка сессии
-            Card(
-              child: Padding(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  children: [
-                    // Иконка книги: accent только в активной сессии (единственный акцент на экране)
-                    // В неактивном состоянии — нейтральный textMuted
-                    Icon(
-                      inSession ? Icons.menu_book : Icons.menu_book_outlined,
-                      size: 48,
-                      color: inSession
-                          ? Theme.of(context).colorScheme.primary
-                          : ext.textMuted,
-                    ),
-                    const SizedBox(height: 12),
-                    if (inSession) ...[
-                      // Таймер — displaySmall (display font, крупный)
-                      Text(_formatElapsed(), style: textTheme.displaySmall),
-                      const SizedBox(height: 4),
-                      Text(
-                        context.s('costudy.session_in_progress'),
-                        style: textTheme.bodySmall,
-                      ),
-                      if (_sessionCode != null) ...[
-                        const SizedBox(height: 8),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            // Код сессии — titleLarge, широкий трекинг
-                            Text(
-                              '${context.s('costudy.session_code_label')} $_sessionCode',
-                              style: textTheme.titleLarge?.copyWith(
-                                letterSpacing: 4,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            IconButton(
-                              icon: Icon(Icons.copy_outlined, size: 18, color: ext.textMuted),
-                              onPressed: () {
-                                Clipboard.setData(ClipboardData(text: _sessionCode!));
-                                ScaffoldMessenger.of(context).showSnackBar(
-                                  SnackBar(content: Text(context.s('costudy.code_copied'))),
-                                );
-                              },
-                            ),
-                          ],
-                        ),
-                        Text(context.s('costudy.share_code'), style: textTheme.bodySmall),
-                      ],
-                      const SizedBox(height: 16),
-                      // Tonal — вторичное действие (завершить менее важно чем кнопка Start)
-                      FilledButton.tonal(
-                        onPressed: _endSession,
-                        child: Text(context.s('costudy.end_session')),
-                      ),
-                    ] else ...[
-                      // Заголовок в состоянии покоя — titleMedium
-                      Text(context.s('costudy.ready_to_focus'), style: textTheme.titleMedium),
-                      const SizedBox(height: 4),
-                      Text(
-                        context.s('costudy.session_prompt'),
-                        style: textTheme.bodySmall,
-                        textAlign: TextAlign.center,
-                      ),
-                      const SizedBox(height: 16),
-                      // FilledButton — единственное первичное действие на экране
-                      FilledButton(
-                        onPressed: _startSession,
-                        child: Text(context.s('costudy.start_session')),
-                      ),
-                      // TextButton — вторичный навигационный нудж
-                      TextButton(
-                        onPressed: _joinByCode,
-                        child: Text(context.s('costudy.join_by_code')),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
+            // Карточка сессии — object card §4.2
+            _SessionCard(
+              inSession: inSession,
+              elapsed: _formatElapsed(context),
+              sessionCode: _sessionCode,
+              onStart: _startSession,
+              onEnd: _endSession,
+              onJoinByCode: _joinByCode,
             ),
 
             const SizedBox(height: 24),
 
-            // Секция групп (настоящие учебные группы).
-            // Заголовок и кнопки разнесены: заголовок в Expanded (усекается
-            // эллипсисом), кнопки действий обёрнуты в Wrap — на узких экранах
-            // (~320px) они переносятся на следующую строку вместо overflow.
+            // Секция групп. Заголовок в Expanded, кнопки в Wrap —
+            // на 320px они переносятся на следующую строку без overflow.
             Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
@@ -511,12 +463,12 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
                     alignment: WrapAlignment.end,
                     children: [
                       TextButton.icon(
-                        icon: const Icon(Icons.group_add_outlined, size: 16),
+                        icon: Icon(PhosphorIcons.userPlus(), size: 16),
                         label: Text(context.s('costudy.join_group')),
                         onPressed: _joinGroupByCode,
                       ),
                       TextButton.icon(
-                        icon: const Icon(Icons.add, size: 16),
+                        icon: Icon(PhosphorIcons.plus(), size: 16),
                         label: Text(context.s('costudy.create_group')),
                         onPressed: _createGroup,
                       ),
@@ -527,20 +479,20 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
             ),
             const SizedBox(height: 8),
             if (_groups.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  context.s('costudy.no_groups'),
-                  style: textTheme.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
+              _EmptyState(
+                bodyKey: 'costudy.no_groups',
+                ctaLabel: context.s('costudy.create_group'),
+                onCta: _createGroup,
               )
             else
               ...(_groups.map(
-                (g) => _GroupTile(
-                  group: g,
-                  onTap: () => _openGroup(g),
-                  onLeave: () => _leaveGroup(g),
+                (g) => Padding(
+                  padding: const EdgeInsets.only(bottom: 8),
+                  child: _GroupCard(
+                    group: g,
+                    onTap: () => _openGroup(g),
+                    onLeave: () => _leaveGroup(g),
+                  ),
                 ),
               )),
 
@@ -549,7 +501,6 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
             // Секция друзей
             Row(
               children: [
-                // titleSmall — секционный подзаголовок (body font, w600)
                 Expanded(
                   child: Text(
                     context.s('costudy.study_buddies'),
@@ -557,9 +508,8 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                // TextButton — навигационный нудж (не основное действие)
                 TextButton.icon(
-                  icon: const Icon(Icons.add, size: 16),
+                  icon: Icon(PhosphorIcons.userPlus(), size: 16),
                   label: Text(context.s('btn.add')),
                   onPressed: _addFriend,
                 ),
@@ -567,45 +517,73 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
             ),
             const SizedBox(height: 8),
             if (_loadingFriends)
-              // KaiLoader заменяет CircularProgressIndicator
               Center(child: KaiLoader(label: context.s('loading.buddies')))
             else if (_friends.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  context.s('costudy.no_buddies'),
-                  style: textTheme.bodySmall,
-                  textAlign: TextAlign.center,
-                ),
+              _EmptyState(
+                bodyKey: 'costudy.no_buddies',
+                ctaLabel: context.s('costudy.add_by_email'),
+                onCta: _addFriend,
               )
             else
-              ...(_friends.map(
-                (f) => _FriendTile(
-                  friend: f,
-                  onRemove: () async {
-                    await ref
-                        .read(apiClientProvider)
-                        .removeFriend(f['id'] as String);
-                    _load();
-                  },
+              // Друзья — dense hairline-divided rows в одном контейнере (§4.2)
+              Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: ext.border, width: 0.5),
                 ),
-              )),
+                child: Column(
+                  children: [
+                    for (int i = 0; i < _friends.length; i++) ...[
+                      if (i > 0)
+                        Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          color: ext.border,
+                          indent: 56,
+                        ),
+                      _FriendRow(
+                        friend: _friends[i],
+                        onRemove: () async {
+                          await ref
+                              .read(apiClientProvider)
+                              .removeFriend(_friends[i]['id'] as String);
+                          _load();
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
 
             const SizedBox(height: 24),
 
-            // Таблица лидеров
+            // Таблица лидеров — dense hairline-divided rows (§4.2)
             Text(context.s('costudy.this_week'), style: textTheme.titleSmall),
             const SizedBox(height: 8),
             if (_leaderboard.isEmpty)
-              Padding(
-                padding: const EdgeInsets.symmetric(vertical: 12),
-                child: Text(
-                  context.s('costudy.no_sessions_week'),
-                  style: textTheme.bodySmall,
-                ),
+              _EmptyState(
+                bodyKey: 'costudy.no_sessions_week',
+                ctaLabel: context.s('costudy.start_session'),
+                onCta: _startSession,
               )
             else
-              ...(_leaderboard.map((e) => _LeaderboardTile(entry: e))),
+              Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: ext.border, width: 0.5),
+                ),
+                child: Column(
+                  children: [
+                    for (int i = 0; i < _leaderboard.length; i++) ...[
+                      if (i > 0)
+                        Divider(height: 1, thickness: 0.5, color: ext.border),
+                      _LeaderboardRow(entry: _leaderboard[i]),
+                    ],
+                  ],
+                ),
+              ),
           ],
         ),
       ),
@@ -613,8 +591,248 @@ class _CoStudyScreenState extends ConsumerState<CoStudyScreen> {
   }
 }
 
-class _FriendTile extends StatelessWidget {
-  const _FriendTile({required this.friend, required this.onRemove});
+// ---------------------------------------------------------------------------
+// Карточка текущей сессии — object card §4.2
+// ---------------------------------------------------------------------------
+
+class _SessionCard extends StatelessWidget {
+  const _SessionCard({
+    required this.inSession,
+    required this.elapsed,
+    required this.sessionCode,
+    required this.onStart,
+    required this.onEnd,
+    required this.onJoinByCode,
+  });
+
+  final bool inSession;
+  final String elapsed; // уже отформатированная строка
+  final String? sessionCode;
+  final VoidCallback onStart;
+  final VoidCallback onEnd;
+  final VoidCallback onJoinByCode;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final code = sessionCode; // локальная переменная для null-safety в замыканиях
+
+    return Container(
+      width: double.infinity,
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ext.border, width: 0.5),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // Иконка книги — fill + accent только в активной сессии
+          Icon(
+            inSession
+                ? PhosphorIcons.bookOpen(PhosphorIconsStyle.fill)
+                : PhosphorIcons.bookOpen(),
+            size: 40,
+            color: inSession ? colorScheme.primary : ext.textMuted,
+          ),
+          const SizedBox(height: 12),
+          if (inSession) ...[
+            // Таймер — displaySmall (monospaced числа)
+            Text(elapsed, style: textTheme.displaySmall),
+            const SizedBox(height: 4),
+            Text(
+              context.s('costudy.session_in_progress'),
+              style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+            ),
+            if (code != null) ...[
+              const SizedBox(height: 12),
+              // Блок кода сессии — surfaceElevated + hairline + R8
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                decoration: BoxDecoration(
+                  color: ext.surfaceElevated,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: ext.border, width: 0.5),
+                ),
+                child: Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Flexible(
+                      child: Text(
+                        '${context.s('costudy.session_code_label')} $code',
+                        style: textTheme.titleLarge?.copyWith(letterSpacing: 4),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    IconButton(
+                      icon: Icon(PhosphorIcons.copy(), size: 18, color: ext.textMuted),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: code));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(context.s('costudy.code_copied'))),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                context.s('costudy.share_code'),
+                style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                textAlign: TextAlign.center,
+              ),
+            ],
+            const SizedBox(height: 16),
+            // Завершить — outlined, НЕ primary (primary = Start на экране в целом)
+            OutlinedButton(
+              onPressed: onEnd,
+              child: Text(context.s('costudy.end_session')),
+            ),
+          ] else ...[
+            Text(context.s('costudy.ready_to_focus'), style: textTheme.titleMedium),
+            const SizedBox(height: 4),
+            Text(
+              context.s('costudy.session_prompt'),
+              style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            // FilledButton — единственное первичное действие на экране
+            FilledButton(
+              onPressed: onStart,
+              child: Text(context.s('costudy.start_session')),
+            ),
+            TextButton(
+              onPressed: onJoinByCode,
+              child: Text(context.s('costudy.join_by_code')),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Object card группы §4.2: surface1 + hairline + R14, ведущая иконка,
+// название + участники, trailing chevron + leave button
+// ---------------------------------------------------------------------------
+
+class _GroupCard extends StatelessWidget {
+  const _GroupCard({
+    required this.group,
+    required this.onTap,
+    required this.onLeave,
+  });
+
+  final Map<String, dynamic> group;
+  final VoidCallback onTap;
+  final VoidCallback onLeave;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final name = group['name'] as String? ?? '';
+    final isOwner = group['is_owner'] == true;
+    final memberCount = (group['member_count'] as num?)?.toInt() ?? 0;
+    final pending = (group['pending_count'] as num?)?.toInt() ?? 0;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ext.border, width: 0.5),
+      ),
+      child: Material(
+        color: Colors.transparent,
+        borderRadius: BorderRadius.circular(14),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            child: Row(
+              children: [
+                // Ведущая иконка — нейтральный квадрат R8
+                Container(
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: ext.border.withAlpha(80),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Icon(PhosphorIcons.users(), size: 18, color: ext.textMuted),
+                ),
+                const SizedBox(width: 12),
+                // Название + число участников — Expanded избегает overflow
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        name,
+                        style: textTheme.bodyMedium,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        context
+                            .s('costudy.members_count')
+                            .replaceFirst('{count}', '$memberCount'),
+                        style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                // Бейдж pending-заявок — только владельцу, акцентный
+                if (isOwner && pending > 0) ...[
+                  const SizedBox(width: 4),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: colorScheme.primary,
+                      borderRadius: BorderRadius.circular(10),
+                    ),
+                    child: Text(
+                      '$pending',
+                      style: textTheme.labelSmall
+                          ?.copyWith(color: colorScheme.onPrimary),
+                    ),
+                  ),
+                ],
+                const SizedBox(width: 4),
+                // Chevron — навигационный affordance
+                Icon(PhosphorIcons.caretRight(), size: 16, color: ext.textMuted),
+                // Кнопка выхода из группы
+                IconButton(
+                  icon: Icon(PhosphorIcons.signOut(), size: 18, color: ext.textMuted),
+                  visualDensity: VisualDensity.compact,
+                  tooltip: context.s('costudy.leave_group'),
+                  onPressed: onLeave,
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Строка друга — dense row §4.2 (нет ListTile)
+// ---------------------------------------------------------------------------
+
+class _FriendRow extends StatelessWidget {
+  const _FriendRow({required this.friend, required this.onRemove});
+
   final Map<String, dynamic> friend;
   final VoidCallback onRemove;
 
@@ -624,92 +842,55 @@ class _FriendTile extends StatelessWidget {
     final minutes = friend['session_minutes'] as int?;
     final email = friend['email'] as String;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    // Локализованный счётчик минут для статуса «Studying · Xm»
+    final minuteStr = (minutes != null && minutes > 0)
+        ? ' · ${context.s('costudy.timer_m').replaceFirst('{m}', '$minutes')}'
+        : '';
 
-    return ListTile(
-      leading: CircleAvatar(
-        // Avatar — нейтральный (surface + textMuted label)
-        backgroundColor: ext.border,
-        child: Text(
-          email.substring(0, 1).toUpperCase(),
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                color: ext.textMuted,
-              ),
-        ),
-      ),
-      title: Text(email),
-      subtitle: inSession
-          ? Text(
-              // "Studying · Xm" — accent color для активного состояния (единственный)
-              '${context.s('costudy.studying_label')}${minutes != null && minutes > 0 ? ' · ${minutes}m' : ''}',
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.primary,
-                  ),
-            )
-          : Text(
-              context.s('costudy.friend_idle'),
-              style: Theme.of(context).textTheme.bodySmall,
-            ),
-      trailing: IconButton(
-        icon: Icon(Icons.person_remove_outlined, size: 20, color: ext.textMuted),
-        onPressed: onRemove,
-      ),
-    );
-  }
-}
-
-class _GroupTile extends StatelessWidget {
-  const _GroupTile({
-    required this.group,
-    required this.onTap,
-    required this.onLeave,
-  });
-  final Map<String, dynamic> group;
-  final VoidCallback onTap;
-  final VoidCallback onLeave;
-
-  @override
-  Widget build(BuildContext context) {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final name = group['name'] as String? ?? '';
-    final isOwner = group['is_owner'] == true;
-    final memberCount = (group['member_count'] as num?)?.toInt() ?? 0;
-    final pending = (group['pending_count'] as num?)?.toInt() ?? 0;
-
-    return ListTile(
-      onTap: onTap,
-      leading: CircleAvatar(
-        backgroundColor: ext.border,
-        child: Icon(Icons.groups_outlined, size: 20, color: ext.textMuted),
-      ),
-      title: Text(name),
-      subtitle: Text(
-        context.s('costudy.members_count').replaceFirst('{count}', '$memberCount'),
-        style: Theme.of(context).textTheme.bodySmall,
-      ),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
         children: [
-          // Бейдж с числом ожидающих заявок — только у владельца, акцентом.
-          if (isOwner && pending > 0)
-            Container(
-              margin: const EdgeInsets.only(right: 4),
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.primary,
-                borderRadius: BorderRadius.circular(10),
-              ),
-              child: Text(
-                '$pending',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      color: Theme.of(context).colorScheme.onPrimary,
-                      fontWeight: FontWeight.bold,
-                    ),
-              ),
+          // Аватар — инициал на нейтральном фоне
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: ext.border.withAlpha(120),
+            child: Text(
+              email.isNotEmpty ? email[0].toUpperCase() : '?',
+              style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
             ),
+          ),
+          const SizedBox(width: 12),
+          // Email + статус — Expanded обрезает длинные адреса
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(email, style: textTheme.bodyMedium, overflow: TextOverflow.ellipsis),
+                if (inSession)
+                  // Статус «Studying» — accent только для активного состояния
+                  Text(
+                    '${context.s('costudy.studying_label')}$minuteStr',
+                    style:
+                        textTheme.bodySmall?.copyWith(color: colorScheme.primary),
+                    overflow: TextOverflow.ellipsis,
+                  )
+                else
+                  Text(
+                    context.s('costudy.friend_idle'),
+                    style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          // Удалить — нейтральный textMuted
           IconButton(
-            icon: Icon(Icons.logout, size: 20, color: ext.textMuted),
-            tooltip: context.s('costudy.leave_group'),
-            onPressed: onLeave,
+            icon: Icon(PhosphorIcons.userMinus(), size: 18, color: ext.textMuted),
+            visualDensity: VisualDensity.compact,
+            onPressed: onRemove,
           ),
         ],
       ),
@@ -717,8 +898,135 @@ class _GroupTile extends StatelessWidget {
   }
 }
 
-/// Нижний лист с деталями группы. Для владельца показывает pending-заявки
-/// с кнопками «Принять» / «Отклонить» (запрошенный «тумблер приглашений»).
+// ---------------------------------------------------------------------------
+// Строка таблицы лидеров — dense row §4.2
+// ---------------------------------------------------------------------------
+
+class _LeaderboardRow extends StatelessWidget {
+  const _LeaderboardRow({required this.entry});
+
+  final Map<String, dynamic> entry;
+
+  // Медаль или ранг. Unicode: 🥇🥈🥉 для 1-2-3, далее #N.
+  static String _rankLabel(int rank) => switch (rank) {
+        1 => '\u{1F947}',
+        2 => '\u{1F948}',
+        3 => '\u{1F949}',
+        _ => '#$rank',
+      };
+
+  @override
+  Widget build(BuildContext context) {
+    final isMe = entry['is_me'] == true;
+    final rank = entry['rank'] as int;
+    final minutes = entry['minutes'] as int;
+    final hours = minutes ~/ 60;
+    final mins = minutes % 60;
+    // Локализованный формат продолжительности
+    final durationLabel = hours > 0
+        ? context
+            .s('costudy.timer_hm')
+            .replaceFirst('{h}', '$hours')
+            .replaceFirst('{m}', '$mins')
+        : context.s('costudy.timer_m').replaceFirst('{m}', '$minutes');
+
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          // Ранг — фиксированная ширина 32dp, не ломает layout
+          SizedBox(
+            width: 32,
+            child: Text(
+              _rankLabel(rank),
+              style: const TextStyle(fontSize: 18),
+              textAlign: TextAlign.center,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Email + подпись «Это ты» — Expanded избегает overflow
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  entry['email'] as String,
+                  style: isMe ? textTheme.titleSmall : textTheme.bodyMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (isMe)
+                  Text(
+                    context.s('costudy.you'),
+                    style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                  ),
+              ],
+            ),
+          ),
+          // Продолжительность — вторичная информация
+          Text(
+            durationLabel,
+            style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Пустое состояние §4.2 invitation pattern:
+// KaiMascot(neutral, 64) + одна строка + verb button. Без "it's empty".
+// ---------------------------------------------------------------------------
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({
+    required this.bodyKey,
+    required this.ctaLabel,
+    required this.onCta,
+  });
+
+  final String bodyKey;
+  final String ctaLabel;
+  final VoidCallback onCta;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const KaiMascot(size: 64, emotion: KaiEmotion.neutral),
+            const SizedBox(height: 12),
+            Text(
+              context.s(bodyKey),
+              style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 8),
+            TextButton(
+              onPressed: onCta,
+              child: Text(ctaLabel),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Нижний лист с деталями группы.
+// Содержит: handle · заголовок + ✕ · код группы · pending-заявки · участники.
+// ---------------------------------------------------------------------------
+
 class _GroupDetailSheet extends ConsumerStatefulWidget {
   const _GroupDetailSheet({required this.groupId, required this.onChanged});
   final String groupId;
@@ -765,197 +1073,301 @@ class _GroupDetailSheetState extends ConsumerState<_GroupDetailSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final detail = _detail;
 
     return SafeArea(
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-        child: _loading || detail == null
-            ? const Padding(
-                padding: EdgeInsets.symmetric(vertical: 32),
-                child: Center(child: KaiLoader()),
-              )
-            : Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: () {
-                  final isOwner = detail['is_owner'] == true;
-                  final members =
-                      (detail['members'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
-                  final accepted =
-                      members.where((m) => m['status'] == 'accepted').toList();
-                  final pending =
-                      members.where((m) => m['status'] == 'pending').toList();
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Handle bar §4.3
+          Container(
+            margin: const EdgeInsets.only(top: 12, bottom: 8),
+            width: 36,
+            height: 4,
+            decoration: BoxDecoration(
+              color: ext.border,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+          if (_loading || _detail == null)
+            const Padding(
+              padding: EdgeInsets.symmetric(vertical: 32),
+              child: Center(child: KaiLoader()),
+            )
+          else
+            // Flexible позволяет контенту занять до оставшейся высоты экрана
+            // и прокручиваться, если участников много
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
+                child: _buildContent(context, _detail!),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
 
-                  final code = detail['code'] as String? ?? '';
+  Widget _buildContent(BuildContext context, Map<String, dynamic> detail) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-                  return <Widget>[
-                    // Заголовок + крестик закрытия (видимый аффорданс шита)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            detail['name'] as String? ?? '',
-                            style: textTheme.titleMedium,
-                          ),
-                        ),
-                        IconButton(
-                          icon: const Icon(Icons.close),
-                          tooltip: context.s('btn.close'),
-                          onPressed: () => Navigator.of(context).maybePop(),
-                        ),
-                      ],
+    final isOwner = detail['is_owner'] == true;
+    final members =
+        (detail['members'] as List<dynamic>? ?? []).cast<Map<String, dynamic>>();
+    final accepted = members.where((m) => m['status'] == 'accepted').toList();
+    final pending = members.where((m) => m['status'] == 'pending').toList();
+    final code = detail['code'] as String? ?? '';
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Заголовок + крестик закрытия §4.3
+        Row(
+          children: [
+            Expanded(
+              child: Text(
+                detail['name'] as String? ?? '',
+                style: textTheme.titleMedium,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            IconButton(
+              icon: Icon(PhosphorIcons.x(), size: 20),
+              tooltip: context.s('btn.close'),
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+          ],
+        ),
+        Divider(height: 16, thickness: 0.5, color: ext.border),
+
+        // Постоянный код группы — виден всем участникам
+        if (code.isNotEmpty) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: ext.surfaceElevated,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: ext.border, width: 0.5),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.s('costudy.group_code_label'),
+                  style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        code,
+                        style: textTheme.titleLarge?.copyWith(letterSpacing: 4),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
-                    const SizedBox(height: 12),
+                    IconButton(
+                      icon: Icon(PhosphorIcons.copy(), size: 20, color: ext.textMuted),
+                      visualDensity: VisualDensity.compact,
+                      tooltip: context.s('costudy.copy_code'),
+                      onPressed: () {
+                        Clipboard.setData(ClipboardData(text: code));
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text(context.s('costudy.code_copied'))),
+                        );
+                      },
+                    ),
+                  ],
+                ),
+                Text(
+                  context.s('costudy.share_code'),
+                  style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
-                    // Постоянный код приглашения — виден любому участнику группы,
-                    // чтобы можно было позвать друзей в любой момент (не только
-                    // сразу после создания). Источник истины — поле `code` из
-                    // того же ответа API, что используется для join.
-                    if (code.isNotEmpty)
-                      Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          color: ext.surfaceElevated,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: ext.border),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              context.s('costudy.group_code_label'),
-                              style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-                            ),
-                            const SizedBox(height: 4),
-                            Row(
-                              children: [
-                                // Код — крупно и с широким трекингом, легко прочесть/продиктовать.
-                                Expanded(
-                                  child: Text(
-                                    code,
-                                    style: textTheme.titleLarge?.copyWith(
-                                      letterSpacing: 4,
-                                      fontWeight: FontWeight.bold,
-                                    ),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ),
-                                IconButton(
-                                  icon: const Icon(Icons.copy_outlined, size: 20),
-                                  tooltip: context.s('costudy.copy_code'),
-                                  onPressed: () {
-                                    Clipboard.setData(ClipboardData(text: code));
-                                    ScaffoldMessenger.of(context).showSnackBar(
-                                      SnackBar(content: Text(context.s('costudy.code_copied'))),
-                                    );
-                                  },
-                                ),
-                              ],
-                            ),
-                            Text(
-                              context.s('costudy.share_code'),
-                              style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-                            ),
-                          ],
-                        ),
-                      ),
-                    const SizedBox(height: 16),
+        // Pending-заявки — только для владельца
+        if (isOwner && pending.isNotEmpty) ...[
+          Text(context.s('costudy.pending_requests'), style: textTheme.titleSmall),
+          const SizedBox(height: 4),
+          Container(
+            decoration: BoxDecoration(
+              color: colorScheme.surface,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: ext.border, width: 0.5),
+            ),
+            child: Column(
+              children: [
+                for (int i = 0; i < pending.length; i++) ...[
+                  if (i > 0) Divider(height: 1, thickness: 0.5, color: ext.border),
+                  _PendingRow(
+                    member: pending[i],
+                    onAccept: () => _accept(pending[i]['user_id'] as String),
+                    onDecline: () => _decline(pending[i]['user_id'] as String),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
 
-                    // Pending-заявки (только владельцу) — «тумблер приглашений».
-                    if (isOwner && pending.isNotEmpty) ...[
-                      Text(context.s('costudy.pending_requests'), style: textTheme.titleSmall),
-                      const SizedBox(height: 4),
-                      ...pending.map(
-                        (m) => ListTile(
-                          contentPadding: EdgeInsets.zero,
-                          title: Text(m['email'] as String? ?? ''),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: Icon(Icons.check_circle_outline,
-                                    color: Theme.of(context).colorScheme.primary),
-                                tooltip: context.s('costudy.accept'),
-                                onPressed: () => _accept(m['user_id'] as String),
-                              ),
-                              IconButton(
-                                icon: Icon(Icons.cancel_outlined, color: ext.textMuted),
-                                tooltip: context.s('costudy.decline'),
-                                onPressed: () => _decline(m['user_id'] as String),
-                              ),
-                            ],
-                          ),
+        // Участники группы
+        Text(context.s('costudy.study_buddies'), style: textTheme.titleSmall),
+        const SizedBox(height: 4),
+        Container(
+          decoration: BoxDecoration(
+            color: colorScheme.surface,
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: ext.border, width: 0.5),
+          ),
+          child: accepted.isEmpty
+              ? Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    context.s('costudy.no_buddies'),
+                    style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                    textAlign: TextAlign.center,
+                  ),
+                )
+              : Column(
+                  children: [
+                    for (int i = 0; i < accepted.length; i++) ...[
+                      if (i > 0)
+                        Divider(
+                          height: 1,
+                          thickness: 0.5,
+                          color: ext.border,
+                          indent: 56,
                         ),
-                      ),
-                      const SizedBox(height: 16),
-                    ],
-
-                    // Участники.
-                    Text(context.s('costudy.study_buddies'), style: textTheme.titleSmall),
-                    const SizedBox(height: 4),
-                    ...accepted.map(
-                      (m) => ListTile(
-                        contentPadding: EdgeInsets.zero,
-                        leading: CircleAvatar(
-                          backgroundColor: ext.border,
-                          child: Text(
-                            (m['email'] as String? ?? '?').substring(0, 1).toUpperCase(),
-                            style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
-                          ),
-                        ),
-                        title: Text(m['email'] as String? ?? ''),
-                        subtitle: m['role'] == 'owner'
-                            ? Text(context.s('costudy.group_owner_badge'))
+                      _MemberRow(
+                        member: accepted[i],
+                        ownerBadge: accepted[i]['role'] == 'owner'
+                            ? context.s('costudy.group_owner_badge')
                             : null,
                       ),
-                    ),
-                  ];
-                }(),
-              ),
+                    ],
+                  ],
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Строка pending-заявки (внутри GroupDetailSheet)
+// ---------------------------------------------------------------------------
+
+class _PendingRow extends StatelessWidget {
+  const _PendingRow({
+    required this.member,
+    required this.onAccept,
+    required this.onDecline,
+  });
+
+  final Map<String, dynamic> member;
+  final VoidCallback onAccept;
+  final VoidCallback onDecline;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+    final email = member['email'] as String? ?? '';
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text(
+              email,
+              style: textTheme.bodyMedium,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          // Принять — fill + accent (активное действие)
+          IconButton(
+            icon: Icon(
+              PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
+              size: 20,
+              color: colorScheme.primary,
+            ),
+            visualDensity: VisualDensity.compact,
+            tooltip: context.s('costudy.accept'),
+            onPressed: onAccept,
+          ),
+          // Отклонить — нейтральный textMuted
+          IconButton(
+            icon: Icon(PhosphorIcons.x(), size: 20, color: ext.textMuted),
+            visualDensity: VisualDensity.compact,
+            tooltip: context.s('costudy.decline'),
+            onPressed: onDecline,
+          ),
+        ],
       ),
     );
   }
 }
 
-class _LeaderboardTile extends StatelessWidget {
-  const _LeaderboardTile({required this.entry});
-  final Map<String, dynamic> entry;
+// ---------------------------------------------------------------------------
+// Строка участника группы (внутри GroupDetailSheet)
+// ---------------------------------------------------------------------------
+
+class _MemberRow extends StatelessWidget {
+  const _MemberRow({required this.member, this.ownerBadge});
+
+  final Map<String, dynamic> member;
+  final String? ownerBadge;
 
   @override
   Widget build(BuildContext context) {
-    final isMe = entry['is_me'] == true;
-    final rank = entry['rank'] as int;
-    final minutes = entry['minutes'] as int;
-    final hours = minutes ~/ 60;
-    final mins = minutes % 60;
-    final label = hours > 0 ? '${hours}h ${mins}m' : '${mins}m';
-    final medal = rank == 1
-        ? '\u{1F947}'
-        : rank == 2
-        ? '\u{1F948}'
-        : rank == 3
-        ? '\u{1F949}'
-        : '#$rank';
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final email = member['email'] as String? ?? '?';
 
-    return ListTile(
-      leading: Text(medal, style: const TextStyle(fontSize: 22)),
-      title: Text(
-        entry['email'] as String,
-        // Своя строка — w600 (titleSmall weight) для выделения без акцента
-        style: isMe
-            ? Theme.of(context).textTheme.titleSmall
-            : Theme.of(context).textTheme.bodyMedium,
-      ),
-      subtitle: isMe ? Text(context.s('costudy.you')) : null,
-      trailing: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).extension<FocusThemeExtension>()!.textMuted,
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+      child: Row(
+        children: [
+          // Аватар с инициалом
+          CircleAvatar(
+            radius: 18,
+            backgroundColor: ext.border.withAlpha(120),
+            child: Text(
+              email.isNotEmpty ? email[0].toUpperCase() : '?',
+              style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
             ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  email,
+                  style: textTheme.bodyMedium,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (ownerBadge != null)
+                  Text(
+                    ownerBadge!,
+                    style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+        ],
       ),
     );
   }

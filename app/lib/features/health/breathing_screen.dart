@@ -1,5 +1,9 @@
-// Экран дыхательных упражнений (SPEC C5 Ф2 «дыхание/медитации»).
-// Гид-таймер без аудио/видео и без сохранения сессий в БД.
+// Экран дыхательных упражнений (SPEC C5 Ф2 «дыхание»).
+// Kaname redesign §E:
+//   idle    = чипы техник (Box/Calm/Simple + custom) + чипы длительности + Start;
+//   running = круговой гид (вдох растёт / выдох сжимается, цвет по фазе) + таймер + Stop;
+//   done    = success «Done».
+// Движок логики (breathing_engine.dart) не тронут — только визуальный слой.
 // Анимация круга следует ANIMATIONS.md §0: effectiveDuration + reduceMotionOf.
 
 import 'dart:async';
@@ -7,6 +11,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/animations/constants.dart';
 import '../../core/database/database_providers.dart';
@@ -18,12 +23,8 @@ import 'breathing_custom_providers.dart';
 import 'breathing_editor_screen.dart';
 import 'breathing_engine.dart';
 
-// Доступные длительности сессии
-const _sessionDurations = [
-  (label: '1 min',  minutes: 1),
-  (label: '3 min',  minutes: 3),
-  (label: '5 min',  minutes: 5),
-];
+// Доступные длительности сессии (минуты; label строится через plMinutes в build)
+const _sessionDurationMinutes = [1, 3, 5];
 
 /// Длительность fade-анимации подписи фазы.
 const _kFadeDuration = Duration(milliseconds: 150);
@@ -32,9 +33,8 @@ const _kFadeDuration = Duration(milliseconds: 150);
 const _kColorDuration = Duration(milliseconds: 300);
 
 /// Включает «подрагивание» круга на фазе задержки дыхания (Hold).
-/// true  → круг чуть вибрирует масштабом (забавный эффект «затаённого» дыхания).
+/// true  → круг чуть вибрирует масштабом («затаённое» дыхание).
 /// false → запасной вариант: на задержке круг просто стоит неподвижно.
-/// Если джиттер выглядит плохо — выставить в false (см. ТЗ — допустимый fallback).
 const kHoldJitter = true;
 
 /// Период одного колебания джиттера на задержке (туда-обратно).
@@ -87,9 +87,7 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
   double _targetScale = 0.6;
 
   // --- Джиттер круга на задержке дыхания (Hold) ---
-  // Отдельный repeat-контроллер 0..1; в дельту масштаба превращается через sin,
-  // так что круг «подрагивает» вокруг удержанного значения. Активен только в
-  // hold-фазе при kHoldJitter && !reduceMotion. Иначе круг стоит неподвижно.
+  // Отдельный repeat-контроллер 0..1; в дельту масштаба превращается через sin.
   late AnimationController _jitterController;
   bool _holdActive = false;
 
@@ -142,7 +140,7 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
     );
   }
 
-  /// Удаление пользовательской техники с Undo (паттерн привычек).
+  /// Удаление пользовательской техники с Undo.
   Future<void> _deleteCustom(CustomTechnique t) async {
     final dao = ref.read(customBreathingDaoProvider);
     final snapshot = await dao.getById(t.id);
@@ -194,7 +192,8 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
       duration: _kFadeDuration,
       value: 1.0,
     );
-    _fadeAnimation = CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut);
+    _fadeAnimation =
+        CurvedAnimation(parent: _fadeController, curve: Curves.easeInOut);
   }
 
   @override
@@ -221,8 +220,7 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
 
   // ---------------------------------------------------------------------------
   // Цвет круга по метке фазы
-  // Фазы имеют семантику: Inhale=accent, Exhale=success, Hold=textMuted.
-  // Hex не хардкодим — берём из темы через ext/colorScheme.
+  // Inhale=accent, Exhale=success, Hold=textMuted.
   // ---------------------------------------------------------------------------
 
   Color _colorForPhaseLabel(String label) {
@@ -230,14 +228,11 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     switch (label) {
       case 'Inhale':
-        // Вдох — accent (первичное, активное состояние)
         return cs.primary;
       case 'Exhale':
-        // Выдох — success (расслабление, завершение цикла)
         return ext.success;
       case 'Hold':
       default:
-        // Задержка — textMuted (нейтральная пауза)
         return ext.textMuted;
     }
   }
@@ -260,14 +255,12 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // Запуск / остановка
+  // Запуск / остановка / пауза
   // ---------------------------------------------------------------------------
 
   void _start() {
     final total = _totalDuration;
-    // Захватываем фазы выбранной техники на всё время сессии.
     _runningPhases = _phasesForSelected();
-    // Инициализируем цвет для начальной фазы (Inhale)
     _currentCircleColor = _colorForPhaseLabel('Inhale');
     _targetCircleColor = _currentCircleColor;
     _colorAnimation = ColorTween(
@@ -308,20 +301,16 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
     final reduce = reduceMotionOf(context);
     setState(() => _paused = !_paused);
     if (_paused) {
-      // Остановить анимации — круг замирает в текущей позиции.
       if (!reduce) {
         _circleController.stop();
         _jitterController.stop();
         _colorController.stop();
       }
     } else {
-      // Возобновить анимации с текущей позиции.
       if (!reduce) {
         if (_holdActive) {
-          // Задержка дыхания — перезапустить джиттер.
           if (!_jitterController.isAnimating) _jitterController.repeat();
         } else {
-          // Вдох/выдох — дожимаем к целевому масштабу.
           if (!_circleController.isCompleted) {
             _circleController.forward(from: _circleController.value);
           }
@@ -335,10 +324,7 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
 
   void _arm() {
     _ticker?.cancel();
-    // Обновляем каждые 50 мс для плавной подписи; визуальную анимацию
-    // ведёт AnimationController отдельно.
     _ticker = Timer.periodic(const Duration(milliseconds: 50), (_) {
-      // Пауза: пропускаем тик, _elapsed не растёт.
       if (!_running || _paused) return;
       setState(() {
         _elapsed += const Duration(milliseconds: 50);
@@ -365,50 +351,36 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
   // Анимация круга
   // ---------------------------------------------------------------------------
 
-  /// Вычисляет целевой масштаб и цвет круга и, при смене фазы, запускает анимации.
   void _updateCircleAnimation() {
     if (!mounted) return;
-    // reduceMotion: при включённом режиме — не анимируем масштаб
     final reduce = reduceMotionOf(context);
-
     final result = phaseAt(_runningPhases, _elapsed);
     final phase = result.phase;
 
     if (phase.label != _lastPhaseLabel) {
-      // Новая фаза — запускаем fade-анимацию текста
       _triggerPhaseFade(phase.label, reduce);
-
-      // Плавная смена цвета
       _animateColorToPhase(phase.label, reduce);
 
       if (!reduce) {
-        // Анимация масштаба (только без reduce motion)
         if (!phase.hold) {
-          // Вдох/выдох: круг едет к целевому масштабу, джиттер выключен.
           _holdActive = false;
           _jitterController.stop();
-
           final phaseDuration = phase.duration;
           _circleController.duration = phaseDuration;
-
           final from = _targetScale;
           _targetScale = phase.expand ? 1.0 : 0.6;
-
           _circleScale = Tween<double>(begin: from, end: _targetScale).animate(
             CurvedAnimation(parent: _circleController, curve: kCurveLift),
           );
           _circleController.forward(from: 0.0);
         } else {
-          // Задержка: масштаб круга фиксируется на удержанном значении.
           _circleController.stop();
           if (kHoldJitter) {
-            // Лёгкое «подрагивание» — бесконечный repeat, дельту даёт sin.
             _holdActive = true;
             if (!_jitterController.isAnimating) {
               _jitterController.repeat();
             }
           } else {
-            // Запасной вариант: круг стоит неподвижно.
             _holdActive = false;
             _jitterController.stop();
           }
@@ -419,28 +391,23 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
     }
   }
 
-  /// Fade-out → смена метки → fade-in текста фазы.
   Future<void> _triggerPhaseFade(String newLabel, bool reduce) async {
     if (reduce || !mounted) return;
     await _fadeController.reverse();
-    // setState не нужен — _lastPhaseLabel меняется в вызывающем методе
     if (mounted) _fadeController.forward();
   }
 
-  /// Плавная анимация смены цвета круга.
   void _animateColorToPhase(String phaseLabel, bool reduce) {
     if (!mounted) return;
     final newColor = _colorForPhaseLabel(phaseLabel);
     final fromColor = _colorAnimation.value ?? _currentCircleColor;
     _currentCircleColor = fromColor;
     _targetCircleColor = newColor;
-
     _colorController.stop();
     _colorAnimation = ColorTween(
       begin: fromColor,
       end: newColor,
     ).animate(CurvedAnimation(parent: _colorController, curve: Curves.easeInOut));
-
     if (reduce) {
       _colorController.value = 1.0;
     } else {
@@ -449,7 +416,7 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
   }
 
   // ---------------------------------------------------------------------------
-  // Форматирование времени mm:ss
+  // Утилиты
   // ---------------------------------------------------------------------------
 
   String _formatDuration(Duration d) {
@@ -458,18 +425,11 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
     return '$m:$s';
   }
 
-  // ---------------------------------------------------------------------------
-  // Обратный счётчик секунд фазы
-  // ---------------------------------------------------------------------------
-
-  /// Текущая дельта масштаба от джиттера (0, если задержка неактивна).
-  /// Полный период контроллера = одно колебание sin (туда-обратно).
   double _jitterDelta() {
     if (!_holdActive) return 0.0;
     return math.sin(_jitterController.value * 2 * math.pi) * _kJitterAmplitude;
   }
 
-  /// Оставшиеся секунды в текущей фазе (1, 2, 3 ... N).
   int _phaseSecondsLeft(BreathPhase phase, double phaseProgress) {
     final totalSecs = phase.duration.inSeconds;
     final elapsed = (phaseProgress * totalSecs).floor();
@@ -485,13 +445,21 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
 
-    // Пользовательские техники из БД (пустой список, пока стрим грузится).
     final custom = ref.watch(customTechniquesProvider).valueOrNull ??
         const <CustomTechnique>[];
     _customTechniques = custom;
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.s('breathing.title'))),
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(PhosphorIcons.wind(), size: 20),
+            const SizedBox(width: 8),
+            Text(context.s('breathing.title')),
+          ],
+        ),
+      ),
       body: SafeArea(
         child: Padding(
           // 24dp screen margin — spec §4.1
@@ -511,6 +479,8 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
   // ---------------------------------------------------------------------------
 
   Widget _buildIdle(TextTheme textTheme, List<CustomTechnique> custom) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -521,65 +491,68 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // headlineSmall — display font (серифный), заголовок секции
-                Text(context.s('breathing.choose_technique'),
-                    style: textTheme.headlineSmall),
-                const SizedBox(height: 24),
+                Text(
+                  context.s('breathing.choose_technique'),
+                  style: textTheme.titleMedium,
+                ),
+                const SizedBox(height: 16),
 
-                // Выбор техники: встроенные пресеты + пользовательские.
+                // Чипы выбора техники: встроенные пресеты + пользовательские.
+                // §4.3 choice chips: selected = accentTint + accent border.
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
                   children: [
                     for (var i = 0; i < breathingPresets.length; i++)
-                      ChoiceChip(
-                        label: Text(
-                          _localizePresetName(breathingPresets[i].name),
-                        ),
+                      _TechChip(
+                        label: _localizePresetName(breathingPresets[i].name),
                         selected: _selectedId == 'builtin:$i',
-                        onSelected: (_) =>
+                        onTap: () =>
                             setState(() => _selectedId = 'builtin:$i'),
                       ),
-                    // Пользовательские техники — InputChip с кнопкой удаления.
+                    // Пользовательские техники — с кнопкой удаления.
                     for (final t in custom)
-                      InputChip(
-                        label: Text(t.name),
+                      _TechChip(
+                        label: t.name,
                         selected: _selectedId == t.id,
-                        onSelected: (_) => setState(() => _selectedId = t.id),
-                        onDeleted: () => _deleteCustom(t),
-                        deleteIcon: const Icon(Icons.close, size: 18),
+                        onTap: () => setState(() => _selectedId = t.id),
+                        onDelete: () => _deleteCustom(t),
                       ),
                   ],
                 ),
                 const SizedBox(height: 8),
 
-                // Создать свою технику
-                Align(
-                  alignment: Alignment.centerLeft,
-                  child: TextButton.icon(
-                    onPressed: _openEditor,
-                    icon: const Icon(Icons.add),
-                    label: Text(context.s('breathing.create_button')),
+                // Создать свою технику — ghost-кнопка
+                TextButton.icon(
+                  onPressed: _openEditor,
+                  icon: Icon(PhosphorIcons.plus(), size: 16),
+                  label: Text(context.s('breathing.create_button')),
+                  style: TextButton.styleFrom(
+                    alignment: Alignment.centerLeft,
+                    padding: EdgeInsets.zero,
+                    foregroundColor: ext.accentInk,
                   ),
                 ),
-                const SizedBox(height: 24),
+                const SizedBox(height: 32),
 
-                Text(context.s('breathing.duration'),
-                    style: textTheme.titleMedium),
+                Text(
+                  context.s('breathing.duration'),
+                  style: textTheme.titleMedium,
+                ),
                 const SizedBox(height: 12),
 
-                // Выбор длительности — SegmentedButton
-                SegmentedButton<int>(
-                  segments: _sessionDurations
-                      .map((d) => ButtonSegment<int>(
-                            value: d.minutes,
-                            label: Text(d.label),
-                          ))
-                      .toList(),
-                  selected: {_durationMinutes},
-                  onSelectionChanged: (s) =>
-                      setState(() => _durationMinutes = s.first),
-                  showSelectedIcon: false,
+                // Чипы длительности — локализованы через plMinutes (§ anti-regression)
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _sessionDurationMinutes.map((mins) {
+                    return _TechChip(
+                      label: plMinutes(context, mins),
+                      selected: _durationMinutes == mins,
+                      onTap: () =>
+                          setState(() => _durationMinutes = mins),
+                    );
+                  }).toList(),
                 ),
                 const SizedBox(height: 8),
               ],
@@ -590,7 +563,7 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
 
         // Единственное первичное действие — FilledButton (Start)
         FilledButton.icon(
-          icon: const Icon(Icons.play_arrow),
+          icon: Icon(PhosphorIcons.play()),
           label: Text(context.s('breathing.start')),
           onPressed: _start,
         ),
@@ -625,29 +598,30 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
               _fadeController,
             ]),
             builder: (context, _) {
-              // База — масштаб фазы; на задержке добавляем крошечный джиттер.
               final scale =
                   reduce ? 0.8 : (_circleScale.value + _jitterDelta());
-              final circleColor = _colorAnimation.value ?? colorScheme.primary;
+              final circleColor =
+                  _colorAnimation.value ?? colorScheme.primary;
               return _BreathCircle(
                 scale: scale,
                 color: circleColor,
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    // Подпись фазы: displaySmall — крупный, display font (серифный)
+                    // Подпись фазы
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Text(
                         _localizePhaseLabel(context, phase.label),
-                        style: textTheme.displaySmall?.copyWith(
+                        style: textTheme.headlineSmall?.copyWith(
                           color: colorScheme.onSurface,
+                          fontWeight: FontWeight.w500,
                         ),
                         textAlign: TextAlign.center,
                       ),
                     ),
                     const SizedBox(height: 4),
-                    // Счётчик секунд — titleLarge, приглушённый
+                    // Обратный счётчик секунд фазы
                     FadeTransition(
                       opacity: _fadeAnimation,
                       child: Text(
@@ -676,16 +650,17 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
             ),
           ),
         ),
-        const SizedBox(height: 56),
+        const SizedBox(height: 48),
 
-        // Управление: Пауза/Продолжить + Стоп (оба OutlinedButton — вторичные,
+        // Управление: Пауза/Продолжить + Стоп (оба OutlinedButton —
         // не перетягивают акцент у дыхательного круга).
         Row(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Expanded(
               child: OutlinedButton.icon(
-                icon: Icon(_paused ? Icons.play_arrow : Icons.pause),
+                icon: Icon(
+                  _paused ? PhosphorIcons.play() : PhosphorIcons.pause(),
+                ),
                 label: Text(
                   _paused
                       ? context.s('focus.btn_resume')
@@ -697,7 +672,7 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
             const SizedBox(width: 12),
             Expanded(
               child: OutlinedButton.icon(
-                icon: const Icon(Icons.stop),
+                icon: Icon(PhosphorIcons.stop()),
                 label: Text(context.s('breathing.stop')),
                 onPressed: _stop,
               ),
@@ -719,19 +694,21 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
       mainAxisAlignment: MainAxisAlignment.center,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Иконка завершения — success (а не accent, per spec §1 ACCENT DISCIPLINE)
-        Icon(
-          Icons.check_circle_outline,
-          size: 72,
-          color: ext.success,
+        // Иконка завершения — success (Phosphor fill per spec §1 ACCENT DISCIPLINE)
+        Center(
+          child: Icon(
+            PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
+            size: 72,
+            color: ext.success,
+          ),
         ),
         const SizedBox(height: 24),
-        Center(
-          child: Text(
-            '${context.s('breathing.session_complete')} · ${plMinutes(context, _durationMinutes)}',
-            style: textTheme.headlineSmall,
-            textAlign: TextAlign.center,
-          ),
+        Text(
+          '${context.s('breathing.session_complete')} · ${plMinutes(context, _durationMinutes)}',
+          style: textTheme.headlineSmall,
+          textAlign: TextAlign.center,
+          overflow: TextOverflow.ellipsis,
+          maxLines: 2,
         ),
         const SizedBox(height: 56),
         // Единственное первичное действие — FilledButton
@@ -745,15 +722,87 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
 }
 
 // ---------------------------------------------------------------------------
+// Chip выбора техники / длительности (§4.3 choice chips)
+// ---------------------------------------------------------------------------
+
+/// Универсальный chip для выбора техники и длительности.
+/// selected  → accentTint bg + accent border (1dp) + accentInk text.
+/// unselected → surface bg + border hairline (0.5dp) + ink text.
+/// [onDelete] — если задан, показывает иконку «×» справа.
+class _TechChip extends StatelessWidget {
+  const _TechChip({
+    required this.label,
+    required this.selected,
+    required this.onTap,
+    this.onDelete,
+  });
+
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final textTheme = Theme.of(context).textTheme;
+
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        decoration: BoxDecoration(
+          color: selected ? ext.accentTint : colorScheme.surface,
+          borderRadius: BorderRadius.circular(999), // pill
+          border: Border.all(
+            color: selected ? colorScheme.primary : ext.border,
+            width: selected ? 1.0 : 0.5,
+          ),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Padding(
+              padding: EdgeInsets.fromLTRB(
+                12,
+                8,
+                onDelete != null ? 4 : 12,
+                8,
+              ),
+              child: Text(
+                label,
+                style: textTheme.labelLarge?.copyWith(
+                  color: selected ? ext.accentInk : colorScheme.onSurface,
+                ),
+              ),
+            ),
+            if (onDelete != null)
+              GestureDetector(
+                onTap: onDelete,
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(0, 8, 10, 8),
+                  child: Icon(
+                    PhosphorIcons.x(),
+                    size: 14,
+                    color: ext.textMuted,
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Виджет круга
 // ---------------------------------------------------------------------------
 
-/// Гид дыхания: большое ФИКСИРОВАННОЕ внешнее кольцо (цель) + внутренний
+/// Гид дыхания: большое ФИКСИРОВАННОЕ внешнее кольцо (ориентир) + внутренний
 /// заполненный круг, который растёт к кольцу на вдохе и сжимается на выдохе.
 ///
 /// [scale] — значение контроллера фазы в диапазоне 0.6 (выдох) … 1.0 (вдох).
-/// Оно НЕ масштабирует весь виджет, а задаёт диаметр внутреннего круга:
-/// 0.6 → ~0.30 базового размера, 1.0 → ~0.92 (почти заполняет кольцо).
 /// Внешнее кольцо всегда базового размера 220×220 — статичный ориентир.
 /// [child] — контент по центру (подпись фазы + счётчик), НЕ масштабируется.
 class _BreathCircle extends StatelessWidget {
@@ -775,6 +824,8 @@ class _BreathCircle extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
     // Маппинг 0.6..1.0 → 0.30..0.92, с защитой от выхода за границы.
     final t = ((scale - 0.6) / 0.4).clamp(0.0, 1.0);
     final innerFraction =
@@ -787,16 +838,25 @@ class _BreathCircle extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          // Внешнее кольцо — фиксированный ориентир (контур, не масштабируется).
+          // Внешнее кольцо — фиксированный ориентир (ext.border hairline).
           Container(
             width: _baseSize,
             height: _baseSize,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               border: Border.all(
-                color: color.withValues(alpha: 0.6),
-                width: 2,
+                color: ext.border,
+                width: 1.0,
               ),
+            ),
+          ),
+          // Ореол: мягкая засветка цветом фазы под внутренним кругом.
+          Container(
+            width: innerSize + 24,
+            height: innerSize + 24,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: color.withValues(alpha: 0.08),
             ),
           ),
           // Внутренний заполненный круг — растёт/сжимается по фазе.
@@ -806,6 +866,10 @@ class _BreathCircle extends StatelessWidget {
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: color.withValues(alpha: 0.20),
+              border: Border.all(
+                color: color.withValues(alpha: 0.55),
+                width: 1.5,
+              ),
             ),
           ),
           // Текст по центру — полный размер, поверх круга, без масштабирования.

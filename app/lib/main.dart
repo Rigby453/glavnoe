@@ -11,7 +11,6 @@ import 'core/database/database_providers.dart';
 import 'core/l10n/locale_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/settings/text_scale_provider.dart';
-import 'core/theme/app_theme.dart';
 import 'core/theme/theme_provider.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/onboarding/setup_flow.dart';
@@ -114,11 +113,11 @@ class _KaizenAppState extends ConsumerState<KaizenApp> {
     final theme = ref.watch(themeDataProvider);
     final router = ref.watch(routerProvider);
     final locale = ref.watch(localeNotifierProvider);
-    // Итоговый масштаб текста = пользовательская настройка × бонус Contrast-темы.
-    final isContrast =
-        ref.watch(themeNotifierProvider) == AppThemeKey.contrast;
+    // Итоговый масштаб текста = пользовательская настройка × бонус highContrast.
+    // Размер 1.15 из design-tokens.json §accessibility.high_contrast.size_boost.
+    final isHighContrast = ref.watch(highContrastProvider);
     final userScale = ref.watch(textScaleProvider).scale;
-    final scale = userScale * (isContrast ? 1.15 : 1.0);
+    final scale = userScale * (isHighContrast ? 1.15 : 1.0);
 
     return MaterialApp.router(
       title: 'Kaizen',

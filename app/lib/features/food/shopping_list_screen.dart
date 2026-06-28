@@ -1,16 +1,20 @@
 // Экран «Список покупок» (SPEC C5, Phase 1).
-// Локальный, офлайн-первый. Синхронизация с бэкендом — Фаза 3.
-// Нет новых пакетов: drift + riverpod + go_router + uuid.
+// Kaname redesign §4.2: hairline-divided check rows, accentTint suggestion chips,
+// Phosphor icons, KaiMascot empty state. Свайп влево = удаление + Undo-тост.
+// Локальный, офлайн-первый. Синхронизация — Фаза 3.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/animations/animated_check.dart';
 import '../../core/animations/app_toast.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/tone_provider.dart';
 import '../../core/theme/app_theme.dart';
+import '../../features/mascot/kai_mascot.dart';
 import 'shopping_suggestions.dart';
 
 // ---------------------------------------------------------------------------
@@ -23,17 +27,13 @@ final _shoppingListProvider =
   return ref.watch(shoppingDaoProvider).watchAll();
 });
 
-/// Провайдер предложений: следит за корзиной и историей еды,
-/// возвращает отсортированный список рекомендуемых имён продуктов.
-/// autoDispose — освобождается при уходе с экрана.
+/// Предложения на основе истории еды (последние 30 дней).
 final _shoppingSuggestionsProvider =
     FutureProvider.autoDispose<List<String>>((ref) async {
-  // Читаем текущую корзину реактивно (следим через AsyncValue)
   final basketAsync = ref.watch(_shoppingListProvider);
   final basket = basketAsync.valueOrNull ?? const [];
   final basketNames = basket.map((i) => i.name).toSet();
 
-  // Одноразово читаем последние 30 дней логов еды (Future, не Stream)
   final dao = ref.read(foodLogsDaoProvider);
   final rawLogs = await dao.recentLogs(kSuggestionDays);
 
@@ -70,7 +70,6 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
     super.dispose();
   }
 
-  // Добавляем позицию; после добавления очищаем поле и возвращаем фокус.
   Future<void> _submit() async {
     final text = _addController.text.trim();
     if (text.isEmpty) return;
@@ -79,8 +78,7 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
     await ref.read(shoppingDaoProvider).insertItem(name: text);
   }
 
-  // Свайп-удаление: показываем тост «removed» с кнопкой Undo.
-  // Undo вставляет элемент заново с новым UUID (офлайн-первый, без конфликтов).
+  /// Свайп-удаление: тост «removed» + Undo.
   Future<bool> _onDismiss(
     BuildContext context,
     ShoppingItemsTableData item,
@@ -90,10 +88,10 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
     showAppToast(
       context,
       variant: AppToastVariant.removed,
-      // Локализованное сообщение с подстановкой имени позиции
-      message: context.s('food.shopping_item_removed').replaceFirst('{name}', item.name),
+      message: context
+          .s('food.shopping_item_removed')
+          .replaceFirst('{name}', item.name),
       onUndo: () {
-        // Вставляем заново с новым UUID и теми же данными
         ref.read(shoppingDaoProvider).insertItem(
               name: item.name,
               quantity: item.quantity,
@@ -107,15 +105,15 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
   Widget build(BuildContext context) {
     final items = ref.watch(_shoppingListProvider).valueOrNull ?? const [];
     final hasChecked = items.any((i) => i.checked);
-    // Считаем количество отмеченных для подписи кнопки «Убрать купленные (N)»
     final checkedCount = items.where((i) => i.checked).length;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final cs = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
         title: Text(context.s('food.shopping_list_title')),
         actions: [
-          // Дублируем в AppBar для пользователей, которые привыкли искать действия там
+          // AppBar TextButton «Убрать отмеченные» — дублирует баннер-кнопку
           if (hasChecked)
             TextButton(
               onPressed: () async {
@@ -127,7 +125,7 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
       ),
       body: Column(
         children: [
-          // --- Поле добавления (24dp горизонтальный отступ) ---
+          // --- Поле добавления (24dp горизонтальный отступ, §4.3) ---
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 12, 24, 8),
             child: Row(
@@ -145,31 +143,31 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
                   ),
                 ),
                 const SizedBox(width: 8),
-                // Кнопка добавления — IconButton (не FilledButton, чтобы не перетягивать акцент)
+                // Кнопка добавления — заполненная иконка (FilledButton.icon
+                // с одним действием = primary per §4.3; plain IconButton тоже ok
+                // для поля-with-button паттерна)
                 IconButton(
                   tooltip: context.s('btn.add'),
                   icon: Icon(
-                    Icons.add_circle_outline,
-                    color: Theme.of(context).colorScheme.primary,
+                    PhosphorIcons.plusCircle(),
+                    color: cs.primary,
                   ),
                   onPressed: _submit,
                 ),
               ],
             ),
           ),
-          // Разделитель — тонкий (0.5dp) без лишней высоты
+          // Разделитель (0.5dp hairline)
           Divider(
             height: 1,
             thickness: 0.5,
             color: ext?.border,
           ),
 
-          // --- Секция «Рекомендуется» (скрыта, если предложений нет) ---
+          // --- Секция «Рекомендуется» ---
           const _SuggestedSection(),
 
-          // --- БАГ-4: заметная кнопка «Убрать купленные (N)» ---
-          // Появляется ТОЛЬКО когда есть отмеченные позиции.
-          // Дублирует логику AppBar-кнопки, но визуально доминирует на экране.
+          // --- Баннер «Убрать купленные (N)» ---
           if (hasChecked)
             _ClearCheckedBanner(
               key: const ValueKey('clear_checked_banner'),
@@ -182,9 +180,8 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
           // --- Список / пустое состояние ---
           Expanded(
             child: items.isEmpty
-                ? _EmptyState()
+                ? const _EmptyState()
                 : ListView.builder(
-                    // Небольшой вертикальный отступ вверху списка
                     padding: const EdgeInsets.only(top: 4, bottom: 24),
                     itemCount: items.length,
                     itemBuilder: (context, index) {
@@ -204,12 +201,11 @@ class _ShoppingListScreenState extends ConsumerState<ShoppingListScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Баннер «Убрать купленные (N)» — БАГ-4
+// Баннер «Убрать купленные (N)»
 // ---------------------------------------------------------------------------
 
 /// Полноширинная кнопка-баннер над списком. Появляется только если есть
-/// отмеченные позиции. FilledButton.tonal — вторичное действие (не primary),
-/// но визуально доминирует над AppBar-TextButton.
+/// отмеченные позиции. FilledButton.tonal — визуально доминирует над TextButton.
 class _ClearCheckedBanner extends StatelessWidget {
   const _ClearCheckedBanner({
     super.key,
@@ -225,7 +221,6 @@ class _ClearCheckedBanner extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Padding(
-      // 16dp горизонтальный отступ — визуально отделяем от краёв, но шире обычного
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 4),
       child: SizedBox(
         width: double.infinity,
@@ -235,7 +230,7 @@ class _ClearCheckedBanner extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.check_circle_outline, size: 18),
+              Icon(PhosphorIcons.checkCircle(), size: 18),
               const SizedBox(width: 8),
               Flexible(
                 child: Text(
@@ -272,61 +267,74 @@ class _ShoppingTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final ext = theme.extension<FocusThemeExtension>();
-    // textFaint — для зачёркнутых (выполненных) позиций
     final faintColor = ext?.textFaint ?? theme.colorScheme.onSurface.withAlpha(120);
-    // textMuted — для количества
     final mutedColor = ext?.textMuted ?? theme.colorScheme.onSurface.withAlpha(153);
 
     return Dismissible(
       key: ValueKey(item.id),
       direction: DismissDirection.endToStart,
-      // Фон при свайпе: colorScheme.error (= ember семантика)
+      // Фон свайпа: ember (danger semantics) + trash icon
       background: Container(
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 24),
         color: theme.colorScheme.error,
-        child: Icon(Icons.delete_outline, color: theme.colorScheme.onError),
+        child: Icon(
+          PhosphorIcons.trash(),
+          color: theme.colorScheme.onError,
+        ),
       ),
       confirmDismiss: (_) => onDismiss(),
-      child: ListTile(
-        // Чекбокс-анимация — accent (выполнено = positiveState, 03-components §1)
-        leading: AnimatedCheck(
-          checked: item.checked,
-          color: theme.colorScheme.primary,
-          size: 24,
-        ),
-        title: Text(
-          item.name,
-          style: item.checked
-              ? theme.textTheme.bodyLarge?.copyWith(
-                  decoration: TextDecoration.lineThrough,
-                  color: faintColor,
-                )
-              : null,
-        ),
-        // Количество — bodySmall muted справа
-        trailing: item.quantity != null
-            ? Text(
-                item.quantity!,
-                style: theme.textTheme.bodySmall?.copyWith(color: mutedColor),
-              )
-            : null,
+      // §4.2: hairline row — InkWell + Padding + Row, NOT ListTile
+      child: InkWell(
         onTap: () {
-          ref
-              .read(shoppingDaoProvider)
-              .setChecked(item.id, !item.checked);
+          ref.read(shoppingDaoProvider).setChecked(item.id, !item.checked);
         },
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+          child: Row(
+            children: [
+              // Анимированный чек — accent fill (§4.3 positive state)
+              AnimatedCheck(
+                checked: item.checked,
+                color: theme.colorScheme.primary,
+                size: 22,
+              ),
+              const SizedBox(width: 12),
+              // Название занимает всё доступное место; ellipsis при переполнении
+              Expanded(
+                child: Text(
+                  item.name,
+                  overflow: TextOverflow.ellipsis,
+                  style: item.checked
+                      ? theme.textTheme.bodyMedium?.copyWith(
+                          decoration: TextDecoration.lineThrough,
+                          color: faintColor,
+                        )
+                      : theme.textTheme.bodyMedium,
+                ),
+              ),
+              // Количество — textMuted, справа (если задано)
+              if (item.quantity != null) ...[
+                const SizedBox(width: 8),
+                Text(
+                  item.quantity!,
+                  style: theme.textTheme.bodySmall?.copyWith(color: mutedColor),
+                ),
+              ],
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Секция «Предложения на основе истории»
+// Секция «Предложения»
 // ---------------------------------------------------------------------------
 
-/// Показывает раздел «Recommended for you» с чипами продуктов из истории питания.
-/// Если предложений нет (история пустая / всё уже в корзине) — скрыта целиком.
+/// Показывает секцию «Suggested for you» с чипами из истории питания.
+/// Скрыта целиком, если предложений нет.
 class _SuggestedSection extends ConsumerWidget {
   const _SuggestedSection();
 
@@ -334,7 +342,6 @@ class _SuggestedSection extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final suggestionsAsync = ref.watch(_shoppingSuggestionsProvider);
 
-    // Пока загружается или нет предложений — ничего не показываем
     final suggestions = suggestionsAsync.valueOrNull;
     if (suggestions == null || suggestions.isEmpty) {
       return const SizedBox.shrink();
@@ -342,13 +349,11 @@ class _SuggestedSection extends ConsumerWidget {
 
     final theme = Theme.of(context);
     final ext = theme.extension<FocusThemeExtension>();
-    final mutedColor =
-        ext?.textMuted ?? theme.colorScheme.onSurface.withAlpha(153);
+    final mutedColor = ext?.textMuted ?? theme.colorScheme.onSurface.withAlpha(153);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Заголовок секции — стиль titleSmall muted, как в _SectionHeader task_list
         Padding(
           padding: const EdgeInsets.fromLTRB(24, 14, 24, 6),
           child: Text(
@@ -356,21 +361,20 @@ class _SuggestedSection extends ConsumerWidget {
             style: theme.textTheme.titleSmall?.copyWith(color: mutedColor),
           ),
         ),
-        // Горизонтально прокручиваемый ряд чипов
+        // Горизонтально прокручиваемые чипы (§4.3 choice chip pattern)
         SizedBox(
           height: 40,
           child: ListView.separated(
             scrollDirection: Axis.horizontal,
             padding: const EdgeInsets.fromLTRB(24, 0, 24, 0),
             itemCount: suggestions.length,
-            separatorBuilder: (context, index) => const SizedBox(width: 8),
+            separatorBuilder: (_, __) => const SizedBox(width: 8),
             itemBuilder: (context, index) {
               final name = suggestions[index];
               return _SuggestionChip(name: name);
             },
           ),
         ),
-        // Нижний разделитель перед основным списком
         const SizedBox(height: 8),
         Divider(
           height: 1,
@@ -383,6 +387,7 @@ class _SuggestedSection extends ConsumerWidget {
 }
 
 /// Один чип предложения. По тапу добавляет продукт в корзину.
+/// Стиль §4.3: accentTint фон + accent border — мягкое приглашение.
 class _SuggestionChip extends ConsumerWidget {
   const _SuggestionChip({required this.name});
 
@@ -391,27 +396,21 @@ class _SuggestionChip extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     final ext = theme.extension<FocusThemeExtension>();
-    final mutedColor =
-        ext?.textMuted ?? theme.colorScheme.onSurface.withAlpha(153);
+    // accentTint — мягкий фон (§4.3 suggestion chip)
+    final tintColor = ext?.accentTint ?? cs.primary.withAlpha(20);
+    final inkColor = ext?.accentInk ?? cs.primary;
 
     return ActionChip(
-      // Иконка «+» как affordance
-      avatar: Icon(
-        Icons.add,
-        size: 16,
-        color: mutedColor,
-      ),
+      avatar: Icon(PhosphorIcons.plus(), size: 16, color: inkColor),
       label: Text(
         name,
-        style: theme.textTheme.bodySmall?.copyWith(color: mutedColor),
+        style: theme.textTheme.bodySmall?.copyWith(color: inkColor),
       ),
-      // Визуально лёгкий: нет заливки, тонкая рамка border-цвета темы
-      backgroundColor: Colors.transparent,
-      side: BorderSide(
-        color: ext?.border ?? theme.colorScheme.outline.withAlpha(80),
-        width: 0.8,
-      ),
+      // accentTint фон + тонкая accent-рамка (§4.3)
+      backgroundColor: tintColor,
+      side: BorderSide(color: cs.primary.withAlpha(100), width: 0.5),
       materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
       onPressed: () {
         ref.read(shoppingDaoProvider).insertItem(name: name);
@@ -421,16 +420,18 @@ class _SuggestionChip extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Пустое состояние
+// Пустое состояние — KaiMascot (neutral, 64) (§4.2)
 // ---------------------------------------------------------------------------
 
-class _EmptyState extends StatelessWidget {
+class _EmptyState extends ConsumerWidget {
+  const _EmptyState();
+
   @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tone = ref.watch(toneProvider);
+    final tt = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    // textFaint — третичный уровень для пустых состояний
-    final faintColor = ext?.textFaint ?? Theme.of(context).colorScheme.onSurface.withAlpha(80);
+    final mutedColor = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
 
     return Center(
       child: Padding(
@@ -438,11 +439,15 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.shopping_cart_outlined, size: 56, color: faintColor),
+            KaiMascot(
+              size: 64,
+              emotion: KaiEmotion.neutral,
+              isHarsh: tone == AppTone.harsh,
+            ),
             const SizedBox(height: 16),
             Text(
               context.s('food.shopping_empty'),
-              style: textTheme.bodyMedium?.copyWith(color: faintColor),
+              style: tt.bodyMedium?.copyWith(color: mutedColor),
               textAlign: TextAlign.center,
             ),
           ],

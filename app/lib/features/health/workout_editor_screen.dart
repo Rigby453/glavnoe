@@ -1,13 +1,13 @@
-// Редактор шаблона тренировки (Phase 2).
+// Редактор шаблона тренировки (Phase 2) — Kaname redesign §D.
 // Список упражнений: name, sets×reps, вес, отдых.
 // Тап → диалог редактирования; свайп → удалить.
-// «Start workout» → /workouts/:id/train (режим «тренер», под-блок 2).
-// RESTYLE 2026-06-19: bold design system — typography/color/spacing/buttons.
+// «Start workout» → /workouts/:id/train (режим «тренер»).
+// Cards §4.2: surface1 + 0.5dp hairline + R14. Phosphor icons.
 //
 // Паттерн безопасного удаления упражнений (ADR-delete-safe):
 //   - Свайп влево (SwipeToDelete) ИЛИ кнопка-корзина trailing IconButton
 //   - Оба пути идут через _deleteExercise(), который:
-//     1. Сохраняет снапшот упражнения ДО удаления
+//     1. Сохраняет снапшот ДО удаления
 //     2. Удаляет через DAO
 //     3. Показывает Undo-snackbar через showUndoSnackBar
 //     4. По нажатию Undo: вызывает dao.restoreExercise(snapshot)
@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
@@ -25,11 +26,10 @@ import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
 import '../../core/widgets/swipe_to_delete.dart';
 import '../../core/widgets/undo_snack_bar.dart';
+import '../../features/mascot/kai_mascot.dart';
 import 'workouts_screen.dart'
     show promptWorkoutName, workoutExercisesProvider, workoutProvider;
 
-// ConsumerStatefulWidget (не ConsumerWidget) — нужен mounted-check
-// после асинхронных операций удаления в SwipeToDelete.onDismissed.
 class WorkoutEditorScreen extends ConsumerStatefulWidget {
   const WorkoutEditorScreen({super.key, required this.workoutId});
 
@@ -41,8 +41,6 @@ class WorkoutEditorScreen extends ConsumerStatefulWidget {
 }
 
 class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
-
-  // --- Действия ---------------------------------------------------------------
 
   Future<void> _rename(WorkoutsTableData workout) async {
     final name = await promptWorkoutName(
@@ -56,8 +54,6 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
   }
 
   Future<void> _addExercise() async {
-    // Читаем глобальный дефолт отдыха, чтобы новое упражнение показывало
-    // и сохраняло именно это значение — card == training с первого раза.
     final globalRestSeconds = ref.read(restDefaultProvider);
     final result = await showDialog<_ExerciseFormResult>(
       context: context,
@@ -102,39 +98,25 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
         );
   }
 
-  // --- Единый путь удаления упражнения + Undo ---------------------------------
-
-  /// Удалить упражнение и показать Undo-snackbar.
-  /// Вызывается как из SwipeToDelete.onDelete, так и из кнопки-корзины.
   Future<void> _deleteExercise(WorkoutExercisesTableData ex) async {
-    // Снапшот ДО удаления — для восстановления по Undo
     final snapshot = ex;
     final dao = ref.read(workoutsDaoProvider);
-
     await dao.removeExercise(snapshot.id);
-
     if (!mounted) return;
-
-    // Сообщение: имя упражнения + ключ 'workout.exercise_removed'
-    final message = '"${snapshot.name}" — ${context.s('workout.exercise_removed')}';
     showUndoSnackBar(
       context,
-      message: message,
+      message: '"${snapshot.name}" — ${context.s('workout.exercise_removed')}',
       onUndo: () async {
         await dao.restoreExercise(snapshot);
       },
     );
   }
 
-  // --- UI ---------------------------------------------------------------------
-
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final colorScheme = Theme.of(context).colorScheme;
-
-    // Глобальный дефолт отдыха — для отображения «Default (MM:SS)» в карточках.
     final globalDefaultSeconds = ref.watch(restDefaultProvider);
 
     final workout = ref.watch(workoutProvider(widget.workoutId)).valueOrNull;
@@ -142,7 +124,6 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
         ref.watch(workoutExercisesProvider(widget.workoutId)).valueOrNull ??
             const <WorkoutExercisesTableData>[];
 
-    // Загрузка данных — KaiLoader вместо CircularProgressIndicator
     if (workout == null) {
       return Scaffold(
         appBar: AppBar(),
@@ -152,12 +133,11 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        // Название тренировки — через AppBarTheme (titleTextStyle = display font 22sp)
         title: Text(workout.name),
         actions: [
-          // TextButton — лёгкое действие (переименование)
+          // Phosphor pencilSimple — переименование
           TextButton.icon(
-            icon: Icon(Icons.edit_outlined, size: 18, color: ext.textMuted),
+            icon: Icon(PhosphorIcons.pencilSimple(), size: 16, color: ext.textMuted),
             label: Text(
               context.s('workout.rename'),
               style: textTheme.labelLarge?.copyWith(
@@ -175,14 +155,12 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
             child: exercises.isEmpty
                 ? _emptyExercises(context, ext, textTheme)
                 : ListView.builder(
-                    // 24dp горизонтальный отступ; 16dp сверху
-                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                    padding: const EdgeInsets.fromLTRB(24, 12, 24, 0),
                     itemCount: exercises.length,
                     itemBuilder: (context, i) {
                       final ex = exercises[i];
                       return Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        // SwipeToDelete: свайп влево → _deleteExercise
+                        padding: const EdgeInsets.only(bottom: 8),
                         child: SwipeToDelete(
                           key: ValueKey(ex.id),
                           onDelete: () => _deleteExercise(ex),
@@ -207,25 +185,22 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
           SafeArea(
             top: false,
             child: Padding(
-              // 24dp горизонтальный отступ — spec §4.1
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 16),
               child: Row(
                 children: [
-                  // OutlinedButton — вторичное повторяемое действие
                   Expanded(
                     child: OutlinedButton.icon(
-                      icon: const Icon(Icons.add, size: 18),
+                      icon: Icon(PhosphorIcons.plus(), size: 18),
                       label: Text(context.s('workout.add_exercise')),
                       onPressed: _addExercise,
                     ),
                   ),
                   const SizedBox(width: 12),
-                  // FilledButton — единственная первичная CTA (Start workout)
-                  // ACCENT DISCIPLINE: только этот элемент получает accent fill
+                  // FilledButton — единственная primary CTA (Start workout)
                   Expanded(
                     child: FilledButton.icon(
                       icon: Icon(
-                        Icons.play_arrow,
+                        PhosphorIcons.play(PhosphorIconsStyle.fill),
                         size: 18,
                         color: colorScheme.onPrimary,
                       ),
@@ -255,12 +230,7 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Иконка пустого состояния — textFaint (тихий, не акцентный)
-            Icon(
-              Icons.fitness_center_outlined,
-              size: 56,
-              color: ext.textFaint,
-            ),
+            const KaiMascot(size: 64, emotion: KaiEmotion.neutral),
             const SizedBox(height: 16),
             Text(
               context.s('workout.empty_exercises'),
@@ -275,7 +245,7 @@ class _WorkoutEditorScreenState extends ConsumerState<WorkoutEditorScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Карточка упражнения (заменяет ListTile — больше воздуха, card container)
+// Карточка упражнения — §4.2: surface1 + 0.5dp hairline + R14
 // ---------------------------------------------------------------------------
 
 class _ExerciseCard extends StatelessWidget {
@@ -291,52 +261,54 @@ class _ExerciseCard extends StatelessWidget {
 
   final WorkoutExercisesTableData exercise;
   final VoidCallback onTap;
-  /// Колбэк удаления — вызывается из кнопки-корзины trailing
   final VoidCallback onDelete;
-  /// Колбэк перехода к истории упражнения (Feature B) — иконка-график
   final VoidCallback onHistory;
   final FocusThemeExtension ext;
   final TextTheme textTheme;
-  /// Глобальный дефолт отдыха из restDefaultProvider — для отображения
-  /// «Default (MM:SS)» когда restSeconds == kUseDefaultRest/-1 или 60.
   final int globalDefaultSeconds;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final colorScheme = Theme.of(context).colorScheme;
+    return Material(
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: ext.border, width: 0.5),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
           child: Row(
             children: [
-              // Иконка нейтральная — textMuted (не accent)
-              Icon(Icons.accessibility_new_outlined, color: ext.textMuted),
-              const SizedBox(width: 16),
+              // Barbell icon — нейтральная textMuted
+              Icon(PhosphorIcons.barbell(), size: 20, color: ext.textMuted),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Название упражнения — titleSmall (body font, w600, 14sp)
-                    Text(exercise.name, style: textTheme.titleSmall),
-                    const SizedBox(height: 4),
-                    // Метаданные сетов/повторов — bodySmall + textMuted
+                    Text(
+                      exercise.name,
+                      style: textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 3),
                     Text(
                       _exerciseSubtitle(context, exercise, globalDefaultSeconds),
-                      style: textTheme.bodySmall?.copyWith(
-                        color: ext.textMuted,
-                      ),
+                      style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
                     ),
-                    // Техника (опционально) — bodySmall + textFaint
                     if (exercise.technique != null &&
                         exercise.technique!.isNotEmpty) ...[
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       Text(
                         exercise.technique!,
-                        style: textTheme.bodySmall?.copyWith(
-                          color: ext.textFaint,
-                        ),
+                        style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
@@ -344,28 +316,19 @@ class _ExerciseCard extends StatelessWidget {
                   ],
                 ),
               ),
-              // Кнопка истории упражнения (Feature B) — прошлые подходы + динамика.
-              // textMuted (не textFaint): это самостоятельная точка входа в
-              // дневник упражнения, она должна замечаться, а не теряться.
+              // История — chartLineUp, textMuted (самостоятельная точка входа)
               IconButton(
-                icon: Icon(
-                  Icons.show_chart,
-                  size: 20,
-                  color: ext.textMuted,
-                ),
+                icon: Icon(PhosphorIcons.chartLineUp(), size: 18, color: ext.textMuted),
                 tooltip: context.s('workout.view_history'),
                 onPressed: onHistory,
+                visualDensity: VisualDensity.compact,
               ),
-              // Кнопка-корзина — второй способ удаления помимо свайпа
-              // textFaint цвет — мягкий, не агрессивный
+              // Удалить — trash, textFaint (мягче)
               IconButton(
-                icon: Icon(
-                  Icons.delete_outline,
-                  size: 20,
-                  color: ext.textFaint,
-                ),
+                icon: Icon(PhosphorIcons.trash(), size: 18, color: ext.textFaint),
                 tooltip: context.s('btn.delete'),
                 onPressed: onDelete,
+                visualDensity: VisualDensity.compact,
               ),
             ],
           ),
@@ -376,10 +339,9 @@ class _ExerciseCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Subtitle: «3×10 · 40 kg · rest Default (02:00)» или «rest 90s»
+// Subtitle: «3×10 · 40 kg · rest Default (02:00)»
 // ---------------------------------------------------------------------------
 
-/// Форматирует секунды как MM:SS (например 120 → «02:00»).
 String _mmss(int seconds) {
   final m = (seconds ~/ 60).toString().padLeft(2, '0');
   final s = (seconds % 60).toString().padLeft(2, '0');
@@ -392,26 +354,23 @@ String _exerciseSubtitle(
   int globalDefaultSeconds,
 ) {
   final parts = <String>[];
-  parts.add('${ex.sets}×${ex.reps}'); // sets×reps (× = U+00D7)
+  parts.add('${ex.sets}×${ex.reps}');
   if (ex.weightKg != null) {
     final w = ex.weightKg!;
-    // Показываем без дробной части если число целое
-    final formatted =
-        w == w.truncateToDouble() ? '${w.round()} kg' : '$w kg';
-    parts.add(formatted);
+    final wStr = w == w.truncateToDouble() ? '${w.round()}' : '$w';
+    parts.add('$wStr ${context.s('workout.weight_short')}');
   }
-  // Отдых: «Default (MM:SS)» для сентинелей, «Ns» для явных значений.
   final restStr = isUseDefaultRest(ex.restSeconds)
       ? context
           .s('workout.rest_default_fmt')
           .replaceAll('{value}', _mmss(globalDefaultSeconds))
-      : '${ex.restSeconds}s';
+      : '${ex.restSeconds}${context.s('workout.seconds_short')}';
   parts.add('${context.s('workout.rest_phase')} $restStr');
   return parts.join(' · ');
 }
 
 // ---------------------------------------------------------------------------
-// Результат диалога редактирования упражнения
+// Результат диалога редактирования
 // ---------------------------------------------------------------------------
 
 class _ExerciseFormResult {
@@ -445,11 +404,6 @@ class _ExerciseDialog extends StatefulWidget {
 
   final String title;
   final WorkoutExercisesTableData? initial;
-
-  /// Разрешённое глобальное время отдыха (секунды, из restDefaultProvider).
-  /// Показывается как плейсхолдер поля отдыха когда поле пустое
-  /// («Default (MM:SS)»). Не используется как сохраняемое значение — пустое
-  /// поле сохраняется как kUseDefaultRest (-1), явно введённое число — как есть.
   final int defaultRestSeconds;
 
   @override
@@ -474,14 +428,8 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
     _weight = TextEditingController(
       text: ex?.weightKg != null ? ex!.weightKg.toString() : '',
     );
-    // Поле отдыха:
-    //   - Новое упражнение (ex == null): пустое — плейсхолдер покажет «Default (MM:SS)»;
-    //     пользователь видит глобальный дефолт, сохраняется kUseDefaultRest (-1).
-    //   - Существующее упражнение: сентинель (kUseDefaultRest или 60) → пустое
-    //     (значение остаётся «по умолчанию»); явное значение → показываем цифру.
     final storedRest = ex?.restSeconds;
-    final showEmpty =
-        storedRest == null || isUseDefaultRest(storedRest);
+    final showEmpty = storedRest == null || isUseDefaultRest(storedRest);
     _rest = TextEditingController(text: showEmpty ? '' : storedRest.toString());
     _technique = TextEditingController(text: ex?.technique ?? '');
   }
@@ -503,8 +451,6 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
     final sets = int.tryParse(_sets.text.trim()) ?? 3;
     final reps = int.tryParse(_reps.text.trim()) ?? 10;
     final weightKg = double.tryParse(_weight.text.trim());
-    // Поле отдыха: пустое → kUseDefaultRest (тренажёр возьмёт глобальный дефолт);
-    // введённое число → явное per-exercise значение (хранится как есть).
     final restTrimmed = _rest.text.trim();
     final parsedRest = int.tryParse(restTrimmed);
     final restSeconds =
@@ -512,9 +458,6 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
     final technique = _technique.text.trim().isEmpty
         ? null
         : _technique.text.trim();
-
-    // restSeconds: kUseDefaultRest (-1) проходит без клампа; явные значения зажаты
-    // в [0, kRestDefaultMaxSeconds] (тот же лимит, что показан в helperText).
     final clampedRest = restSeconds == kUseDefaultRest
         ? restSeconds
         : restSeconds.clamp(0, kRestDefaultMaxSeconds);
@@ -532,7 +475,6 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      // headlineSmall через AlertDialog — наследует titleTextStyle из ThemeData
       title: Text(widget.title),
       content: SingleChildScrollView(
         child: Column(
@@ -595,8 +537,6 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
                     inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                     decoration: InputDecoration(
                       labelText: context.s('workout.rest_s'),
-                      // Плейсхолдер «Default (MM:SS)» — показывает глобальный дефолт,
-                      // когда поле пустое (= kUseDefaultRest будет сохранён).
                       hintText: widget.defaultRestSeconds > 0
                           ? context
                               .s('workout.rest_default_fmt')
@@ -604,8 +544,6 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
                                   '{value}',
                                   _mmss(widget.defaultRestSeconds))
                           : null,
-                      // Лимит отдыха (clamp(0, 3600) в _submit) показан явно
-                      // в минутах, чтобы большие значения не обрезались молча.
                       helperText: context
                           .s('common.max_value_hint')
                           .replaceAll(
@@ -629,12 +567,10 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
         ),
       ),
       actions: [
-        // TextButton — отмена (навигационный нудж, не основное действие)
         TextButton(
           onPressed: () => Navigator.of(context).pop(),
           child: Text(context.s('btn.cancel')),
         ),
-        // FilledButton — единственное первичное действие диалога (Save)
         FilledButton(
           onPressed: _submit,
           child: Text(context.s('btn.save')),
@@ -644,9 +580,7 @@ class _ExerciseDialogState extends State<_ExerciseDialog> {
   }
 }
 
-/// Тестовая обёртка: возвращает приватный диалог добавления упражнения, чтобы
-/// его можно было запумпить в виджет-тесте (проверка helperText лимита отдыха,
-/// overflow) без БД и провайдеров. Не использовать в продакшен-коде.
+/// Тестовая обёртка.
 @visibleForTesting
 Widget exerciseDialogForTest({String title = 'Add exercise'}) =>
     _ExerciseDialog(title: title);

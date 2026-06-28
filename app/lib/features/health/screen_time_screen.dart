@@ -2,9 +2,12 @@
 // Лимиты: SharedPreferences, ключ 'screen_time_limits' (JSON).
 // Использование: плагин usage_stats (спец-разрешение PACKAGE_USAGE_STATS),
 //   агрегируется по категориям. Блокировок приложений НЕТ — только предупреждения.
+// Restyle «Kaname» §4.2: hairline-card, Phosphor-иконки, section-labels,
+//   локализованные форматы времени. Бизнес-логика сохранена полностью.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/settings/tone_provider.dart';
@@ -14,15 +17,9 @@ import 'screen_time_overrides_provider.dart';
 import 'screen_time_provider.dart';
 import 'screen_time_usage_provider.dart';
 
-/// Иконки для категорий — нейтральные (textMuted), не accent (03-components §1).
-const _categoryIcons = <String, IconData>{
-  'social': Icons.people_outline,
-  'video': Icons.play_circle_outline,
-  'games': Icons.sports_esports_outlined,
-  'browsing': Icons.language_outlined,
-  'messaging': Icons.chat_bubble_outline,
-  'other': Icons.apps_outlined,
-};
+// ---------------------------------------------------------------------------
+// Константы слайдера (мин)
+// ---------------------------------------------------------------------------
 
 /// Максимальный лимит слайдера (мин). 12 часов = 720 мин.
 const _kSliderMaxMinutes = 720.0;
@@ -32,6 +29,42 @@ const _kSliderMinMinutes = 15.0;
 
 /// Шаг слайдера (мин).
 const _kSliderStep = 15.0;
+
+// ---------------------------------------------------------------------------
+// Вспомогательные функции
+// ---------------------------------------------------------------------------
+
+/// Форматирует минуты в локализованную строку длительности.
+/// Использует l10n-ключи screentime.fmt_h_only / fmt_h_min / fmt_min.
+String _fmtDuration(BuildContext context, int minutes) {
+  if (minutes >= 60) {
+    final h = minutes ~/ 60;
+    final m = minutes % 60;
+    if (m == 0) {
+      return context.s('screentime.fmt_h_only').replaceAll('{h}', '$h');
+    }
+    return context
+        .s('screentime.fmt_h_min')
+        .replaceAll('{h}', '$h')
+        .replaceAll('{m}', '$m');
+  }
+  return context.s('screentime.fmt_min').replaceAll('{m}', '$minutes');
+}
+
+/// Phosphor-иконка для категории экранного времени.
+/// «other» и неизвестные → squaresFour.
+IconData _categoryIcon(String key) => switch (key) {
+      'social' => PhosphorIcons.users(),
+      'video' => PhosphorIcons.playCircle(),
+      'games' => PhosphorIcons.gameController(),
+      'browsing' => PhosphorIcons.globe(),
+      'messaging' => PhosphorIcons.chatCircle(),
+      _ => PhosphorIcons.squaresFour(),
+    };
+
+// ---------------------------------------------------------------------------
+// Главный экран
+// ---------------------------------------------------------------------------
 
 class ScreenTimeScreen extends ConsumerStatefulWidget {
   const ScreenTimeScreen({super.key});
@@ -46,12 +79,9 @@ class _ScreenTimeScreenState extends ConsumerState<ScreenTimeScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    // Обновляем данные каждый раз, когда пользователь открывает экран —
-    // провайдер не autoDispose, поэтому без этого цифры могут быть stale.
+    // Обновляем данные каждый раз при открытии экрана.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        ref.read(screenTimeUsageProvider.notifier).refresh();
-      }
+      if (mounted) ref.read(screenTimeUsageProvider.notifier).refresh();
     });
   }
 
@@ -63,7 +93,7 @@ class _ScreenTimeScreenState extends ConsumerState<ScreenTimeScreen>
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    // Возврат из системных настроек (после выдачи разрешения) → перепроверяем.
+    // Возврат из системных настроек → перепроверяем разрешение.
     if (state == AppLifecycleState.resumed) {
       ref.read(screenTimeUsageProvider.notifier).refresh();
     }
@@ -73,110 +103,217 @@ class _ScreenTimeScreenState extends ConsumerState<ScreenTimeScreen>
   Widget build(BuildContext context) {
     final limits = ref.watch(screenTimeLimitsProvider);
     final usage = ref.watch(screenTimeUsageProvider);
-    final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     return Scaffold(
       appBar: AppBar(
+        // Phosphor arrowLeft — §icon-map
+        leading: IconButton(
+          icon: Icon(PhosphorIcons.arrowLeft()),
+          tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+          onPressed: () => Navigator.of(context).maybePop(),
+        ),
         title: Text(context.s('screentime.title')),
-        // FIX 3: убрана кнопка «обновить» из AppBar.
-        // Обновление доступно через RefreshIndicator (свайп) и при resume.
+        // Обновление — только pull-to-refresh (свайп вниз)
       ),
       body: RefreshIndicator(
         onRefresh: () => ref.read(screenTimeUsageProvider.notifier).refresh(),
         child: ListView(
-          // 24dp screen margin — spec §4.1
           physics: const AlwaysScrollableScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
+          // Боковой отступ 24 — design-tokens §spacing.lg
+          padding: const EdgeInsets.fromLTRB(24, 20, 24, 96),
           children: [
-          // Заголовок экрана — headlineMedium, display font (серифный), 32sp w700
-          Text(
-            context.s('screentime.title'),
-            style: textTheme.headlineMedium,
-          ),
-          const SizedBox(height: 4),
-          Text(
-            context.s('screentime.set_daily_limits'),
-            style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
-          ),
-          const SizedBox(height: 24),
-
-          // --- Section 1: Set daily limits ---
-          Text(
-            context.s('screentime.set_daily_limits'),
-            style: textTheme.titleMedium,
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: screenTimeCategories.entries
-                  // 'other' не имеет смысла ограничивать — не показываем в лимитах
-                  .where((e) => e.key != 'other')
-                  .map(
-                    (entry) => _CategoryTile(
-                      categoryKey: entry.key,
-                      categoryName: entry.value,
-                      icon: _categoryIcons[entry.key] ?? Icons.apps_outlined,
-                      currentMinutes: limits[entry.key] ?? 0,
-                    ),
-                  )
-                  .toList(),
+            // --- Section 1: Установить лимиты ---
+            _SectionLabel(context.s('screentime.set_daily_limits')),
+            _HairlineCard(
+              children: _buildLimitRows(context, limits, ext),
             ),
-          ),
+            const SizedBox(height: 24),
 
-          const SizedBox(height: 24),
+            // --- Section 2: Данные об использовании ---
+            _SectionLabel(context.s('screentime.usage_data')),
+            _UsageSection(usage: usage, limits: limits),
+            const SizedBox(height: 24),
 
-          // --- Section 2: Usage data (real, Android) ---
-          Text(context.s('screentime.usage_data'), style: textTheme.titleMedium),
-          const SizedBox(height: 8),
-          _UsageSection(usage: usage, limits: limits),
-
-          const SizedBox(height: 24),
-
-          // --- Section 3: Tips ---
-          Text(context.s('screentime.tips'), style: textTheme.titleMedium),
-          const SizedBox(height: 8),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  _TipRow(
-                    icon: Icons.pause_circle_outline,
-                    text: context.s('screentime.tip_autoplay'),
-                    ext: ext,
-                    textTheme: textTheme,
-                  ),
-                  const SizedBox(height: 12),
-                  _TipRow(
-                    icon: Icons.invert_colors_outlined,
-                    text: context.s('screentime.tip_grayscale'),
-                    ext: ext,
-                    textTheme: textTheme,
-                  ),
-                  const SizedBox(height: 12),
-                  _TipRow(
-                    icon: Icons.hotel_outlined,
-                    text: context.s('screentime.tip_phone_away'),
-                    ext: ext,
-                    textTheme: textTheme,
-                  ),
-                ],
-              ),
+            // --- Section 3: Советы ---
+            _SectionLabel(context.s('screentime.tips')),
+            _HairlineCard(
+              children: [
+                _TipRow(
+                  icon: PhosphorIcons.pauseCircle(),
+                  text: context.s('screentime.tip_autoplay'),
+                ),
+                Divider(height: 1, thickness: 0.5, color: ext.border),
+                _TipRow(
+                  icon: PhosphorIcons.palette(),
+                  text: context.s('screentime.tip_grayscale'),
+                ),
+                Divider(height: 1, thickness: 0.5, color: ext.border),
+                _TipRow(
+                  icon: PhosphorIcons.moon(),
+                  text: context.s('screentime.tip_phone_away'),
+                ),
+              ],
             ),
-          ),
+            const SizedBox(height: 24),
+          ],
+        ),
+      ),
+    );
+  }
 
-          const SizedBox(height: 24),
-        ],
+  /// Строит строки лимитов с hairline-разделителями (кроме 'other').
+  List<Widget> _buildLimitRows(
+    BuildContext context,
+    Map<String, int> limits,
+    FocusThemeExtension ext,
+  ) {
+    final entries = screenTimeCategories.entries
+        .where((e) => e.key != 'other')
+        .toList();
+    final rows = <Widget>[];
+    for (var i = 0; i < entries.length; i++) {
+      final entry = entries[i];
+      rows.add(_CategoryLimitRow(
+        categoryKey: entry.key,
+        // Локализованное имя категории (не hardcoded English из provider)
+        categoryName: context.s('screentime.cat_${entry.key}'),
+        currentMinutes: limits[entry.key] ?? 0,
+      ));
+      if (i < entries.length - 1) {
+        rows.add(Divider(height: 1, thickness: 0.5, color: ext.border));
+      }
+    }
+    return rows;
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Общие компоненты §4.2
+// ---------------------------------------------------------------------------
+
+/// Заголовок секции — labelMedium, textMuted (Kaname §4.2).
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.text);
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Text(
+        text,
+        style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: ext.textMuted,
+              letterSpacing: 0.3,
+            ),
+      ),
+    );
+  }
+}
+
+/// Карточка: surface1 + hairline (0.5dp) + R14, без тени (Kaname §4.2).
+class _HairlineCard extends StatelessWidget {
+  const _HairlineCard({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final surface = Theme.of(context).colorScheme.surface;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: surface,
+        border: Border.all(color: ext.border, width: 0.5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: ClipRRect(
+        // Немного меньший радиус чтобы обрезать содержимое без артефактов границы
+        borderRadius: BorderRadius.circular(13.5),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: children,
         ),
       ),
     );
   }
 }
 
-/// Секция реального использования: состояние разрешения / гранта / over-limit.
-/// Иконки нейтральные (textMuted); ember только для over-limit (§1 ACCENT DISCIPLINE).
+// ---------------------------------------------------------------------------
+// Строка лимита категории
+// ---------------------------------------------------------------------------
+
+/// Строка лимита одной категории. Тап → боттом-шит с ползунком.
+/// Стиль: hairline row (§4.2), Phosphor-иконка, caretRight.
+class _CategoryLimitRow extends StatelessWidget {
+  const _CategoryLimitRow({
+    required this.categoryKey,
+    required this.categoryName,
+    required this.currentMinutes,
+  });
+
+  final String categoryKey;
+  final String categoryName;
+  final int currentMinutes;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    final subtitle = currentMinutes == 0
+        ? context.s('screentime.no_limit')
+        : _fmtDuration(context, currentMinutes);
+
+    return InkWell(
+      onTap: () => _showLimitSheet(context),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            // Иконки нейтральные (textMuted) — не accent (§accent-discipline)
+            Icon(_categoryIcon(categoryKey), size: 20, color: ext.textMuted),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(categoryName, style: textTheme.bodyLarge),
+            ),
+            const SizedBox(width: 8),
+            Text(
+              subtitle,
+              style: textTheme.bodySmall?.copyWith(
+                color: currentMinutes == 0 ? ext.textFaint : ext.textMuted,
+                fontFeatures: const [FontFeature.tabularFigures()],
+              ),
+            ),
+            const SizedBox(width: 8),
+            Icon(PhosphorIcons.caretRight(), size: 16, color: ext.textFaint),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showLimitSheet(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      builder: (_) => _LimitBottomSheet(
+        categoryKey: categoryKey,
+        categoryName: categoryName,
+        initialMinutes: currentMinutes,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Секция «Данные об использовании»
+// ---------------------------------------------------------------------------
+
+/// Секция использования: 4 состояния — нет разрешения / ошибка / нет данных / данные.
+/// Иконки нейтральные (textMuted); ember только при over-limit (§accent-discipline).
 class _UsageSection extends ConsumerWidget {
   const _UsageSection({required this.usage, required this.limits});
 
@@ -190,139 +327,153 @@ class _UsageSection extends ConsumerWidget {
 
     // 1) Нет разрешения → карточка с объяснением и кнопкой «Дать доступ».
     if (!usage.isGranted) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Icon(Icons.insights_outlined, color: ext.textMuted, size: 20),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Text(
-                      context.s('screentime.grant_access_title'),
-                      style: textTheme.titleSmall,
+      return _HairlineCard(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(PhosphorIcons.chartLine(),
+                        color: ext.textMuted, size: 20),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        context.s('screentime.grant_access_title'),
+                        style: textTheme.titleSmall,
+                      ),
                     ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
-              Text(
-                context.s('screentime.grant_access_body'),
-                style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
-              ),
-              const SizedBox(height: 16),
-              FilledButton(
-                onPressed: () async {
-                  await ref
-                      .read(screenTimeUsageProvider.notifier)
-                      .requestPermission();
-                  // Перепроверка также произойдёт по resume, но дублируем явно.
-                  await ref.read(screenTimeUsageProvider.notifier).refresh();
-                },
-                child: Text(context.s('screentime.grant_access_btn')),
-              ),
-            ],
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  context.s('screentime.grant_access_body'),
+                  style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+                ),
+                const SizedBox(height: 16),
+                FilledButton(
+                  onPressed: () async {
+                    await ref
+                        .read(screenTimeUsageProvider.notifier)
+                        .requestPermission();
+                    await ref
+                        .read(screenTimeUsageProvider.notifier)
+                        .refresh();
+                  },
+                  child: Text(context.s('screentime.grant_access_btn')),
+                ),
+              ],
+            ),
           ),
-        ),
+        ],
       );
     }
 
     // 2) Ошибка чтения данных.
     if (usage.hasError) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.error_outline, color: ext.ember, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  context.s('screentime.usage_error'),
-                  style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+      return _HairlineCard(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(PhosphorIcons.warningCircle(),
+                    color: ext.ember, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    context.s('screentime.usage_error'),
+                    style:
+                        textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       );
     }
 
-    // 3) Разрешение есть. Если совсем нет данных — мягкий пустой стейт.
+    // 3) Разрешение есть, но данных ещё нет.
     final totalUsed =
         usage.usedMinutes.values.fold<int>(0, (a, b) => a + b);
     if (totalUsed == 0 && !usage.isLoading) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Icon(Icons.check_circle_outline, color: ext.textMuted, size: 20),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  context.s('screentime.no_usage_yet'),
-                  style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+      return _HairlineCard(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(PhosphorIcons.checkCircle(),
+                    color: ext.textMuted, size: 20),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Text(
+                    context.s('screentime.no_usage_yet'),
+                    style:
+                        textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+        ],
       );
     }
 
-    // 4) Список категорий с прогрессом / over-limit + строка «Total today» + per-app breakdown.
-    return Card(
-      child: Column(
-        children: [
-          // «Total today» — сумма всех категорий (включая other).
-          _TotalTodayTile(totalMinutes: totalUsed),
+    // 4) Данные с прогресс-барами; over-limit = ember.
+    final rows = <Widget>[];
 
-          // Стандартные категории с лимитами.
-          ...screenTimeCategories.entries
-              .where((e) => e.key != 'other')
-              .map(
-                (entry) => _UsageTile(
-                  categoryKey: entry.key,
-                  categoryName: entry.value,
-                  icon: _categoryIcons[entry.key] ?? Icons.apps_outlined,
-                  usedMinutes: usage.usedMinutes[entry.key] ?? 0,
-                  limitMinutes: limits[entry.key] ?? 0,
-                  isOther: false,
-                ),
-              ),
+    // «Total today» — строка суммы всех категорий.
+    rows.add(_TotalTodayRow(totalMinutes: totalUsed));
 
-          // Категория «Other» — только информационная, без лимита/предупреждений.
-          if ((usage.usedMinutes['other'] ?? 0) > 0)
-            _UsageTile(
-              categoryKey: 'other',
-              categoryName: context.s('screentime.category_other'),
-              icon: Icons.apps_outlined,
-              usedMinutes: usage.usedMinutes['other'] ?? 0,
-              limitMinutes: 0, // без лимита (всегда)
-              isOther: true,
-            ),
+    // Стандартные категории с лимитами (кроме 'other').
+    for (final entry
+        in screenTimeCategories.entries.where((e) => e.key != 'other')) {
+      rows.add(Divider(height: 1, thickness: 0.5, color: ext.border));
+      rows.add(_UsageTile(
+        categoryKey: entry.key,
+        // Локализованное имя — не hardcoded English из provider
+        categoryName: context.s('screentime.cat_${entry.key}'),
+        usedMinutes: usage.usedMinutes[entry.key] ?? 0,
+        limitMinutes: limits[entry.key] ?? 0,
+        isOther: false,
+      ));
+    }
 
-          // Per-app breakdown — позволяет переназначить категорию конкретного приложения.
-          // Показывается только когда есть данные об отдельных пакетах.
-          if (usage.perPackageMinutes.isNotEmpty)
-            _AppsBreakdownSection(usage: usage),
-        ],
-      ),
-    );
+    // Категория 'other' — только информационная, без лимита.
+    if ((usage.usedMinutes['other'] ?? 0) > 0) {
+      rows.add(Divider(height: 1, thickness: 0.5, color: ext.border));
+      rows.add(_UsageTile(
+        categoryKey: 'other',
+        categoryName: context.s('screentime.category_other'),
+        usedMinutes: usage.usedMinutes['other'] ?? 0,
+        limitMinutes: 0,
+        isOther: true,
+      ));
+    }
+
+    // Per-app breakdown — переназначение категорий сохранено полностью.
+    if (usage.perPackageMinutes.isNotEmpty) {
+      rows.add(_AppsBreakdownSection(usage: usage));
+    }
+
+    return _HairlineCard(children: rows);
   }
 }
 
-/// Строка «Total today» — суммарное экранное время за день по всем категориям.
-class _TotalTodayTile extends StatelessWidget {
-  const _TotalTodayTile({required this.totalMinutes});
+// ---------------------------------------------------------------------------
+// Строка «Total today»
+// ---------------------------------------------------------------------------
 
+/// Суммарное экранное время за день — первая строка в Usage-карточке.
+class _TotalTodayRow extends StatelessWidget {
+  const _TotalTodayRow({required this.totalMinutes});
   final int totalMinutes;
 
   @override
@@ -330,17 +481,11 @@ class _TotalTodayTile extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    final hours = totalMinutes ~/ 60;
-    final mins = totalMinutes % 60;
-    final timeStr = hours > 0
-        ? (mins > 0 ? '${hours}h ${mins}m' : '${hours}h')
-        : '${mins}m';
-
     return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Icon(Icons.today_outlined, size: 20, color: ext.textMuted),
+          Icon(PhosphorIcons.calendarCheck(), size: 20, color: ext.textMuted),
           const SizedBox(width: 12),
           Expanded(
             child: Text(
@@ -349,7 +494,7 @@ class _TotalTodayTile extends StatelessWidget {
             ),
           ),
           Text(
-            timeStr,
+            _fmtDuration(context, totalMinutes),
             style: textTheme.bodySmall?.copyWith(
               color: ext.textMuted,
               fontFeatures: const [FontFeature.tabularFigures()],
@@ -361,14 +506,16 @@ class _TotalTodayTile extends StatelessWidget {
   }
 }
 
-/// Плитка использования одной категории: «used X / limit Y», прогресс-бар,
-/// индикатор превышения (ember + «over by N» / «limit reached»).
-/// Для [isOther]==true: только информационная строка, без лимита/прогресса/советов.
+// ---------------------------------------------------------------------------
+// Плитка использования одной категории
+// ---------------------------------------------------------------------------
+
+/// Использование категории: прогресс-бар, over-limit = ember.
+/// [isOther]==true: только информационная строка, без лимита/прогресса/советов.
 class _UsageTile extends ConsumerWidget {
   const _UsageTile({
     required this.categoryKey,
     required this.categoryName,
-    required this.icon,
     required this.usedMinutes,
     required this.limitMinutes,
     required this.isOther,
@@ -376,10 +523,8 @@ class _UsageTile extends ConsumerWidget {
 
   final String categoryKey;
   final String categoryName;
-  final IconData icon;
   final int usedMinutes;
   final int limitMinutes;
-  // true для 'other' — только информация, без лимита и советов.
   final bool isOther;
 
   @override
@@ -388,26 +533,24 @@ class _UsageTile extends ConsumerWidget {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final primary = Theme.of(context).colorScheme.primary;
 
-    // Для 'other' всегда без лимита и без предупреждений.
     final hasLimit = !isOther && limitMinutes > 0;
     final isOver = hasLimit && usedMinutes >= limitMinutes;
     final overBy = usedMinutes - limitMinutes;
 
-    // Бесплатный «зашитый» совет — только для стандартных категорий.
+    // Бесплатный «зашитый» совет для стандартных категорий.
     final tone = ref.watch(toneProvider);
     final level = isOther
         ? ScreenTimeLevel.ok
         : screenTimeLevel(usedMinutes, limitMinutes, categoryKey);
-    final adviceKey = isOther
-        ? null
-        : screenTimeAdviceKey(categoryKey, level, tone);
+    final adviceKey =
+        isOther ? null : screenTimeAdviceKey(categoryKey, level, tone);
 
-    // Прогресс: used/limit, ограничен [0..1]. Без лимита — индикатор не показываем.
+    // Прогресс: used/limit, ограничен [0..1].
     final double? progress = hasLimit
         ? (usedMinutes / limitMinutes).clamp(0.0, 1.0).toDouble()
         : null;
 
-    // Подпись: «used X / limit Y min» или просто «used X min» без лимита.
+    // Подпись: «used / limit» или просто «used».
     final usedLabel = '${context.s('screentime.used_today')}: '
         '$usedMinutes ${context.s('screentime.min_per_day')}';
     final subtitle = hasLimit
@@ -421,16 +564,26 @@ class _UsageTile extends ConsumerWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 20, color: isOver ? ext.ember : ext.textMuted),
+              Icon(
+                _categoryIcon(categoryKey),
+                size: 20,
+                color: isOver ? ext.ember : ext.textMuted,
+              ),
               const SizedBox(width: 12),
               Expanded(
                 child: Text(categoryName, style: textTheme.bodyLarge),
               ),
-              Text(
-                subtitle,
-                style: textTheme.bodySmall?.copyWith(
-                  color: isOver ? ext.ember : ext.textMuted,
-                  fontFeatures: const [FontFeature.tabularFigures()],
+              const SizedBox(width: 8),
+              // Flexible + ellipsis: защита от overflow на 320dp / textScale 1.5
+              Flexible(
+                child: Text(
+                  subtitle,
+                  style: textTheme.bodySmall?.copyWith(
+                    color: isOver ? ext.ember : ext.textMuted,
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                  maxLines: 1,
                 ),
               ),
             ],
@@ -459,7 +612,7 @@ class _UsageTile extends ConsumerWidget {
               ),
             ],
           ],
-          // Совет по категории — только для стандартных категорий (не 'other').
+          // Совет — только для стандартных категорий при наличии данных.
           if (!isOther && usedMinutes > 0 && adviceKey != null) ...[
             const SizedBox(height: 6),
             Text(
@@ -477,61 +630,11 @@ class _UsageTile extends ConsumerWidget {
   }
 }
 
-/// Плитка одной категории с текущим лимитом. Тап → боттом-шит с ползунком.
-/// Иконки — textMuted (нейтральные); accent только для active/selected — §1 ACCENT DISCIPLINE.
-class _CategoryTile extends ConsumerWidget {
-  const _CategoryTile({
-    required this.categoryKey,
-    required this.categoryName,
-    required this.icon,
-    required this.currentMinutes,
-  });
+// ---------------------------------------------------------------------------
+// Боттом-шит: лимит категории
+// ---------------------------------------------------------------------------
 
-  final String categoryKey;
-  final String categoryName;
-  final IconData icon;
-  final int currentMinutes;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-
-    final subtitle = currentMinutes == 0
-        ? context.s('screentime.no_limit')
-        : '$currentMinutes ${context.s('screentime.min_per_day')}';
-
-    return ListTile(
-      // Иконки нейтральные (textMuted) — не accent (wall-of-lime anti-pattern)
-      leading: Icon(icon, color: ext.textMuted),
-      title: Text(categoryName, style: textTheme.bodyLarge),
-      subtitle: Text(
-        subtitle,
-        style: textTheme.bodySmall?.copyWith(
-          // «over limit» hint: показываем ember при нулевом лимите как напоминание
-          color: currentMinutes == 0 ? ext.textFaint : ext.textMuted,
-        ),
-      ),
-      trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-      onTap: () => _showLimitSheet(context, ref),
-    );
-  }
-
-  void _showLimitSheet(BuildContext context, WidgetRef ref) {
-    showModalBottomSheet<void>(
-      context: context,
-      isScrollControlled: true,
-      builder: (_) => _LimitBottomSheet(
-        categoryKey: categoryKey,
-        categoryName: categoryName,
-        initialMinutes: currentMinutes,
-      ),
-    );
-  }
-}
-
-/// Боттом-шит с ползунком 15–720 мин (шаг 15 = 47 делений) и переключателем «No limit».
-/// FIX 2: максимум повышен с 3ч (180) до 12ч (720).
+/// Боттом-шит со слайдером 15–720 мин (шаг 15 = 47 делений) и переключателем.
 class _LimitBottomSheet extends ConsumerStatefulWidget {
   const _LimitBottomSheet({
     required this.categoryKey,
@@ -549,14 +652,13 @@ class _LimitBottomSheet extends ConsumerStatefulWidget {
 
 class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
   late bool _noLimit;
-  late double _sliderValue; // в минутах, кратно 15
+  late double _sliderValue; // минуты, кратно 15
 
   @override
   void initState() {
     super.initState();
     _noLimit = widget.initialMinutes == 0;
-    // Если лимит 0, ползунок ставим на 60 мин как дефолт для удобства.
-    // Клампим в новый диапазон 15–720.
+    // Если лимит 0 → дефолт 60 мин. Клампим в диапазон 15–720.
     _sliderValue = _noLimit
         ? 60
         : widget.initialMinutes
@@ -578,11 +680,7 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     final displayMinutes = _sliderValue.round();
-    final hours = displayMinutes ~/ 60;
-    final mins = displayMinutes % 60;
-    final timeLabel = hours > 0
-        ? (mins > 0 ? '${hours}h ${mins}min' : '${hours}h')
-        : '${mins}min';
+    final timeLabel = _fmtDuration(context, displayMinutes);
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -595,7 +693,7 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          // Handle — hairline (border color, нейтральный)
+          // Handle — hairline-цвет, нейтральный
           Center(
             child: Container(
               width: 36,
@@ -608,15 +706,17 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
           ),
           const SizedBox(height: 20),
 
-          // Заголовок шита — headlineSmall + крестик закрытия.
+          // Заголовок + Phosphor ✕ закрытия
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
-                child: Text(widget.categoryName, style: textTheme.headlineSmall),
+                child: Text(
+                  widget.categoryName,
+                  style: textTheme.headlineSmall,
+                ),
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: Icon(PhosphorIcons.x()),
                 tooltip: context.s('btn.close'),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
@@ -625,11 +725,8 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
           const SizedBox(height: 4),
           Text(
             context.s('screentime.set_daily_time_limit'),
-            style: textTheme.bodyMedium?.copyWith(
-              color: ext.textMuted,
-            ),
+            style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
           ),
-
           const SizedBox(height: 24),
 
           // «No limit» toggle
@@ -647,11 +744,9 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
               ),
             ],
           ),
-
           const SizedBox(height: 16),
 
-          // Slider (disabled when _noLimit)
-          // Reduce-motion: AnimatedOpacity соответствует spec (toggle opacity, не scale)
+          // Slider (анимация opacity при _noLimit, соответствует spec reduce-motion)
           AnimatedOpacity(
             opacity: _noLimit ? 0.38 : 1.0,
             duration: const Duration(milliseconds: 200),
@@ -660,8 +755,12 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    Text('15 min', style: textTheme.bodySmall),
-                    // Большая цифра текущего лимита — displaySmall, accent (primary CTA metric)
+                    // Локализованная метка минимума (15 мин)
+                    Text(
+                      _fmtDuration(context, 15),
+                      style: textTheme.bodySmall,
+                    ),
+                    // Текущее значение — displaySmall, accent (CTA-метрика)
                     Text(
                       timeLabel,
                       style: textTheme.displaySmall?.copyWith(
@@ -669,8 +768,11 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
                         fontFeatures: const [FontFeature.tabularFigures()],
                       ),
                     ),
-                    // FIX 2: динамический максимум (12ч)
-                    Text('12 h', style: textTheme.bodySmall),
+                    // Локализованная метка максимума (12 ч)
+                    Text(
+                      _fmtDuration(context, 720),
+                      style: textTheme.bodySmall,
+                    ),
                   ],
                 ),
                 Slider(
@@ -689,10 +791,9 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
               ],
             ),
           ),
-
           const SizedBox(height: 8),
 
-          // Единственное первичное действие — FilledButton (§2 BUTTON HIERARCHY)
+          // Единственная первичная кнопка (§4.3 BUTTON HIERARCHY)
           FilledButton(
             onPressed: _save,
             child: Text(
@@ -707,44 +808,45 @@ class _LimitBottomSheetState extends ConsumerState<_LimitBottomSheet> {
   }
 }
 
-/// Строка совета с иконкой и текстом.
-/// Иконки — textMuted (нейтральные); текст — bodyMedium.
-class _TipRow extends StatelessWidget {
-  const _TipRow({
-    required this.icon,
-    required this.text,
-    required this.ext,
-    required this.textTheme,
-  });
+// ---------------------------------------------------------------------------
+// Строка совета
+// ---------------------------------------------------------------------------
 
+/// Строка совета: Phosphor-иконка + bodyMedium текст (§4.2 hairline row).
+class _TipRow extends StatelessWidget {
+  const _TipRow({required this.icon, required this.text});
   final IconData icon;
   final String text;
-  final FocusThemeExtension ext;
-  final TextTheme textTheme;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Иконки советов — textMuted (декоративные, не accent)
-        Icon(icon, size: 20, color: ext.textMuted),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Text(text, style: textTheme.bodyMedium),
-        ),
-      ],
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Иконки советов — textMuted (декоративные, не accent)
+          Icon(icon, size: 20, color: ext.textMuted),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              text,
+              style: Theme.of(context).textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Per-app breakdown + category override UI
+// Per-app breakdown + category override UI (СОХРАНЕНО ПОЛНОСТЬЮ)
 // ---------------------------------------------------------------------------
 
 /// Последние N сегментов имени пакета для читаемого отображения.
 /// «com.miHoYo.GenshinImpact» → «miHoYo.GenshinImpact»
-/// «com.roblox.client» → «roblox.client»
 String _pkgDisplayName(String packageName) {
   final parts = packageName.split('.');
   if (parts.length >= 2) {
@@ -754,12 +856,11 @@ String _pkgDisplayName(String packageName) {
 }
 
 /// Подраздел «Приложения» внутри карточки Usage data.
-/// Показывает все приложения с ненулевым временем, отсортированные по убыванию
-/// минут. Длинные списки (>8) скрываются за кнопкой «Показать все».
+/// Показывает все приложения с ненулевым временем, отсортированные по убыванию.
+/// Длинные списки (>8) скрываются за кнопкой «Показать ещё».
 /// Тап на строке → _AppCategoryPickerSheet для переназначения категории.
 class _AppsBreakdownSection extends ConsumerStatefulWidget {
   const _AppsBreakdownSection({required this.usage});
-
   final ScreenTimeUsageState usage;
 
   @override
@@ -769,7 +870,6 @@ class _AppsBreakdownSection extends ConsumerStatefulWidget {
 
 class _AppsBreakdownSectionState
     extends ConsumerState<_AppsBreakdownSection> {
-  // Максимум строк до кнопки «показать все».
   static const _kInitialMax = 8;
   bool _expanded = false;
 
@@ -793,8 +893,8 @@ class _AppsBreakdownSectionState
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Divider(height: 1),
-        // Заголовок подраздела — labelMedium, textMuted (декоративный, не headline)
+        Divider(height: 1, thickness: 0.5, color: ext.border),
+        // Заголовок подраздела — labelMedium, textMuted
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
           child: Text(
@@ -815,10 +915,11 @@ class _AppsBreakdownSectionState
             minutes: minutes,
             effectiveCategory: effectiveCat,
             hasUserOverride: hasOverride,
-            onTap: () => _showCategoryPicker(context, pkg, effectiveCat, hasOverride),
+            onTap: () =>
+                _showCategoryPicker(context, pkg, effectiveCat, hasOverride),
           );
         }),
-        // Кнопка «ещё N» / «свернуть» (только если apps > _kInitialMax)
+        // Кнопка «ещё N» / «свернуть» — локализованная
         if (apps.length > _kInitialMax)
           TextButton(
             onPressed: () => setState(() => _expanded = !_expanded),
@@ -829,8 +930,10 @@ class _AppsBreakdownSectionState
             ),
             child: Text(
               _expanded
-                  ? context.s('btn.close')
-                  : '+ ${apps.length - _kInitialMax}',
+                  ? context.s('screentime.apps_collapse')
+                  : context
+                      .s('screentime.apps_show_more')
+                      .replaceAll('{n}', '${apps.length - _kInitialMax}'),
               style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
             ),
           ),
@@ -857,8 +960,7 @@ class _AppsBreakdownSectionState
 }
 
 /// Строка одного приложения в per-app breakdown.
-/// Иконка — нейтральная textMuted. Метка категории — chip-like (bodySmall).
-/// Карандаш-иконка подсказывает, что строку можно нажать.
+/// Phosphor deviceMobile + chip категории + маркер оверрайда + pencilSimple.
 class _AppRow extends StatelessWidget {
   const _AppRow({
     required this.packageName,
@@ -878,12 +980,8 @@ class _AppRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    // Локализованное имя категории для отображения.
     final catLabel = context.s('screentime.cat_$effectiveCategory');
-    // Время использования — компактно.
-    final timeLabel = minutes >= 60
-        ? '${minutes ~/ 60}h ${minutes % 60}m'
-        : '${minutes}m';
+    final timeLabel = _fmtDuration(context, minutes);
 
     return InkWell(
       onTap: onTap,
@@ -891,10 +989,8 @@ class _AppRow extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(16, 8, 12, 8),
         child: Row(
           children: [
-            // Нейтральная иконка приложения
-            Icon(Icons.android_outlined, size: 18, color: ext.textMuted),
+            Icon(PhosphorIcons.deviceMobile(), size: 18, color: ext.textMuted),
             const SizedBox(width: 12),
-            // Имя пакета + время использования
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -907,15 +1003,17 @@ class _AppRow extends StatelessWidget {
                   ),
                   Text(
                     timeLabel,
-                    style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: ext.textMuted),
                   ),
                 ],
               ),
             ),
             const SizedBox(width: 8),
-            // Метка категории — visualised как chip
+            // Метка категории — chip-like (border + R12)
             Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
               decoration: BoxDecoration(
                 color: ext.border,
                 borderRadius: BorderRadius.circular(12),
@@ -925,22 +1023,26 @@ class _AppRow extends StatelessWidget {
                 children: [
                   Text(
                     catLabel,
-                    style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                    style:
+                        textTheme.bodySmall?.copyWith(color: ext.textMuted),
                   ),
-                  // Маркер «есть оверрайд» — маленькая точка accent
+                  // Маркер «есть пользовательский оверрайд» — точка accent
                   if (hasUserOverride) ...[
                     const SizedBox(width: 4),
-                    Icon(
-                      Icons.circle,
-                      size: 6,
-                      color: Theme.of(context).colorScheme.primary,
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primary,
+                        shape: BoxShape.circle,
+                      ),
                     ),
                   ],
                 ],
               ),
             ),
             const SizedBox(width: 4),
-            Icon(Icons.edit_outlined, size: 16, color: ext.textMuted),
+            Icon(PhosphorIcons.pencilSimple(), size: 16, color: ext.textMuted),
           ],
         ),
       ),
@@ -949,8 +1051,8 @@ class _AppRow extends StatelessWidget {
 }
 
 /// Нижний лист выбора категории для конкретного приложения.
-/// Показывает 6 категорий в виде радиокнопок. Сохраняет оверрайд и
-/// запускает refresh() агрегации, чтобы итоги по категориям обновились.
+/// Показывает все категории в виде hairline-строк с checkCircle/circle.
+/// Сохраняет оверрайд и запускает refresh() агрегации.
 class _AppCategoryPickerSheet extends ConsumerStatefulWidget {
   const _AppCategoryPickerSheet({
     required this.packageName,
@@ -991,8 +1093,7 @@ class _AppCategoryPickerSheetState
     await ref
         .read(screenTimeOverridesProvider.notifier)
         .setOverride(widget.packageName, _selected);
-    // Обновляем агрегированные итоги с новым оверрайдом.
-    // Fire-and-forget: не ждём завершения (UI уже показывает правильную метку).
+    // Fire-and-forget: обновляем агрегацию с новым оверрайдом.
     ref.read(screenTimeUsageProvider.notifier).refresh();
     if (mounted) {
       Navigator.of(context).pop();
@@ -1017,6 +1118,7 @@ class _AppCategoryPickerSheetState
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final accent = Theme.of(context).colorScheme.primary;
 
     return Padding(
       padding: EdgeInsets.fromLTRB(
@@ -1041,9 +1143,8 @@ class _AppCategoryPickerSheetState
             ),
           ),
           const SizedBox(height: 20),
-          // Заголовок + закрыть
+          // Заголовок + Phosphor ✕
           Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
               Expanded(
                 child: Column(
@@ -1054,7 +1155,7 @@ class _AppCategoryPickerSheetState
                       style: textTheme.headlineSmall,
                     ),
                     const SizedBox(height: 2),
-                    // Имя пакета как подзаголовок — truncated
+                    // Имя пакета — truncated, bodySmall textMuted
                     Text(
                       _pkgDisplayName(widget.packageName),
                       style: textTheme.bodySmall
@@ -1066,42 +1167,50 @@ class _AppCategoryPickerSheetState
                 ),
               ),
               IconButton(
-                icon: const Icon(Icons.close),
+                icon: Icon(PhosphorIcons.x()),
                 tooltip: context.s('btn.close'),
                 onPressed: () => Navigator.of(context).maybePop(),
               ),
             ],
           ),
           const SizedBox(height: 16),
-          // Список категорий — ListTile с галочкой выбора (избегаем deprecated RadioListTile API)
+          // Список категорий — hairline InkWell rows с checkCircle/circle
           ..._kCategories.map((cat) {
-            final icon = _categoryIcons[cat] ?? Icons.apps_outlined;
             final isSelected = _selected == cat;
-            return ListTile(
-              leading: Icon(icon, size: 20, color: ext.textMuted),
-              title: Text(
-                context.s('screentime.cat_$cat'),
-                style: textTheme.bodyLarge,
-              ),
-              trailing: isSelected
-                  ? Icon(
-                      Icons.check_circle_rounded,
-                      size: 20,
-                      color: Theme.of(context).colorScheme.primary,
-                    )
-                  : Icon(Icons.circle_outlined, size: 20, color: ext.textMuted),
+            return InkWell(
               onTap: () => setState(() => _selected = cat),
-              contentPadding: EdgeInsets.zero,
-              dense: true,
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    Icon(_categoryIcon(cat), size: 20, color: ext.textMuted),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        context.s('screentime.cat_$cat'),
+                        style: textTheme.bodyLarge,
+                      ),
+                    ),
+                    // fill+accent когда выбрано, regular+textMuted иначе (§icon-rule)
+                    Icon(
+                      isSelected
+                          ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
+                          : PhosphorIcons.circle(),
+                      size: 20,
+                      color: isSelected ? accent : ext.textMuted,
+                    ),
+                  ],
+                ),
+              ),
             );
           }),
           const SizedBox(height: 8),
-          // Основная кнопка — сохранить
+          // Основная кнопка — сохранить (§4.3 ONE primary per sheet)
           FilledButton(
             onPressed: _save,
             child: Text(context.s('btn.save')),
           ),
-          // Кнопка сброса (только если есть пользовательский оверрайд)
+          // Кнопка сброса оверрайда (только если задан)
           if (widget.hasUserOverride) ...[
             const SizedBox(height: 8),
             OutlinedButton(

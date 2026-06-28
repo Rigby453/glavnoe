@@ -667,7 +667,8 @@ class _WeekDayHeader extends StatelessWidget {
             maxLines: 1,
             style: textTheme.bodyMedium?.copyWith(
               color: color,
-              fontWeight: isToday ? FontWeight.w700 : FontWeight.w500,
+              // w500 вместо w700 (design tokens: max w600 rare)
+              fontWeight: isToday ? FontWeight.w500 : FontWeight.w400,
             ),
           ),
         ],
@@ -2117,7 +2118,8 @@ class _BlockContent extends StatelessWidget {
               // мелкого labelSmall ~11px, особенно заметного в вебе).
               style: textTheme.bodyMedium?.copyWith(
                 color: colors.fg,
-                fontWeight: FontWeight.w700,
+                // w600 на цветном блоке — баланс между читаемостью и design tokens
+                fontWeight: FontWeight.w600,
                 height: 1.1,
                 decoration: isDone ? TextDecoration.lineThrough : null,
               ),
@@ -2191,7 +2193,7 @@ class _BlockContent extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: textTheme.labelMedium?.copyWith(
                   color: colors.fg,
-                  fontWeight: FontWeight.w700,
+                  fontWeight: FontWeight.w600,
                   height: 1.1,
                   decoration: isDone ? TextDecoration.lineThrough : null,
                 ),
@@ -2257,7 +2259,7 @@ class _GestureLabel extends StatelessWidget {
         maxLines: 1,
         style: textTheme.labelSmall?.copyWith(
           color: scheme.onInverseSurface,
-          fontWeight: FontWeight.w700,
+          fontWeight: FontWeight.w600,
         ),
       ),
     );

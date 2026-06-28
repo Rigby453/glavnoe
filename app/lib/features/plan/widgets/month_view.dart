@@ -8,7 +8,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
+import '../../../core/categories/category_colors.dart';
 import '../../../core/database/database.dart';
 import '../../../core/l10n/app_strings.dart';
 import '../../../core/theme/app_theme.dart';
@@ -134,7 +136,10 @@ class MonthView extends ConsumerWidget {
               children: [
                 // Нейтральные иконки навигации (accent discipline)
                 IconButton(
-                  icon: Icon(Icons.chevron_left, color: textMuted),
+                  icon: Icon(
+                    PhosphorIcons.caretLeft(PhosphorIconsStyle.regular),
+                    color: textMuted,
+                  ),
                   onPressed: () => _changeMonth(ref, -1),
                 ),
                 // headlineSmall для заголовка месяца (display font, big headline serif)
@@ -151,7 +156,10 @@ class MonthView extends ConsumerWidget {
                   ),
                 ),
                 IconButton(
-                  icon: Icon(Icons.chevron_right, color: textMuted),
+                  icon: Icon(
+                    PhosphorIcons.caretRight(PhosphorIconsStyle.regular),
+                    color: textMuted,
+                  ),
                   onPressed: () => _changeMonth(ref, 1),
                 ),
               ],
@@ -270,35 +278,90 @@ class _DayCell extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 3),
-            // Цветные полоски-задачи (до ~3). Цвет = цвет-метка задачи или
-            // правило по типу/приоритету (единое с сеткой времени).
-            for (var i = 0; i < stripeCount; i++)
-              Padding(
-                padding: const EdgeInsets.only(bottom: 2),
-                child: Container(
-                  height: 3,
-                  width: double.infinity,
-                  decoration: BoxDecoration(
-                    color: taskStripeColor(dayItems[i], ext, colorScheme),
-                    borderRadius: BorderRadius.circular(1.5),
-                  ),
-                ),
-              ),
-            // «+N» если задач больше, чем влезло полосок.
-            if (overflow > 0)
-              Text(
-                '+$overflow',
-                maxLines: 1,
-                overflow: TextOverflow.clip,
-                style: textTheme.labelSmall?.copyWith(
-                  color: textMuted,
-                  fontSize: 9,
-                  height: 1.0,
-                ),
+            const SizedBox(height: 4),
+            // 10dp категорийные точки (design-tokens §categories, §4.1 Kaname).
+            // Цвет: из категории (тег задачи) → цвет типа/приоритета.
+            // Точки в строке, до _kMaxStripes штук.
+            if (stripeCount > 0 || overflow > 0)
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  for (var i = 0; i < stripeCount; i++) ...[
+                    if (i > 0) const SizedBox(width: 3),
+                    _CategoryOrTypeDot(
+                      item: dayItems[i],
+                      ext: ext,
+                      colorScheme: colorScheme,
+                      onSelected: isSelected,
+                    ),
+                  ],
+                  if (overflow > 0) ...[
+                    if (stripeCount > 0) const SizedBox(width: 3),
+                    Text(
+                      '+$overflow',
+                      maxLines: 1,
+                      overflow: TextOverflow.clip,
+                      style: textTheme.labelSmall?.copyWith(
+                        color: isSelected ? colorScheme.onPrimary : textMuted,
+                        fontSize: 8,
+                        height: 1.0,
+                      ),
+                    ),
+                  ],
+                ],
               ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// 10dp точка-индикатор задачи для ячейки месячного вида.
+///
+/// Цвет: сначала пробуем цвет категории (тег из поля tags/title);
+/// если не нашли → цвет по типу/приоритету задачи (taskStripeColor).
+/// На выбранном дне (onSelected=true) все точки белые (onPrimary),
+/// чтобы оставаться видимыми на accent-фоне кружка.
+class _CategoryOrTypeDot extends StatelessWidget {
+  const _CategoryOrTypeDot({
+    required this.item,
+    required this.ext,
+    required this.colorScheme,
+    required this.onSelected,
+  });
+
+  final ItemsTableData item;
+  final FocusThemeExtension? ext;
+  final ColorScheme colorScheme;
+  final bool onSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    // Берём цвет категории если есть (design-tokens §categories)
+    final tagsStr = item.tags ?? '';
+    Color? catColor;
+    if (tagsStr.isNotEmpty) {
+      final firstTag = tagsStr
+          .split(',')
+          .map((t) => t.trim())
+          .firstWhere((t) => t.isNotEmpty, orElse: () => '');
+      if (firstTag.isNotEmpty) {
+        catColor = categoryColorForOrNull(firstTag);
+      }
+    }
+
+    final dotColor = onSelected
+        ? colorScheme.onPrimary
+        : (catColor ?? taskStripeColor(item, ext, colorScheme));
+
+    return Container(
+      width: 6,
+      height: 6,
+      decoration: BoxDecoration(
+        color: dotColor,
+        shape: BoxShape.circle,
       ),
     );
   }

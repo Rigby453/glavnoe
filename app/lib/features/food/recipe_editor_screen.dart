@@ -1,26 +1,29 @@
 // Редактор рецепта (SPEC C5, Phase 1): ингредиенты из поиска Open Food Facts,
 // итоги КБЖУ считает код (recipe_nutrition.dart), готовый рецепт логируется
-// в food_logs как обычная порция (синхронизация еды уже работает, ADR-024).
+// в food_logs как обычная порция.
+//
+// Kaname redesign §4.2: hairline-divided ингредиент-строки, object card (_TotalsCard),
+// Phosphor icons, KaiMascot empty state. §4.3: ONE primary (FilledButton «log»),
+// второстепенное — OutlinedButton «add ingredient».
 //
 // Паттерн безопасного удаления ингредиентов (ADR-delete-safe):
 //   - Свайп влево (SwipeToDelete) ИЛИ кнопка-корзина trailing IconButton
-//   - Оба пути идут через _deleteIngredient(), который:
-//     1. Сохраняет снапшот ингредиента ДО удаления
-//     2. Удаляет через DAO
-//     3. Показывает Undo-snackbar через showUndoSnackBar
-//     4. По нажатию Undo: вызывает dao.restoreIngredient(snapshot)
+//   - Оба пути идут через _deleteIngredient(), который показывает Undo-snackbar.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/animations/app_sheet.dart';
 import '../../core/database/database.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/database/database_providers.dart';
+import '../../core/settings/tone_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
 import '../../core/widgets/swipe_to_delete.dart';
 import '../../core/widgets/undo_snack_bar.dart';
+import '../../features/mascot/kai_mascot.dart';
 import '../../services/api/api_client.dart';
 import 'food_nutrition.dart';
 import 'recipe_nutrition.dart';
@@ -31,8 +34,7 @@ import 'recipes_screen.dart' show
 
 const List<String> _meals = ['breakfast', 'lunch', 'dinner', 'snack'];
 
-// ConsumerStatefulWidget (не ConsumerWidget) — нужен mounted-check
-// после асинхронных операций удаления в SwipeToDelete.onDismissed.
+// ConsumerStatefulWidget — нужен mounted-check после async операций.
 class RecipeEditorScreen extends ConsumerStatefulWidget {
   const RecipeEditorScreen({super.key, required this.recipeId});
 
@@ -83,7 +85,7 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
   ) async {
     final totals = recipeTotals(ingredients);
     final per100 = recipePer100g(totals.total, totals.totalGrams);
-    if (per100 == null) return; // пустой рецепт — кнопка и так выключена
+    if (per100 == null) return;
 
     final result = await showDialog<({double grams, String meal})>(
       context: context,
@@ -108,7 +110,6 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
           fiber: scaled.fiber,
         );
     if (mounted) {
-      // Локализуем название приёма пищи через food.meal_* ключ
       final mealLabel = context.s('food.meal_${result.meal}');
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
@@ -125,10 +126,7 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
 
   // --- Единый путь удаления ингредиента + Undo --------------------------------
 
-  /// Удалить ингредиент и показать Undo-snackbar.
-  /// Вызывается как из SwipeToDelete.onDelete, так и из кнопки-корзины.
   Future<void> _deleteIngredient(RecipeIngredientsTableData ing) async {
-    // Снапшот ДО удаления — для восстановления по Undo
     final snapshot = ing;
     final dao = ref.read(recipesDaoProvider);
 
@@ -136,7 +134,6 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
 
     if (!mounted) return;
 
-    // Сообщение: имя ингредиента + ключ 'food.ingredient_removed'
     final message = '"${snapshot.name}" — ${context.s('food.ingredient_removed')}';
     showUndoSnackBar(
       context,
@@ -151,9 +148,14 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    final mutedColor = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
+    final mutedColor = ext?.textMuted ?? cs.onSurface.withAlpha(153);
+    final faintColor = ext?.textFaint ?? cs.onSurface.withAlpha(100);
+    final borderColor = ext?.border ?? cs.outline.withAlpha(50);
+    final emberColor = ext?.ember ?? cs.error;
+    final tone = ref.watch(toneProvider);
 
     final recipe = ref.watch(recipeProvider(widget.recipeId)).valueOrNull;
     final ingredients =
@@ -161,7 +163,6 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
             const <RecipeIngredientsTableData>[];
 
     if (recipe == null) {
-      // Рецепт удалён или ещё грузится первая выборка.
       return Scaffold(
         appBar: AppBar(),
         body: Center(
@@ -179,7 +180,7 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
         actions: [
           IconButton(
             tooltip: context.s('food.rename_tooltip'),
-            icon: const Icon(Icons.edit_outlined),
+            icon: Icon(PhosphorIcons.pencilSimple()),
             onPressed: () => _rename(recipe),
           ),
         ],
@@ -188,53 +189,91 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
         children: [
           Expanded(
             child: ingredients.isEmpty
-                ? _emptyIngredients(context, ext)
-                : ListView.builder(
+                ? _emptyIngredients(context, ext, tone)
+                : ListView.separated(
                     padding: const EdgeInsets.only(bottom: 8),
                     itemCount: ingredients.length,
+                    separatorBuilder: (_, __) => Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: borderColor,
+                      indent: 16,
+                      endIndent: 16,
+                    ),
                     itemBuilder: (context, i) {
                       final ing = ingredients[i];
                       // SwipeToDelete: свайп влево → _deleteIngredient
                       return SwipeToDelete(
                         key: ValueKey(ing.id),
                         onDelete: () => _deleteIngredient(ing),
-                        child: ListTile(
-                          title: Text(ing.name),
-                          subtitle: ing.calories == null
-                              ? null
-                              : Text(
-                                  '${(ing.calories! * ing.grams / 100).round()} kcal',
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: mutedColor,
-                                  ),
-                                ),
-                          trailing: Row(
-                            mainAxisSize: MainAxisSize.min,
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 10,
+                          ),
+                          child: Row(
                             children: [
-                              // Кнопка граммов (как раньше)
+                              // Название + калории
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    Text(
+                                      ing.name,
+                                      style: tt.bodyMedium,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                    if (ing.calories != null) ...[
+                                      const SizedBox(height: 1),
+                                      Text(
+                                        context
+                                            .s('food.kcal_val')
+                                            .replaceFirst(
+                                              '{val}',
+                                              (ing.calories! * ing.grams / 100)
+                                                  .round()
+                                                  .toString(),
+                                            ),
+                                        style: tt.bodySmall?.copyWith(
+                                          color: mutedColor,
+                                        ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                              // Кнопка граммов — ghost (вторичное действие)
                               TextButton(
-                                child: Text(
-                                  '${ing.grams.round()} g',
-                                  style: textTheme.labelMedium?.copyWith(
-                                    color: mutedColor,
+                                style: TextButton.styleFrom(
+                                  visualDensity: VisualDensity.compact,
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
                                   ),
                                 ),
                                 onPressed: () => _editGrams(ing),
+                                child: Text(
+                                  context
+                                      .s('food.grams_val')
+                                      .replaceFirst(
+                                        '{val}',
+                                        ing.grams.round().toString(),
+                                      ),
+                                  style: tt.labelMedium?.copyWith(
+                                    color: mutedColor,
+                                  ),
+                                ),
                               ),
-                              // Кнопка-корзина — второй способ удаления (03-components)
+                              // Корзина — textFaint (мягко, не агрессивно)
                               IconButton(
                                 icon: Icon(
-                                  Icons.delete_outline,
+                                  PhosphorIcons.trash(),
                                   size: 20,
-                                  // textFaint — мягкий, не агрессивный цвет для корзины
-                                  color: ext?.textFaint ??
-                                      Theme.of(context)
-                                          .colorScheme
-                                          .onSurface
-                                          .withAlpha(100),
+                                  color: faintColor,
                                 ),
                                 tooltip: context.s('btn.delete'),
                                 onPressed: () => _deleteIngredient(ing),
+                                visualDensity: VisualDensity.compact,
                               ),
                             ],
                           ),
@@ -251,23 +290,24 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  if (per100 != null) _TotalsCard(totals: totals, per100: per100),
+                  if (per100 != null)
+                    _TotalsCard(totals: totals, per100: per100),
                   const SizedBox(height: 12),
                   Row(
                     children: [
-                      // Вторичное действие — OutlinedButton
+                      // Добавить ингредиент — OutlinedButton (вторичное)
                       Expanded(
                         child: OutlinedButton.icon(
-                          icon: const Icon(Icons.add, size: 18),
+                          icon: Icon(PhosphorIcons.plus(), size: 18),
                           label: Text(context.s('food.add_ingredient')),
                           onPressed: _addIngredient,
                         ),
                       ),
                       const SizedBox(width: 12),
-                      // Первичное действие — FilledButton (03-components §2)
+                      // Записать рецепт — FilledButton (единственный primary, §4.3)
                       Expanded(
                         child: FilledButton.icon(
-                          icon: const Icon(Icons.restaurant, size: 18),
+                          icon: Icon(PhosphorIcons.forkKnife(), size: 18),
                           label: Text(context.s('food.log_recipe_btn')),
                           onPressed: ingredients.isEmpty
                               ? null
@@ -285,23 +325,39 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
     );
   }
 
-  Widget _emptyIngredients(BuildContext context, FocusThemeExtension? ext) {
-    // textFaint — третичный уровень для пустых состояний
-    final faintColor = ext?.textFaint ?? Theme.of(context).colorScheme.onSurface.withAlpha(80);
+  /// Пустое состояние списка ингредиентов: KaiMascot (neutral 64) + verb button.
+  Widget _emptyIngredients(
+    BuildContext context,
+    FocusThemeExtension? ext,
+    AppTone tone,
+  ) {
+    final tt = Theme.of(context).textTheme;
+    final mutedColor = ext?.textMuted ??
+        Theme.of(context).colorScheme.onSurface.withAlpha(80);
+
     return Center(
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 24),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.egg_alt_outlined, size: 56, color: faintColor),
+            KaiMascot(
+              size: 64,
+              emotion: KaiEmotion.neutral,
+              isHarsh: tone == AppTone.harsh,
+            ),
             const SizedBox(height: 16),
             Text(
               context.s('food.ingredients_empty'),
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: faintColor,
-              ),
+              style: tt.bodyMedium?.copyWith(color: mutedColor),
+            ),
+            const SizedBox(height: 16),
+            // Verb button — OutlinedButton (secondary; primary — кнопка «Log» внизу)
+            OutlinedButton.icon(
+              icon: Icon(PhosphorIcons.plus(), size: 18),
+              label: Text(context.s('food.add_ingredient')),
+              onPressed: _addIngredient,
             ),
           ],
         ),
@@ -311,7 +367,7 @@ class _RecipeEditorScreenState extends ConsumerState<RecipeEditorScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Карточка итогов: total + per 100 g
+// Карточка итогов: §4.2 object card (surface1 + hairline R14)
 // ---------------------------------------------------------------------------
 
 class _TotalsCard extends StatelessWidget {
@@ -324,63 +380,69 @@ class _TotalsCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    final mutedColor = ext?.textMuted ?? colorScheme.onSurface.withAlpha(153);
+    final mutedColor = ext?.textMuted ?? cs.onSurface.withAlpha(153);
+    final borderColor = ext?.border ?? cs.outline.withAlpha(50);
     final t = totals.total;
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // «Весь рецепт · N г» — локализованный заголовок карточки итогов
-            Text(
-              '${context.s('food.recipe_whole_title')} · ${totals.totalGrams.round()} g',
-              style: textTheme.titleSmall,
-            ),
-            const SizedBox(height: 6),
-            // Калории рецепта — accent (единственная подчёркнутая метрика)
-            Row(
-              crossAxisAlignment: CrossAxisAlignment.baseline,
-              textBaseline: TextBaseline.alphabetic,
-              children: [
-                Text(
-                  _fmt(t.calories),
-                  style: textTheme.headlineSmall?.copyWith(
-                    color: colorScheme.primary,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  'kcal',
-                  style: textTheme.bodySmall?.copyWith(color: mutedColor),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            // Макросы Б/Ж/У (EN: P/F/C) — локализованные аббревиатуры
-            Text(
-              context.s('food.recipe_macros_line')
-                  .replaceFirst('{p}', _fmt(t.protein))
-                  .replaceFirst('{f}', _fmt(t.fat))
-                  .replaceFirst('{c}', _fmt(t.carbs)),
-              style: textTheme.bodySmall?.copyWith(color: mutedColor),
-            ),
-            const SizedBox(height: 8),
-            // На 100 г — локализованная строка с аббревиатурами Б/Ж/У
-            Text(
-              context.s('food.recipe_per100_line')
-                  .replaceFirst('{cal}', _fmt(per100.calories))
-                  .replaceFirst('{p}', _fmt(per100.protein))
-                  .replaceFirst('{f}', _fmt(per100.fat))
-                  .replaceFirst('{c}', _fmt(per100.carbs)),
-              style: textTheme.bodySmall?.copyWith(color: mutedColor),
-            ),
-          ],
-        ),
+    // Заголовок «Весь рецепт · N г» — оба куска локализованы
+    final heading =
+        '${context.s('food.recipe_whole_title')} · '
+        '${context.s('food.grams_val').replaceFirst('{val}', totals.totalGrams.round().toString())}';
+
+    return Container(
+      decoration: BoxDecoration(
+        color: cs.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: borderColor, width: 0.5),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(heading, style: tt.titleSmall),
+          const SizedBox(height: 6),
+          // Калории — accent (единственная выделенная метрика)
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.baseline,
+            textBaseline: TextBaseline.alphabetic,
+            children: [
+              Text(
+                _fmt(t.calories),
+                style: tt.headlineSmall?.copyWith(color: cs.primary),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                // «kcal» — часть строки food.kcal_val без числа
+                context.s('food.kcal_val').replaceFirst('{val}', '').trim(),
+                style: tt.bodySmall?.copyWith(color: mutedColor),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          // Макросы Б/Ж/У (локализованные аббревиатуры)
+          Text(
+            context
+                .s('food.recipe_macros_line')
+                .replaceFirst('{p}', _fmt(t.protein))
+                .replaceFirst('{f}', _fmt(t.fat))
+                .replaceFirst('{c}', _fmt(t.carbs)),
+            style: tt.bodySmall?.copyWith(color: mutedColor),
+          ),
+          const SizedBox(height: 8),
+          // На 100 г — локализованная строка
+          Text(
+            context
+                .s('food.recipe_per100_line')
+                .replaceFirst('{cal}', _fmt(per100.calories))
+                .replaceFirst('{p}', _fmt(per100.protein))
+                .replaceFirst('{f}', _fmt(per100.fat))
+                .replaceFirst('{c}', _fmt(per100.carbs)),
+            style: tt.bodySmall?.copyWith(color: mutedColor),
+          ),
+        ],
       ),
     );
   }
@@ -431,7 +493,8 @@ class _IngredientSearchSheetState
   }
 
   Future<void> _pick(Map<String, dynamic> product) async {
-    final name = (product['name'] as String?) ?? 'Ingredient';
+    // Локализованный фолбэк — до await, context.mounted не нужен
+    final name = (product['name'] as String?) ?? context.s('food.unknown_product');
     final grams = await _promptGrams(context, title: name, initial: 100);
     if (grams == null || grams <= 0) return;
 
@@ -456,13 +519,14 @@ class _IngredientSearchSheetState
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    final mutedColor = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
+    final mutedColor = ext?.textMuted ?? cs.onSurface.withAlpha(153);
+    final borderColor = ext?.border ?? cs.outline.withAlpha(50);
 
     return Padding(
       padding: EdgeInsets.only(
-        // 24dp отступ по spec
         left: 24,
         right: 24,
         top: 16,
@@ -473,14 +537,17 @@ class _IngredientSearchSheetState
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Заголовок + крестик закрытия (видимый аффорданс)
+            // Заголовок листа: handle/title + крестик закрытия (§4.3 sheet pattern)
             Row(
               children: [
                 Expanded(
-                  child: Text(context.s('food.add_ingredient'), style: textTheme.headlineSmall),
+                  child: Text(
+                    context.s('food.add_ingredient'),
+                    style: tt.headlineSmall,
+                  ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(PhosphorIcons.x()),
                   tooltip: context.s('btn.close'),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
@@ -495,13 +562,12 @@ class _IngredientSearchSheetState
               decoration: InputDecoration(
                 hintText: context.s('food.search_hint'),
                 suffixIcon: IconButton(
-                  icon: const Icon(Icons.search),
+                  icon: Icon(PhosphorIcons.magnifyingGlass()),
                   onPressed: _search,
                 ),
               ),
             ),
             const SizedBox(height: 12),
-            // Загрузка ингредиентов — KaiLoader
             if (_loading)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -514,26 +580,59 @@ class _IngredientSearchSheetState
                 padding: const EdgeInsets.symmetric(vertical: 16),
                 child: Text(
                   _error!,
-                  style: textTheme.bodyMedium?.copyWith(color: mutedColor),
+                  style: tt.bodyMedium?.copyWith(color: mutedColor),
                 ),
               )
             else
+              // §4.2 hairline-divided результаты: InkWell+Padding+Column, NOT ListTile
               ..._results.whereType<Map<String, dynamic>>().map((p) {
                 final per = p['per_100g'] as Map<String, dynamic>?;
                 final kcal = (per?['calories'] as num?)?.round();
-                return ListTile(
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(
-                    (p['name'] as String?) ?? context.s('food.unknown_product'),
-                  ),
-                  subtitle: Text(
-                    [
-                      if (p['brand'] != null) p['brand'] as String,
-                      if (kcal != null) '$kcal kcal / 100g',
-                    ].join(' · '),
-                    style: textTheme.bodySmall?.copyWith(color: mutedColor),
-                  ),
-                  onTap: () => _pick(p),
+                final subtitle = [
+                  if (p['brand'] != null) p['brand'] as String,
+                  if (kcal != null)
+                    context
+                        .s('food.kcal_per_100g')
+                        .replaceFirst('{kcal}', '$kcal'),
+                ].join(' · ');
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    InkWell(
+                      onTap: () => _pick(p),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 12),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              (p['name'] as String?) ??
+                                  context.s('food.unknown_product'),
+                              style: tt.bodyMedium,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (subtitle.isNotEmpty) ...[
+                              const SizedBox(height: 2),
+                              Text(
+                                subtitle,
+                                style: tt.bodySmall?.copyWith(
+                                  color: mutedColor,
+                                ),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    Divider(
+                      height: 1,
+                      thickness: 0.5,
+                      color: borderColor,
+                    ),
+                  ],
                 );
               }),
           ],
@@ -588,7 +687,7 @@ Future<double?> _promptGrams(
   );
 }
 
-/// Диалог логирования рецепта: граммы съеденного + приём пищи.
+/// Диалог логирования рецепта: граммы + приём пищи.
 class _LogRecipeDialog extends StatefulWidget {
   const _LogRecipeDialog({required this.name, required this.totalGrams});
 
@@ -606,7 +705,6 @@ class _LogRecipeDialogState extends State<_LogRecipeDialog> {
   @override
   void initState() {
     super.initState();
-    // По умолчанию — вся готовая порция рецепта.
     _grams = TextEditingController(text: widget.totalGrams.round().toString());
   }
 
@@ -618,12 +716,20 @@ class _LogRecipeDialogState extends State<_LogRecipeDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    // accentTint + accentInk для выбранного чипа (§4.3 choice chips)
+    final tintColor = ext?.accentTint ?? cs.primaryContainer;
+    final inkColor = ext?.accentInk ?? cs.primary;
+    final chipBorder = ext?.border ?? cs.outline.withAlpha(80);
+
     return AlertDialog(
       title: Text(
         widget.name,
         maxLines: 2,
         overflow: TextOverflow.ellipsis,
-        style: Theme.of(context).textTheme.titleMedium,
+        style: tt.titleMedium,
       ),
       content: Column(
         mainAxisSize: MainAxisSize.min,
@@ -632,18 +738,35 @@ class _LogRecipeDialogState extends State<_LogRecipeDialog> {
           TextField(
             controller: _grams,
             keyboardType: TextInputType.number,
-            decoration: InputDecoration(labelText: context.s('food.grams_eaten_label')),
+            decoration: InputDecoration(
+              labelText: context.s('food.grams_eaten_label'),
+            ),
           ),
           const SizedBox(height: 16),
+          // §4.3: accentTint фон + accent border при выборе; ghost иначе
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: _meals.map((m) {
-              // Локализуем название приёма пищи через ключ food.meal_*
+              final selected = _meal == m;
               return ChoiceChip(
-                label: Text(context.s('food.meal_$m')),
-                selected: _meal == m,
+                label: Text(
+                  context.s('food.meal_$m'),
+                  style: tt.bodySmall?.copyWith(
+                    color: selected ? inkColor : null,
+                  ),
+                ),
+                selected: selected,
                 onSelected: (_) => setState(() => _meal = m),
+                selectedColor: tintColor,
+                backgroundColor: Colors.transparent,
+                side: BorderSide(
+                  color: selected
+                      ? cs.primary.withAlpha(180)
+                      : chipBorder,
+                  width: selected ? 1.0 : 0.5,
+                ),
+                showCheckmark: false,
               );
             }).toList(),
           ),
@@ -654,7 +777,6 @@ class _LogRecipeDialogState extends State<_LogRecipeDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(context.s('btn.cancel')),
         ),
-        // Первичное действие
         FilledButton(
           onPressed: () {
             final grams = double.tryParse(_grams.text.trim());

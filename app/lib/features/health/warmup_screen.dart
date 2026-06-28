@@ -1,21 +1,41 @@
 // Экран «Зарядка / растяжка» — список готовых комплексов + гайдед-плеер.
-//
-// Образец — posture_screen.dart (список) и meditation_screen.dart (поэтапный
-// плеер с таймером). Отличие от медитаций: шаги бывают двух видов —
-// по времени (обратный отсчёт + пауза) и по повторам (счётчик, ручное «дальше»).
-//
-// БЕЗ стрика/геймификации и БЕЗ записи в БД: «сделал» — эфемерный факт
-// (экран завершения). Контент берётся из warmup_routines.dart (только l10n-ключи).
+// Kaname redesign (Phase 5): §4.2 cards, Phosphor UI chrome, guide-timer style.
+// Контентные иконки (routine.icon / step.icon) — из модели данных warmup_routines.dart,
+// остаются Material (менять модель вне задачи). Вся бизнес-логика не изменена.
 
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
 import '../../core/theme/app_theme.dart';
 import 'warmup_routines.dart';
+
+// ---------------------------------------------------------------------------
+// §4.2 card (локальный приватный виджет).
+// ---------------------------------------------------------------------------
+
+class _KaCard extends StatelessWidget {
+  const _KaCard({required this.child, this.padding = const EdgeInsets.all(16)});
+  final Widget child;
+  final EdgeInsetsGeometry padding;
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return Container(
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border.all(color: ext.border, width: 0.5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Padding(padding: padding, child: child),
+    );
+  }
+}
 
 // ---------------------------------------------------------------------------
 // Список комплексов
@@ -26,17 +46,13 @@ class WarmupScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-
     return Scaffold(
       appBar: AppBar(title: Text(context.s('warmup.title'))),
       body: ListView(
-        // 24dp screen margin — spec §4.1
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
         children: [
           for (final routine in kWarmupRoutines) ...[
-            _RoutineCard(routine: routine, ext: ext, textTheme: textTheme),
+            _RoutineCard(routine: routine),
             const SizedBox(height: 12),
           ],
         ],
@@ -46,21 +62,24 @@ class WarmupScreen extends StatelessWidget {
 }
 
 class _RoutineCard extends StatelessWidget {
-  const _RoutineCard({
-    required this.routine,
-    required this.ext,
-    required this.textTheme,
-  });
-
+  const _RoutineCard({required this.routine});
   final WarmupRoutine routine;
-  final FocusThemeExtension ext;
-  final TextTheme textTheme;
 
   @override
   Widget build(BuildContext context) {
-    return Card(
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final textTheme = Theme.of(context).textTheme;
+    final surface = Theme.of(context).colorScheme.surface;
+
+    // §4.2 объектная карточка: Material+InkWell для ripple, hairline border
+    return Material(
+      color: surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: ext.border, width: 0.5),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => Navigator.of(context).push(
           MaterialPageRoute<void>(
             builder: (_) => _WarmupPlayerScreen(routine: routine),
@@ -71,7 +90,7 @@ class _RoutineCard extends StatelessWidget {
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Аватар — нейтральный (accentMuted фон, textMuted иконка).
+              // Аватар: accentMuted фон, нейтральная иконка из модели данных
               Container(
                 width: 44,
                 height: 44,
@@ -89,22 +108,30 @@ class _RoutineCard extends StatelessWidget {
                     Text(
                       context.s(routine.nameKey),
                       style: textTheme.titleMedium,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 2),
                     Text(
                       context.s(routine.descKey),
-                      style: textTheme.bodyMedium,
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: ext.textMuted,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
                     ),
                     const SizedBox(height: 6),
-                    // Мета: число упражнений + примерное время.
+                    // Мета: число упражнений + примерное время
                     Text(
                       '${plExercises(context, routine.steps.length)} · ~${plMinutes(context, routine.approxMinutes)}',
-                      style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: ext.textFaint,
+                      ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: ext.textMuted),
+              const SizedBox(width: 8),
+              Icon(PhosphorIcons.caretRight(), size: 16, color: ext.textMuted),
             ],
           ),
         ),
@@ -119,7 +146,6 @@ class _RoutineCard extends StatelessWidget {
 
 class _WarmupPlayerScreen extends StatefulWidget {
   const _WarmupPlayerScreen({required this.routine});
-
   final WarmupRoutine routine;
 
   @override
@@ -128,12 +154,9 @@ class _WarmupPlayerScreen extends StatefulWidget {
 
 class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
   int _stepIndex = 0;
-  int _remaining = 0; // секунды (для шагов-таймеров)
+  int _remaining = 0;
   bool _paused = false;
   Timer? _timer;
-
-  // Первый шаг стартуем в didChangeDependencies (а НЕ в initState): нужен
-  // доступ к контексту/MediaQuery без ассертов InheritedWidget.
   bool _started = false;
 
   List<WarmupStep> get _steps => widget.routine.steps;
@@ -162,7 +185,6 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
     final step = _steps[index];
     _remaining = step.seconds ?? 0;
 
-    // Шаг по повторам — без таймера (ручное «дальше»).
     if (step.isReps) return;
 
     _timer = Timer.periodic(const Duration(seconds: 1), (t) {
@@ -202,12 +224,15 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        final ext =
-            Theme.of(dialogContext).extension<FocusThemeExtension>()!;
+        final ext = Theme.of(dialogContext).extension<FocusThemeExtension>()!;
         final textTheme = Theme.of(dialogContext).textTheme;
         return AlertDialog(
-          // Иконка завершения — success (не accent, per ACCENT DISCIPLINE).
-          icon: Icon(Icons.check_circle_outline, size: 40, color: ext.success),
+          // Phosphor checkCircle fill — success colour (не accent per discipline)
+          icon: Icon(
+            PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
+            size: 40,
+            color: ext.success,
+          ),
           title: Text(dialogContext.s('warmup.complete_title')),
           content: Text(
             dialogContext.s('warmup.complete_body'),
@@ -216,8 +241,8 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
           actions: [
             TextButton(
               onPressed: () {
-                Navigator.of(dialogContext).pop(); // закрыть диалог
-                if (mounted) Navigator.of(context).pop(); // вернуться к списку
+                Navigator.of(dialogContext).pop();
+                if (mounted) Navigator.of(context).pop();
               },
               child: Text(dialogContext.s('btn.done')),
             ),
@@ -241,8 +266,7 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
         centerTitle: true,
       ),
       body: SafeArea(
-        // LayoutBuilder + SingleChildScrollView: контент НИКОГДА не переполняет
-        // (320px / textScale 2.0). При достатке места — на всю высоту, иначе скролл.
+        // LayoutBuilder + scroll: выживает на 320px / textScale 2.0
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
@@ -253,11 +277,12 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
-                      // Прогресс по упражнениям.
+                      // Прогресс по упражнениям
                       Text(
                         '${context.s('warmup.exercise')} ${_stepIndex + 1} / $stepCount',
-                        style: textTheme.bodySmall
-                            ?.copyWith(color: ext.textMuted),
+                        style: textTheme.bodySmall?.copyWith(
+                          color: ext.textMuted,
+                        ),
                       ),
                       const SizedBox(height: 8),
                       LinearProgressIndicator(
@@ -267,7 +292,7 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
                       ),
                       const SizedBox(height: 32),
 
-                      // Круг: таймер (обратный отсчёт) либо счётчик повторов.
+                      // Круг: таймер или счётчик повторов
                       SizedBox(
                         width: 200,
                         height: 200,
@@ -289,15 +314,17 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
                       ),
                       const SizedBox(height: 32),
 
-                      // Название упражнения.
+                      // Название упражнения
                       Text(
                         context.s(step.nameKey),
                         style: textTheme.titleLarge,
                         textAlign: TextAlign.center,
+                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
                       ),
                       const SizedBox(height: 12),
 
-                      // Описание — Flexible, переносится, не переполняет.
+                      // Описание — Flexible, не переполняет
                       Flexible(
                         child: Center(
                           child: Text(
@@ -309,23 +336,26 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
                       ),
                       const SizedBox(height: 12),
 
-                      // Превью следующего упражнения.
+                      // Превью следующего упражнения
                       if (_nextStep != null)
                         Text(
                           '${context.s('warmup.next_up')}: ${context.s(_nextStep!.nameKey)}',
-                          style: textTheme.bodySmall
-                              ?.copyWith(color: ext.textFaint),
+                          style: textTheme.bodySmall?.copyWith(
+                            color: ext.textFaint,
+                          ),
                           textAlign: TextAlign.center,
                         ),
                       const SizedBox(height: 16),
 
-                      // Пауза/продолжить — только для шагов-таймеров.
+                      // Пауза/продолжить — только для шагов-таймеров
                       if (!step.isReps)
                         SizedBox(
                           width: double.infinity,
                           child: OutlinedButton.icon(
                             icon: Icon(
-                              _paused ? Icons.play_arrow : Icons.pause,
+                              _paused
+                                  ? PhosphorIcons.play()
+                                  : PhosphorIcons.pause(),
                             ),
                             label: Text(
                               _paused
@@ -337,7 +367,7 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
                         ),
                       if (!step.isReps) const SizedBox(height: 8),
 
-                      // Первичное действие — следующий шаг / завершить.
+                      // Первичное действие — следующий / завершить
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
@@ -351,7 +381,7 @@ class _WarmupPlayerScreenState extends State<_WarmupPlayerScreen> {
                       ),
                       const SizedBox(height: 8),
 
-                      // Вторичное действие — выйти из рутины.
+                      // Выход из рутины
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(context.s('warmup.end')),
@@ -411,6 +441,7 @@ class _TimerCircle extends StatelessWidget {
 }
 
 /// Круг для шага по повторам: иконка + «× N reps» (без таймера).
+/// Иконка из модели данных (WarmupStep.icon) — Material IconData, сохраняется.
 class _RepsCircle extends StatelessWidget {
   const _RepsCircle({
     required this.reps,
@@ -429,7 +460,6 @@ class _RepsCircle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return CustomPaint(
-      // Полная дуга (статичная) — шаг по повторам без отсчёта.
       painter: _ArcPainter(progress: 1, color: color, trackColor: trackColor),
       child: Center(
         child: Column(
@@ -449,7 +479,7 @@ class _RepsCircle extends StatelessWidget {
   }
 }
 
-/// Дуга прогресса (как в meditation_screen.dart).
+/// Дуга прогресса — обводка круга для таймеров и счётчиков повторов.
 class _ArcPainter extends CustomPainter {
   const _ArcPainter({
     required this.progress,
@@ -457,7 +487,7 @@ class _ArcPainter extends CustomPainter {
     required this.trackColor,
   });
 
-  final double progress; // 1.0 → полная дуга, 0.0 → пустая
+  final double progress;
   final Color color;
   final Color trackColor;
 

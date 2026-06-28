@@ -8,9 +8,12 @@
 //   (GlobalMaterialLocalizations.delegate).
 // - Кнопка «›» отключена, если date == сегодня (нельзя смотреть в будущее).
 // - Нет своих анимаций — уважает reduce-motion (MediaQuery.disableAnimations).
+//
+// Иконки: Phosphor caretLeft / caretRight (20dp), calendarBlank (16dp).
 
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../theme/app_theme.dart';
 
@@ -36,7 +39,6 @@ class DateNavigator extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    // Нормализуем до полуночи, чтобы сравнивать только дату, а не время
     final now = DateTime.now();
     final todayDate = DateTime(now.year, now.month, now.day);
     final selectedDate = DateTime(date.year, date.month, date.day);
@@ -44,9 +46,12 @@ class DateNavigator extends StatelessWidget {
 
     return Row(
       children: [
-        // Предыдущий день
+        // Предыдущий день — Phosphor caretLeft (20dp)
         IconButton(
-          icon: const Icon(Icons.chevron_left),
+          icon: PhosphorIcon(
+            PhosphorIcons.caretLeft(PhosphorIconsStyle.regular),
+            size: 20,
+          ),
           onPressed: () => onChanged(date.subtract(const Duration(days: 1))),
         ),
 
@@ -59,21 +64,20 @@ class DateNavigator extends StatelessWidget {
               children: [
                 Flexible(
                   child: Text(
-                    // DateFormat.yMMMMd() использует Intl.defaultLocale
                     DateFormat.yMMMMd().format(date),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     textAlign: TextAlign.center,
                     style: textTheme.bodyLarge?.copyWith(
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
                 ),
                 const SizedBox(width: 6),
-                Icon(
-                  Icons.calendar_today,
-                  size: 14,
-                  // textMuted — вторичная иконка, не CTA
+                // Phosphor calendarBlank (16dp, caption size)
+                PhosphorIcon(
+                  PhosphorIcons.calendarBlank(PhosphorIconsStyle.regular),
+                  size: 16,
                   color: ext.textMuted,
                 ),
               ],
@@ -81,9 +85,12 @@ class DateNavigator extends StatelessWidget {
           ),
         ),
 
-        // Следующий день (отключён, если уже стоит сегодня)
+        // Следующий день — отключён, если уже сегодня — Phosphor caretRight (20dp)
         IconButton(
-          icon: const Icon(Icons.chevron_right),
+          icon: PhosphorIcon(
+            PhosphorIcons.caretRight(PhosphorIconsStyle.regular),
+            size: 20,
+          ),
           onPressed: isToday
               ? null
               : () => onChanged(date.add(const Duration(days: 1))),
@@ -98,9 +105,7 @@ class DateNavigator extends StatelessWidget {
       context: context,
       initialDate: date,
       firstDate: firstDate ?? DateTime(2020),
-      // lastDate = сегодня — нельзя выбрать будущую дату
       lastDate: now,
-      // locale не задаётся — используем локаль из MaterialApp
     );
     if (picked != null) {
       onChanged(picked);

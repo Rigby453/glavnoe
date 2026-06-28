@@ -2,6 +2,14 @@
 // Поиск продукта (Open Food Facts через бэкенд) / штрихкод / ИИ-фото (premium)
 // → выбрать граммы/приём → запись. Итоги дня считаются локально из food_logs.
 // Числа КБЖУ — из базы (на 100 г), масштабируются под порцию (food_nutrition).
+//
+// Kaname redesign (Phase 5):
+//   • Карточки: surface1 + 0.5 hairline + R14, без теней
+//   • Пустое состояние: KaiMascot(neutral, 64) + FilledButton
+//   • Иконки: Phosphor (no Material icons in UI)
+//   • Единицы g/kcal — через l10n ключи (food.row_grams_kcal, etc.)
+//   • Баланс: нет left-fill-bar — статус через icon + цвет
+//   • FAB лист: поиск + голос + штрихкод + ИИ-фото (premium) + из рецепта + недавние
 
 import 'dart:async';
 import 'dart:convert' show base64Encode;
@@ -11,6 +19,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../core/l10n/app_strings.dart';
@@ -23,11 +32,14 @@ import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/locale_provider.dart';
 import '../../core/settings/fab_position_provider.dart';
+import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/nutrition_targets.dart';
+import '../../core/settings/tone_provider.dart';
 import '../../core/utils/id.dart';
 import '../../core/widgets/kai_loader.dart';
 import '../../core/widgets/swipe_to_delete.dart';
 import '../../core/widgets/undo_snack_bar.dart';
+import '../../features/mascot/kai_mascot.dart';
 import '../../services/api/api_client.dart';
 import '../auth/auth_controller.dart';
 import 'ai_menu_sheet.dart';
@@ -60,15 +72,12 @@ String _weekdayName(BuildContext context, int weekday) {
 
 /// «Повторить прошлую неделю»: копирует food_logs за тот же день недели 7 дней назад
 /// в текущий/выбранный [targetDate] (по умолчанию — сегодня).
-/// Каждая запись создаётся через addLog-совместимый путь (новый id, дата = today).
-/// После успеха показывает Undo-snackbar; по Undo удаляет только эту партию.
 Future<void> _repeatLastWeek(
   BuildContext context,
   WidgetRef ref, {
   DateTime? targetDate,
 }) async {
   final now = targetDate ?? DateTime.now();
-  // День-источник: тот же день недели 7 дней назад
   final sourceDate = now.subtract(const Duration(days: 7));
 
   final dao = ref.read(foodLogsDaoProvider);
@@ -77,7 +86,6 @@ Future<void> _repeatLastWeek(
   if (!context.mounted) return;
 
   if (sourceLogs.isEmpty) {
-    // Мягкое сообщение — нет данных за тот день
     final dayName = _weekdayName(context, sourceDate.weekday);
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
@@ -90,7 +98,6 @@ Future<void> _repeatLastWeek(
     return;
   }
 
-  // Строим companions с новыми id и датой = сегодня
   final targetDayStart = DateTime.utc(now.year, now.month, now.day);
   final companions = sourceLogs.map((src) {
     final newId = uuidV4();
@@ -116,7 +123,6 @@ Future<void> _repeatLastWeek(
 
   final dayName = _weekdayName(context, sourceDate.weekday);
   final n = insertedIds.length;
-  // Показываем Undo-snackbar; по Undo — удаляем ровно эту партию
   showUndoSnackBar(
     context,
     message: context
@@ -145,9 +151,7 @@ Nutrition _logToNutrition(FoodLogsTableData l) => Nutrition(
 class FoodScreen extends ConsumerStatefulWidget {
   const FoodScreen({super.key, this.targetMeal});
 
-  /// Приём пищи (slot, напр. 'breakfast'), к которому надо доскроллить и
-  /// кратко подсветить при открытии экрана. null — обычное открытие.
-  /// Приходит из moduleLink `meal:<slot>` через query-параметр маршрута /food.
+  /// Приём пищи, к которому надо доскроллить при открытии.
   final String? targetMeal;
 
   @override
@@ -155,26 +159,17 @@ class FoodScreen extends ConsumerStatefulWidget {
 }
 
 class _FoodScreenState extends ConsumerState<FoodScreen> {
-  // GlobalKey'и заголовков секций приёмов — для Scrollable.ensureVisible.
   final Map<String, GlobalKey> _mealKeys = {};
-
-  // Слот, чей заголовок сейчас подсвечен (короткая вспышка после доскролла).
   String? _highlightedMeal;
-
-  // Чтобы доскролл сработал только при ПЕРВОМ построении с непустым списком
-  // (а не на каждом ребилде стрима после добавления/удаления записи).
   bool _scrolledToTarget = false;
 
-  /// Возвращает (создавая при необходимости) GlobalKey заголовка секции [slot].
   GlobalKey _mealKey(String slot) =>
       _mealKeys.putIfAbsent(slot, () => GlobalKey());
 
-  /// После первого кадра со списком — доскроллить к целевому приёму и подсветить.
   void _maybeScrollToTarget(List<FoodLogsTableData> logs) {
     if (_scrolledToTarget) return;
     final target = widget.targetMeal;
     if (target == null || logs.isEmpty) return;
-    // Целевая секция должна реально присутствовать в сегодняшнем логе.
     if (!logs.any((l) => l.meal == target)) return;
     _scrolledToTarget = true;
 
@@ -190,7 +185,6 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
         duration: reduce ? Duration.zero : kDurationNormal,
         curve: kCurveSlide,
       );
-      // Краткая подсветка заголовка целевой секции (не при reduce-motion).
       if (!reduce) {
         setState(() => _highlightedMeal = target);
         Future.delayed(const Duration(milliseconds: 1400), () {
@@ -203,11 +197,18 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final mutedColor = ext?.textMuted ?? colorScheme.onSurface.withAlpha(153);
+
     final logs = ref.watch(_todayFoodProvider).valueOrNull ??
         const <FoodLogsTableData>[];
     final totals = sumNutrition(logs.map(_logToNutrition));
 
-    // Планируем доскролл к целевому приёму при первом непустом построении.
+    // Для пустого состояния — Kai
+    final showKai = ref.watch(showKaiProvider);
+    final tone = ref.watch(toneProvider);
+
     _maybeScrollToTarget(logs);
 
     final fabLocation = ref.watch(fabPositionProvider).fabLocation;
@@ -217,12 +218,12 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
         actions: [
           IconButton(
             tooltip: context.s('food.my_recipes_tooltip'),
-            icon: const Icon(Icons.menu_book_outlined),
+            icon: Icon(PhosphorIcons.notebook()),
             onPressed: () => context.push('/recipes'),
           ),
           IconButton(
             tooltip: context.s('food.shopping_list_tooltip'),
-            icon: const Icon(Icons.shopping_cart_outlined),
+            icon: Icon(PhosphorIcons.shoppingCart()),
             onPressed: () => context.push('/shopping'),
           ),
         ],
@@ -232,54 +233,66 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
         heroTag: 'food_add_fab',
         onPressed: () => _showSearchSheet(context),
         tooltip: context.s('food.add'),
-        child: const Icon(Icons.add),
+        child: Icon(PhosphorIcons.plus()),
       ),
       body: ListView(
-        // 24dp экранный отступ по spec (02-type-space.md §4.1)
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 96),
         children: [
           _TotalsCard(totals: totals),
-          const SizedBox(height: 16),
-          // «Собрать ИИ» (SPEC C5, premium): меню дня из рецептов и недавних
-          // продуктов; числа пересчитывает код, пользователь подтверждает.
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              icon: const Icon(Icons.auto_awesome, size: 18),
-              label: Text(context.s('food.ai_menu_btn')),
-              onPressed: () => showAiMenuSheet(context, ref),
-            ),
-          ),
-          // «Повторить прошлую неделю»: копирует рацион того же дня недели -7 дней.
-          // Акцент не используется — вторичное действие (UX-LAYOUT §6.3).
-          Align(
-            alignment: Alignment.centerLeft,
-            child: Tooltip(
-              message: context.s('food.repeat_week_tooltip'),
-              child: TextButton.icon(
-                icon: const Icon(Icons.history, size: 18),
-                label: Text(context.s('food.repeat_week')),
-                onPressed: () => _repeatLastWeek(context, ref),
+          const SizedBox(height: 12),
+          // Вторичные действия: «Собрать ИИ» и «Повторить прошлую неделю»
+          Wrap(
+            spacing: 4,
+            children: [
+              TextButton.icon(
+                icon: Icon(PhosphorIcons.sparkle(), size: 18),
+                label: Text(context.s('food.ai_menu_btn')),
+                onPressed: () => showAiMenuSheet(context, ref),
               ),
-            ),
+              Tooltip(
+                message: context.s('food.repeat_week_tooltip'),
+                child: TextButton.icon(
+                  icon: Icon(PhosphorIcons.clockCounterClockwise(), size: 18),
+                  label: Text(context.s('food.repeat_week')),
+                  onPressed: () => _repeatLastWeek(context, ref),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 8),
           if (logs.isEmpty)
+            // Пустое состояние: KaiMascot + текст + CTA-кнопка (§4.2)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 48),
               child: Center(
-                child: Text(
-                  context.s('food.nothing_today'),
-                  textAlign: TextAlign.center,
-                  // Пустое состояние — bodyMedium из темы (цвет text по умолчанию)
-                  style: textTheme.bodyMedium,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (showKai) ...[
+                      KaiMascot(
+                        size: 64,
+                        emotion: KaiEmotion.neutral,
+                        isHarsh: tone == AppTone.harsh,
+                      ),
+                      const SizedBox(height: 16),
+                    ],
+                    Text(
+                      context.s('food.nothing_today'),
+                      textAlign: TextAlign.center,
+                      style: textTheme.bodyMedium?.copyWith(color: mutedColor),
+                    ),
+                    const SizedBox(height: 12),
+                    FilledButton.icon(
+                      icon: Icon(PhosphorIcons.plus()),
+                      label: Text(context.s('food.empty_add_food')),
+                      onPressed: () => _showSearchSheet(context),
+                    ),
+                  ],
                 ),
               ),
             )
           else ...[
             ..._buildMealSections(context, logs),
-            // Баланс рациона (SPEC C5, rule-based) — ПОСЛЕ списка приёмов пищи,
-            // отделён заголовком секции чтобы не читаться как часть меню.
             const SizedBox(height: 24),
             _BalanceSectionHeader(),
             const SizedBox(height: 8),
@@ -290,22 +303,16 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
     );
   }
 
-  /// Заголовок секции с GlobalKey (для доскролла) и флагом подсветки.
   Widget _sectionHeader(String slot) => _MealSectionHeader(
         key: _mealKey(slot),
         slot: slot,
         highlighted: _highlightedMeal == slot,
       );
 
-  /// Группирует дневной лог по слотам приёмов пищи и рендерит секции в
-  /// каноническом порядке (kMealSlotOrder). Пустые группы пропускаются.
-  /// Записи с meal, которого нет в kMealSlotOrder, собираются в «прочее»
-  /// и показываются в конце под лейблом food.meal_snack (ничего не теряем).
   List<Widget> _buildMealSections(
     BuildContext context,
     List<FoodLogsTableData> logs,
   ) {
-    // Группируем сохраняя порядок вставки внутри каждой группы.
     final grouped = <String, List<FoodLogsTableData>>{};
     final other = <FoodLogsTableData>[];
     for (final l in logs) {
@@ -323,7 +330,6 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
       sections.add(_sectionHeader(slot));
       sections.addAll(group.map((l) => _FoodRow(log: l)));
     }
-    // «Прочее» — записи с неизвестным/легаси-приёмом — в конец под «перекус».
     if (other.isNotEmpty) {
       sections.add(_sectionHeader('snack'));
       sections.addAll(other.map((l) => _FoodRow(log: l)));
@@ -332,8 +338,10 @@ class _FoodScreenState extends ConsumerState<FoodScreen> {
   }
 }
 
-/// Маленький заголовок-секция приёма пищи над группой записей.
-/// Лейбл локализуется через `food.meal_<slot>`; первая буква — в верхний регистр.
+// ---------------------------------------------------------------------------
+// Заголовок секции приёма пищи
+// ---------------------------------------------------------------------------
+
 class _MealSectionHeader extends StatelessWidget {
   const _MealSectionHeader({
     required this.slot,
@@ -341,10 +349,6 @@ class _MealSectionHeader extends StatelessWidget {
     super.key,
   });
   final String slot;
-
-  /// true — короткая подсветка фона (после доскролла к этому приёму).
-  /// Используется accentMuted (selection highlight, design-tokens) — не залив
-  /// акцентом, а мягкое выделение «вот сюда ты пришёл».
   final bool highlighted;
 
   @override
@@ -359,8 +363,6 @@ class _MealSectionHeader extends StatelessWidget {
         ? label[0].toUpperCase() + label.substring(1)
         : slot;
 
-    // Подсветка-вспышка: плавно появляется и гаснет (флаг highlighted снимается
-    // через таймер в _FoodScreenState). accentMuted = selection highlight bg.
     final highlightColor = ext?.accentMuted ??
         Theme.of(context).colorScheme.primary.withAlpha(30);
 
@@ -371,7 +373,7 @@ class _MealSectionHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
       decoration: BoxDecoration(
         color: highlighted ? highlightColor : Colors.transparent,
-        borderRadius: BorderRadius.circular(8), // radius.sm
+        borderRadius: BorderRadius.circular(8),
       ),
       child: Text(
         display,
@@ -381,10 +383,10 @@ class _MealSectionHeader extends StatelessWidget {
   }
 }
 
-/// Заголовок секции «Баланс рациона» — визуально отделяет карточку баланса
-/// от списка приёмов пищи выше, чтобы она не читалась как часть меню.
-/// Стиль аналогичен _MealSectionHeader (titleSmall + textMuted) но без ключа
-/// и без подсветки — это статичный разделительный заголовок.
+// ---------------------------------------------------------------------------
+// Заголовок секции «Баланс рациона» — Phosphor chartLineUp вместо insights
+// ---------------------------------------------------------------------------
+
 class _BalanceSectionHeader extends StatelessWidget {
   const _BalanceSectionHeader();
 
@@ -396,11 +398,10 @@ class _BalanceSectionHeader extends StatelessWidget {
         ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
 
     return Padding(
-      // Небольшой левый отступ, как у _MealSectionHeader (horizontal: 4)
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: Row(
         children: [
-          Icon(Icons.insights_outlined, size: 16, color: mutedColor),
+          Icon(PhosphorIcons.chartLineUp(), size: 16, color: mutedColor),
           const SizedBox(width: 6),
           Flexible(
             child: Text(
@@ -415,7 +416,10 @@ class _BalanceSectionHeader extends StatelessWidget {
   }
 }
 
-/// Карточка «Баланс рациона» — мягкий вердикт + конкретные подсказки (C5).
+// ---------------------------------------------------------------------------
+// Карточка «Баланс рациона» — surface1 + hairline + R14, нет left fill-bar
+// ---------------------------------------------------------------------------
+
 class _BalanceCard extends ConsumerWidget {
   const _BalanceCard({required this.totals});
   final Nutrition totals;
@@ -423,12 +427,11 @@ class _BalanceCard extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    // success — из ThemeExtension (01-color.md)
+    final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    final successColor = ext?.success ?? Theme.of(context).colorScheme.primary;
-    final mutedColor = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
+    final successColor = ext?.success ?? colorScheme.primary;
+    final mutedColor = ext?.textMuted ?? colorScheme.onSurface.withAlpha(153);
 
-    // Персонализированные нормы из антропометрии (или дефолт, если не заполнено)
     final targets = ref.watch(nutritionTargetsProvider);
     final balance = evaluateDayBalance(
       totals,
@@ -436,25 +439,20 @@ class _BalanceCard extends ConsumerWidget {
       proteinGoalG: targets.proteinG,
     );
 
-    // Сид дня: целые дни с эпохи. Стабилен в течение дня → текст не «прыгает»
-    // при ребилдах, но меняется день ото дня. Локаль/таймзона не важны.
     final daySeed =
         DateTime.now().millisecondsSinceEpoch ~/ Duration.millisecondsPerDay;
 
-    // Карточка баланса визуально отличается от карточек приёмов пищи:
-    // левая цветная полоса (success / textMuted) сигнализирует «итоговый вывод»,
-    // а не «запись о продукте». Card используется без elevation (из темы) для
-    // единообразия, но Container внутри добавляет левый border-accent.
-    final borderColor = balance.balanced ? successColor : mutedColor;
-    return Card(
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            left: BorderSide(color: borderColor, width: 3),
-          ),
-          borderRadius: const BorderRadius.horizontal(right: Radius.circular(12)),
+    // §4 card: surface1 + 0.5 hairline + R14, NO shadow, NO left fill-bar
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: ext?.border ?? colorScheme.outline,
+          width: 0.5,
         ),
-        child: Padding(
+      ),
+      child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -463,10 +461,10 @@ class _BalanceCard extends ConsumerWidget {
               children: [
                 Icon(
                   balance.balanced
-                      ? Icons.check_circle_outline
-                      : Icons.tips_and_updates_outlined,
+                      ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
+                      : PhosphorIcons.lightbulb(),
                   size: 20,
-                  // Сбалансировано → success (зелёный); совет → нейтральный мутед
+                  // Сбалансировано → success; совет → нейтральный мутед
                   color: balance.balanced ? successColor : mutedColor,
                 ),
                 const SizedBox(width: 8),
@@ -480,9 +478,6 @@ class _BalanceCard extends ConsumerWidget {
                 style: textTheme.bodyMedium,
               )
             else
-              // hints содержат id категорий — выбираем вариант текста по daySeed.
-              // Смещаем сид на индекс категории (i), чтобы разные категории не
-              // упирались в один и тот же индекс массива.
               ...balance.hints.asMap().entries.map(
                 (e) => Padding(
                   padding: const EdgeInsets.only(bottom: 4),
@@ -502,17 +497,15 @@ class _BalanceCard extends ConsumerWidget {
               ),
           ],
         ),
-        ),  // Padding
-      ),    // Container
-    );      // Card
+      ),
+    );
   }
 }
 
-// Карточка «Итоги дня» — применяет правило «акцент = дефицитный ресурс» (UX-LAYOUT §6.3):
-// • Акцент (primary/лайм): только заголовочная цифра калорий.
-// • Вторичные бары (Б/Ж/У): нейтральный textMuted, формат «X / target g».
-// • Сахар: ember/urgent (семантика «следи»), формат «X / max g».
-// • Клетчатка: нейтральный мутед, формат «X / goal g».
+// ---------------------------------------------------------------------------
+// Карточка «Итоги дня» — surface1 + hairline + R14, акцент = калории
+// ---------------------------------------------------------------------------
+
 class _TotalsCard extends ConsumerWidget {
   const _TotalsCard({required this.totals});
   final Nutrition totals;
@@ -522,28 +515,31 @@ class _TotalsCard extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    // textMuted — из ThemeExtension; fallback на onSurface.withAlpha
     final mutedColor = ext?.textMuted ?? colorScheme.onSurface.withAlpha(153);
-    // ember — семантика «срочное/следи», используется для Сахара
     final emberColor = ext?.ember ?? colorScheme.secondary;
 
-    // Персональные нормы для отображения «съедено / норма»
     final targets = ref.watch(nutritionTargetsProvider);
 
     String g(double? v) => v == null ? '—' : v.round().toString();
 
-    return Card(
+    // §4 card: surface1 + 0.5 hairline + R14, NO shadow
+    return Container(
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: ext?.border ?? colorScheme.outline,
+          width: 0.5,
+        ),
+      ),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Заголовок карточки — titleSmall (чуть менее тяжёлый чем titleMedium)
             Text(context.s('food.totals_today'), style: textTheme.titleSmall),
             const SizedBox(height: 12),
-            // Калории — единственная метрика с акцентом (лайм = «главное»).
-            // headlineMedium (32sp, display font) из type scale.
-            // Flexible на вторичном тексте — при scale 1.5× строка '/ 2000 kcal' усекается.
+            // Калории — единственный акцентный элемент карточки
             Row(
               crossAxisAlignment: CrossAxisAlignment.baseline,
               textBaseline: TextBaseline.alphabetic,
@@ -557,7 +553,9 @@ class _TotalsCard extends ConsumerWidget {
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
-                    '/ ${targets.kcal} kcal',
+                    context
+                        .s('food.totals_kcal_goal')
+                        .replaceFirst('{goal}', '${targets.kcal}'),
                     style: textTheme.bodyMedium?.copyWith(color: mutedColor),
                     overflow: TextOverflow.ellipsis,
                   ),
@@ -565,44 +563,50 @@ class _TotalsCard extends ConsumerWidget {
               ],
             ),
             const SizedBox(height: 12),
-            // Вторичные макросы (Б/Ж/У) — mutedColor: важны, но не «главная» метрика.
-            // Expanded делит ширину поровну — не даёт overflow при крупном тексте (1.5×).
+            // Б/Ж/У — вторичные, равные колонки, значения через l10n
             Row(
               children: [
                 Expanded(
                   child: _Macro(
                     label: context.s('food.macro_protein'),
-                    value: '${g(totals.protein)} / ${targets.proteinG} g',
+                    value: context
+                        .s('food.macro_value_of')
+                        .replaceFirst('{val}', g(totals.protein))
+                        .replaceFirst('{goal}', '${targets.proteinG}'),
                     color: mutedColor,
                   ),
                 ),
                 Expanded(
                   child: _Macro(
                     label: context.s('food.macro_fat'),
-                    value: '${g(totals.fat)} / ${targets.fatG} g',
+                    value: context
+                        .s('food.macro_value_of')
+                        .replaceFirst('{val}', g(totals.fat))
+                        .replaceFirst('{goal}', '${targets.fatG}'),
                     color: mutedColor,
                   ),
                 ),
                 Expanded(
                   child: _Macro(
                     label: context.s('food.macro_carbs'),
-                    value: '${g(totals.carbs)} / ${targets.carbsG} g',
+                    value: context
+                        .s('food.macro_value_of')
+                        .replaceFirst('{val}', g(totals.carbs))
+                        .replaceFirst('{goal}', '${targets.carbsG}'),
                     color: mutedColor,
                   ),
                 ),
               ],
             ),
             const SizedBox(height: 12),
-            // Следящие метрики: Сахар — ember (семантика «следи»), Клетчатка — мутед.
-            // Wrap переносит метрики на новую строку при нехватке ширины (320px / 1.5×).
-            // Flexible внутри каждой мини-Row — защита от overflow если обе не влезают в строку.
+            // Сахар (ember = «следи») + Клетчатка (мутед)
+            // Phosphor warning → сахар; leaf → клетчатка
             Row(
               children: [
-                Icon(Icons.cookie_outlined, size: 16, color: emberColor),
+                Icon(PhosphorIcons.warning(), size: 16, color: emberColor),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
-                    // Bug gate A: «Sugar» было хардкодом; теперь food.totals_sugar_line
                     context
                         .s('food.totals_sugar_line')
                         .replaceFirst('{val}', g(totals.sugar))
@@ -612,11 +616,10 @@ class _TotalsCard extends ConsumerWidget {
                   ),
                 ),
                 const SizedBox(width: 16),
-                Icon(Icons.grass_outlined, size: 16, color: mutedColor),
+                Icon(PhosphorIcons.leaf(), size: 16, color: mutedColor),
                 const SizedBox(width: 4),
                 Flexible(
                   child: Text(
-                    // Bug gate A: «Fiber» было хардкодом; теперь food.totals_fiber_line
                     context
                         .s('food.totals_fiber_line')
                         .replaceFirst('{val}', g(totals.fiber))
@@ -638,7 +641,6 @@ class _Macro extends StatelessWidget {
   const _Macro({required this.label, required this.value, this.color});
   final String label;
   final String value;
-  // Цвет цифры и подписи — передаётся снаружи (мутед для вторичных макросов)
   final Color? color;
 
   @override
@@ -646,8 +648,6 @@ class _Macro extends StatelessWidget {
     final textTheme = Theme.of(context).textTheme;
     return Column(
       children: [
-        // titleSmall (14sp w600) — достаточно веса без конкуренции с headline калорий.
-        // maxLines+ellipsis: в Expanded-ячейке при scale 1.5× длинные значения усекаются.
         Text(
           value,
           style: textTheme.titleSmall?.copyWith(color: color),
@@ -667,20 +667,21 @@ class _Macro extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Строка продукта — surface1 + hairline + R14, dense row, Phosphor x
+// ---------------------------------------------------------------------------
+
 class _FoodRow extends ConsumerWidget {
   const _FoodRow({required this.log});
   final FoodLogsTableData log;
 
-  /// Снапшот → удалить → показать Undo (единый паттерн безопасного удаления).
   Future<void> _deleteWithUndo(BuildContext context, WidgetRef ref) async {
     final dao = ref.read(foodLogsDaoProvider);
-    // Снапшот строки до удаления — для восстановления через Undo
     final snapshot = log;
     await dao.deleteLog(log.id);
     if (!context.mounted) return;
     showUndoSnackBar(
       context,
-      // «"Банан" removed» — имя продукта + ключ food.log_removed
       message: '"${log.name}" ${context.s('food.log_removed')}',
       onUndo: () => dao.restoreLog(snapshot),
     );
@@ -689,34 +690,71 @@ class _FoodRow extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    final mutedColor = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
-    final kcal = log.calories == null ? '—' : '${log.calories!.round()} kcal';
+    final mutedColor = ext?.textMuted ?? colorScheme.onSurface.withAlpha(153);
 
-    // SwipeToDelete обёртка: свайп влево = удалить с Undo
+    // Подзаголовок: «{g} г · {kcal} ккал» через l10n, нет хардкода
+    final String rowSubtitle;
+    if (log.calories != null) {
+      rowSubtitle = context
+          .s('food.row_grams_kcal')
+          .replaceFirst('{g}', '${log.grams.round()}')
+          .replaceFirst('{kcal}', '${log.calories!.round()}');
+    } else {
+      rowSubtitle = context
+          .s('food.grams_val')
+          .replaceFirst('{val}', '${log.grams.round()}');
+    }
+
     return SwipeToDelete(
       key: ValueKey('food_log_${log.id}'),
       onDelete: () => _deleteWithUndo(context, ref),
-      child: Card(
-        margin: const EdgeInsets.only(bottom: 8),
-        child: ListTile(
-          // Название продукта — bodyLarge из темы (titleText style уже задан в ListTileTheme)
-          title: Text(log.name),
-          subtitle: Text(
-            // Приём пищи показан в заголовке секции — здесь только граммы и ккал.
-            '${log.grams.round()} g · $kcal',
-            style: textTheme.bodySmall?.copyWith(color: mutedColor),
+      // §4 card: surface1 + 0.5 hairline + R14, dense row (не ListTile)
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          color: colorScheme.surface,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: ext?.border ?? colorScheme.outline,
+            width: 0.5,
           ),
-          trailing: IconButton(
-            tooltip: context.s('food.remove_tooltip'),
-            // Иконка удаления — нейтральный textFaint (не акцент, не ember)
-            icon: Icon(
-              Icons.close,
-              size: 18,
-              color: ext?.textFaint,
-            ),
-            // Кнопка-корзина: тот же снапшот-паттерн, что и свайп
-            onPressed: () => _deleteWithUndo(context, ref),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
+          child: Row(
+            children: [
+              FoodIconTile(name: log.name, size: 36),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      log.name,
+                      style: textTheme.bodyMedium,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      rowSubtitle,
+                      style: textTheme.bodySmall?.copyWith(color: mutedColor),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: context.s('food.remove_tooltip'),
+                icon: Icon(
+                  PhosphorIcons.x(),
+                  size: 18,
+                  color: ext?.textFaint,
+                ),
+                onPressed: () => _deleteWithUndo(context, ref),
+              ),
+            ],
           ),
         ),
       ),
@@ -725,7 +763,7 @@ class _FoodRow extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Поиск продукта (нижний лист)
+// Поиск продукта (нижний лист) — unified add sheet per spec
 // ---------------------------------------------------------------------------
 
 Future<void> _showSearchSheet(BuildContext context) {
@@ -736,10 +774,7 @@ Future<void> _showSearchSheet(BuildContext context) {
   );
 }
 
-/// [ТОЛЬКО ДЛЯ ТЕСТОВ] Открывает лист поиска с предустановленными результатами
-/// и подписью ИИ, симулируя состояние после успешного ИИ-фото-распознавания
-/// (пустое поле + непустые _results + _aiNote).
-/// Используется в food_search_sheet_display_test.dart.
+/// [ТОЛЬКО ДЛЯ ТЕСТОВ] Открывает лист поиска с предустановленными результатами.
 @visibleForTesting
 Future<void> showFoodSearchSheetWithPreset(
   BuildContext context, {
@@ -758,17 +793,13 @@ Future<void> showFoodSearchSheetWithPreset(
 
 class _FoodSearchSheet extends ConsumerStatefulWidget {
   const _FoodSearchSheet({
-    // Параметры только для тестов — позволяют симулировать состояние
-    // «пустое поле + результаты ИИ-фото» без запуска камеры.
     @visibleForTesting List<Map<String, dynamic>>? testResults,
     @visibleForTesting this.testAiNote,
   }) : testResults = testResults ?? const [];
 
-  /// Предустановленные результаты (симуляция ИИ-фото для тестов).
   @visibleForTesting
   final List<Map<String, dynamic>> testResults;
 
-  /// Предустановленная подпись ИИ (симуляция ИИ-фото для тестов).
   @visibleForTesting
   final String? testAiNote;
 
@@ -777,9 +808,7 @@ class _FoodSearchSheet extends ConsumerStatefulWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Кэш поискового запроса (в памяти, на время жизни листа).
-// Ключ — нормализованный запрос (trim+lowercase).
-// Значение — результаты + метка времени для TTL.
+// Кэш поискового запроса
 // ---------------------------------------------------------------------------
 
 class _CacheEntry {
@@ -788,11 +817,7 @@ class _CacheEntry {
   final DateTime timestamp;
 }
 
-/// TTL кэша — 5 минут.
 const _kCacheTtl = Duration(minutes: 5);
-
-/// Максимум записей в кэше (по принципу LRU-приближения: при переполнении
-/// удаляем первый вошедший ключ).
 const _kCacheMaxEntries = 20;
 
 class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
@@ -802,34 +827,24 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
   bool _loading = false;
   String? _error;
 
-  // Подпись от ИИ-фото: «AI: greek salad (86%)» — показывается над результатами
   String? _aiNote;
 
-  // Голосовой ввод (SPEC C5): локальное распознавание речи → строка поиска.
   final stt.SpeechToText _speech = stt.SpeechToText();
   bool _listening = false;
 
-  // --- Кэш поиска и защита от устаревших ответов ---
   final Map<String, _CacheEntry> _searchCache = {};
-
-  /// Монотонно растущий счётчик запросов — чтобы игнорировать устаревшие ответы.
   int _requestSeq = 0;
 
-  // --- Недавние продукты (Task 2) ---
-  // Загружаются один раз при открытии листа; обновляются если нужно.
   List<FoodLogsTableData> _recentLogs = [];
   bool _recentLoaded = false;
 
   @override
   void initState() {
     super.initState();
-    // Тест-инъекция: предустановленные результаты (симуляция ИИ-фото).
-    // В продакшне testResults всегда [] — ветка не выполняется.
     if (widget.testResults.isNotEmpty) {
       _results = List.from(widget.testResults);
       _aiNote = widget.testAiNote;
     }
-    // Загружаем недавние продукты в фоне сразу при открытии листа
     _loadRecent();
   }
 
@@ -860,7 +875,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     }
     final available = await _speech.initialize(
       onStatus: (status) {
-        // Распознавание закончилось само (пауза/таймаут) — гасим индикатор.
         if (status == 'done' || status == 'notListening') {
           if (mounted) setState(() => _listening = false);
         }
@@ -872,14 +886,10 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     if (!mounted) return;
     if (!available) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.s('food.speech_unavailable')),
-        ),
+        SnackBar(content: Text(context.s('food.speech_unavailable'))),
       );
       return;
     }
-    // Привязка к языку приложения (а не системному), чтобы STT совпадал
-    // с выбранным пользователем языком интерфейса.
     final appLocale = ref.read(localeNotifierProvider);
     final localeId = switch (appLocale.languageCode) {
       'ru' => 'ru-RU',
@@ -889,9 +899,7 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
 
     setState(() => _listening = true);
     await _speech.listen(
-      listenOptions: stt.SpeechListenOptions(
-        localeId: localeId,
-      ),
+      listenOptions: stt.SpeechListenOptions(localeId: localeId),
       onResult: (result) {
         if (!mounted) return;
         _controller.text = result.recognizedWords;
@@ -903,13 +911,9 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     );
   }
 
-  /// Повторно залогировать недавний продукт одним тапом (Task 2).
-  /// Берём те же граммы и приём что были в последней записи этого продукта.
-  /// КБЖУ — из сохранённой записи, сеть не нужна.
+  /// Повторно залогировать недавний продукт одним тапом.
   Future<void> _relogRecent(FoodLogsTableData recent) async {
     final dao = ref.read(foodLogsDaoProvider);
-    // Определяем приём по текущему времени суток, если хочется;
-    // но используем meal из записи — студент обычно ест в одно и то же время.
     await dao.addLog(
       date: DateTime.now(),
       meal: recent.meal,
@@ -925,7 +929,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  /// Нормализованный запрос: без лишних пробелов, в нижнем регистре.
   String _normalizeQuery(String q) => q.trim().toLowerCase();
 
   Future<void> _search() async {
@@ -934,11 +937,9 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
 
     final key = _normalizeQuery(q);
 
-    // --- Проверка кэша ---
     final cached = _searchCache[key];
     if (cached != null &&
         DateTime.now().difference(cached.timestamp) < _kCacheTtl) {
-      // Попадание в кэш — мгновенный ответ, сеть не нужна.
       if (!mounted) return;
       setState(() {
         _results = cached.results;
@@ -948,7 +949,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
       return;
     }
 
-    // --- Присваиваем токен этому запросу ---
     final seq = ++_requestSeq;
 
     setState(() {
@@ -957,21 +957,17 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     });
     try {
       final raw = await ref.read(apiClientProvider).foodSearch(q);
-      // Защита от устаревших ответов: если пришёл ответ на старый запрос — игнорируем.
       if (!mounted || seq != _requestSeq) return;
 
       final results = raw.whereType<Map<String, dynamic>>().toList();
 
-      // --- Сохраняем в кэш ---
       if (_searchCache.length >= _kCacheMaxEntries) {
-        // Удаляем самую старую запись (первый ключ в порядке вставки)
         _searchCache.remove(_searchCache.keys.first);
       }
       _searchCache[key] = _CacheEntry(results);
 
       setState(() {
         _results = results;
-        // Сохраняем ключ локализации; резолвится в build через context.s()
         if (_results.isEmpty) _error = 'food.nothing_found';
       });
     } on ApiException catch (e) {
@@ -991,7 +987,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     return SafeArea(
       child: Padding(
         padding: EdgeInsets.only(
-          // 24dp экранный отступ (02-type-space.md §4.1)
           left: 24,
           right: 24,
           top: 16,
@@ -1001,14 +996,14 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Заголовок листа — headlineSmall (22sp, display font) + крестик закрытия
+            // Заголовок листа: title + ✕
             Row(
               children: [
                 Expanded(
                   child: Text(context.s('food.add'), style: textTheme.headlineSmall),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(PhosphorIcons.x()),
                   tooltip: context.s('btn.close'),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
@@ -1023,7 +1018,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
               onChanged: (value) {
                 _debounce?.cancel();
                 if (value.trim().isEmpty) {
-                  // Запрос очищен — сбрасываем результаты, покажем «Недавнее»
                   setState(() {
                     _results = [];
                     _error = null;
@@ -1037,26 +1031,30 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                 suffixIcon: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
+                    // Голос — active=fill, inactive=regular; активный → ember
                     IconButton(
                       tooltip: _listening
                           ? context.s('food.voice_stop')
                           : context.s('food.voice_input'),
                       icon: Icon(
-                        _listening ? Icons.mic : Icons.mic_none,
-                        // Активный микрофон — ember (urgent), не акцент
+                        _listening
+                            ? PhosphorIcons.microphone(PhosphorIconsStyle.fill)
+                            : PhosphorIcons.microphone(),
                         color: _listening
                             ? (ext?.ember ?? colorScheme.error)
                             : null,
                       ),
                       onPressed: _voiceSearch,
                     ),
+                    // Штрихкод
                     IconButton(
                       tooltip: context.s('food.scan_barcode_tooltip'),
-                      icon: const Icon(Icons.qr_code_scanner),
+                      icon: Icon(PhosphorIcons.qrCode()),
                       onPressed: _scanBarcode,
                     ),
+                    // Поиск
                     IconButton(
-                      icon: const Icon(Icons.search),
+                      icon: Icon(PhosphorIcons.magnifyingGlass()),
                       onPressed: _search,
                     ),
                   ],
@@ -1064,18 +1062,30 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
               ),
             ),
             const SizedBox(height: 8),
-            // ИИ-фото (premium): модель называет блюдо, КБЖУ — из базы
-            Align(
-              alignment: Alignment.centerLeft,
-              child: TextButton.icon(
-                // Во время запроса AI — пульс вместо иконки (§7.1)
-                icon: _loading
-                    ? const AiPulseDot(size: 10)
-                    : const Icon(Icons.camera_alt_outlined, size: 18),
-                label: Text(context.s('food.ai_photo_btn')),
-                onPressed: _loading ? null : _aiPhoto,
-              ),
+            // Вторичные действия: ИИ-фото (premium) + из рецепта
+            Wrap(
+              spacing: 4,
+              children: [
+                // ИИ-фото: KaiLoader-пульс во время загрузки
+                TextButton.icon(
+                  icon: _loading
+                      ? const AiPulseDot(size: 10)
+                      : Icon(PhosphorIcons.camera(), size: 18),
+                  label: Text(context.s('food.ai_photo_btn')),
+                  onPressed: _loading ? null : _aiPhoto,
+                ),
+                // Из рецепта: закрываем лист и переходим на /recipes
+                TextButton.icon(
+                  icon: Icon(PhosphorIcons.notebook(), size: 18),
+                  label: Text(context.s('food.from_recipe_btn')),
+                  onPressed: () async {
+                    await Navigator.of(context).maybePop();
+                    if (context.mounted) context.push('/recipes');
+                  },
+                ),
+              ],
             ),
+            // Подпись ИИ-распознавания фото
             if (_aiNote != null)
               AiInsightReveal(
                 child: Padding(
@@ -1087,7 +1097,7 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                 ),
               ),
             const SizedBox(height: 4),
-            // Загрузка: KaiLoader («Kai is finding food») вместо спиннера
+            // Загрузка: KaiLoader вместо спиннера
             if (_loading)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 24),
@@ -1098,16 +1108,15 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
             else if (_error != null)
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 16),
-                // _error может быть ключом локализации или сырым сообщением API
                 child: Text(
                   context.s(_error!),
                   style: textTheme.bodyMedium?.copyWith(color: mutedColor),
                 ),
               )
-            // Когда запрос пустой И нет результатов AI-фото — показываем «Недавнее» (Task 2).
-            // _results.isEmpty обязателен: без него AI-фото кладёт продукты в _results при
-            // пустом поле, но ветка «Недавнее» перекрывала список совпадений (Bug 1).
-            else if (_controller.text.trim().isEmpty && _recentLoaded && _results.isEmpty)
+            // Недавние продукты (пустой поиск, 1 тап = повтор)
+            else if (_controller.text.trim().isEmpty &&
+                _recentLoaded &&
+                _results.isEmpty)
               _recentLogs.isEmpty
                   ? const SizedBox.shrink()
                   : Flexible(
@@ -1129,22 +1138,27 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                               itemCount: _recentLogs.length,
                               itemBuilder: (context, i) {
                                 final r = _recentLogs[i];
-                                final kcal = r.calories == null
-                                    ? null
-                                    : '${r.calories!.round()} kcal';
+                                // l10n: граммы + ккал без хардкода
+                                final String recentSubtitle;
+                                if (r.calories != null) {
+                                  recentSubtitle = context
+                                      .s('food.row_grams_kcal')
+                                      .replaceFirst('{g}', '${r.grams.round()}')
+                                      .replaceFirst('{kcal}', '${r.calories!.round()}');
+                                } else {
+                                  recentSubtitle = context
+                                      .s('food.grams_val')
+                                      .replaceFirst('{val}', '${r.grams.round()}');
+                                }
                                 return ListTile(
                                   contentPadding: EdgeInsets.zero,
                                   leading: FoodIconTile(name: r.name),
                                   title: Text(r.name),
                                   subtitle: Text(
-                                    [
-                                      '${r.grams.round()} g',
-                                      ?kcal,
-                                    ].join(' · '),
+                                    recentSubtitle,
                                     style: textTheme.bodySmall
                                         ?.copyWith(color: mutedColor),
                                   ),
-                                  // 1 тап — залогировать повторно без ввода граммов
                                   onTap: () => _relogRecent(r),
                                 );
                               },
@@ -1167,7 +1181,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
                         name: p['name'] as String?,
                         category: p['category'] as String?,
                       ),
-                      // Название продукта — titleSmall (из темы ListTile)
                       title: Text(
                         (p['name'] as String?) ?? context.s('food.unknown_product'),
                       ),
@@ -1192,8 +1205,7 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     );
   }
 
-  /// ИИ-фото еды (premium, AI-03): снимок → /ai/food-recognize → модель
-  /// называет блюдо, бэкенд подбирает продукты с КБЖУ из food DB.
+  /// ИИ-фото еды (premium, AI-03).
   Future<void> _aiPhoto() async {
     final premium = await ref.read(isPremiumProvider.future);
     if (!mounted) return;
@@ -1210,7 +1222,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
       return;
     }
 
-    // Камера предпочтительнее для еды; на платформах без камеры — галерея.
     XFile? picked;
     try {
       picked = await ImagePicker().pickImage(
@@ -1252,7 +1263,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
 
       if (products.isNotEmpty) {
         setState(() {
-          // Bug 2a/2b fix: заменяем хардкод на l10n (food.ai_photo_match)
           _aiNote = context
               .s('food.ai_photo_match')
               .replaceFirst('{dish}', dish)
@@ -1260,7 +1270,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
           _results = products;
         });
       } else if (dish.isNotEmpty) {
-        // База не нашла соответствий — подставляем блюдо в поиск
         _controller.text = dish;
         setState(() => _aiNote = context
             .s('food.ai_photo_recognized')
@@ -1268,7 +1277,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
             .replaceFirst('{pct}', '${(confidence * 100).round()}'));
         await _search();
       } else {
-        // Ключ локализации; резолвится в build через context.s()
         setState(() => _error = 'food.ai_photo_fail');
       }
     } on ApiException catch (e) {
@@ -1278,7 +1286,7 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
     }
   }
 
-  /// Скан штрихкода → /food/barcode → тот же диалог порции, что и поиск.
+  /// Скан штрихкода.
   Future<void> _scanBarcode() async {
     final code = await Navigator.of(context).push<String>(
       MaterialPageRoute(builder: (_) => const BarcodeScannerScreen()),
@@ -1293,7 +1301,6 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
       final product = await ref.read(apiClientProvider).foodBarcode(code);
       if (!mounted) return;
       if (product == null) {
-        // l10n-ключ; context.s() резолвит его в build
         setState(() => _error = 'food.barcode_not_found');
       } else {
         setState(() => _results = [product]);
@@ -1337,11 +1344,14 @@ class _FoodSearchSheetState extends ConsumerState<_FoodSearchSheet> {
           sugar: scaled.sugar,
           fiber: scaled.fiber,
         );
-    if (mounted) Navigator.of(context).pop(); // закрываем лист поиска
+    if (mounted) Navigator.of(context).pop();
   }
 }
 
-/// Диалог выбора граммов и приёма пищи.
+// ---------------------------------------------------------------------------
+// Диалог выбора граммов и приёма пищи
+// ---------------------------------------------------------------------------
+
 class _PortionDialog extends ConsumerStatefulWidget {
   const _PortionDialog({required this.name});
   final String name;
@@ -1351,9 +1361,7 @@ class _PortionDialog extends ConsumerStatefulWidget {
 
 class _PortionDialogState extends ConsumerState<_PortionDialog> {
   final _grams = TextEditingController(text: '100');
-  // Слоты приёмов пищи зависят от mealsPerDay (классическая схема).
   late final List<String> _meals;
-  // По умолчанию — первый слот (обычно breakfast).
   late String _meal;
 
   @override
@@ -1373,7 +1381,6 @@ class _PortionDialogState extends ConsumerState<_PortionDialog> {
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      // Без лишних рамок: elevation 0, CardTheme уже задан в теме
       title: Text(
         widget.name,
         maxLines: 2,
@@ -1394,7 +1401,6 @@ class _PortionDialogState extends ConsumerState<_PortionDialog> {
             spacing: 8,
             runSpacing: 8,
             children: _meals.map((m) {
-              // Локализуем название приёма пищи через ключ food.meal_*
               return ChoiceChip(
                 label: Text(context.s('food.meal_$m')),
                 selected: _meal == m,
@@ -1409,7 +1415,7 @@ class _PortionDialogState extends ConsumerState<_PortionDialog> {
           onPressed: () => Navigator.of(context).pop(),
           child: Text(context.s('btn.cancel')),
         ),
-        // Единственный FilledButton — первичное действие (03-components §2)
+        // Единственный FilledButton — первичное действие (§4.3)
         FilledButton(
           onPressed: () {
             final grams = double.tryParse(_grams.text.trim());

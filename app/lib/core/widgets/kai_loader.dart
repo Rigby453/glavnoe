@@ -18,6 +18,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../animations/constants.dart';
 import '../settings/mascot_provider.dart';
 import '../settings/tone_provider.dart';
+import '../theme/app_theme.dart';
 import '../../features/mascot/kai_mascot.dart';
 
 /// Drop-in замена спиннера. Показывает Kai в состоянии `thinking`.
@@ -42,10 +43,12 @@ class KaiLoader extends ConsumerWidget {
     final showKai = ref.watch(showKaiProvider);
     final tone = ref.watch(toneProvider);
     final reduce = reduceMotionOf(context);
-    final colorScheme = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+    final colorScheme = theme.colorScheme;
+    final ext = theme.extension<FocusThemeExtension>();
 
-    // Цвет подписи — textMuted = onSurface c ~55% opacity
-    final mutedColor = colorScheme.onSurface.withAlpha(140);
+    // Цвет подписи — ext.textMuted (токен v4); fallback = onSurface ~55%
+    final mutedColor = ext?.textMuted ?? colorScheme.onSurface.withAlpha(140);
 
     // Fallback: Kai отключён пользователем или включён reduce-motion
     if (!showKai || reduce) {

@@ -8,6 +8,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/settings/food_preferences_provider.dart';
@@ -345,7 +346,7 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
             const SizedBox(height: 4),
             Row(
               children: [
-                Icon(Icons.water_drop_outlined, size: 18, color: ext.success),
+                Icon(PhosphorIcons.drop(PhosphorIconsStyle.fill), size: 18, color: ext.success),
                 const SizedBox(width: 6),
                 Text(
                   '$_waterGoal ml',
@@ -385,7 +386,7 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
             // Секция: Макросы КБЖУ (MacroEditor)
             // ================================================================
             const SizedBox(height: 32),
-            Divider(color: ext.border),
+            Divider(color: ext.border, height: 1, thickness: 0.5),
             const SizedBox(height: 20),
             MacroEditor(previewTargets: _macroPreview),
 
@@ -393,7 +394,7 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
             // Секция: Пищевые предпочтения
             // ================================================================
             const SizedBox(height: 32),
-            Divider(color: ext.border),
+            Divider(color: ext.border, height: 1, thickness: 0.5),
             const SizedBox(height: 20),
             const FoodPreferencesSection(),
 
@@ -401,7 +402,7 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
             // Секция: Профиль здоровья + Расписание сна
             // ================================================================
             const SizedBox(height: 32),
-            Divider(color: ext.border),
+            Divider(color: ext.border, height: 1, thickness: 0.5),
             const SizedBox(height: 20),
             const HealthProfileSection(),
 
@@ -513,8 +514,8 @@ class _ActivityChips extends StatelessWidget {
                   const SizedBox(width: 8),
                   Icon(
                     isSelected
-                        ? Icons.check_circle_rounded
-                        : Icons.circle_outlined,
+                        ? PhosphorIcons.checkCircle(PhosphorIconsStyle.fill)
+                        : PhosphorIcons.circle(),
                     color: isSelected ? colorScheme.primary : ext.border,
                     size: 20,
                   ),

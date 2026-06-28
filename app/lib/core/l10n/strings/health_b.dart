@@ -4553,6 +4553,48 @@ const Map<String, Map<String, String>> healthBStrings = {
     'ja': '昨日',
     'ko': '어제',
   },
+  // Краткое обозначение «часов» после числового значения (6.5h / 6.5ч)
+  'sleep.h_unit': {
+    'en': 'h',
+    'ru': 'ч',
+    'de': 'h',
+    'fr': 'h',
+    'it': 'h',
+    'pt': 'h',
+    'es': 'h',
+    'id': 'j',
+    'hi': 'घ',
+    'ja': '時間',
+    'ko': '시간',
+  },
+  // Кнопка пустого состояния — перейти к записи сна
+  'sleep.log_sleep': {
+    'en': 'Log sleep',
+    'ru': 'Записать сон',
+    'de': 'Schlaf erfassen',
+    'fr': 'Enregistrer le sommeil',
+    'it': 'Registra sonno',
+    'pt': 'Registrar sono',
+    'es': 'Registrar sueño',
+    'id': 'Catat tidur',
+    'hi': 'नींद दर्ज करें',
+    'ja': '睡眠を記録',
+    'ko': '수면 기록하기',
+  },
+  // Подзаголовок пустого состояния в sleep report
+  'sleep.empty_hint': {
+    'en': 'Track your nights to see patterns',
+    'ru': 'Фиксируй ночи — и увидишь закономерности',
+    'de': 'Erfasse deine Nächte, um Muster zu sehen',
+    'fr': 'Suivez vos nuits pour repérer des tendances',
+    'it': 'Monitora le tue notti per trovare pattern',
+    'pt': 'Acompanhe suas noites para ver padrões',
+    'es': 'Registra tus noches para ver patrones',
+    'id': 'Catat malammu untuk melihat pola',
+    'hi': 'अपनी रातें ट्रैक करें और पैटर्न देखें',
+    'ja': '夜を記録してパターンを確認しよう',
+    'ko': '밤을 기록하면 패턴이 보여요',
+  },
 
   // ---------------------------------------------------------------------------
   // water.*  —  water_fullscreen_screen.dart, water_report_screen.dart
@@ -4785,6 +4827,53 @@ const Map<String, Map<String, String>> healthBStrings = {
     'hi': 'मात्रा मिलीलीटर में',
     'ja': 'ml単位の量',
     'ko': 'ml 단위로 입력',
+  },
+
+  // Прогресс воды «N из M мл» — подпись под hero-% на полном экране воды.
+  // {total} и {goal} — числа, подставляются кодом; единицы — часть перевода.
+  'water.progress_fmt': {
+    'en': '{total} of {goal} ml',
+    'ru': '{total} из {goal} мл',
+    'de': '{total} von {goal} ml',
+    'fr': '{total} sur {goal} ml',
+    'it': '{total} di {goal} ml',
+    'pt': '{total} de {goal} ml',
+    'es': '{total} de {goal} ml',
+    'id': '{total} / {goal} ml',
+    'hi': '{total} / {goal} मिली',
+    'ja': '{total} / {goal} ml',
+    'ko': '{total} / {goal} ml',
+  },
+
+  // Объём в мл без знака «+» — для отображения записей в отчёте воды.
+  // {ml} заменяется числом кодом; единица — часть перевода.
+  'water.amt_ml_fmt': {
+    'en': '{ml} ml',
+    'ru': '{ml} мл',
+    'de': '{ml} ml',
+    'fr': '{ml} ml',
+    'it': '{ml} ml',
+    'pt': '{ml} ml',
+    'es': '{ml} ml',
+    'id': '{ml} ml',
+    'hi': '{ml} मिली',
+    'ja': '{ml} ml',
+    'ko': '{ml} ml',
+  },
+
+  // Кнопка для пустого состояния отчёта (нет записей за выбранный день).
+  'water.log_water_btn': {
+    'en': 'Log water',
+    'ru': 'Записать воду',
+    'de': 'Wasser erfassen',
+    'fr': 'Consigner l\'eau',
+    'it': 'Registra acqua',
+    'pt': 'Registrar água',
+    'es': 'Registrar agua',
+    'id': 'Catat air',
+    'hi': 'पानी लॉग करें',
+    'ja': '水分を記録',
+    'ko': '물 기록',
   },
 
   // ---------------------------------------------------------------------------
@@ -6103,5 +6192,56 @@ const Map<String, Map<String, String>> healthBStrings = {
     'hi': 'डिफ़ॉल्ट पर रीसेट करें',
     'ja': 'デフォルトに戻す',
     'ko': '기본값으로 재설정',
+  },
+
+  // ---------------------------------------------------------------------------
+  // Новые ключи Kaname-restyle — screen_time_screen.dart
+  // ---------------------------------------------------------------------------
+
+  // Формат «N часов» без минут (720 мин = «12h» / «12ч»).
+  // Используется в _fmtDuration когда minutes % 60 == 0.
+  'screentime.fmt_h_only': {
+    'en': '{h}h',
+    'ru': '{h}ч',
+    'de': '{h}h',
+    'fr': '{h}h',
+    'it': '{h}h',
+    'pt': '{h}h',
+    'es': '{h}h',
+    'id': '{h}j',
+    'hi': '{h}घं',
+    'ja': '{h}時間',
+    'ko': '{h}시간',
+  },
+
+  // Кнопка «Показать ещё N» в per-app breakdown (apps > 8).
+  // {n} — количество скрытых строк.
+  'screentime.apps_show_more': {
+    'en': 'Show {n} more',
+    'ru': 'Ещё {n}',
+    'de': '{n} weitere anzeigen',
+    'fr': 'Voir {n} de plus',
+    'it': 'Mostra altri {n}',
+    'pt': 'Ver mais {n}',
+    'es': 'Ver {n} más',
+    'id': 'Tampilkan {n} lagi',
+    'hi': '{n} और दिखाएं',
+    'ja': 'あと{n}件表示',
+    'ko': '{n}개 더 보기',
+  },
+
+  // Кнопка «Свернуть» в per-app breakdown (expanded → collapsed).
+  'screentime.apps_collapse': {
+    'en': 'Collapse',
+    'ru': 'Свернуть',
+    'de': 'Einklappen',
+    'fr': 'Réduire',
+    'it': 'Comprimi',
+    'pt': 'Recolher',
+    'es': 'Contraer',
+    'id': 'Ciutkan',
+    'hi': 'संकुचित करें',
+    'ja': '折りたたむ',
+    'ko': '접기',
   },
 };

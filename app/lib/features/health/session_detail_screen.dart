@@ -1,15 +1,13 @@
-// Экран «Тренировка <дата>» — журнал одной сессии по датам (Part 1).
-// Тап по прошлой сессии во вкладке «Дневник» открывает этот экран:
-// список упражнений сессии, под каждым — фактически выполненные подходы
-// (Подход N: reps × weight), из workout_set_logs за эту сессию.
+// Экран «Тренировка <дата>» — перестилизован под «Kaname» redesign (Phosphor + §4.2).
+// Бизнес-логика (список упражнений + подходы из Drift, sessionSetGroupsProvider) СОХРАНЕНА.
+// Изменения: Phosphor barbell, hairline-разделители между упражнениями, чистая типографика.
 //
 // Офлайн-первый: данные только из Drift через WorkoutsDao.watchSessionSetGroups.
-//
-// Заголовок = дата сессии (передаётся через ?date=ISO; опционально ?name=).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
@@ -17,7 +15,7 @@ import '../../core/database/daos/workouts_dao.dart' show ExerciseSetGroup;
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 
-/// Группы подходов одной сессии, сгруппированные по упражнению (family по id).
+/// Группы подходов одной сессии, сгруппированные по упражнению.
 final sessionSetGroupsProvider = StreamProvider.autoDispose
     .family<List<ExerciseSetGroup>, String>((ref, sessionId) {
   return ref.watch(workoutsDaoProvider).watchSessionSetGroups(sessionId);
@@ -33,7 +31,7 @@ class SessionDetailScreen extends ConsumerWidget {
 
   final String sessionId;
 
-  /// Время начала сессии — для заголовка-даты (опционально).
+  /// Время начала сессии — для заголовка-даты.
   final DateTime? startedAt;
 
   /// Имя тренировки — подзаголовок (опционально).
@@ -69,24 +67,16 @@ class SessionDetailScreen extends ConsumerWidget {
       ),
       body: groupsAsync.when(
         loading: () => const SizedBox.shrink(),
-        error: (_, _) => _empty(context, ext, textTheme),
+        error: (_, _) => _emptyState(context, ext, textTheme),
         data: (groups) {
-          if (groups.isEmpty) return _empty(context, ext, textTheme);
-          return ListView(
-            padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
-            children: [
-              for (final group in groups) ...[
-                _ExerciseBlock(group: group, ext: ext, textTheme: textTheme),
-                const SizedBox(height: 20),
-              ],
-            ],
-          );
+          if (groups.isEmpty) return _emptyState(context, ext, textTheme);
+          return _ExerciseList(groups: groups, ext: ext, textTheme: textTheme);
         },
       ),
     );
   }
 
-  Widget _empty(
+  Widget _emptyState(
     BuildContext context,
     FocusThemeExtension ext,
     TextTheme textTheme,
@@ -97,7 +87,12 @@ class SessionDetailScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.fitness_center_outlined, size: 56, color: ext.textFaint),
+            // Phosphor barbell — placeholder вместо KaiMascot (не реализован).
+            Icon(
+              PhosphorIcons.barbell(),
+              size: 56,
+              color: ext.textFaint,
+            ),
             const SizedBox(height: 16),
             Text(
               context.s('workout.session_empty'),
@@ -111,7 +106,44 @@ class SessionDetailScreen extends ConsumerWidget {
   }
 }
 
-/// Блок одного упражнения сессии: имя + список выполненных подходов.
+// ---------------------------------------------------------------------------
+// Список упражнений: hairline-разделители между блоками (§4.2 dense list).
+// ---------------------------------------------------------------------------
+
+class _ExerciseList extends StatelessWidget {
+  const _ExerciseList({
+    required this.groups,
+    required this.ext,
+    required this.textTheme,
+  });
+
+  final List<ExerciseSetGroup> groups;
+  final FocusThemeExtension ext;
+  final TextTheme textTheme;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
+      itemCount: groups.length,
+      separatorBuilder: (_, __) => Divider(
+        height: 32,
+        thickness: 0.5,
+        color: ext.border,
+      ),
+      itemBuilder: (context, i) => _ExerciseBlock(
+        group: groups[i],
+        ext: ext,
+        textTheme: textTheme,
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Блок упражнения: имя + список подходов.
+// ---------------------------------------------------------------------------
+
 class _ExerciseBlock extends StatelessWidget {
   const _ExerciseBlock({
     required this.group,
@@ -125,17 +157,25 @@ class _ExerciseBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Имя упражнения; если упражнение удалено из шаблона — fallback-метка.
     final name = group.name ?? context.s('workout.deleted_exercise');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          name,
-          style: textTheme.titleSmall,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        Row(
+          children: [
+            // Маленький Phosphor barbell — идентификатор упражнения.
+            Icon(PhosphorIcons.barbell(), size: 16, color: ext.textMuted),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                name,
+                style: textTheme.titleSmall,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         for (final log in group.sets)
@@ -145,7 +185,10 @@ class _ExerciseBlock extends StatelessWidget {
   }
 }
 
-/// Строка подхода: «Set 1 · 12 × 40 kg» / «Set 2 · 15 × Bodyweight».
+// ---------------------------------------------------------------------------
+// Строка подхода: «Set N · 12 × 40 kg».
+// ---------------------------------------------------------------------------
+
 class _SetRow extends StatelessWidget {
   const _SetRow({
     required this.log,
@@ -160,22 +203,25 @@ class _SetRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final weight = _formatWeight(context, log.weightKg);
-    // «Подход N» — локализованный префикс с номером (setIndex 0-based → +1).
+    // «Подход N» — локализованный префикс (setIndex 0-based → +1).
     final label =
         context.s('workout.set_n').replaceAll('{n}', '${log.setIndex + 1}');
+
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(vertical: 3),
       child: Row(
         children: [
+          // Номер подхода — labelSmall + textFaint, фиксированная ширина.
           SizedBox(
             width: 64,
             child: Text(
               label,
-              style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
+              style: textTheme.labelSmall?.copyWith(color: ext.textFaint),
               maxLines: 1,
               overflow: TextOverflow.ellipsis,
             ),
           ),
+          // Результат — bodyMedium, расширяется на оставшуюся ширину.
           Expanded(
             child: Text(
               '${log.reps} × $weight',

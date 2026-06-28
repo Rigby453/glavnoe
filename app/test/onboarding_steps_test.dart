@@ -133,7 +133,7 @@ void main() {
     // --- Шаг темы (index 12) ---
     await goToPage(tester, _themePage);
     expect(tester.takeException(), isNull);
-    expect(find.text('Focus'), findsOneWidget);
+    expect(find.text('Day'), findsOneWidget);   // Kaname v4: Focus → Day
     expect(find.text('Calm'), findsOneWidget);
 
     // Выбор «Calm» — пишется в themeNotifierProvider (так же асинхронно).

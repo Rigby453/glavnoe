@@ -54,6 +54,18 @@ String _colorToHex(Color c) {
       '${b.toRadixString(16).padLeft(2, '0')}';
 }
 
+/// Мигрирует старые prefs-ключи темы (v3) в новые v4 для виджета.
+AppThemeKey _resolveWidgetThemeKey(String? raw) => switch (raw) {
+      'focus' => AppThemeKey.night,
+      'white' => AppThemeKey.day,
+      'contrast' => AppThemeKey.day,
+      'custom' => AppThemeKey.day,
+      _ => AppThemeKey.values.firstWhere(
+          (k) => k.prefsKey == raw,
+          orElse: () => AppThemeKey.day,
+        ),
+    };
+
 /// Сохраняет текущий момент как last_opened_at в SharedPreferences.
 /// Вызывается при старте и при onResume в main.dart.
 Future<void> saveLastOpenedAt() async {
@@ -134,16 +146,10 @@ Future<void> refreshHomeWidget({
     final isHarsh = toneStr == 'harsh';
 
     // --- Цвета активной темы ---
-    // Читаем ключ темы из prefs; резолвим через AppTheme.forKey.
-    // custom-тема без конфига откатится на focus внутри forKey — допустимо,
-    // виджет получит корректные цвета (focus-палитра).
+    // Читаем ключ из prefs; мигрируем старые ключи v3 → v4 на месте.
     final themeStr = sp.getString(_kThemePrefsKey);
-    final themeKey = themeStr != null
-        ? AppThemeKey.values.firstWhere(
-            (k) => k.prefsKey == themeStr,
-            orElse: () => AppThemeKey.focus,
-          )
-        : AppThemeKey.focus;
+    final themeKey = _resolveWidgetThemeKey(themeStr);
+    // ignore: deprecated_member_use
     final themeData = AppTheme.forKey(themeKey);
     final cs = themeData.colorScheme;
     final ext =

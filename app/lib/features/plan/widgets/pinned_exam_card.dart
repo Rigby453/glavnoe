@@ -11,6 +11,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/database/database.dart';
 import '../../../core/l10n/app_strings.dart';
@@ -87,8 +88,8 @@ class PinnedExamCard extends ConsumerWidget {
             // Иконка типа — ember
             Icon(
               item.type == 'exam'
-                  ? Icons.school_outlined
-                  : Icons.alarm_outlined,
+                  ? PhosphorIcons.graduationCap(PhosphorIconsStyle.regular)
+                  : PhosphorIcons.alarm(PhosphorIconsStyle.regular),
               color: ember,
               size: 20,
             ),
@@ -98,13 +99,12 @@ class PinnedExamCard extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  // Метка «exam» / «deadline» — labelSmall, ember
+                  // Метка «exam» / «deadline» — labelSmall, ember, sentence case
                   Text(
-                    context.s(typeKey).toUpperCase(),
+                    context.s(typeKey),
                     style: textTheme.labelSmall?.copyWith(
                       color: ember,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.8,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                   const SizedBox(height: 2),
@@ -128,12 +128,16 @@ class PinnedExamCard extends ConsumerWidget {
               ),
             ),
             const SizedBox(width: 4),
-            // Аффорданс свернуть (▴) — тап сворачивает карточку.
+            // Аффорданс свернуть — тап сворачивает карточку.
             IconButton(
               visualDensity: VisualDensity.compact,
               padding: EdgeInsets.zero,
               constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-              icon: Icon(Icons.keyboard_arrow_up, color: ember, size: 20),
+              icon: Icon(
+                PhosphorIcons.caretUp(PhosphorIconsStyle.regular),
+                color: ember,
+                size: 20,
+              ),
               tooltip: context.s('plan.pinned_collapse_tooltip'),
               onPressed: toggleCollapsed,
             ),
@@ -185,8 +189,8 @@ class _CollapsedChip extends StatelessWidget {
           children: [
             Icon(
               item.type == 'exam'
-                  ? Icons.school_outlined
-                  : Icons.alarm_outlined,
+                  ? PhosphorIcons.graduationCap(PhosphorIconsStyle.regular)
+                  : PhosphorIcons.alarm(PhosphorIconsStyle.regular),
               color: ember,
               size: 16,
             ),
@@ -204,8 +208,12 @@ class _CollapsedChip extends StatelessWidget {
               ),
             ),
             const SizedBox(width: 4),
-            // Стрелка ▾ — аффорданс развернуть.
-            Icon(Icons.keyboard_arrow_down, color: ember, size: 18),
+            // Стрелка — аффорданс развернуть.
+            Icon(
+              PhosphorIcons.caretDown(PhosphorIconsStyle.regular),
+              color: ember,
+              size: 18,
+            ),
           ],
         ),
       ),

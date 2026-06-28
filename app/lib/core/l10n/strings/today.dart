@@ -2460,4 +2460,169 @@ const Map<String, Map<String, String>> todayStrings = {
     'ja': 'そのまま',
     'ko': '남기기',
   },
+
+  // ──────────────────────────────────────────────
+  // Kaname redesign Phase 3 — строки нового Today
+  // ──────────────────────────────────────────────
+
+  // Заголовок карточки вечернего разбора в Kai-row (аналог today.morning_review).
+  'today.evening_review': {
+    'en': 'Evening review',
+    'ru': 'Вечерний разбор',
+    'de': 'Abendrückblick',
+    'fr': 'Bilan du soir',
+    'it': 'Revisione serale',
+    'pt': 'Revisão noturna',
+    'es': 'Revisión vespertina',
+    'id': 'Tinjauan malam',
+    'hi': 'शाम की समीक्षा',
+    'ja': '夕方のレビュー',
+    'ko': '저녁 검토',
+  },
+
+  // Метка «сейчас» в временной шкале (§4.1 timeline now-line).
+  'today.now': {
+    'en': 'now',
+    'ru': 'сейчас',
+    'de': 'jetzt',
+    'fr': 'maint.',
+    'it': 'ora',
+    'pt': 'agora',
+    'es': 'ahora',
+    'id': 'kini',
+    'hi': 'अभी',
+    'ja': '今',
+    'ko': '지금',
+  },
+
+  // Метка счётчика «Главное» (перед «· X/Y»).
+  'today.main_counter_label': {
+    'en': 'Main',
+    'ru': 'Главное',
+    'de': 'Hauptziel',
+    'fr': 'Priorité',
+    'it': 'Priorità',
+    'pt': 'Principal',
+    'es': 'Principal',
+    'id': 'Utama',
+    'hi': 'मुख्य',
+    'ja': '最重要',
+    'ko': '핵심',
+  },
+
+  // Текст тонкой строки Kai-разбора (показывается если есть задачи на перенос).
+  'today.kai_review_text': {
+    'en': 'Kai reassembled your day',
+    'ru': 'Kai пересобрал твой день',
+    'de': 'Kai hat deinen Tag neu geordnet',
+    'fr': 'Kai a réorganisé ta journée',
+    'it': 'Kai ha riorganizzato la tua giornata',
+    'pt': 'Kai reorganizou seu dia',
+    'es': 'Kai reorganizó tu día',
+    'id': 'Kai menyusun ulang harimu',
+    'hi': 'Kai ने तुम्हारा दिन फिर से बनाया',
+    'ja': 'Kaiがあなたの一日を再編しました',
+    'ko': 'Kai가 하루를 재편성했어요',
+  },
+
+  // Суффикс со счётчиком перенесённых: «— moved 3».
+  'today.kai_review_moved': {
+    'en': 'moved {n}',
+    'ru': 'перенесено {n}',
+    'de': 'verschoben {n}',
+    'fr': 'déplacé {n}',
+    'it': 'spostato {n}',
+    'pt': 'movido {n}',
+    'es': 'movido {n}',
+    'id': 'dipindahkan {n}',
+    'hi': '{n} स्थानांतरित',
+    'ja': '{n}件移動',
+    'ko': '{n}개 이동됨',
+  },
+
+  // Тогл «скрыть выполненное» в unified-timeline.
+  'today.hide_completed': {
+    'en': 'Hide done',
+    'ru': 'Скрыть выполн.',
+    'de': 'Erled. ausbl.',
+    'fr': 'Masquer faits',
+    'it': 'Nascondi fatti',
+    'pt': 'Ocultar feitos',
+    'es': 'Ocultar hechos',
+    'id': 'Sembunyikan selesai',
+    'hi': 'पूर्ण छुपाएं',
+    'ja': '完了を非表示',
+    'ko': '완료 숨기기',
+  },
+  'today.show_completed': {
+    'en': 'Show done',
+    'ru': 'Показать выполн.',
+    'de': 'Erledigte zeigen',
+    'fr': 'Afficher faits',
+    'it': 'Mostra fatti',
+    'pt': 'Mostrar feitos',
+    'es': 'Mostrar hechos',
+    'id': 'Tampilkan selesai',
+    'hi': 'पूर्ण दिखाएं',
+    'ja': '完了を表示',
+    'ko': '완료 보이기',
+  },
+
+  // Тултипы иконок в тихой шапке Today.
+  'today.header_settings_tooltip': {
+    'en': 'Settings',
+    'ru': 'Настройки',
+    'de': 'Einstellungen',
+    'fr': 'Paramètres',
+    'it': 'Impostazioni',
+    'pt': 'Configurações',
+    'es': 'Ajustes',
+    'id': 'Pengaturan',
+    'hi': 'सेटिंग्स',
+    'ja': '設定',
+    'ko': '설정',
+  },
+  'today.header_profile_tooltip': {
+    'en': 'Profile',
+    'ru': 'Профиль',
+    'de': 'Profil',
+    'fr': 'Profil',
+    'it': 'Profilo',
+    'pt': 'Perfil',
+    'es': 'Perfil',
+    'id': 'Profil',
+    'hi': 'प्रोफ़ाइल',
+    'ja': 'プロフィール',
+    'ko': '프로필',
+  },
+
+  // Тогл «Главная задача» (shield) в форме добавления/редактирования.
+  'today.main_toggle_label': {
+    'en': 'Main task',
+    'ru': 'Главная задача',
+    'de': 'Hauptaufgabe',
+    'fr': 'Tâche principale',
+    'it': 'Compito principale',
+    'pt': 'Tarefa principal',
+    'es': 'Tarea principal',
+    'id': 'Tugas utama',
+    'hi': 'मुख्य काम',
+    'ja': 'メインタスク',
+    'ko': '핵심 할 일',
+  },
+
+  // Подпись категории в форме добавления/редактирования (категория = первый тег).
+  'today.category_dot_label': {
+    'en': 'Category',
+    'ru': 'Категория',
+    'de': 'Kategorie',
+    'fr': 'Catégorie',
+    'it': 'Categoria',
+    'pt': 'Categoria',
+    'es': 'Categoría',
+    'id': 'Kategori',
+    'hi': 'श्रेणी',
+    'ja': 'カテゴリ',
+    'ko': '카테고리',
+  },
 };

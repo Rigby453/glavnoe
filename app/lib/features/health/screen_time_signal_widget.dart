@@ -12,6 +12,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
@@ -87,8 +88,8 @@ class ScreenTimeSignalWidget extends ConsumerWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
-        // Иконка — textMuted, не accent (информационная, не CTA)
-        Icon(Icons.phone_android_outlined, size: 14, color: mutedColor),
+        // Иконка — textMuted, не accent (информационная, не CTA) — Phosphor deviceMobile
+        Icon(PhosphorIcons.deviceMobile(), size: 14, color: mutedColor),
         const SizedBox(width: 6),
         // Expanded + ellipsis предотвращают RenderFlex overflow на 320px
         Expanded(

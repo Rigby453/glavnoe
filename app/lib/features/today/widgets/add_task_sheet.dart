@@ -20,9 +20,12 @@ import 'package:image_picker/image_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../../core/animations/app_sheet.dart';
+import '../../../core/categories/categories_enabled_provider.dart';
+import '../../../core/categories/category_dot.dart';
 import '../../../core/animations/app_toast.dart';
 import '../../../core/database/database.dart';
 import '../../../core/database/database_providers.dart';
@@ -1404,7 +1407,10 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: PhosphorIcon(
+                    PhosphorIcons.x(PhosphorIconsStyle.regular),
+                    size: 20,
+                  ),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
               ],
@@ -1532,7 +1538,11 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                   final hintColor = ext?.success ?? colorScheme.primary;
                   return Row(
                     children: [
-                      Icon(Icons.push_pin_outlined, size: 14, color: hintColor),
+                      PhosphorIcon(
+                        PhosphorIcons.shield(PhosphorIconsStyle.fill),
+                        size: 14,
+                        color: hintColor,
+                      ),
                       const SizedBox(width: 4),
                       Text(
                         context.s('today.protected_hint'),
@@ -1560,6 +1570,44 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                   },
                 ),
               ),
+            const SizedBox(height: 12),
+
+            // 4b. «Main»-тогл с иконкой щита (§4.4 REDESIGN-KANAME.md).
+            // Показывается как отдельная заметная строка, а не просто чип.
+            _MainToggle(
+              isMain: _priority == 'main',
+              canSelect: _mainCount < _maxMainPerDay || _priority == 'main',
+              onChanged: (val) => _onPriorityTap(val ? 'main' : 'medium'),
+            ),
+
+            // 4c. Категория-точка (первый тег) — только когда категории включены.
+            if (_tags.isNotEmpty)
+              Consumer(
+                builder: (context, ref, _) {
+                  final catEnabled = ref.watch(categoriesEnabledProvider);
+                  if (!catEnabled) return const SizedBox.shrink();
+                  return Padding(
+                    padding: const EdgeInsets.only(top: 12),
+                    child: Row(
+                      children: [
+                        CategoryDot(tag: _tags.first, size: 10),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            '${context.s('today.category_dot_label')}: ${_tags.first}',
+                            style: textTheme.bodySmall?.copyWith(
+                              color: Theme.of(context)
+                                  .extension<FocusThemeExtension>()
+                                  ?.textMuted,
+                            ),
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             const SizedBox(height: 16),
 
             // 5. Дата (date picker).
@@ -1574,17 +1622,18 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
             ),
             const SizedBox(height: 16),
 
-            // 6. Начало — время старта (перенесено выше длительности).
+            // 6. Начало — шагово-инкрементный степпер (§4.3 REDESIGN-KANAME.md).
+            // Шаг ±15 мин; тап по значению времени открывает clock-диалог для точной правки.
             Text(context.s('today.start_label'), style: textTheme.labelMedium),
             const SizedBox(height: 8),
-            OutlinedButton.icon(
-              icon: const Icon(Icons.access_time, size: 18),
-              label: Text(DateFormat.Hm().format(_scheduledAt)),
-              style: OutlinedButton.styleFrom(
-                alignment: Alignment.centerLeft,
-                minimumSize: const Size(double.infinity, 44),
-              ),
-              onPressed: _pickTime,
+            _TimeStepper(
+              value: _scheduledAt,
+              onChanged: (dt) => setState(() {
+                _scheduledAt = dt;
+                _userPickedDateTime = true;
+                _nlDetectedDateTime = null;
+              }),
+              onTapValue: _pickTime,
             ),
             const SizedBox(height: 16),
 
@@ -2595,6 +2644,211 @@ class _QuickPickRow extends StatelessWidget {
               chip(text: '🕘 $r', onTap: () => onSelectRecent(r)),
               const SizedBox(width: 8),
             ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _TimeStepper — шагово-инкрементный выбор времени (§4.3 REDESIGN-KANAME.md).
+//
+// Структура: [−] [HH:MM] [+]
+//   • [−] / [+] — изменяют время на ±15 минут (шаг 15).
+//   • [HH:MM] — тап открывает clock-диалог (onTapValue).
+// Предотвращает overflow: 320dp + textScale 1.5.
+// ---------------------------------------------------------------------------
+
+class _TimeStepper extends StatelessWidget {
+  const _TimeStepper({
+    required this.value,
+    required this.onChanged,
+    required this.onTapValue,
+  });
+
+  final DateTime value;
+  final ValueChanged<DateTime> onChanged;
+
+  /// Вызывается при тапе на текст времени — обычно открывает showTimePicker.
+  final VoidCallback onTapValue;
+
+  static const _stepMinutes = 15;
+
+  DateTime _step(int delta) {
+    final next = value.add(Duration(minutes: _stepMinutes * delta));
+    // Оставляем в границах [00:00..23:45] того же дня.
+    return DateTime(
+      value.year,
+      value.month,
+      value.day,
+      next.hour,
+      next.minute,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ext = theme.extension<FocusThemeExtension>();
+    final scheme = theme.colorScheme;
+    final timeText = DateFormat.Hm().format(value);
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border.all(
+          color: ext?.border ?? scheme.outline,
+          width: 1,
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        children: [
+          // Кнопка «минус»
+          _StepButton(
+            icon: PhosphorIcons.minus(PhosphorIconsStyle.regular),
+            onPressed: () => onChanged(_step(-1)),
+            borderRadius: const BorderRadius.only(
+              topLeft: Radius.circular(11),
+              bottomLeft: Radius.circular(11),
+            ),
+          ),
+          // Значение времени — тап открывает clock-диалог
+          Expanded(
+            child: GestureDetector(
+              onTap: onTapValue,
+              child: Container(
+                height: 44,
+                alignment: Alignment.center,
+                color: Colors.transparent,
+                child: Text(
+                  timeText,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontFeatures: const [FontFeature.tabularFigures()],
+                  ),
+                ),
+              ),
+            ),
+          ),
+          // Кнопка «плюс»
+          _StepButton(
+            icon: PhosphorIcons.plus(PhosphorIconsStyle.regular),
+            onPressed: () => onChanged(_step(1)),
+            borderRadius: const BorderRadius.only(
+              topRight: Radius.circular(11),
+              bottomRight: Radius.circular(11),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StepButton extends StatelessWidget {
+  const _StepButton({
+    required this.icon,
+    required this.onPressed,
+    required this.borderRadius,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final BorderRadius borderRadius;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ext = theme.extension<FocusThemeExtension>();
+
+    return Material(
+      color: ext?.surfaceElevated ?? theme.colorScheme.surface,
+      borderRadius: borderRadius,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: borderRadius,
+        child: SizedBox(
+          width: 48,
+          height: 44,
+          child: Center(
+            child: PhosphorIcon(icon, size: 20, color: ext?.textSecondary),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// _MainToggle — выделенный тогл «Главная задача» со щитом (§4.4 REDESIGN-KANAME.md).
+//
+// Показывается между строкой приоритетов и секцией даты.
+// isMain: текущее состояние (priority == 'main').
+// canSelect: false когда лимит 3 already reached и это не main — тогл disabled.
+// ---------------------------------------------------------------------------
+
+class _MainToggle extends StatelessWidget {
+  const _MainToggle({
+    required this.isMain,
+    required this.canSelect,
+    required this.onChanged,
+  });
+
+  final bool isMain;
+  final bool canSelect;
+  final ValueChanged<bool> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final ext = theme.extension<FocusThemeExtension>();
+    final scheme = theme.colorScheme;
+
+    final activeColor = scheme.primary;
+    final inactiveColor = ext?.textMuted ?? scheme.onSurface.withValues(alpha: 0.5);
+
+    return GestureDetector(
+      onTap: canSelect ? () => onChanged(!isMain) : null,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        height: 48,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: isMain ? ext?.accentTint : null,
+          border: Border.all(
+            color: isMain
+                ? activeColor.withValues(alpha: 0.4)
+                : ext?.border ?? scheme.outline,
+            width: isMain ? 1.5 : 1.0,
+          ),
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            PhosphorIcon(
+              isMain
+                  ? PhosphorIcons.shield(PhosphorIconsStyle.fill)
+                  : PhosphorIcons.shield(PhosphorIconsStyle.regular),
+              size: 18,
+              color: isMain ? activeColor : inactiveColor,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                context.s('today.main_toggle_label'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: isMain ? ext?.accentInk ?? activeColor : null,
+                  fontWeight: isMain ? FontWeight.w500 : null,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Switch.adaptive(
+              value: isMain,
+              onChanged: canSelect ? onChanged : null,
+              activeColor: activeColor,
+            ),
           ],
         ),
       ),

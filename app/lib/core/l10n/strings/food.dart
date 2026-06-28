@@ -1505,4 +1505,147 @@ const Map<String, Map<String, String>> foodStrings = {
     'ja': 'このバーコードに対応する商品が見つかりません',
     'ko': '이 바코드에 해당하는 제품을 찾을 수 없어요',
   },
+
+  // ---------------------------------------------------------------------------
+  // Единицы измерения (короткие форматы, {val} — число)
+  // ---------------------------------------------------------------------------
+
+  /// Калории за порцию: «N kcal» (отображается в строке ингредиента рецепта)
+  'food.kcal_val': {
+    'en': '{val} kcal',
+    'ru': '{val} ккал',
+    'de': '{val} kcal',
+    'fr': '{val} kcal',
+    'it': '{val} kcal',
+    'pt': '{val} kcal',
+    'es': '{val} kcal',
+    'id': '{val} kkal',
+    'hi': '{val} कैल',
+    'ja': '{val} kcal',
+    'ko': '{val} kcal',
+  },
+
+  /// Граммы с единицей: «N g» (кнопка граммов в редакторе рецепта)
+  'food.grams_val': {
+    'en': '{val} g',
+    'ru': '{val} г',
+    'de': '{val} g',
+    'fr': '{val} g',
+    'it': '{val} g',
+    'pt': '{val} g',
+    'es': '{val} g',
+    'id': '{val} g',
+    'hi': '{val} ग',
+    'ja': '{val} g',
+    'ko': '{val} g',
+  },
+
+  // ---------------------------------------------------------------------------
+  // Kaname redesign — новые строки, исправляющие хардкод g/kcal в UI
+  // ---------------------------------------------------------------------------
+
+  // Вторичная подпись к большой цифре калорий: «/ {goal} kcal»
+  'food.totals_kcal_goal': {
+    'en': '/ {goal} kcal',
+    'ru': '/ {goal} ккал',
+    'de': '/ {goal} kcal',
+    'fr': '/ {goal} kcal',
+    'it': '/ {goal} kcal',
+    'pt': '/ {goal} kcal',
+    'es': '/ {goal} kcal',
+    'id': '/ {goal} kkal',
+    'hi': '/ {goal} कैल',
+    'ja': '/ {goal} kcal',
+    'ko': '/ {goal} kcal',
+  },
+
+  // Значение макроса с целевым показателем: «{val} / {goal} g»
+  'food.macro_value_of': {
+    'en': '{val} / {goal} g',
+    'ru': '{val} / {goal} г',
+    'de': '{val} / {goal} g',
+    'fr': '{val} / {goal} g',
+    'it': '{val} / {goal} g',
+    'pt': '{val} / {goal} g',
+    'es': '{val} / {goal} g',
+    'id': '{val} / {goal} g',
+    'hi': '{val} / {goal} ग',
+    'ja': '{val} / {goal} g',
+    'ko': '{val} / {goal} g',
+  },
+
+  // Подзаголовок строки продукта: «{g} г · {kcal} ккал»
+  'food.row_grams_kcal': {
+    'en': '{g} g · {kcal} kcal',
+    'ru': '{g} г · {kcal} ккал',
+    'de': '{g} g · {kcal} kcal',
+    'fr': '{g} g · {kcal} kcal',
+    'it': '{g} g · {kcal} kcal',
+    'pt': '{g} g · {kcal} kcal',
+    'es': '{g} g · {kcal} kcal',
+    'id': '{g} g · {kcal} kkal',
+    'hi': '{g} ग · {kcal} कैल',
+    'ja': '{g} g · {kcal} kcal',
+    'ko': '{g} g · {kcal} kcal',
+  },
+
+  // Строка итогов дня для AI-меню: «{kcal} ккал · Б {protein} г»
+  'food.menu_totals_line': {
+    'en': '{kcal} kcal · P {protein} g',
+    'ru': '{kcal} ккал · Б {protein} г',
+    'de': '{kcal} kcal · E {protein} g',
+    'fr': '{kcal} kcal · P {protein} g',
+    'it': '{kcal} kcal · P {protein} g',
+    'pt': '{kcal} kcal · P {protein} g',
+    'es': '{kcal} kcal · P {protein} g',
+    'id': '{kcal} kkal · P {protein} g',
+    'hi': '{kcal} कैल · प {protein} ग',
+    'ja': '{kcal} kcal · P {protein} g',
+    'ko': '{kcal} kcal · 단 {protein} g',
+  },
+
+  // Строка позиции AI-меню: «{name} — {g} г · {kcal} ккал»
+  'food.menu_item_line': {
+    'en': '{name} — {g} g · {kcal} kcal',
+    'ru': '{name} — {g} г · {kcal} ккал',
+    'de': '{name} — {g} g · {kcal} kcal',
+    'fr': '{name} — {g} g · {kcal} kcal',
+    'it': '{name} — {g} g · {kcal} kcal',
+    'pt': '{name} — {g} g · {kcal} kcal',
+    'es': '{name} — {g} g · {kcal} kcal',
+    'id': '{name} — {g} g · {kcal} kkal',
+    'hi': '{name} — {g} ग · {kcal} कैल',
+    'ja': '{name} — {g} g · {kcal} kcal',
+    'ko': '{name} — {g} g · {kcal} kcal',
+  },
+
+  // CTA-кнопка пустого состояния экрана еды
+  'food.empty_add_food': {
+    'en': 'Add food',
+    'ru': 'Добавить еду',
+    'de': 'Essen hinzufügen',
+    'fr': 'Ajouter un aliment',
+    'it': 'Aggiungi cibo',
+    'pt': 'Adicionar alimento',
+    'es': 'Agregar alimento',
+    'id': 'Tambah makanan',
+    'hi': 'खाना जोड़ें',
+    'ja': '食品を追加',
+    'ko': '음식 추가',
+  },
+
+  // Кнопка «Из рецепта» в листе добавления еды
+  'food.from_recipe_btn': {
+    'en': 'From recipe',
+    'ru': 'Из рецепта',
+    'de': 'Aus Rezept',
+    'fr': 'Depuis une recette',
+    'it': 'Da ricetta',
+    'pt': 'De uma receita',
+    'es': 'Desde una receta',
+    'id': 'Dari resep',
+    'hi': 'रेसिपी से',
+    'ja': 'レシピから',
+    'ko': '레시피에서',
+  },
 };

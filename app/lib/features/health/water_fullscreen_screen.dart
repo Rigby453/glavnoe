@@ -1,9 +1,12 @@
 // Полноэкранный трекер воды: большой анимированный стакан, быстрые кнопки,
 // настройка напоминаний и переход к истории.
+// Redesign «Kaname» §G: Phosphor, §4.2 flat cards, unified button set,
+// локализованный прогресс без хардкода 'of'.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/database/database_providers.dart' show waterDaoProvider;
 import '../../core/l10n/app_strings.dart';
@@ -27,7 +30,7 @@ class WaterFullscreenScreen extends ConsumerWidget {
     final dao = ref.read(waterDaoProvider);
     final colorScheme = Theme.of(context).colorScheme;
     final textTheme = Theme.of(context).textTheme;
-    // ThemeExtension для textMuted / border / success (без хардкода hex)
+    // ThemeExtension — textMuted / border без хардкода hex
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final percent = (progress * 100).round();
 
@@ -36,7 +39,8 @@ class WaterFullscreenScreen extends ConsumerWidget {
         title: Text(context.s('water.title')),
         actions: [
           IconButton(
-            icon: const Icon(Icons.bar_chart_outlined),
+            // Phosphor: chartLine → отчёт/история (confirmed in icon-map)
+            icon: Icon(PhosphorIcons.chartLine()),
             tooltip: context.s('water.history_tooltip'),
             onPressed: () => context.push('/water-report'),
           ),
@@ -44,11 +48,11 @@ class WaterFullscreenScreen extends ConsumerWidget {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          // 24dp горизонтальные поля, 16dp сверху — §4.1
+          // 24dp горизонтальные поля, 16dp сверху — §1 screen padding
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
           child: Column(
             children: [
-              // Большой анимированный стакан с поддержкой reduce-motion
+              // Большой анимированный стакан — занимает ~32% высоты экрана
               _BigWaterGlass(
                 progress: progress,
                 totalMl: total,
@@ -56,98 +60,110 @@ class WaterFullscreenScreen extends ConsumerWidget {
               ),
               const SizedBox(height: 12),
 
-              // Hero-процент — displayMedium (40sp, display font, w700)
-              // Accent только на первичную метрику прогресса (§1 ACCENT DISCIPLINE)
+              // Hero-процент — displayMedium, accent (единственная первичная метрика)
               Text(
                 '$percent%',
                 style: textTheme.displayMedium?.copyWith(
                   color: colorScheme.primary,
                 ),
               ),
-              // Детальная цифра — bodyMedium + textMuted
+              // Подпись «N из M мл» — локаль-aware (water.progress_fmt)
               Text(
-                '$total of $goal ml',
+                context
+                    .s('water.progress_fmt')
+                    .replaceFirst('{total}', '$total')
+                    .replaceFirst('{goal}', '$goal'),
                 style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
               ),
               const SizedBox(height: 32),
 
-              // Быстрые кнопки добавления: OutlinedButton — повторяемые низкорисковые
-              // действия (§2 BUTTON HIERARCHY). Набор kWaterQuickMl — единый с карточкой.
+              // Сетка быстрых кнопок (2×2) — OutlinedButton (повторяемые действия §4.3).
+              // kWaterQuickMl = [150, 250, 350, 500] — единый набор с карточкой Health.
               GridView.count(
                 crossAxisCount: 2,
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                childAspectRatio: 2.8,
+                mainAxisSpacing: 8,
+                crossAxisSpacing: 8,
+                // 2.4 → ~55dp при 320px, ~65dp при 375px — выше минимума 52dp §4.3
+                childAspectRatio: 2.4,
                 children: kWaterQuickMl.map((ml) {
                   return OutlinedButton(
                     onPressed: () => dao.addWater(ml),
                     child: Text(
+                      // Локаль-aware «+N мл» через шаблон (не конкатенация с EN)
                       context
                           .s('water.add_ml_fmt')
                           .replaceFirst('{ml}', '$ml'),
                       style: textTheme.labelLarge,
+                      overflow: TextOverflow.ellipsis,
                     ),
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
 
-              // «Своё количество» — произвольный объём через диалог числового ввода
+              // «Своё количество» — полная ширина, Phosphor pencilSimple
               SizedBox(
                 width: double.infinity,
                 child: OutlinedButton.icon(
-                  icon: const Icon(Icons.edit_outlined, size: 18),
+                  icon: Icon(PhosphorIcons.pencilSimple(), size: 18),
                   label: Text(context.s('water.custom_btn')),
                   onPressed: () => showCustomWaterDialog(context, dao),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                  ),
                 ),
               ),
               const SizedBox(height: 4),
 
-              // Undo — TextButton (tertiary navigation nudge, §2)
-              TextButton.icon(
-                icon: const Icon(Icons.undo, size: 16),
-                label: Text(context.s('water.undo_last')),
-                onPressed: () => dao.undoLast(DateTime.now()),
+              // Undo — выровнено по левому краю, Phosphor arrowCounterClockwise
+              Align(
+                alignment: Alignment.centerLeft,
+                child: TextButton.icon(
+                  icon: Icon(PhosphorIcons.arrowCounterClockwise(), size: 16),
+                  label: Text(context.s('water.undo_last')),
+                  onPressed: () => dao.undoLast(DateTime.now()),
+                ),
               ),
               const SizedBox(height: 20),
 
-              // Подсказка про напитки из Food — Card (surface + border)
-              Card(
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Row(
-                    children: [
-                      Icon(
-                        Icons.info_outline,
-                        size: 16,
-                        // Иконка нейтральная — textMuted (не accent)
-                        color: ext.textMuted,
-                      ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          context.s('water.food_tip'),
-                          style: textTheme.bodySmall?.copyWith(
-                            color: ext.textMuted,
-                          ),
+              // Подсказка про напитки из Food — §4.2 flat card (surface1 + hairline + R14)
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: ext.border, width: 0.5),
+                ),
+                child: Row(
+                  children: [
+                    // Phosphor info — нейтральная иконка (textMuted)
+                    Icon(PhosphorIcons.info(), size: 16, color: ext.textMuted),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        context.s('water.food_tip'),
+                        style: textTheme.bodySmall?.copyWith(
+                          color: ext.textMuted,
                         ),
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(height: 16),
+              const SizedBox(height: 12),
 
-              // Напоминания — Card + SwitchListTile
-              Card(
+              // Напоминания — §4.2 flat card с SwitchListTile.adaptive
+              Container(
+                decoration: BoxDecoration(
+                  color: colorScheme.surface,
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: ext.border, width: 0.5),
+                ),
                 child: SwitchListTile.adaptive(
-                  secondary: Icon(
-                    Icons.notifications_outlined,
-                    // Иконка напоминаний нейтральная — не accent
-                    color: ext.textMuted,
-                  ),
+                  // Phosphor bell — нейтральный (не accent)
+                  secondary: Icon(PhosphorIcons.bell(), color: ext.textMuted),
                   title: Text(
                     context.s('water.drink_reminders'),
                     style: textTheme.bodyLarge,
@@ -161,6 +177,8 @@ class WaterFullscreenScreen extends ConsumerWidget {
                       ref.read(waterReminderProvider.notifier).toggle(v),
                 ),
               ),
+              // Нижний отступ для Scaffold FAB / NavBar
+              const SizedBox(height: 16),
             ],
           ),
         ),
@@ -169,8 +187,11 @@ class WaterFullscreenScreen extends ConsumerWidget {
   }
 }
 
-// Большой стакан на ~32% высоты экрана с анимацией заполнения.
-// Поддерживает reduce-motion: при disableAnimations → мгновенное отображение.
+// ---------------------------------------------------------------------------
+// Большой анимированный стакан (~32% высоты экрана)
+// Поддерживает reduce-motion: при disableAnimations → мгновенный переход.
+// ---------------------------------------------------------------------------
+
 class _BigWaterGlass extends StatefulWidget {
   const _BigWaterGlass({
     required this.progress,
@@ -195,8 +216,7 @@ class _BigWaterGlassState extends State<_BigWaterGlass>
   @override
   void initState() {
     super.initState();
-    // MediaQuery.of(context) НЕЛЬЗЯ в initState (ассерт + краш экрана).
-    // reduce-motion читаем в didChangeDependencies.
+    // MediaQuery.of(context) нельзя в initState — читаем в didChangeDependencies
     _ctrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 600),
@@ -237,7 +257,7 @@ class _BigWaterGlassState extends State<_BigWaterGlass>
 
   @override
   Widget build(BuildContext context) {
-    // Стакан рисуется accent-цветом — это единственная первичная метрика
+    // Стакан — accent цвет (единственная первичная метрика §ACCENT DISCIPLINE)
     final color = Theme.of(context).colorScheme.primary;
     final screenH = MediaQuery.of(context).size.height;
     final glassH = screenH * 0.32;
@@ -263,6 +283,7 @@ class _BigGlassPainter extends CustomPainter {
     final w = size.width;
     final h = size.height;
 
+    // Форма стакана (трапеция, шире сверху)
     final glassPath = Path()
       ..moveTo(w * 0.1, 0)
       ..lineTo(w * 0.9, 0)
@@ -278,10 +299,12 @@ class _BigGlassPainter extends CustomPainter {
       ..lineTo(w * 0.22, h)
       ..close();
 
+    // Заливка воды — 35% прозрачности (мягко)
     canvas.drawPath(
       waterPath,
       Paint()..color = color.withValues(alpha: 0.35),
     );
+    // Контур стакана — 60%
     canvas.drawPath(
       glassPath,
       Paint()
@@ -289,6 +312,7 @@ class _BigGlassPainter extends CustomPainter {
         ..style = PaintingStyle.stroke
         ..strokeWidth = 3,
     );
+    // Линия поверхности воды — 70%
     if (fill > 0.02) {
       canvas.drawLine(
         Offset(w * 0.1 + (w * 0.12) * (waterTop / h) + 2, waterTop),

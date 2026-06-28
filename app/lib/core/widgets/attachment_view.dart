@@ -6,14 +6,17 @@
 // data-URI(web)/File(Android) в новых местах — переиспользуйте отсюда.
 //
 //   • web  → вложение хранится как base64 data-URI прямо в localPath
-//            (нет файла на диске) → Image.memory / video не поддерживается.
+//            (нет файла на диске) → Image.memory / видео не поддерживается.
 //   • Android → localPath это реальный путь к файлу → Image.file / File-плеер.
+//
+// Иконки: Phosphor imageBroken / playCircle / play / pause / x
 
 import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter/foundation.dart' show Uint8List;
 import 'package:flutter/material.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:video_player/video_player.dart';
 
 import '../database/database.dart';
@@ -30,7 +33,7 @@ Uint8List bytesFromAttachmentDataUri(String dataUri) =>
 /// Строит виджет-изображение вложения по его localPath, выбирая источник:
 ///   • data-URI (web) → Image.memory из декодированных base64-байтов;
 ///   • обычный путь (Android) → Image.file.
-/// errorBuilder общий для обоих случаев (битый файл/данные не роняют UI).
+/// errorBuilder общий для обоих случаев.
 Widget attachmentImage(
   String localPath, {
   required BoxFit fit,
@@ -49,8 +52,7 @@ Widget attachmentImage(
 /// Открывает вложение [a] на весь экран: фото — InteractiveViewer (зум),
 /// видео — File-плеер (web-видео не поддерживается, показываем snack).
 ///
-/// [onUnsupportedVideo] вызывается, если видео нельзя проиграть (web data-URI);
-/// вызывающий показывает соответствующее сообщение.
+/// [onUnsupportedVideo] вызывается, если видео нельзя проиграть (web data-URI).
 void viewAttachmentFullscreen(
   BuildContext context,
   ItemAttachmentsTableData a, {
@@ -70,8 +72,8 @@ void viewAttachmentFullscreen(
                 child: attachmentImage(
                   a.localPath,
                   fit: BoxFit.contain,
-                  errorBuilder: (ctx, _, _) => const Icon(
-                    Icons.broken_image_outlined,
+                  errorBuilder: (ctx, _, _) => PhosphorIcon(
+                    PhosphorIcons.imageBroken(PhosphorIconsStyle.regular),
                     size: 48,
                     color: Colors.white,
                   ),
@@ -83,7 +85,11 @@ void viewAttachmentFullscreen(
             top: 8 + MediaQuery.of(ctx).padding.top,
             right: 8,
             child: IconButton(
-              icon: const Icon(Icons.close, color: Colors.white),
+              icon: PhosphorIcon(
+                PhosphorIcons.x(PhosphorIconsStyle.regular),
+                color: Colors.white,
+                size: 20,
+              ),
               onPressed: () => Navigator.pop(ctx),
             ),
           ),
@@ -91,9 +97,7 @@ void viewAttachmentFullscreen(
       ),
     );
   } else {
-    // Видео хранится только как файл на диске (Android). На вебе видео не
-    // добавляется, поэтому File-плеер тут безопасен; защищаемся от
-    // теоретического data-URI, чтобы не дёргать File на вебе.
+    // Видео хранится только как файл на диске (Android).
     if (isAttachmentDataUri(a.localPath)) {
       onUnsupportedVideo();
       return;
@@ -107,8 +111,7 @@ void viewAttachmentFullscreen(
 }
 
 /// Превью одного вложения: квадрат с фото (или иконкой видео).
-/// Тап → [onTap]. Если задан [onDelete] — крестик удаления в углу
-/// (режим редактирования); если null — read-only превью (карточка-деталь).
+/// Тап → [onTap]. Если задан [onDelete] — крестик удаления в углу.
 class AttachmentThumb extends StatelessWidget {
   const AttachmentThumb({
     super.key,
@@ -134,7 +137,7 @@ class AttachmentThumb extends StatelessWidget {
       height: size,
       child: Stack(
         children: [
-          // Превью (фото или кадр-заглушка видео).
+          // Превью (фото или кадр-заглушка видео)
           Positioned.fill(
             child: GestureDetector(
               onTap: onTap,
@@ -144,8 +147,8 @@ class AttachmentThumb extends StatelessWidget {
                     ? Container(
                         color: ext?.surfaceElevated ?? colorScheme.surface,
                         alignment: Alignment.center,
-                        child: Icon(
-                          Icons.play_circle_outline,
+                        child: PhosphorIcon(
+                          PhosphorIcons.playCircle(PhosphorIconsStyle.regular),
                           size: 30,
                           color: colorScheme.onSurface,
                         ),
@@ -153,18 +156,20 @@ class AttachmentThumb extends StatelessWidget {
                     : attachmentImage(
                         attachment.localPath,
                         fit: BoxFit.cover,
-                        // Файл/данные недоступны — нейтральная заглушка, не падаем.
                         errorBuilder: (ctx, _, _) => Container(
                           color: ext?.surfaceElevated ?? colorScheme.surface,
                           alignment: Alignment.center,
-                          child: Icon(Icons.broken_image_outlined,
-                              size: 24, color: colorScheme.onSurface),
+                          child: PhosphorIcon(
+                            PhosphorIcons.imageBroken(PhosphorIconsStyle.regular),
+                            size: 24,
+                            color: colorScheme.onSurface,
+                          ),
                         ),
                       ),
               ),
             ),
           ),
-          // Кнопка удаления — крестик в правом верхнем углу (только если задан).
+          // Кнопка удаления — крестик в правом верхнем углу (только если задан)
           if (onDelete != null)
             Positioned(
               top: 2,
@@ -177,8 +182,11 @@ class AttachmentThumb extends StatelessWidget {
                     color: Colors.black54,
                     shape: BoxShape.circle,
                   ),
-                  child:
-                      const Icon(Icons.close, size: 14, color: Colors.white),
+                  child: PhosphorIcon(
+                    PhosphorIcons.x(PhosphorIconsStyle.regular),
+                    size: 14,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -234,11 +242,12 @@ class _AttachmentVideoDialogState extends State<AttachmentVideoDialog> {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               IconButton(
-                icon: Icon(
+                icon: PhosphorIcon(
                   widget.controller.value.isPlaying
-                      ? Icons.pause
-                      : Icons.play_arrow,
+                      ? PhosphorIcons.pause(PhosphorIconsStyle.regular)
+                      : PhosphorIcons.play(PhosphorIconsStyle.regular),
                   color: Colors.white,
+                  size: 24,
                 ),
                 onPressed: () {
                   setState(() {
@@ -249,7 +258,11 @@ class _AttachmentVideoDialogState extends State<AttachmentVideoDialog> {
                 },
               ),
               IconButton(
-                icon: const Icon(Icons.close, color: Colors.white),
+                icon: PhosphorIcon(
+                  PhosphorIcons.x(PhosphorIconsStyle.regular),
+                  color: Colors.white,
+                  size: 20,
+                ),
                 onPressed: () => Navigator.of(context).pop(),
               ),
             ],

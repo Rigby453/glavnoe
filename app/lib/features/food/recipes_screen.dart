@@ -1,19 +1,23 @@
 // Экран «Мои рецепты» (SPEC C5, Phase 1).
-// Пользователь собирает блюда из ингредиентов; КБЖУ считает код
-// (recipe_nutrition.dart). Рецепты локальные (Drift, ADR: без синка до Ф3).
+// Kaname redesign §4.2: object cards (surface1 + hairline R14), Phosphor icons,
+// KaiMascot empty state + verb button. ONE primary FilledButton per screen (FAB).
+// Пользователь собирает блюда из ингредиентов; КБЖУ считает код (recipe_nutrition.dart).
+// Рецепты локальные (Drift, ADR: без синка до Ф3).
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
-import '../../core/settings/fab_position_provider.dart';
+import '../../core/settings/tone_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/swipe_to_delete.dart';
 import '../../core/widgets/undo_snack_bar.dart';
+import '../../features/mascot/kai_mascot.dart';
 import 'recipe_nutrition.dart';
 
 // ---------------------------------------------------------------------------
@@ -52,15 +56,13 @@ class RecipesScreen extends ConsumerWidget {
     if (context.mounted) context.push('/recipes/$id');
   }
 
-  /// Удалить рецепт с возможностью Undo (снапшот ДО удаления → восстановление).
-  /// Диалог-подтверждения нет: Undo-snackbar — это страховка (канон проекта).
+  /// Удалить рецепт с возможностью Undo. Снапшот ДО удаления → восстановление.
   Future<void> _deleteRecipe(
     BuildContext context,
     WidgetRef ref,
     RecipesTableData recipe,
   ) async {
     final dao = ref.read(recipesDaoProvider);
-    // Снапшот ингредиентов ДО удаления (каскад удалит их вместе с рецептом)
     final ingredientSnapshot =
         ref.read(recipeIngredientsProvider(recipe.id)).valueOrNull ??
             const <RecipeIngredientsTableData>[];
@@ -81,18 +83,18 @@ class RecipesScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final recipes = ref.watch(recipesListProvider).valueOrNull ?? const [];
 
-    final fabLocation = ref.watch(fabPositionProvider).fabLocation;
     return Scaffold(
       appBar: AppBar(title: Text(context.s('food.my_recipes_title'))),
-      floatingActionButtonLocation: fabLocation,
+      // FAB = единственная primary-кнопка экрана (§4.3), позиция endFloat
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: FloatingActionButton(
         heroTag: 'recipes_add_fab',
         tooltip: context.s('food.new_recipe'),
         onPressed: () => _newRecipe(context, ref),
-        child: const Icon(Icons.add),
+        child: Icon(PhosphorIcons.plus()),
       ),
       body: recipes.isEmpty
-          ? const _EmptyState()
+          ? _EmptyState(onAdd: () => _newRecipe(context, ref))
           : ListView.builder(
               // 24dp экранный отступ + 88dp снизу для FAB
               padding: const EdgeInsets.fromLTRB(24, 8, 24, 88),
@@ -117,8 +119,13 @@ class RecipesScreen extends ConsumerWidget {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Карточка рецепта — §4.2 object card
+// surface1 + 0.5dp hairline (ext.border) + R14, pad 11×12
+// Leading neutral icon, title+subtitle, trailing trash(ember) + caretRight
+// ---------------------------------------------------------------------------
+
 class _RecipeTile extends ConsumerWidget {
-  // super.key убран: _RecipeTile — приватный виджет, ключ не нужен (Dismissible использует SwipeToDelete.key)
   const _RecipeTile({required this.recipe, required this.onDelete});
 
   final RecipesTableData recipe;
@@ -126,9 +133,13 @@ class _RecipeTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
+    final tt = Theme.of(context).textTheme;
+    final cs = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    final mutedColor = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
+    final mutedColor = ext?.textMuted ?? cs.onSurface.withAlpha(153);
+    final faintColor = ext?.textFaint ?? cs.onSurface.withAlpha(80);
+    final emberColor = ext?.ember ?? cs.error;
+    final borderColor = ext?.border ?? cs.outline.withAlpha(50);
 
     final ingredients =
         ref.watch(recipeIngredientsProvider(recipe.id)).valueOrNull ??
@@ -139,45 +150,90 @@ class _RecipeTile extends ConsumerWidget {
 
     final subtitle = [
       plIngredients(context, ingredients.length),
-      if (kcal100 != null) '$kcal100 kcal / 100 g',
+      if (kcal100 != null)
+        context
+            .s('food.kcal_per_100g')
+            .replaceFirst('{kcal}', '$kcal100'),
     ].join(' · ');
 
-    return Card(
-      child: ListTile(
-        // Иконка рецепта — нейтральный textMuted (не акцент, 03-components §19)
-        leading: Icon(
-          Icons.restaurant_menu_outlined,
-          color: mutedColor,
-        ),
-        title: Text(recipe.name),
-        subtitle: Text(
-          subtitle,
-          style: textTheme.bodySmall?.copyWith(color: mutedColor),
-        ),
-        trailing: IconButton(
-          tooltip: context.s('btn.delete'),
-          icon: Icon(
-            Icons.delete_outline,
-            size: 20,
-            color: ext?.textFaint,
-          ),
-          onPressed: onDelete,
-        ),
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         onTap: () => context.push('/recipes/${recipe.id}'),
+        borderRadius: BorderRadius.circular(14),
+        child: Container(
+          decoration: BoxDecoration(
+            color: cs.surface,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(color: borderColor, width: 0.5),
+          ),
+          padding: const EdgeInsets.fromLTRB(12, 11, 4, 11),
+          child: Row(
+            children: [
+              // Ведущая нейтральная иконка (textMuted, не акцент)
+              Icon(PhosphorIcons.cookingPot(), size: 20, color: mutedColor),
+              const SizedBox(width: 12),
+              // Название + подзаголовок (занимают всё доступное место)
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      recipe.name,
+                      style: tt.bodyMedium,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    if (subtitle.isNotEmpty) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: tt.bodySmall?.copyWith(color: mutedColor),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              // Удалить — ember (§4.2 «trash(ember)»)
+              IconButton(
+                icon: Icon(PhosphorIcons.trash(), size: 20, color: emberColor),
+                tooltip: context.s('btn.delete'),
+                onPressed: onDelete,
+                visualDensity: VisualDensity.compact,
+              ),
+              // Стрелка навигации — textFaint
+              Padding(
+                padding: const EdgeInsets.only(right: 4),
+                child: Icon(
+                  PhosphorIcons.caretRight(),
+                  size: 16,
+                  color: faintColor,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
 }
 
-class _EmptyState extends StatelessWidget {
-  const _EmptyState();
+// ---------------------------------------------------------------------------
+// Пустое состояние — KaiMascot (neutral, 64) + текст + verb button (§4.2)
+// ---------------------------------------------------------------------------
+
+class _EmptyState extends ConsumerWidget {
+  const _EmptyState({required this.onAdd});
+
+  final VoidCallback onAdd;
 
   @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
+  Widget build(BuildContext context, WidgetRef ref) {
+    final tone = ref.watch(toneProvider);
+    final tt = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>();
-    // textFaint — третичный уровень для пустых состояний (01-color.md)
-    final faintColor = ext?.textFaint ?? Theme.of(context).colorScheme.onSurface.withAlpha(80);
+    final mutedColor = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface.withAlpha(153);
 
     return Center(
       child: Padding(
@@ -185,12 +241,23 @@ class _EmptyState extends StatelessWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            Icon(Icons.restaurant_menu_outlined, size: 56, color: faintColor),
+            KaiMascot(
+              size: 64,
+              emotion: KaiEmotion.neutral,
+              isHarsh: tone == AppTone.harsh,
+            ),
             const SizedBox(height: 16),
             Text(
               context.s('food.recipes_empty'),
               textAlign: TextAlign.center,
-              style: textTheme.bodyMedium?.copyWith(color: faintColor),
+              style: tt.bodyMedium?.copyWith(color: mutedColor),
+            ),
+            const SizedBox(height: 16),
+            // Verb button — единственный primary на экране (§4.3)
+            FilledButton.icon(
+              icon: Icon(PhosphorIcons.plus(), size: 18),
+              label: Text(context.s('food.new_recipe')),
+              onPressed: onAdd,
             ),
           ],
         ),

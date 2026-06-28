@@ -246,8 +246,9 @@ class _DayCell extends StatelessWidget {
               // bodyMedium для числа дня
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: textColor,
+                    // w500 вместо w700 (design tokens: max w600 rare, body = w400/w500)
                     fontWeight: isSelected || isToday
-                        ? FontWeight.w700
+                        ? FontWeight.w500
                         : FontWeight.w400,
                   ),
             ),

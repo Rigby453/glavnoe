@@ -39,6 +39,9 @@ dependencies:
   # Fonts
   google_fonts: ^6.2.0
 
+  # Иконки Phosphor (Kaname redesign, Phase 1; используется начиная с Phase 2)
+  phosphor_flutter: ^2.1.0
+
   # Internationalisation
   intl: ^0.20.2
   image_picker: ^1.2.2

@@ -1,13 +1,15 @@
-// Экран медитаций — 5 текстовых сессий с обратным отсчётом.
-// Без аудио и без новых пакетов — только Flutter SDK.
-// Анимация arc следует ANIMATIONS.md §0: MediaQuery.disableAnimations →
-// пропустить анимацию, просто показать оставшееся время.
+// Экран медитаций — перестилизован под «Kaname» redesign (§4.2 cards + Phosphor).
+// Бизнес-логика, данные сессий и аудио/TTS НЕ изменены — только визуал/UX.
+//
+// Изменения: карточки surface1 + 0.5dp hairline + R14, Phosphor-иконки,
+// форматтер таймера в MM:SS (без хардкода 's'), audio-панель с Phosphor.
 
 import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/animations/constants.dart';
 import '../../core/database/database_providers.dart';
@@ -24,28 +26,18 @@ import 'meditation_custom_providers.dart';
 import 'meditation_editor_screen.dart';
 
 // ---------------------------------------------------------------------------
-// Модель данных
+// Модели данных — без изменений
 // ---------------------------------------------------------------------------
 
-// Шаг встроенной сессии: textKey — l10n-ключ текста инструкции.
 class _Step {
   const _Step({required this.textKey, required this.seconds});
   final String textKey;
   final int seconds;
 }
 
-// ---------------------------------------------------------------------------
-// Унифицированная рантайм-модель плеера
-//
-// Встроенные сессии хранят l10n-КЛЮЧИ (textKey/nameKey), пользовательские —
-// СЫРОЙ текст. Плеер не должен знать о различии: при открытии сессии мы один раз
-// резолвим всё в [_RunSession] — встроенные через context.s(), пользовательские
-// пропускаем как есть. Дальше плеер просто показывает готовые строки.
-// ---------------------------------------------------------------------------
-
 class _RunStep {
   const _RunStep({required this.text, required this.seconds});
-  final String text; // уже резолвленная строка (готова к показу)
+  final String text;
   final int seconds;
 }
 
@@ -55,16 +47,15 @@ class _RunSession {
     required this.name,
     required this.steps,
   });
-  final String id; // для лога настроения (sessionId)
-  final String name; // уже резолвленное имя
+  final String id;
+  final String name;
   final List<_RunStep> steps;
 }
 
-// Сессия медитации: nameKey/descKey/steps — l10n-ключи; id и duration — стабильные.
-// poseNameKey/poseDescKey — l10n-ключи позы, показываемой ПЕРЕД стартом плеера;
-// poseIcon — нейтральная Material-иконка позы (сидя/лёжа), без своей графики.
+// _Session — не const: poseIcon хранит IconData из PhosphorIcons.xxx(),
+// которые не являются const-выражениями.
 class _Session {
-  const _Session({
+  _Session({
     required this.id,
     required this.nameKey,
     required this.duration,
@@ -76,15 +67,16 @@ class _Session {
   });
   final String id;
   final String nameKey;
-  final int duration; // минуты
+  final int duration;
   final String descKey;
   final List<_Step> steps;
   final String poseNameKey;
   final String poseDescKey;
-  final IconData poseIcon;
+  final IconData poseIcon; // Phosphor IconData (bed/personSimpleTaiChi/sun/moon/flowerLotus)
 }
 
-const _sessions = <_Session>[
+// Иконки поз через Phosphor — lazy, вычисляются один раз.
+final _sessions = <_Session>[
   _Session(
     id: 'body_scan',
     nameKey: 'meditation.body_scan.name',
@@ -92,8 +84,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.body_scan.desc',
     poseNameKey: 'meditation.body_scan.pose_name',
     poseDescKey: 'meditation.body_scan.pose_desc',
-    poseIcon: Icons.airline_seat_flat, // лёжа на спине
-    steps: [
+    poseIcon: PhosphorIcons.bed(), // лёжа на спине
+    steps: const [
       _Step(textKey: 'meditation.body_scan.step1', seconds: 60),
       _Step(textKey: 'meditation.body_scan.step2', seconds: 90),
       _Step(textKey: 'meditation.body_scan.step3', seconds: 90),
@@ -109,8 +101,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.focus_reset.desc',
     poseNameKey: 'meditation.focus_reset.pose_name',
     poseDescKey: 'meditation.focus_reset.pose_desc',
-    poseIcon: Icons.self_improvement, // прямая посадка
-    steps: [
+    poseIcon: PhosphorIcons.personSimpleTaiChi(), // прямая посадка
+    steps: const [
       _Step(textKey: 'meditation.focus_reset.step1', seconds: 30),
       _Step(textKey: 'meditation.focus_reset.step2', seconds: 60),
       _Step(textKey: 'meditation.focus_reset.step3', seconds: 60),
@@ -125,8 +117,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.exam_calm.desc',
     poseNameKey: 'meditation.exam_calm.pose_name',
     poseDescKey: 'meditation.exam_calm.pose_desc',
-    poseIcon: Icons.self_improvement, // устойчивая посадка
-    steps: [
+    poseIcon: PhosphorIcons.personSimpleTaiChi(), // устойчивая посадка
+    steps: const [
       _Step(textKey: 'meditation.exam_calm.step1', seconds: 60),
       _Step(textKey: 'meditation.exam_calm.step2', seconds: 90),
       _Step(textKey: 'meditation.exam_calm.step3', seconds: 90),
@@ -141,8 +133,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.sleep_prep.desc',
     poseNameKey: 'meditation.sleep_prep.pose_name',
     poseDescKey: 'meditation.sleep_prep.pose_desc',
-    poseIcon: Icons.airline_seat_flat, // лёжа в постели
-    steps: [
+    poseIcon: PhosphorIcons.bed(), // лёжа в постели
+    steps: const [
       _Step(textKey: 'meditation.sleep_prep.step1', seconds: 60),
       _Step(textKey: 'meditation.sleep_prep.step2', seconds: 90),
       _Step(textKey: 'meditation.sleep_prep.step3', seconds: 90),
@@ -159,8 +151,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.stress_relief.desc',
     poseNameKey: 'meditation.stress_relief.pose_name',
     poseDescKey: 'meditation.stress_relief.pose_desc',
-    poseIcon: Icons.self_improvement, // удобная поза сидя
-    steps: [
+    poseIcon: PhosphorIcons.personSimpleTaiChi(), // удобная поза сидя
+    steps: const [
       _Step(textKey: 'meditation.stress_relief.step1', seconds: 40),
       _Step(textKey: 'meditation.stress_relief.step2', seconds: 80),
       _Step(textKey: 'meditation.stress_relief.step3', seconds: 80),
@@ -169,7 +161,6 @@ const _sessions = <_Session>[
       _Step(textKey: 'meditation.stress_relief.step6', seconds: 60),
     ],
   ),
-  // — 5 новых сессий —
   _Session(
     id: 'anxiety_reset',
     nameKey: 'meditation.anxiety_reset.name',
@@ -177,8 +168,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.anxiety_reset.desc',
     poseNameKey: 'meditation.anxiety_reset.pose_name',
     poseDescKey: 'meditation.anxiety_reset.pose_desc',
-    poseIcon: Icons.chair, // устойчивая посадка
-    steps: [
+    poseIcon: PhosphorIcons.personSimpleTaiChi(), // устойчивая посадка
+    steps: const [
       _Step(textKey: 'meditation.anxiety_reset.step1', seconds: 30),
       _Step(textKey: 'meditation.anxiety_reset.step2', seconds: 60),
       _Step(textKey: 'meditation.anxiety_reset.step3', seconds: 60),
@@ -193,8 +184,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.morning_wake.desc',
     poseNameKey: 'meditation.morning_wake.pose_name',
     poseDescKey: 'meditation.morning_wake.pose_desc',
-    poseIcon: Icons.wb_sunny_outlined, // прямая посадка / стоя
-    steps: [
+    poseIcon: PhosphorIcons.sun(), // прямая посадка / стоя
+    steps: const [
       _Step(textKey: 'meditation.morning_wake.step1', seconds: 30),
       _Step(textKey: 'meditation.morning_wake.step2', seconds: 60),
       _Step(textKey: 'meditation.morning_wake.step3', seconds: 60),
@@ -209,8 +200,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.gratitude_reset.desc',
     poseNameKey: 'meditation.gratitude_reset.pose_name',
     poseDescKey: 'meditation.gratitude_reset.pose_desc',
-    poseIcon: Icons.favorite_border, // удобная сидя / лёжа
-    steps: [
+    poseIcon: PhosphorIcons.flowerLotus(), // удобная сидя / лёжа
+    steps: const [
       _Step(textKey: 'meditation.gratitude_reset.step1', seconds: 60),
       _Step(textKey: 'meditation.gratitude_reset.step2', seconds: 120),
       _Step(textKey: 'meditation.gratitude_reset.step3', seconds: 90),
@@ -225,8 +216,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.deep_work_entry.desc',
     poseNameKey: 'meditation.deep_work_entry.pose_name',
     poseDescKey: 'meditation.deep_work_entry.pose_desc',
-    poseIcon: Icons.laptop_outlined, // рабочая посадка за столом
-    steps: [
+    poseIcon: PhosphorIcons.personSimpleTaiChi(), // рабочая посадка за столом
+    steps: const [
       _Step(textKey: 'meditation.deep_work_entry.step1', seconds: 30),
       _Step(textKey: 'meditation.deep_work_entry.step2', seconds: 60),
       _Step(textKey: 'meditation.deep_work_entry.step3', seconds: 90),
@@ -240,8 +231,8 @@ const _sessions = <_Session>[
     descKey: 'meditation.evening_unwind.desc',
     poseNameKey: 'meditation.evening_unwind.pose_name',
     poseDescKey: 'meditation.evening_unwind.pose_desc',
-    poseIcon: Icons.airline_seat_flat, // лёжа / откинувшись в кресле
-    steps: [
+    poseIcon: PhosphorIcons.moon(), // лёжа / откинувшись в кресле
+    steps: const [
       _Step(textKey: 'meditation.evening_unwind.step1', seconds: 60),
       _Step(textKey: 'meditation.evening_unwind.step2', seconds: 90),
       _Step(textKey: 'meditation.evening_unwind.step3', seconds: 90),
@@ -252,7 +243,7 @@ const _sessions = <_Session>[
   ),
 ];
 
-// Резолвит встроенную сессию (l10n-ключи) в рантайм-модель плеера.
+// Резолвит встроенную сессию в рантайм-модель плеера.
 _RunSession _builtinToRun(BuildContext context, _Session session) {
   return _RunSession(
     id: session.id,
@@ -263,7 +254,7 @@ _RunSession _builtinToRun(BuildContext context, _Session session) {
   );
 }
 
-// Резолвит пользовательскую сессию (СЫРОЙ текст) в рантайм-модель плеера.
+// Резолвит пользовательскую сессию (СЫРОЙ текст) в рантайм-модель.
 _RunSession _customToRun(CustomMeditation m) {
   return _RunSession(
     id: m.id,
@@ -292,6 +283,27 @@ void _openPosePreview(BuildContext context, _Session session) {
 }
 
 // ---------------------------------------------------------------------------
+// Вспомогательный виджет: круглая иконка-аватар для карточки
+// ---------------------------------------------------------------------------
+
+Widget _buildSessionAvatar({
+  required FocusThemeExtension ext,
+  required IconData icon,
+  double size = 44,
+  double iconSize = 20,
+}) {
+  return Container(
+    width: size,
+    height: size,
+    decoration: BoxDecoration(
+      color: ext.accentMuted,
+      shape: BoxShape.circle,
+    ),
+    child: Icon(icon, color: ext.textMuted, size: iconSize),
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Session list screen
 // ---------------------------------------------------------------------------
 
@@ -304,7 +316,6 @@ class MeditationScreen extends ConsumerWidget {
     );
   }
 
-  /// Удаление пользовательской сессии с Undo (паттерн привычек/дыхания).
   Future<void> _deleteCustom(
     BuildContext context,
     WidgetRef ref,
@@ -327,23 +338,20 @@ class MeditationScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    // Пользовательские сессии из БД (пустой список, пока стрим грузится).
     final custom = ref.watch(customMeditationsProvider).valueOrNull ??
         const <CustomMeditation>[];
 
     return Scaffold(
       appBar: AppBar(title: Text(context.s('meditation.title'))),
       body: ListView(
-        // 24dp screen margin — spec §4.1
         padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
         children: [
-          // Встроенные сессии.
+          // Встроенные сессии — §4.2 object cards.
           for (final session in _sessions) ...[
             _SessionCard(session: session, ext: ext, textTheme: textTheme),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
           ],
-          // Пользовательские сессии — рядом со встроенными, тот же плеер.
-          // SwipeToDelete: свайп влево = удаление без диалога + Undo-снэкбар.
+          // Пользовательские сессии: SwipeToDelete (влево = удалить + Undo).
           for (final m in custom) ...[
             SwipeToDelete(
               key: ValueKey('swipe_custom_med_${m.id}'),
@@ -355,14 +363,15 @@ class MeditationScreen extends ConsumerWidget {
                 onDelete: () => _deleteCustom(context, ref, m),
               ),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 8),
           ],
-          // Создать свою сессию.
+          const SizedBox(height: 8),
+          // Создать свою сессию — ghost-кнопка, выравнена по левому краю.
           Align(
             alignment: Alignment.centerLeft,
             child: TextButton.icon(
               onPressed: () => _openEditor(context),
-              icon: const Icon(Icons.add),
+              icon: Icon(PhosphorIcons.plus(), size: 20),
               label: Text(context.s('meditation.create_button')),
             ),
           ),
@@ -372,7 +381,10 @@ class MeditationScreen extends ConsumerWidget {
   }
 }
 
-/// Карточка встроенной сессии — выделена в StatelessWidget для чистоты.
+// ---------------------------------------------------------------------------
+// §4.2 Карточка встроенной сессии
+// ---------------------------------------------------------------------------
+
 class _SessionCard extends StatelessWidget {
   const _SessionCard({
     required this.session,
@@ -386,52 +398,60 @@ class _SessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
+      elevation: 0,
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: ext.border, width: 0.5),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => _openPosePreview(context, session),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Аватар — нейтральный (accentMuted фон, textMuted иконка)
-              // Accent только для активной/выбранной сессии — здесь нейтрально
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: ext.accentMuted,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.spa_outlined,
-                  color: ext.textMuted,
-                  size: 22,
-                ),
+              // Аватар: нейтральный (accentMuted фон, textMuted иконка lotus).
+              _buildSessionAvatar(
+                ext: ext,
+                icon: PhosphorIcons.flowerLotus(),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Название сессии — titleMedium
-                    Text(context.s(session.nameKey), style: textTheme.titleMedium),
+                    Text(
+                      context.s(session.nameKey),
+                      style: textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
                     const SizedBox(height: 2),
-                    // Описание — bodyMedium (основной текст)
-                    Text(context.s(session.descKey), style: textTheme.bodyMedium),
-                    const SizedBox(height: 6),
-                    // Мета-строка: длительность + шаги — bodySmall + textFaint
+                    Text(
+                      context.s(session.descKey),
+                      style: textTheme.bodySmall?.copyWith(
+                        color: ext.textSecondary,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
                     Text(
                       '${plMinutes(context, session.duration)} · ${plSteps(context, session.steps.length)}',
-                      style: textTheme.bodySmall?.copyWith(
+                      style: textTheme.labelSmall?.copyWith(
                         color: ext.textFaint,
                       ),
                     ),
                   ],
                 ),
               ),
-              Icon(Icons.chevron_right, color: ext.textMuted),
+              const SizedBox(width: 8),
+              Icon(PhosphorIcons.caretRight(), color: ext.textFaint, size: 16),
             ],
           ),
         ),
@@ -440,7 +460,10 @@ class _SessionCard extends StatelessWidget {
   }
 }
 
-/// Карточка пользовательской сессии: тот же макет + кнопка удаления (Undo).
+// ---------------------------------------------------------------------------
+// §4.2 Карточка пользовательской сессии
+// ---------------------------------------------------------------------------
+
 class _CustomSessionCard extends StatelessWidget {
   const _CustomSessionCard({
     required this.session,
@@ -456,50 +479,54 @@ class _CustomSessionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Длительность сессии в минутах (минимум 1) для мета-строки.
+    final colorScheme = Theme.of(context).colorScheme;
     final minutes = (session.totalSeconds / 60).round().clamp(1, 1 << 30);
 
     return Card(
+      elevation: 0,
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: ext.border, width: 0.5),
+      ),
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(14),
         onTap: () => _openPlayer(context, _customToRun(session)),
         child: Padding(
-          padding: const EdgeInsets.all(16),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: ext.accentMuted,
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  Icons.self_improvement_outlined,
-                  color: ext.textMuted,
-                  size: 22,
-                ),
+              _buildSessionAvatar(
+                ext: ext,
+                icon: PhosphorIcons.flowerLotus(),
               ),
-              const SizedBox(width: 16),
+              const SizedBox(width: 12),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Имя — СЫРОЙ пользовательский текст (данные).
-                    Text(session.name, style: textTheme.titleMedium),
-                    const SizedBox(height: 6),
+                    // Имя — СЫРОЙ пользовательский текст.
+                    Text(
+                      session.name,
+                      style: textTheme.titleSmall,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    const SizedBox(height: 4),
                     Text(
                       '${plMinutes(context, minutes)} · ${plSteps(context, session.steps.length)}',
-                      style: textTheme.bodySmall?.copyWith(
+                      style: textTheme.labelSmall?.copyWith(
                         color: ext.textFaint,
                       ),
                     ),
                   ],
                 ),
               ),
+              // Кнопка удаления — ember (destructive, §4.3).
               IconButton(
-                icon: Icon(Icons.delete_outline, color: ext.ember),
+                icon: Icon(PhosphorIcons.trash(), size: 20, color: ext.ember),
                 tooltip: context.s('btn.delete'),
                 onPressed: onDelete,
               ),
@@ -512,10 +539,8 @@ class _CustomSessionCard extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Pose preview screen — показывается ПЕРЕД плеером для встроенных сессий.
-// Простой экран: иконка позы + название + описание + кнопка «Начать».
-// Без своей графики (визуал делается отдельно). Переживает 320px + textScale 2.0:
-// весь контент в SingleChildScrollView, текст переносится, кнопка на всю ширину.
+// Pose preview screen — показывается перед плеером для встроенных сессий.
+// SingleChildScrollView + FilledButton на всю ширину: выживает на 320px / textScale 2.
 // ---------------------------------------------------------------------------
 
 class _PosePreviewScreen extends StatelessWidget {
@@ -524,8 +549,7 @@ class _PosePreviewScreen extends StatelessWidget {
   final _Session session;
 
   void _start(BuildContext context) {
-    // Заменяем превью плеером: возврат из плеера (или «Завершить») ведёт
-    // сразу к списку сессий, а не обратно на экран позы.
+    // Заменяем превью плеером; возврат из плеера ведёт прямо к списку.
     Navigator.of(context).pushReplacement(
       MaterialPageRoute<void>(
         builder: (_) => _SessionPlayerScreen(
@@ -539,6 +563,7 @@ class _PosePreviewScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
@@ -547,11 +572,11 @@ class _PosePreviewScreen extends StatelessWidget {
       ),
       body: SafeArea(
         child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+          padding: const EdgeInsets.fromLTRB(24, 32, 24, 32),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              // Иконка позы — нейтральный круг (как карточки сессий).
+              // Иконка позы — большой нейтральный круг (96dp).
               Container(
                 width: 96,
                 height: 96,
@@ -561,38 +586,42 @@ class _PosePreviewScreen extends StatelessWidget {
                 ),
                 child: Icon(
                   session.poseIcon,
-                  color: ext.textMuted,
-                  size: 48,
+                  color: colorScheme.primary,
+                  size: 44,
                 ),
               ),
               const SizedBox(height: 24),
-              // Подпись-приглашение — bodyMedium + textMuted.
+              // Приглашение — bodyMedium + textMuted.
               Text(
                 context.s('meditation.pose_heading'),
                 style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 8),
               // Название позы — titleLarge.
               Text(
                 context.s(session.poseNameKey),
                 style: textTheme.titleLarge,
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 16),
-              // Описание позы — bodyLarge, переносится по словам.
+              const SizedBox(height: 20),
+              // Описание позы — bodyMedium, переносится по словам.
               Text(
                 context.s(session.poseDescKey),
-                style: textTheme.bodyLarge,
+                style: textTheme.bodyMedium?.copyWith(
+                  color: ext.textSecondary,
+                  height: 1.55,
+                ),
                 textAlign: TextAlign.center,
               ),
-              const SizedBox(height: 32),
-              // Первичное действие — кнопка «Начать» на всю ширину.
+              const SizedBox(height: 40),
+              // ONE primary FilledButton — кнопка «Начать».
               SizedBox(
                 width: double.infinity,
-                child: FilledButton(
+                child: FilledButton.icon(
+                  icon: Icon(PhosphorIcons.play(PhosphorIconsStyle.fill), size: 18),
+                  label: Text(context.s('meditation.start')),
                   onPressed: () => _start(context),
-                  child: Text(context.s('meditation.start')),
                 ),
               ),
             ],
@@ -622,37 +651,28 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
   int _remaining = 0;
   Timer? _timer;
 
-  // Первый шаг стартуем в didChangeDependencies (а НЕ в initState): _startStep
-  // читает MediaQuery.disableAnimationsOf(context), а обращение к
-  // InheritedWidget до завершения initState бросает исключение (red-screen).
+  // Первый шаг стартуем в didChangeDependencies — MediaQuery уже доступен.
   bool _started = false;
 
-  // Флаг паузы: таймер/анимация заморожены, _remaining не убывает.
   bool _paused = false;
 
-  // AnimationController для дуги обратного отсчёта
   late AnimationController _arcController;
 
-  // — Аудио (ADR-054 Phase 1, аддитивно к таймеру/шагам) —
-  // Всё по умолчанию выключено: текстовый поток работает как раньше.
+  // — Аудио (оба канала выключены по умолчанию) —
   bool _narrationEnabled = false;
   bool _ambientEnabled = false;
   double _ambientVolume = kMeditationAmbientDefaultVolume;
-  bool _audioControlsOpen = false; // компактная панель скрыта по умолчанию
+  bool _audioControlsOpen = false;
 
-  // Сервисы создаются ЛЕНИВО — только когда аудио реально включают. Так
-  // существующий текстовый поток (и тесты превью позы) не дёргают
-  // платформенные каналы flutter_tts/audioplayers.
+  // Сервисы создаются лениво.
   MeditationNarrator? _narrator;
   MeditationAmbientPlayer? _ambient;
 
-  // Тип выражения `field ??= value` в Dart остаётся nullable, поэтому `!`.
   MeditationNarrator get _narratorOrCreate =>
       (_narrator ??= ref.read(meditationNarratorProvider))!;
   MeditationAmbientPlayer get _ambientOrCreate =>
       (_ambient ??= ref.read(meditationAmbientPlayerProvider))!;
 
-  // Тег локали приложения для TTS ('en', 'ru', 'pt-BR'…).
   String get _localeTag => localeTag(Localizations.localeOf(context));
 
   bool get _isLastStep => _stepIndex >= widget.session.steps.length - 1;
@@ -667,7 +687,6 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    // Стартуем первый шаг один раз, когда MediaQuery уже доступен.
     if (!_started) {
       _started = true;
       _loadAudioPrefs();
@@ -675,9 +694,6 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     }
   }
 
-  /// Загружает настройки аудио из SharedPreferences (всё off по умолчанию) и
-  /// запускает эмбиент, если он был включён. Защищено try/catch: если провайдер
-  /// prefs не переопределён (некоторые тесты) — просто остаёмся на дефолтах.
   void _loadAudioPrefs() {
     try {
       final prefs = ref.read(sharedPreferencesProvider);
@@ -687,7 +703,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
       _ambientVolume = prefs.getDouble(kMeditationAmbientVolumeKey) ??
           kMeditationAmbientDefaultVolume;
     } catch (_) {
-      // prefs недоступны — дефолты (всё выключено).
+      // prefs недоступны — дефолты.
     }
     if (_ambientEnabled) {
       _ambientOrCreate.start(_ambientVolume);
@@ -698,7 +714,6 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
   void dispose() {
     _timer?.cancel();
     _arcController.dispose();
-    // Глушим аудио (fire-and-forget — dispose не async).
     _narrator?.stop();
     _narrator?.dispose();
     _ambient?.stop();
@@ -706,15 +721,13 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     super.dispose();
   }
 
-  // — Управление аудио —
-
   Future<void> _setNarration(bool value) async {
     setState(() => _narrationEnabled = value);
     try {
       await ref
           .read(sharedPreferencesProvider)
           .setBool(kMeditationNarrationEnabledKey, value);
-    } catch (_) {/* prefs недоступны — состояние всё равно применено */}
+    } catch (_) {}
     if (value) {
       _narratorOrCreate.speak(_currentStep.text, _localeTag);
     } else {
@@ -728,7 +741,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
       await ref
           .read(sharedPreferencesProvider)
           .setBool(kMeditationAmbientEnabledKey, value);
-    } catch (_) {/* no-op */}
+    } catch (_) {}
     if (value) {
       _ambientOrCreate.start(_ambientVolume);
     } else {
@@ -736,8 +749,6 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     }
   }
 
-  /// Живое изменение громкости (drag) — применяем к плееру сразу, в prefs
-  /// пишем по окончании жеста ([_persistAmbientVolume]).
   void _onAmbientVolumeChanged(double value) {
     setState(() => _ambientVolume = value);
     _ambient?.setVolume(value);
@@ -748,22 +759,18 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
       await ref
           .read(sharedPreferencesProvider)
           .setDouble(kMeditationAmbientVolumeKey, value);
-    } catch (_) {/* no-op */}
+    } catch (_) {}
   }
 
   void _startStep(_RunStep step) {
     _timer?.cancel();
-    // Сбрасываем паузу при переходе к новому шагу.
     _paused = false;
     _remaining = step.seconds;
 
-    // Озвучка нового шага (если включена). Текст уже локализован (_RunStep.text);
-    // голос читает его на языке приложения. Никогда не бросает.
     if (_narrationEnabled) {
       _narratorOrCreate.speak(step.text, _localeTag);
     }
 
-    // reduce motion → не анимировать дугу
     final reduce = MediaQuery.disableAnimationsOf(context);
     if (!reduce) {
       _arcController.duration = Duration(seconds: step.seconds);
@@ -777,11 +784,8 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
         t.cancel();
         return;
       }
-      // Пауза: пропускаем тик, таймер живёт, _remaining не убывает.
       if (_paused) return;
-      setState(() {
-        _remaining--;
-      });
+      setState(() => _remaining--);
       if (_remaining <= 0) {
         t.cancel();
         _onStepDone();
@@ -789,15 +793,12 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     });
   }
 
-  /// Пауза / Продолжить: замораживает обратный отсчёт и анимацию дуги.
   void _togglePause() {
     final reduce = MediaQuery.disableAnimationsOf(context);
     setState(() => _paused = !_paused);
     if (_paused) {
-      // Остановить анимацию дуги (таймер продолжает жить, тик пропускается).
       if (!reduce) _arcController.stop();
     } else {
-      // Продолжить дугу с текущей позиции.
       if (!reduce) _arcController.forward(from: _arcController.value);
     }
   }
@@ -811,9 +812,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
   }
 
   void _advanceStep() {
-    setState(() {
-      _stepIndex++;
-    });
+    setState(() => _stepIndex++);
     _startStep(widget.session.steps[_stepIndex]);
   }
 
@@ -821,16 +820,13 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     _timer?.cancel();
     _arcController.stop();
 
-    // Эмодзи для шкалы настроения — те же, что в diary_screen.dart.
     const moodEmojis = ['😞', '😕', '😐', '🙂', '😄'];
 
     showDialog<void>(
       context: context,
       barrierDismissible: false,
       builder: (dialogContext) {
-        // StatefulBuilder позволяет обновлять состояние выбора настроения
-        // внутри диалога без setState на экране плеера.
-        int? selectedMood; // null = ничего не выбрано (Done работает без)
+        int? selectedMood;
         final noteController = TextEditingController();
         final reduce = MediaQuery.disableAnimationsOf(dialogContext);
 
@@ -841,31 +837,31 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
             final textTheme = Theme.of(ctx).textTheme;
 
             return AlertDialog(
-              // Иконка завершения — success color (не accent, per ACCENT DISCIPLINE)
-              icon: Icon(Icons.spa_outlined, size: 40, color: ext.success),
+              // Phosphor flowerLotus — success color, не accent (discipline).
+              icon: Icon(
+                PhosphorIcons.flowerLotus(PhosphorIconsStyle.fill),
+                size: 40,
+                color: ext.success,
+              ),
               title: Text(ctx.s('meditation.session_complete')),
-              // Скроллируемый контент — защита от переполнения на маленьких экранах
-              // (320px, textScaleFactor 1.5–2.0) с 5 эмодзи + текстовым полем.
               content: SingleChildScrollView(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Сессия-название — bodyMedium (контекстная подпись)
                     Text(
                       '"${widget.session.name}"',
-                      style: textTheme.bodyMedium
-                          ?.copyWith(color: ext.textMuted),
+                      style: textTheme.bodyMedium?.copyWith(
+                        color: ext.textMuted,
+                      ),
                     ),
                     const SizedBox(height: 12),
-                    // Вопрос-приглашение — bodyLarge
                     Text(
                       ctx.s('meditation.mood_prompt'),
                       style: textTheme.bodyLarge,
                     ),
                     const SizedBox(height: 12),
-                    // Шкала настроения 1..5 — эмодзи с обёртыванием Wrap
-                    // (защита от overflow при крупном шрифте или узком экране).
+                    // Шкала 1..5 — Wrap защищает от overflow (320px / textScale 2).
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -874,20 +870,14 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                         final selected = selectedMood == value;
                         return GestureDetector(
                           onTap: () => setDialogState(
-                            () => selectedMood =
-                                selected ? null : value,
+                            () => selectedMood = selected ? null : value,
                           ),
                           child: AnimatedContainer(
-                            // snap=120ms (kDurationSnap)
-                            duration: reduce
-                                ? Duration.zero
-                                : kDurationSnap,
+                            duration: reduce ? Duration.zero : kDurationSnap,
                             curve: kCurveSnap,
                             padding: const EdgeInsets.all(8),
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              // Выбрано: accentMuted фон + accent бордер
-                              // Нет: прозрачный + border (нейтральный)
                               color: selected
                                   ? ext.accentMuted
                                   : Colors.transparent,
@@ -907,7 +897,6 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                       }),
                     ),
                     const SizedBox(height: 12),
-                    // Однострочное поле заметки (необязательно)
                     TextField(
                       controller: noteController,
                       maxLines: 1,
@@ -924,23 +913,11 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
               actions: [
                 TextButton(
                   onPressed: () async {
-                    // Снимаем текст ЗАРАНЕЕ — до dispose контроллера и до pop.
                     final noteText = noteController.text.trim();
                     final moodSnapshot = selectedMood;
-
-                    // Закрываем диалог ПЕРВЫМ, чтобы Flutter успел убрать
-                    // TextField из дерева до того, как мы вызовем dispose на
-                    // noteController. Иначе анимация закрытия строит кадры
-                    // с уже-disposed контроллером → red-screen.
                     if (ctx.mounted) Navigator.of(ctx).pop();
-
-                    // Освобождаем контроллер ПОСЛЕ pop (диалог вышел из дерева).
                     noteController.dispose();
-
-                    // Сохраняем только если выбрано настроение
                     if (moodSnapshot != null) {
-                      // Читаем DAO из провайдера (Drift, schemaVersion 22).
-                      // appendMeditationMood защищён try/catch внутри — не бросает.
                       final dao = ref.read(moodLogsDaoProvider);
                       await appendMeditationMood(
                         dao,
@@ -951,7 +928,6 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                           loggedAt: DateTime.now(),
                         ),
                       );
-                      // Показываем снэкбар только если экран плеера ещё живой.
                       if (mounted) {
                         ScaffoldMessenger.of(context).showSnackBar(
                           SnackBar(
@@ -960,7 +936,6 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                         );
                       }
                     }
-                    // Возвращаемся на экран списка сессий.
                     if (mounted) Navigator.of(context).pop();
                   },
                   child: Text(ctx.s('btn.done')),
@@ -986,11 +961,12 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
         title: Text(widget.session.name),
         centerTitle: true,
         actions: [
-          // Компактный доступ к аудио: иконка раскрывает/прячет панель
-          // (озвучка + эмбиент). Не добавляет тапов в основной поток.
+          // Иконка аудио-панели: speakerHigh (закрыта) / slidersHorizontal (открыта).
           IconButton(
             icon: Icon(
-              _audioControlsOpen ? Icons.tune : Icons.volume_up_outlined,
+              _audioControlsOpen
+                  ? PhosphorIcons.slidersHorizontal()
+                  : PhosphorIcons.speakerHigh(),
             ),
             tooltip: context.s('meditation.audio.controls'),
             onPressed: () =>
@@ -999,47 +975,60 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
         ],
       ),
       body: SafeArea(
-        // LayoutBuilder + SingleChildScrollView гарантируют, что контент НИКОГДА
-        // не переполняет экран (исходный red-screen «overflowed by 99751px»):
-        // при достатке места колонка растягивается на всю высоту (minHeight),
-        // при нехватке — скроллится. Текст шага получает гибкую (Flexible)
-        // высоту вместо Expanded, который ломался под неограниченной высотой.
+        // LayoutBuilder + SingleChildScrollView: никогда не переполняется.
+        // При достатке места — растягивается на всю высоту; иначе — скроллится.
         child: LayoutBuilder(
           builder: (context, constraints) {
             return SingleChildScrollView(
-              // 24dp screen margin, 16dp top — spec §4.1
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
               child: ConstrainedBox(
                 constraints: BoxConstraints(
-                  // Вычитаем вертикальный padding, чтобы IntrinsicHeight знал
-                  // целевую высоту без переполнения.
-                  minHeight: constraints.maxHeight - 32,
+                  minHeight: constraints.maxHeight - 40,
                 ),
                 child: IntrinsicHeight(
                   child: Column(
                     children: [
-                      // Панель аудио-управления (раскрывается иконкой в AppBar).
+                      // Аудио-панель (раскрывается иконкой в AppBar).
                       if (_audioControlsOpen) ...[
                         _buildAudioControls(context, ext, textTheme),
                         const SizedBox(height: 16),
                       ],
-                      // Прогресс шагов — bodySmall + textMuted
-                      Text(
-                        '${context.s('meditation.step')} ${_stepIndex + 1} / $stepCount',
-                        style: textTheme.bodySmall?.copyWith(
-                          color: ext.textMuted,
-                        ),
+
+                      // Прогресс шагов — labelSmall + textMuted.
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            '${context.s('meditation.step')} ${_stepIndex + 1} / $stepCount',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: ext.textMuted,
+                            ),
+                          ),
+                          // Процент завершения (дополнительный контекст).
+                          Text(
+                            '${((_stepIndex + 1) / stepCount * 100).round()}%',
+                            style: textTheme.labelSmall?.copyWith(
+                              color: ext.textFaint,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 8),
-                      // Линейный прогресс — accent (несёт смысл прогресса)
-                      LinearProgressIndicator(
-                        value: (_stepIndex + 1) / stepCount,
-                        minHeight: 4,
+                      const SizedBox(height: 6),
+                      // Тонкий прогресс-бар — accent (несёт смысл прогресса).
+                      ClipRRect(
                         borderRadius: BorderRadius.circular(2),
+                        child: LinearProgressIndicator(
+                          value: (_stepIndex + 1) / stepCount,
+                          minHeight: 3,
+                          backgroundColor: ext.border,
+                          valueColor: AlwaysStoppedAnimation<Color>(
+                            colorScheme.primary,
+                          ),
+                        ),
                       ),
                       const SizedBox(height: 40),
 
-                      // Дуга таймера — accent (первичная метрика текущего шага)
+                      // Дуга таймера 200×200 — accent.
                       SizedBox(
                         width: 200,
                         height: 200,
@@ -1048,6 +1037,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                                 remaining: _remaining,
                                 total: _currentStep.seconds,
                                 color: colorScheme.primary,
+                                trackColor: ext.border,
                                 textTheme: textTheme,
                               )
                             : AnimatedBuilder(
@@ -1059,9 +1049,8 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                                     trackColor: ext.border,
                                   ),
                                   child: Center(
-                                    // Таймер внутри дуги — displaySmall
                                     child: Text(
-                                      _formatSeconds(_remaining),
+                                      _formatTime(_remaining),
                                       style: textTheme.displaySmall,
                                     ),
                                   ),
@@ -1071,14 +1060,15 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
 
                       const SizedBox(height: 40),
 
-                      // Текст шага — bodyLarge, центрально. Flexible забирает
-                      // доступное пространство, но не переполняет (под
-                      // IntrinsicHeight у Column ограниченная высота).
+                      // Текст шага — bodyLarge, центрально. Flexible не переполняет.
                       Flexible(
                         child: Center(
                           child: Text(
                             _currentStep.text,
-                            style: textTheme.bodyLarge,
+                            style: textTheme.bodyLarge?.copyWith(
+                              color: ext.textSecondary,
+                              height: 1.55,
+                            ),
                             textAlign: TextAlign.center,
                           ),
                         ),
@@ -1086,13 +1076,15 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
 
                       const SizedBox(height: 24),
 
-                      // Кнопка Пауза/Продолжить — OutlinedButton (вторичное),
-                      // замораживает _remaining и _arcController.
+                      // Пауза / Продолжить — OutlinedButton (вторичное).
                       SizedBox(
                         width: double.infinity,
                         child: OutlinedButton.icon(
                           icon: Icon(
-                            _paused ? Icons.play_arrow : Icons.pause,
+                            _paused
+                                ? PhosphorIcons.play(PhosphorIconsStyle.fill)
+                                : PhosphorIcons.pause(PhosphorIconsStyle.fill),
+                            size: 18,
                           ),
                           label: Text(
                             _paused
@@ -1104,7 +1096,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                       ),
                       const SizedBox(height: 8),
 
-                      // Единственное первичное действие — FilledButton
+                      // ONE primary FilledButton — единственное первичное действие.
                       SizedBox(
                         width: double.infinity,
                         child: FilledButton(
@@ -1125,7 +1117,7 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
                       ),
                       const SizedBox(height: 8),
 
-                      // Вторичное действие — TextButton (низкий приоритет)
+                      // Завершить сессию — TextButton (низкий приоритет).
                       TextButton(
                         onPressed: () => Navigator.of(context).pop(),
                         child: Text(context.s('meditation.end_session')),
@@ -1141,16 +1133,20 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     );
   }
 
-  /// Компактная панель аудио: тумблер озвучки + тумблер эмбиента + слайдер
-  /// громкости (показывается, когда эмбиент включён). Переживает 320px /
-  /// textScale 2.0: SwitchListTile переносит заголовок, слайдер тянется на
-  /// доступную ширину, проценты — короткий хвост.
+  // Компактная панель аудио: нарративный TTS + фоновый эмбиент + громкость.
   Widget _buildAudioControls(
     BuildContext context,
     FocusThemeExtension ext,
     TextTheme textTheme,
   ) {
+    final colorScheme = Theme.of(context).colorScheme;
     return Card(
+      elevation: 0,
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(12),
+        side: BorderSide(color: ext.border, width: 0.5),
+      ),
       margin: EdgeInsets.zero,
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
@@ -1161,8 +1157,9 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
               secondary: Icon(
-                Icons.record_voice_over_outlined,
+                PhosphorIcons.waveform(),
                 color: ext.textMuted,
+                size: 20,
               ),
               title: Text(
                 context.s('meditation.audio.narration'),
@@ -1174,7 +1171,11 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
             // Фоновый эмбиент.
             SwitchListTile(
               contentPadding: EdgeInsets.zero,
-              secondary: Icon(Icons.waves_outlined, color: ext.textMuted),
+              secondary: Icon(
+                PhosphorIcons.wind(),
+                color: ext.textMuted,
+                size: 20,
+              ),
               title: Text(
                 context.s('meditation.audio.ambient'),
                 style: textTheme.bodyMedium,
@@ -1182,19 +1183,27 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
               value: _ambientEnabled,
               onChanged: _setAmbient,
             ),
-            // Громкость эмбиента — только когда эмбиент включён.
+            // Громкость — только когда эмбиент включён.
             if (_ambientEnabled) ...[
               Row(
                 children: [
+                  Icon(
+                    PhosphorIcons.speakerHigh(),
+                    color: ext.textFaint,
+                    size: 16,
+                  ),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: Text(
                       context.s('meditation.audio.volume'),
-                      style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                      style:
+                          textTheme.bodySmall?.copyWith(color: ext.textMuted),
                     ),
                   ),
                   Text(
                     '${(_ambientVolume * 100).round()}%',
-                    style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                    style:
+                        textTheme.labelSmall?.copyWith(color: ext.textFaint),
                   ),
                 ],
               ),
@@ -1210,13 +1219,11 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
     );
   }
 
-  String _formatSeconds(int s) {
-    final m = s ~/ 60;
-    final sec = s % 60;
-    if (m > 0) {
-      return '$m:${sec.toString().padLeft(2, '0')}';
-    }
-    return '${sec}s';
+  // MM:SS формат — без хардкода 's' суффикса, универсален для всех локалей.
+  String _formatTime(int seconds) {
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return '$m:${s.toString().padLeft(2, '0')}';
   }
 }
 
@@ -1224,7 +1231,6 @@ class _SessionPlayerScreenState extends ConsumerState<_SessionPlayerScreen>
 // CustomPainters
 // ---------------------------------------------------------------------------
 
-/// Дуга таймера: прогресс уменьшается по мере хода времени.
 class _ArcPainter extends CustomPainter {
   const _ArcPainter({
     required this.progress,
@@ -1232,27 +1238,27 @@ class _ArcPainter extends CustomPainter {
     required this.trackColor,
   });
 
-  final double progress; // 1.0 → полная дуга, 0.0 → пустая
+  final double progress;
   final Color color;
-  final Color trackColor; // из темы (ext.border)
+  final Color trackColor;
 
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = (size.shortestSide / 2) - 8;
+    final radius = (size.shortestSide / 2) - 10;
 
-    // Фоновая дорожка — border color (нейтральный)
+    // Фоновая дорожка.
     canvas.drawCircle(
       center,
       radius,
       Paint()
         ..color = trackColor
         ..style = PaintingStyle.stroke
-        ..strokeWidth = 8
+        ..strokeWidth = 6
         ..strokeCap = StrokeCap.round,
     );
 
-    // Прогресс-дуга — accent (несёт смысл таймера)
+    // Прогресс-дуга — accent.
     if (progress > 0) {
       canvas.drawArc(
         Rect.fromCircle(center: center, radius: radius),
@@ -1262,7 +1268,7 @@ class _ArcPainter extends CustomPainter {
         Paint()
           ..color = color
           ..style = PaintingStyle.stroke
-          ..strokeWidth = 8
+          ..strokeWidth = 6
           ..strokeCap = StrokeCap.round,
       );
     }
@@ -1270,39 +1276,41 @@ class _ArcPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_ArcPainter old) =>
-      old.progress != progress || old.color != color || old.trackColor != color;
+      old.progress != progress ||
+      old.color != color ||
+      old.trackColor != trackColor;
 }
 
-/// Статичная дуга + время для reduce-motion режима.
+// Статичная дуга + время для reduce-motion режима.
 class _StaticArcTimer extends StatelessWidget {
   const _StaticArcTimer({
     required this.remaining,
     required this.total,
     required this.color,
+    required this.trackColor,
     required this.textTheme,
   });
 
   final int remaining;
   final int total;
   final Color color;
+  final Color trackColor;
   final TextTheme textTheme;
 
   @override
   Widget build(BuildContext context) {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final progress = total > 0 ? remaining / total : 0.0;
     final m = remaining ~/ 60;
     final s = remaining % 60;
-    final label = m > 0 ? '$m:${s.toString().padLeft(2, '0')}' : '${s}s';
+    final label = '$m:${s.toString().padLeft(2, '0')}';
 
     return CustomPaint(
       painter: _ArcPainter(
         progress: progress,
         color: color,
-        trackColor: ext.border,
+        trackColor: trackColor,
       ),
       child: Center(
-        // displaySmall для крупного таймера внутри дуги
         child: Text(label, style: textTheme.displaySmall),
       ),
     );

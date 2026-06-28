@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 // intl также экспортирует TextDirection (Bidi) — прячем, чтобы _PlanViewSwitcher
 // мог использовать flutter-овский TextDirection.ltr в TextPainter без коллизии.
 import 'package:intl/intl.dart' hide TextDirection;
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/settings/fab_position_provider.dart';
@@ -84,13 +85,13 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               elevation: 4,
               focusElevation: 6,
               hoverElevation: 6,
-              child: const Icon(Icons.add),
+              child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
             )
           : FloatingActionButton(
               heroTag: 'plan_add_fab_mobile',
               onPressed: () => showAddTaskSheet(context, day: selectedDay),
               tooltip: context.s('today.fab_add'),
-              child: const Icon(Icons.add),
+              child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
             ),
       body: isTablet
           ? _buildTabletLayout(
@@ -242,7 +243,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                                   ),
                                   const SizedBox(width: 2),
                                   Icon(
-                                    Icons.arrow_drop_down,
+                                    PhosphorIcons.caretDown(PhosphorIconsStyle.regular),
                                     size: 18,
                                     color: textMuted,
                                   ),
@@ -265,7 +266,9 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                           // Нейтральная иконка без акцента (accent discipline)
                           IconButton(
                             icon: Icon(
-                              searchVisible ? Icons.search_off : Icons.search,
+                              searchVisible
+                                ? PhosphorIcons.magnifyingGlass(PhosphorIconsStyle.fill)
+                                : PhosphorIcons.magnifyingGlass(PhosphorIconsStyle.regular),
                               color: textMuted,
                             ),
                             tooltip: context.s('plan.search_tooltip'),
@@ -376,7 +379,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                       ),
                     ),
                     Icon(
-                      Icons.arrow_drop_down,
+                      PhosphorIcons.caretDown(PhosphorIconsStyle.regular),
                       size: 16,
                       // нейтральный цвет для иконок тулбара (accent discipline)
                       color: textMuted,
@@ -406,7 +409,9 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
           IconButton(
             visualDensity: VisualDensity.compact,
             icon: Icon(
-              searchVisible ? Icons.search_off : Icons.search,
+              searchVisible
+                                ? PhosphorIcons.magnifyingGlass(PhosphorIconsStyle.fill)
+                                : PhosphorIcons.magnifyingGlass(PhosphorIconsStyle.regular),
               color: textMuted,
             ),
             tooltip: context.s('plan.search_tooltip'),
@@ -730,7 +735,7 @@ class _ViewDropdown extends ConsumerWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            Icon(Icons.arrow_drop_down, size: 18, color: textMuted),
+            Icon(PhosphorIcons.caretDown(PhosphorIconsStyle.regular), size: 18, color: textMuted),
           ],
         ),
       ),
@@ -755,7 +760,9 @@ class _LayoutToggleButton extends ConsumerWidget {
       visualDensity: VisualDensity.compact,
       icon: Icon(
         // Показываем иконку ЦЕЛЕВОЙ раскладки (на что переключимся).
-        isGrid ? Icons.view_agenda_outlined : Icons.grid_on,
+        isGrid
+            ? PhosphorIcons.listBullets(PhosphorIconsStyle.regular)
+            : PhosphorIcons.squaresFour(PhosphorIconsStyle.regular),
         color: textMuted,
       ),
       tooltip: isGrid
@@ -793,10 +800,16 @@ class _SearchFieldState extends State<_SearchField> {
       autofocus: true,
       decoration: InputDecoration(
         hintText: context.s('plan.search_hint'),
-        prefixIcon: const Icon(Icons.search, size: 20),
+        prefixIcon: Icon(
+          PhosphorIcons.magnifyingGlass(PhosphorIconsStyle.regular),
+          size: 20,
+        ),
         suffixIcon: _controller.text.isNotEmpty
             ? IconButton(
-                icon: const Icon(Icons.clear, size: 20),
+                icon: Icon(
+                  PhosphorIcons.x(PhosphorIconsStyle.regular),
+                  size: 20,
+                ),
                 onPressed: () {
                   _controller.clear();
                   widget.onChanged('');

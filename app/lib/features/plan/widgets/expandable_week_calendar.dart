@@ -16,6 +16,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../../core/animations/constants.dart';
 import '../../../core/database/database.dart';
@@ -265,7 +266,10 @@ class _ExpandableWeekCalendarState
                             children: [
                               IconButton(
                                 visualDensity: VisualDensity.compact,
-                                icon: Icon(Icons.chevron_left, color: textMuted),
+                                icon: Icon(
+                                  PhosphorIcons.caretLeft(PhosphorIconsStyle.regular),
+                                  color: textMuted,
+                                ),
                                 onPressed: () => _changeMonth(-1),
                               ),
                               Text(
@@ -274,8 +278,10 @@ class _ExpandableWeekCalendarState
                               ),
                               IconButton(
                                 visualDensity: VisualDensity.compact,
-                                icon:
-                                    Icon(Icons.chevron_right, color: textMuted),
+                                icon: Icon(
+                                  PhosphorIcons.caretRight(PhosphorIconsStyle.regular),
+                                  color: textMuted,
+                                ),
                                 onPressed: () => _changeMonth(1),
                               ),
                             ],

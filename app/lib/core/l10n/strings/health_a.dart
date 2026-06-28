@@ -1028,6 +1028,52 @@ const Map<String, Map<String, String>> healthAStrings = {
     'ko': '멤버 {count}명',
   },
 
+  // Локализованный формат продолжительности: "{h}ч {m}м" для таймера/лидерборда
+  'costudy.timer_hm': {
+    'en': '{h}h {m}m',
+    'ru': '{h}ч {m}м',
+    'de': '{h}h {m}m',
+    'fr': '{h}h {m}min',
+    'it': '{h}h {m}m',
+    'pt': '{h}h {m}min',
+    'es': '{h}h {m}min',
+    'id': '{h}j {m}m',
+    'hi': '{h}घं {m}मि',
+    'ja': '{h}時間{m}分',
+    'ko': '{h}시간 {m}분',
+  },
+
+  // Локализованный формат минут: "{m}м" для лидерборда (< 1 часа)
+  // и статуса «Studying · Xm» в строке друга
+  'costudy.timer_m': {
+    'en': '{m}m',
+    'ru': '{m}м',
+    'de': '{m}m',
+    'fr': '{m}min',
+    'it': '{m}m',
+    'pt': '{m}min',
+    'es': '{m}min',
+    'id': '{m}m',
+    'hi': '{m}मि',
+    'ja': '{m}分',
+    'ko': '{m}분',
+  },
+
+  // CTA-кнопка в пустом состоянии списка друзей
+  'costudy.add_by_email': {
+    'en': 'Add by email',
+    'ru': 'Добавить по email',
+    'de': 'Per E-Mail hinzufügen',
+    'fr': 'Ajouter par e-mail',
+    'it': 'Aggiungi per email',
+    'pt': 'Adicionar por e-mail',
+    'es': 'Agregar por correo',
+    'id': 'Tambah via email',
+    'hi': 'ईमेल से जोड़ें',
+    'ja': 'メールで追加',
+    'ko': '이메일로 추가',
+  },
+
   // ---------------------------------------------------------------------------
   // Habits screen
   // ---------------------------------------------------------------------------

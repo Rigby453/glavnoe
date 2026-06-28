@@ -1,5 +1,7 @@
-// Экран профиля (не таб). Показывает статус аккаунта и кнопку выхода/входа.
-// При выходе routerProvider уводит на /auth.
+// Экран профиля (Kaname redesign §4.2 — dense hairline rows + Phosphor).
+// ProfileScreen — главное меню-хаб.
+// ProfileAccountScreen, ProfileBehaviorScreen, ProfileAppearanceScreen —
+//   подстраницы, живут здесь и экспортируются стабами.
 
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
@@ -7,10 +9,12 @@ import 'package:flutter/services.dart' show Clipboard, ClipboardData;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:package_info_plus/package_info_plus.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:intl/intl.dart';
 
+import '../../core/branding.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../mascot/kai_mascot.dart';
@@ -33,16 +37,18 @@ import '../../core/mood/mood_provider.dart';
 import '../../core/settings/tone_provider.dart';
 import '../../services/notifications/notification_service.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/theme/custom_theme_provider.dart';
 import '../../core/theme/theme_provider.dart';
 import '../../services/api/api_client.dart';
-import '../../core/settings/fab_position_provider.dart';
 import '../../core/settings/feature_modes_provider.dart';
 import '../../core/widgets/kai_loader.dart';
 import '../../services/streak/freeze_accrual_service.dart';
 import '../auth/auth_controller.dart';
 
-/// Streak пользователя (локально; наполняется через синхронизацию).
+// ---------------------------------------------------------------------------
+// Провайдеры
+// ---------------------------------------------------------------------------
+
+/// Стрик пользователя (локально; наполняется через синхронизацию).
 final _streakProvider = StreamProvider.autoDispose<StreakTableData?>((ref) {
   return ref.watch(streakDaoProvider).watchStreak();
 });
@@ -52,13 +58,116 @@ final currentUserProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((r
   final auth = ref.watch(authControllerProvider);
   if (!auth) return null;
   final api = ref.read(apiClientProvider);
-  if (api.token == null) return null; // офлайн-режим
+  if (api.token == null) return null;
   try {
     return await api.me();
   } on ApiException {
     return null;
   }
 });
+
+// ---------------------------------------------------------------------------
+// §4.2 Вспомогательные виджеты: hairline-строки и секции
+// ---------------------------------------------------------------------------
+
+/// Тонкий разделитель между строками (0.5dp, border-цвет темы).
+class _Hairline extends StatelessWidget {
+  const _Hairline();
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return Divider(height: 1, thickness: 0.5, color: ext.border);
+  }
+}
+
+/// Метка секции (sentence case, muted, labelSmall).
+class _SectionLabel extends StatelessWidget {
+  const _SectionLabel(this.label, {this.topPad = 28});
+
+  final String label;
+  final double topPad;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return Padding(
+      padding: EdgeInsets.fromLTRB(0, topPad, 0, 6),
+      child: Text(
+        label,
+        style: textTheme.labelSmall?.copyWith(color: ext.textMuted),
+      ),
+    );
+  }
+}
+
+/// Плотная навигационная строка §4.2: иконка 20dp + заголовок + trailing.
+/// Используется для всех nav-строк профиля.
+class _NavRow extends StatelessWidget {
+  const _NavRow({
+    required this.icon,
+    required this.title,
+    this.subtitle,
+    this.trailing,
+    this.onTap,
+  });
+
+  final Widget icon;   // Phosphor icon, размер задаётся снаружи
+  final String title;
+  final String? subtitle;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 12),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            SizedBox(width: 20, height: 20, child: Center(child: icon)),
+            const SizedBox(width: 12),
+            Expanded(
+              child: subtitle == null
+                  ? Text(title, style: textTheme.bodyLarge)
+                  : Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(title, style: textTheme.bodyLarge),
+                        Text(
+                          subtitle!,
+                          style: textTheme.bodySmall
+                              ?.copyWith(color: ext.textMuted),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+            ),
+            const SizedBox(width: 8),
+            trailing ??
+                Icon(
+                  PhosphorIcons.caretRight(),
+                  size: 16,
+                  color: ext.textFaint,
+                ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Главный экран профиля (хаб-меню)
+// ---------------------------------------------------------------------------
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
@@ -71,8 +180,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   void initState() {
     super.initState();
-    // Начислить созревшие заморозки при открытии профиля.
-    // Делаем это постфреймово, чтобы ref был готов.
     WidgetsBinding.instance.addPostFrameCallback((_) => _runAccrual());
   }
 
@@ -84,7 +191,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     if (!mounted) return;
 
-    // Показать снэкбар при начислении.
     if (result.addedFreezes > 0) {
       final msg = result.addedFreezes == 1
           ? context.s('streak.freeze_accrued').replaceAll('{n}', '1')
@@ -95,7 +201,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
       );
     }
 
-    // Показать снэкбар за каждый новый порог наград.
     for (final threshold in result.newlyClaimedThresholds) {
       if (!mounted) break;
       final rewardLabel = _rewardLabel(context, threshold);
@@ -111,7 +216,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  /// Локализованное название награды по порогу.
   String _rewardLabel(BuildContext ctx, int threshold) {
     switch (threshold) {
       case 10:
@@ -128,80 +232,157 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final userAsync = ref.watch(currentUserProvider);
+    final isAuthenticated =
+        ref.read(authControllerProvider.notifier).isAuthenticated;
 
     return Scaffold(
-      appBar: AppBar(title: Text(context.s('profile.title'))),
+      appBar: AppBar(
+        title: Text(kAppWordmark),
+        centerTitle: false,
+      ),
       body: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
         children: [
-          // Мини-шапка: имя / email пользователя
-          userAsync.when(
-            loading: () => Center(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 16),
-                child: KaiLoader(label: context.s('loading.generic')),
-              ),
-            ),
-            error: (_, _) => const SizedBox.shrink(),
-            data: (user) {
-              final name = user == null
-                  ? context.s('profile.offline_mode')
-                  : ((user['name'] as String?) ?? context.s('profile.you'));
-              final email =
-                  user != null ? ((user['email'] as String?) ?? '') : '';
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(name, style: textTheme.headlineSmall),
-                  if (email.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      email,
-                      style: textTheme.bodyMedium
-                          ?.copyWith(color: ext.textMuted),
-                    ),
-                  ],
-                ],
+          // ── Шапка: аватар + имя + email ──────────────────────────────────
+          const SizedBox(height: 12),
+          _UserHeader(userAsync: userAsync),
+          const SizedBox(height: 20),
+          const _Hairline(),
+
+          // ── Аккаунт ──────────────────────────────────────────────────────
+          _NavRow(
+            icon: Icon(PhosphorIcons.user(), size: 20, color: ext.textMuted),
+            title: context.s('profile.section_account'),
+            onTap: () => context.push('/profile/account'),
+          ),
+          const _Hairline(),
+          const SizedBox(height: 8),
+
+          // ── Прогресс (геймификация, перенесена из Today) ─────────────────
+          _SectionLabel(context.s('profile.section_progress'), topPad: 0),
+          const _ProfileProgressSection(),
+
+          // ── Подписка, шеринг ─────────────────────────────────────────────
+          const SizedBox(height: 20),
+          const _Hairline(),
+          const _SubscriptionRow(),
+          const _Hairline(),
+          const _ShareWeekRow(),
+          const _Hairline(),
+          const _SharedWithMeRow(),
+          const _Hairline(),
+
+          // ── Данные / настройки ───────────────────────────────────────────
+          _SectionLabel(context.s('profile.section_preferences')),
+          _NavRow(
+            icon: Icon(PhosphorIcons.target(), size: 20, color: ext.textMuted),
+            title: context.s('profile.my_data'),
+            subtitle: context.s('profile.my_data_subtitle'),
+            onTap: () => context.push('/profile/my-data'),
+          ),
+          const _Hairline(),
+          _NavRow(
+            icon: Icon(PhosphorIcons.slidersHorizontal(), size: 20, color: ext.textMuted),
+            title: context.s('profile.section_defaults'),
+            onTap: () => context.push('/profile/behavior'),
+          ),
+          const _Hairline(),
+          _NavRow(
+            icon: Icon(PhosphorIcons.palette(), size: 20, color: ext.textMuted),
+            title: context.s('profile.section_appearance'),
+            onTap: () => context.push('/profile/appearance'),
+          ),
+          const _Hairline(),
+          _NavRow(
+            icon: Icon(PhosphorIcons.gearSix(), size: 20, color: ext.textMuted),
+            title: context.s('profile.section_behavior'),
+            onTap: () => context.push('/profile/behavior'),
+          ),
+          const _Hairline(),
+
+          // ── Поддержка ────────────────────────────────────────────────────
+          _SectionLabel(context.s('profile.section_support')),
+          _NavRow(
+            icon: Icon(PhosphorIcons.star(), size: 20, color: ext.textMuted),
+            title: context.s('profile.rate_app'),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.s('profile.rate_coming_soon')),
+                ),
               );
             },
           ),
+          const _Hairline(),
+          _NavRow(
+            icon: Icon(PhosphorIcons.chatText(), size: 20, color: ext.textMuted),
+            title: context.s('profile.send_feedback'),
+            subtitle: context.s('profile.feedback_subtitle'),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.s('profile.feedback_email')),
+                ),
+              );
+            },
+          ),
+          const _Hairline(),
+          _NavRow(
+            icon: Icon(PhosphorIcons.shieldCheck(), size: 20, color: ext.textMuted),
+            title: context.s('profile.terms_privacy'),
+            onTap: () => context.push('/terms'),
+          ),
+          const _Hairline(),
 
+          // ── Реферал ──────────────────────────────────────────────────────
+          _SectionLabel(context.s('profile.invite_title')),
+          _NavRow(
+            icon: Icon(PhosphorIcons.userPlus(), size: 20, color: ext.textMuted),
+            title: context.s('profile.invite_title'),
+            subtitle: context.s('profile.invite_subtitle'),
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text(context.s('profile.referral_coming_soon')),
+                ),
+              );
+            },
+          ),
+          const _Hairline(),
+
+          // ── Выход / вход ─────────────────────────────────────────────────
+          const SizedBox(height: 28),
+          isAuthenticated
+              ? OutlinedButton.icon(
+                  icon: Icon(PhosphorIcons.signOut(), size: 18),
+                  label: Text(context.s('btn.sign_out')),
+                  onPressed: () async {
+                    await ref
+                        .read(authControllerProvider.notifier)
+                        .logout();
+                  },
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: ext.danger,
+                    side: BorderSide(color: ext.danger),
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                )
+              : FilledButton.icon(
+                  icon: Icon(PhosphorIcons.signIn(), size: 18),
+                  label: Text(context.s('btn.sign_in')),
+                  onPressed: () async {
+                    await ref
+                        .read(authControllerProvider.notifier)
+                        .logout();
+                  },
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                  ),
+                ),
           const SizedBox(height: 20),
-          const Divider(),
-          const SizedBox(height: 4),
-
-          // Внешний вид → /profile/appearance
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.palette_outlined, color: ext.textMuted),
-            title: Text(context.s('profile.section_appearance')),
-            trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-            onTap: () => context.push('/profile/appearance'),
-          ),
-
-          // Поведение → /profile/behavior
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.tune_rounded, color: ext.textMuted),
-            title: Text(context.s('profile.section_behavior')),
-            trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-            onTap: () => context.push('/profile/behavior'),
-          ),
-
-          // Аккаунт → /profile/account
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: Icon(Icons.manage_accounts_outlined, color: ext.textMuted),
-            title: Text(context.s('profile.section_account')),
-            trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-            onTap: () => context.push('/profile/account'),
-          ),
-
-          // Подвал с версией сборки — позволяет убедиться, что на устройстве
-          // установлена актуальная версия приложения.
-          const SizedBox(height: 32),
           const Center(child: _AppVersionLabel()),
           const SizedBox(height: 8),
         ],
@@ -211,105 +392,254 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 }
 
 // ---------------------------------------------------------------------------
-// Карточка стрика + заморозок с прогрессом наград
+// Шапка профиля (аватар + имя + email)
 // ---------------------------------------------------------------------------
 
-/// Карточка со статистикой стрика, числом заморозок и прогресс-баром к
-/// ближайшей награде за накопление заморозок.
-class _FreezeCard extends ConsumerWidget {
-  const _FreezeCard({this.streak});
+class _UserHeader extends StatelessWidget {
+  const _UserHeader({required this.userAsync});
 
-  final StreakTableData? streak;
+  final AsyncValue<Map<String, dynamic>?> userAsync;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return userAsync.when(
+      loading: () => Center(
+        child: KaiLoader(label: context.s('loading.generic')),
+      ),
+      error: (_, _) => const SizedBox.shrink(),
+      data: (user) {
+        final name = user == null
+            ? context.s('profile.offline_mode')
+            : ((user['name'] as String?) ?? context.s('profile.you'));
+        final email =
+            user != null ? ((user['email'] as String?) ?? '') : '';
+
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            // Аватар в акцентном кружке
+            Container(
+              width: 48,
+              height: 48,
+              decoration: BoxDecoration(
+                color: colorScheme.primary.withAlpha(18),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: colorScheme.primary.withAlpha(40),
+                  width: 0.5,
+                ),
+              ),
+              child: Center(
+                child: Icon(
+                  PhosphorIcons.user(PhosphorIconsStyle.fill),
+                  size: 22,
+                  color: colorScheme.primary,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    name,
+                    style: textTheme.titleMedium,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (email.isNotEmpty) ...[
+                    const SizedBox(height: 2),
+                    Text(
+                      email,
+                      style: textTheme.bodySmall
+                          ?.copyWith(color: ext.textMuted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Секция «Прогресс» (геймификация, перенесена из Today)
+// ---------------------------------------------------------------------------
+
+/// Компактная карточка стрика/заморозок/наград — теперь в профиле.
+class _ProfileProgressSection extends ConsumerWidget {
+  const _ProfileProgressSection();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final streak = ref.watch(_streakProvider).valueOrNull;
     final freezes = streak?.freezeCount ?? 0;
-
     final svc = ref.read(freezeAccrualServiceProvider);
     final nextThreshold = svc.nextRewardThreshold(freezes);
 
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            // Строка с тремя статами
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colorScheme.surface,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: ext.border, width: 0.5),
+      ),
+      child: Column(
+        children: [
+          // Три статы: стрик / рекорд / заморозки
+          IntrinsicHeight(
+            child: Row(
               children: [
                 Expanded(
-                  child: _StreakStat(
-                    label: context.s('profile.streak'),
-                    value: '${streak?.current ?? 0}',
-                  ),
-                ),
-                Expanded(
-                  child: _StreakStat(
-                    label: context.s('profile.streak_best'),
-                    value: '${streak?.longest ?? 0}',
-                  ),
-                ),
-                Expanded(
-                  child: Tooltip(
-                    message: context.s('streak.freeze'),
-                    child: _StreakStat(
-                      label: context.s('profile.streak_freezes'),
-                      value: '$freezes',
+                  child: _ProgressStat(
+                    icon: Icon(
+                      PhosphorIcons.fire(PhosphorIconsStyle.fill),
+                      size: 16,
+                      color: ext.ember,
                     ),
+                    value: '${streak?.current ?? 0}',
+                    label: context.s('profile.streak'),
+                  ),
+                ),
+                VerticalDivider(
+                  width: 1,
+                  thickness: 0.5,
+                  color: ext.border,
+                ),
+                Expanded(
+                  child: _ProgressStat(
+                    icon: Icon(
+                      PhosphorIcons.trophy(),
+                      size: 16,
+                      color: ext.textMuted,
+                    ),
+                    value: '${streak?.longest ?? 0}',
+                    label: context.s('profile.streak_best'),
+                  ),
+                ),
+                VerticalDivider(
+                  width: 1,
+                  thickness: 0.5,
+                  color: ext.border,
+                ),
+                Expanded(
+                  child: _ProgressStat(
+                    icon: Icon(
+                      PhosphorIcons.snowflake(),
+                      size: 16,
+                      color: colorScheme.primary,
+                    ),
+                    value: '$freezes',
+                    label: context.s('profile.streak_freezes'),
                   ),
                 ),
               ],
             ),
+          ),
 
-            // Подсказка про заморозку (если есть хотя бы одна)
-            if (freezes > 0) ...[
-              const SizedBox(height: 12),
-              Divider(color: ext.border, height: 1),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  const Text('😌', style: TextStyle(fontSize: 20)),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      context.s('profile.freeze_hint'),
-                      style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-                    ),
+          // Подсказка про заморозку (если есть хотя бы одна)
+          if (freezes > 0) ...[
+            const SizedBox(height: 10),
+            Divider(color: ext.border, height: 1, thickness: 0.5),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Icon(PhosphorIcons.info(), size: 14, color: ext.textFaint),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    context.s('profile.freeze_hint'),
+                    style: textTheme.bodySmall
+                        ?.copyWith(color: ext.textMuted),
                   ),
-                ],
-              ),
-            ],
-
-            // Прогресс к ближайшей награде
-            if (nextThreshold != null) ...[
-              const SizedBox(height: 12),
-              Divider(color: ext.border, height: 1),
-              const SizedBox(height: 12),
-              _FreezeRewardProgress(
-                currentFreezes: freezes,
-                threshold: nextThreshold,
-              ),
-            ] else ...[
-              // Все награды получены
-              const SizedBox(height: 12),
-              Divider(color: ext.border, height: 1),
-              const SizedBox(height: 8),
-              Text(
-                context.s('streak.freeze_reward_all_claimed'),
-                style: textTheme.bodySmall?.copyWith(color: ext.success),
-                textAlign: TextAlign.center,
-              ),
-            ],
+                ),
+              ],
+            ),
           ],
-        ),
+
+          // Прогресс к ближайшей награде
+          if (nextThreshold != null) ...[
+            const SizedBox(height: 10),
+            Divider(color: ext.border, height: 1, thickness: 0.5),
+            const SizedBox(height: 10),
+            _FreezeRewardProgress(
+              currentFreezes: freezes,
+              threshold: nextThreshold,
+            ),
+          ] else if (freezes > 0) ...[
+            const SizedBox(height: 10),
+            Divider(color: ext.border, height: 1, thickness: 0.5),
+            const SizedBox(height: 8),
+            Text(
+              context.s('streak.freeze_reward_all_claimed'),
+              style: textTheme.bodySmall?.copyWith(color: ext.success),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ],
       ),
     );
   }
 }
 
-/// Прогресс-бар + подпись к ближайшей награде за заморозки.
+/// Одна стата прогресса (иконка + значение + подпись).
+class _ProgressStat extends StatelessWidget {
+  const _ProgressStat({
+    required this.icon,
+    required this.value,
+    required this.label,
+  });
+
+  final Widget icon;
+  final String value;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        icon,
+        const SizedBox(height: 4),
+        Text(
+          value,
+          style: textTheme.headlineSmall,
+          textAlign: TextAlign.center,
+        ),
+        const SizedBox(height: 2),
+        Text(
+          label,
+          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+          textAlign: TextAlign.center,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Прогресс к ближайшей награде за заморозки
+// ---------------------------------------------------------------------------
+
 class _FreezeRewardProgress extends StatelessWidget {
   const _FreezeRewardProgress({
     required this.currentFreezes,
@@ -322,6 +652,7 @@ class _FreezeRewardProgress extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     final progress =
@@ -346,7 +677,7 @@ class _FreezeRewardProgress extends StatelessWidget {
       children: [
         Row(
           children: [
-            const Text('🧊', style: TextStyle(fontSize: 16)),
+            Icon(PhosphorIcons.snowflake(), size: 14, color: colorScheme.primary),
             const SizedBox(width: 6),
             Expanded(
               child: Text(
@@ -361,11 +692,9 @@ class _FreezeRewardProgress extends StatelessWidget {
           borderRadius: BorderRadius.circular(4),
           child: LinearProgressIndicator(
             value: progress,
-            minHeight: 6,
+            minHeight: 5,
             backgroundColor: ext.border,
-            valueColor: AlwaysStoppedAnimation<Color>(
-              Theme.of(context).colorScheme.primary,
-            ),
+            valueColor: AlwaysStoppedAnimation<Color>(colorScheme.primary),
           ),
         ),
       ],
@@ -373,735 +702,57 @@ class _FreezeRewardProgress extends StatelessWidget {
   }
 }
 
-/// Переключатель ежедневных напоминаний (утренний/вечерний разбор).
-class _NotificationsSetting extends ConsumerWidget {
-  const _NotificationsSetting();
+// ---------------------------------------------------------------------------
+// Строки шеринга (hairline версии _ShareWeekCard / _SharedWithMeCard)
+// ---------------------------------------------------------------------------
+
+class _SubscriptionRow extends ConsumerWidget {
+  const _SubscriptionRow();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final enabled = ref.watch(notificationsEnabledProvider);
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(context.s('profile.notifications')),
-      subtitle: Text(context.s('profile.notifications_subtitle')),
-      value: enabled,
-      onChanged: (want) async {
-        final result = await ref
-            .read(notificationsEnabledProvider.notifier)
-            .setEnabled(want);
-        if (want && !result && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(context.s('profile.notifications_snackbar')),
-            ),
-          );
-        }
-      },
-    );
-  }
-}
-
-/// Тумблер отображения маскота Kai на экране Today (MASCOT.md §6, ADR-032).
-/// Взрослая аудитория может отключить присутствие — функционал не страдает.
-class _ShowKaiSetting extends ConsumerWidget {
-  const _ShowKaiSetting();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final showKai = ref.watch(showKaiProvider);
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(context.s('profile.show_kai')),
-      subtitle: Text(context.s('profile.show_kai_subtitle')),
-      value: showKai,
-      onChanged: (_) => ref.read(showKaiProvider.notifier).toggle(),
-    );
-  }
-}
-
-/// Тумблер звука при выполнении задачи. Стиль — как _NotificationsSetting.
-class _CompletionSoundSetting extends ConsumerWidget {
-  const _CompletionSoundSetting();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final enabled = ref.watch(completionSoundEnabledProvider);
-    return SwitchListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(context.s('profile.completion_sound')),
-      subtitle: Text(context.s('profile.completion_sound_subtitle')),
-      value: enabled,
-      onChanged: (want) =>
-          ref.read(completionSoundEnabledProvider.notifier).set(want),
-    );
-  }
-}
-
-/// Настройка действий свайпа по задачам: две строки (вправо/влево),
-/// каждая — Dropdown из 4 действий (done/skip/delete/snooze) с иконкой+подписью.
-/// Стиль строки — как «Язык» (ListTile + DropdownButton).
-class _SwipeActionsSetting extends ConsumerWidget {
-  const _SwipeActionsSetting();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final config = ref.watch(swipeActionsProvider);
-
-    Widget row({
-      required IconData leadingIcon,
-      required String title,
-      required SwipeAction current,
-      required ValueChanged<SwipeAction> onChanged,
-    }) {
-      return ListTile(
-        contentPadding: EdgeInsets.zero,
-        leading: Icon(leadingIcon, color: ext.textMuted),
-        title: Text(title),
-        trailing: DropdownButton<SwipeAction>(
-          value: current,
-          underline: const SizedBox.shrink(),
-          dropdownColor: ext.surfaceElevated,
-          items: SwipeAction.values
-              .map((a) => DropdownMenuItem(
-                    value: a,
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(a.icon, size: 18, color: a.color(context)),
-                        const SizedBox(width: 8),
-                        Text(a.label(context)),
-                      ],
-                    ),
-                  ))
-              .toList(),
-          onChanged: (a) {
-            if (a != null) onChanged(a);
-          },
-        ),
-      );
-    }
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        row(
-          leadingIcon: Icons.swipe_right_alt,
-          title: context.s('profile.swipe_right'),
-          current: config.right,
-          onChanged: (a) =>
-              ref.read(swipeActionsProvider.notifier).setRight(a),
-        ),
-        row(
-          leadingIcon: Icons.swipe_left_alt,
-          title: context.s('profile.swipe_left'),
-          current: config.left,
-          onChanged: (a) =>
-              ref.read(swipeActionsProvider.notifier).setLeft(a),
-        ),
-      ],
-    );
-  }
-}
-
-/// Настройка часового пояса. Строка-ListTile (как «Язык»), но из-за большого
-/// числа зон выбор открывается прокручиваемым боттомшитом, а не Dropdown.
-class _TimezoneSetting extends ConsumerWidget {
-  const _TimezoneSetting();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final pref = ref.watch(timezoneOverrideProvider);
-
-    final currentLabel =
-        pref.isAuto ? context.s('profile.timezone_auto') : pref.iana!;
-
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(Icons.schedule, color: ext.textMuted),
-      title: Text(context.s('profile.timezone')),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: Text(
-              currentLabel,
-              style: Theme.of(context)
-                  .textTheme
-                  .bodyMedium
-                  ?.copyWith(color: ext.textMuted),
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-          const SizedBox(width: 4),
-          Icon(Icons.chevron_right, color: ext.textMuted),
-        ],
-      ),
-      onTap: () => _pickTimezone(context, ref, pref),
-    );
-  }
-
-  Future<void> _pickTimezone(
-    BuildContext context,
-    WidgetRef ref,
-    TimezonePref current,
-  ) async {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final notifier = ref.read(timezoneOverrideProvider.notifier);
-
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: ext.surfaceElevated,
-      isScrollControlled: true,
-      builder: (ctx) {
-        return SafeArea(
-          child: ConstrainedBox(
-            constraints: BoxConstraints(
-              maxHeight: MediaQuery.of(ctx).size.height * 0.7,
-            ),
-            child: ListView(
-              shrinkWrap: true,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.fromLTRB(24, 16, 16, 8),
-                  child: Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          ctx.s('profile.timezone_select'),
-                          style: Theme.of(ctx).textTheme.titleMedium,
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        tooltip: ctx.s('btn.close'),
-                        onPressed: () => Navigator.of(ctx).maybePop(),
-                      ),
-                    ],
-                  ),
-                ),
-                // Авто (устройство)
-                ListTile(
-                  title: Text(ctx.s('profile.timezone_auto')),
-                  trailing: current.isAuto
-                      ? Icon(Icons.check,
-                          color: Theme.of(ctx).colorScheme.primary)
-                      : null,
-                  onTap: () {
-                    notifier.setAuto();
-                    Navigator.of(ctx).pop();
-                  },
-                ),
-                const Divider(height: 1),
-                // Список зон
-                ...kSelectableTimezones.map(
-                  (zone) => ListTile(
-                    title: Text(zone),
-                    trailing: (!current.isAuto && current.iana == zone)
-                        ? Icon(Icons.check,
-                            color: Theme.of(ctx).colorScheme.primary)
-                        : null,
-                    onTap: () {
-                      notifier.setOverride(zone);
-                      Navigator.of(ctx).pop();
-                    },
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Task defaults section — (Health section moved to MyDataScreen)
-// ---------------------------------------------------------------------------
-
-// REMOVED: _HealthProfileSection, _HealthProfileView, _HealthProfileEditor,
-//          _MealsPerDayPicker, _MealsCustomDialog, _FoodPreferencesSection,
-//          _FoodPreferencesView — all moved to MyDataScreen via extracted widgets.
-
-// ---------------------------------------------------------------------------
-// Placeholder sentinel — Task defaults section follows
-// ---------------------------------------------------------------------------
-
-// (Inline health/food sections removed — see MyDataScreen)
-
-// ---------------------------------------------------------------------------
-// Task defaults section
-// ---------------------------------------------------------------------------
-
-/// Секция «Задачи по умолчанию»: глобальное напоминание по умолчанию + редактор
-/// пресетов длительности и пресетов напоминаний. Пишет в reminderDefaultProvider,
-/// durationPresetsProvider, reminderPresetsProvider.
-class _TaskDefaultsSection extends ConsumerWidget {
-  const _TaskDefaultsSection();
-
-  /// Локализованная подпись минут: «N мин» либо «в момент» для 0 в режиме
-  /// напоминаний.
-  static String _minutesLabel(BuildContext context, int minutes,
-      {bool reminder = false}) {
-    if (reminder && minutes == 0) {
-      return context.s('profile.reminder_at_start');
-    }
-    return '$minutes ${context.s('profile.minutes_short')}';
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-
-    final reminderDefault = ref.watch(reminderDefaultProvider);
-    final reminderPresets = ref.watch(reminderPresetsProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.s('profile.section_task_defaults'),
-          style: textTheme.titleMedium,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          context.s('profile.task_defaults_note'),
-          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-        ),
-        const SizedBox(height: 16),
-
-        // ---- Напоминание по умолчанию: режим ----
-        Text(
-          context.s('profile.reminder_default_label'),
-          style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
-        ),
-        const SizedBox(height: 8),
-        SegmentedButton<String>(
-          segments: [
-            ButtonSegment(
-              value: 'none',
-              label: Text(context.s('profile.reminder_mode_none')),
-            ),
-            ButtonSegment(
-              value: 'main',
-              label: Text(context.s('profile.reminder_mode_main')),
-            ),
-            ButtonSegment(
-              value: 'all',
-              label: Text(context.s('profile.reminder_mode_all')),
-            ),
-          ],
-          selected: {reminderDefault.mode},
-          showSelectedIcon: false,
-          onSelectionChanged: (s) =>
-              ref.read(reminderDefaultProvider.notifier).setMode(s.first),
-        ),
-
-        // ---- Напоминание по умолчанию: за сколько (если не «Нет») ----
-        if (reminderDefault.mode != 'none') ...[
-          const SizedBox(height: 16),
-          Text(
-            context.s('profile.reminder_when_label'),
-            style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
-          ),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: reminderPresets.map((minutes) {
-              return ChoiceChip(
-                label: Text(_minutesLabel(context, minutes, reminder: true)),
-                selected: reminderDefault.minutes == minutes,
-                onSelected: (_) => ref
-                    .read(reminderDefaultProvider.notifier)
-                    .setMinutes(minutes),
-              );
-            }).toList(),
-          ),
-        ],
-
-        const SizedBox(height: 20),
-
-        // ---- Пресеты длительности ----
-        _PresetEditor(
-          label: context.s('profile.duration_presets_label'),
-          presets: ref.watch(durationPresetsProvider),
-          reminder: false,
-          onChanged: (list) =>
-              ref.read(durationPresetsProvider.notifier).setPresets(list),
-        ),
-
-        const SizedBox(height: 20),
-
-        // ---- Пресеты напоминаний ----
-        _PresetEditor(
-          label: context.s('profile.reminder_presets_label'),
-          presets: reminderPresets,
-          reminder: true,
-          onChanged: (list) =>
-              ref.read(reminderPresetsProvider.notifier).setPresets(list),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Workout defaults section (#23)
-// ---------------------------------------------------------------------------
-
-/// Секция «Тренировки»: глобальное время отдыха между подходами по умолчанию.
-/// Пишет в restDefaultProvider (SharedPreferences). Тренажёр использует это
-/// значение, когда у упражнения нет своего restSeconds (effectiveRestSeconds).
-class _WorkoutDefaultsSection extends ConsumerWidget {
-  const _WorkoutDefaultsSection();
-
-  /// «M:SS» либо «N с» для коротких — компактная подпись текущего значения.
-  static String _formatSeconds(BuildContext context, int seconds) {
-    if (seconds < 60) {
-      return '$seconds ${context.s('workout.seconds_short')}';
-    }
-    final m = seconds ~/ 60;
-    final s = seconds % 60;
-    return s == 0 ? '$m:00' : '$m:${s.toString().padLeft(2, '0')}';
-  }
-
-  Future<void> _editRest(BuildContext context, WidgetRef ref) async {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final current = ref.read(restDefaultProvider);
-    final entered = await showDialog<int>(
-      context: context,
-      builder: (ctx) => NumberInputDialog(
-        backgroundColor: ext.surfaceElevated,
-        title: ctx.s('workout.rest_default_dialog_title'),
-        labelText: ctx.s('workout.rest_default_label'),
-        suffixText: ctx.s('workout.seconds_short'),
-        initialValue: current,
-        confirmLabel: ctx.s('btn.done'),
-        // Границы: значения вне [min, max] диалог отвергает (вернёт null),
-        // поэтому большой отдых не обрезается молча. Лимит показан в helperText
-        // в минутах, чтобы было понятнее, чем «3600 секунд».
-        minValue: kRestDefaultMinSeconds,
-        maxValue: kRestDefaultMaxSeconds,
-        maxValueHint: ctx
-            .s('common.max_value_hint')
-            .replaceAll('{n}', (kRestDefaultMaxSeconds ~/ 60).toString()),
-      ),
-    );
-    if (entered == null) return;
-    await ref.read(restDefaultProvider.notifier).set(entered);
-  }
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final colorScheme = Theme.of(context).colorScheme;
-    final restDefault = ref.watch(restDefaultProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.s('workout.section_defaults'),
-          style: textTheme.titleMedium,
-        ),
-        const SizedBox(height: 4),
-        Text(
-          context.s('workout.rest_default_note'),
-          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-        ),
-        const SizedBox(height: 8),
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(
-            context.s('workout.rest_default_label'),
-            style: textTheme.bodyLarge,
-          ),
-          trailing: Text(
-            _formatSeconds(context, restDefault),
-            style: textTheme.titleMedium?.copyWith(color: colorScheme.primary),
-          ),
-          onTap: () => _editRest(context, ref),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Advanced features section — локальные UX-переключатели модулей (не премиум)
-// ---------------------------------------------------------------------------
-
-/// Секция «Расширенные функции»: 4 тумблера, включающих полные модули
-/// питания, тренировок, медитаций и дыхания. Это локальные UX-флаги —
-/// НЕ премиум-гейты. Хранятся в SharedPreferences, дефолт = false.
-class _AdvancedFeaturesSection extends ConsumerWidget {
-  const _AdvancedFeaturesSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final isPremium = ref.watch(isPremiumProvider).valueOrNull ?? false;
 
-    final nutritionOn = ref.watch(nutritionModeProvider);
-    final workoutOn = ref.watch(workoutModeProvider);
-    final meditationOn = ref.watch(meditationLibraryModeProvider);
-    final breathingOn = ref.watch(breathingEditorModeProvider);
+    final iconColor = isPremium ? colorScheme.primary : ext.textMuted;
+    final title = isPremium
+        ? context.s('profile.premium_badge')
+        : context.s('profile.free_plan');
+    final subtitle = isPremium
+        ? context.s('profile.premium_unlocked')
+        : context.s('profile.premium_unlock_cta');
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          context.s('profile.section_advanced'),
-          style: textTheme.titleMedium,
+    return _NavRow(
+      icon: Icon(
+        PhosphorIcons.crownSimple(
+          isPremium ? PhosphorIconsStyle.fill : PhosphorIconsStyle.regular,
         ),
-        const SizedBox(height: 4),
-        Text(
-          context.s('profile.advanced_section_note'),
-          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-        ),
-        const SizedBox(height: 8),
-
-        // Подсчёт калорий и БЖУ
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(context.s('profile.advanced_nutrition')),
-          subtitle: Text(context.s('profile.advanced_nutrition_subtitle')),
-          value: nutritionOn,
-          onChanged: (v) =>
-              ref.read(nutritionModeProvider.notifier).set(v),
-        ),
-
-        // Программы тренировок
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(context.s('profile.advanced_workouts')),
-          subtitle: Text(context.s('profile.advanced_workouts_subtitle')),
-          value: workoutOn,
-          onChanged: (v) =>
-              ref.read(workoutModeProvider.notifier).set(v),
-        ),
-
-        // Библиотека медитаций
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(context.s('profile.advanced_meditation')),
-          subtitle: Text(context.s('profile.advanced_meditation_subtitle')),
-          value: meditationOn,
-          onChanged: (v) =>
-              ref.read(meditationLibraryModeProvider.notifier).set(v),
-        ),
-
-        // Редактор техник дыхания
-        SwitchListTile(
-          contentPadding: EdgeInsets.zero,
-          title: Text(context.s('profile.advanced_breathing')),
-          subtitle: Text(context.s('profile.advanced_breathing_subtitle')),
-          value: breathingOn,
-          onChanged: (v) =>
-              ref.read(breathingEditorModeProvider.notifier).set(v),
-        ),
-      ],
-    );
-  }
-}
-
-/// Редактор списка пресетов (минут): чипы с возможностью удаления (тап по чипу
-/// убирает его) + кнопка «Добавить» (диалог ввода минут). Используется для
-/// длительностей и для напоминаний (флаг [reminder] меняет подпись 0 минут).
-class _PresetEditor extends StatelessWidget {
-  const _PresetEditor({
-    required this.label,
-    required this.presets,
-    required this.reminder,
-    required this.onChanged,
-  });
-
-  final String label;
-  final List<int> presets;
-  final bool reminder;
-  final ValueChanged<List<int>> onChanged;
-
-  String _chipLabel(BuildContext context, int minutes) {
-    if (reminder && minutes == 0) {
-      return context.s('profile.reminder_at_start');
-    }
-    return '$minutes ${context.s('profile.minutes_short')}';
-  }
-
-  Future<void> _addPreset(BuildContext context) async {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    // Контроллером владеет State диалога (NumberInputDialog), он уничтожается
-    // после анимации закрытия — исключает краш «used after disposed».
-    final entered = await showDialog<int>(
-      context: context,
-      builder: (ctx) => NumberInputDialog(
-        backgroundColor: ext.surfaceElevated,
-        title: ctx.s('profile.presets_add_minutes_title'),
-        labelText: ctx.s('profile.presets_minutes_hint'),
-        confirmLabel: ctx.s('profile.presets_add'),
-        // Без рамки — как в исходном поле (подчёркивание по умолчанию).
-        bordered: false,
-        // Нормализацию/валидацию выполнит провайдер; 0 допускаем.
-        minValue: 0,
+        size: 20,
+        color: iconColor,
       ),
-    );
-    if (entered == null) return;
-    // Нормализацию/валидацию выполнит провайдер; здесь просто добавляем.
-    onChanged([...presets, entered]);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label,
-          style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: [
-            ...presets.map((minutes) {
-              return InputChip(
-                label: Text(_chipLabel(context, minutes)),
-                onDeleted: presets.length > 1
-                    ? () => onChanged(
-                        presets.where((m) => m != minutes).toList())
-                    : null,
-              );
-            }),
-            ActionChip(
-              avatar: Icon(Icons.add, size: 16, color: ext.textMuted),
-              label: Text(context.s('profile.presets_add')),
-              onPressed: () => _addPreset(context),
+      title: title,
+      subtitle: subtitle,
+      onTap: isPremium ? null : () => context.push('/paywall'),
+      trailing: isPremium
+          ? const SizedBox.shrink()
+          : Icon(
+              PhosphorIcons.caretRight(),
+              size: 16,
+              color: ext.textFaint,
             ),
-          ],
-        ),
-      ],
     );
   }
 }
 
-// ---------------------------------------------------------------------------
-// My Data tile
-// ---------------------------------------------------------------------------
-
-/// Строка «Мои данные» — ведёт на MyDataScreen.
-/// Объединяет параметры тела, макросы, пищевые предпочтения и профиль здоровья.
-class _MyDataTile extends StatelessWidget {
-  const _MyDataTile();
+class _ShareWeekRow extends ConsumerStatefulWidget {
+  const _ShareWeekRow();
 
   @override
-  Widget build(BuildContext context) {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      leading: Icon(Icons.tune_rounded, color: ext.textMuted),
-      title: Text(
-        context.s('profile.my_data'),
-        overflow: TextOverflow.ellipsis,
-      ),
-      subtitle: Text(
-        context.s('profile.my_data_subtitle'),
-        overflow: TextOverflow.ellipsis,
-        style: Theme.of(context)
-            .textTheme
-            .bodySmall
-            ?.copyWith(color: ext.textMuted),
-      ),
-      trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-      onTap: () => context.push('/profile/my-data'),
-    );
-  }
+  ConsumerState<_ShareWeekRow> createState() => _ShareWeekRowState();
 }
 
-/// Выбор темы оформления. Доступны все 5 предустановленных тем + пользовательская.
-class _ThemePicker extends ConsumerWidget {
-  const _ThemePicker();
-
-  static const _available = [
-    (AppThemeKey.focus, 'profile.theme_focus'),
-    (AppThemeKey.calm, 'profile.theme_calm'),
-    (AppThemeKey.black, 'profile.theme_black'),
-    (AppThemeKey.white, 'profile.theme_white'),
-    (AppThemeKey.contrast, 'profile.theme_contrast'),
-  ];
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final current = ref.watch(themeNotifierProvider);
-    final hasCustom = ref.watch(customThemeNotifierProvider) != null;
-
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: [
-        // Предустановленные темы — selected = accent, unselected = neutral (03-components §11)
-        ..._available.map((entry) {
-          final (key, labelKey) = entry;
-          return ChoiceChip(
-            label: Text(context.s(labelKey)),
-            selected: current == key,
-            onSelected: (_) =>
-                ref.read(themeNotifierProvider.notifier).setTheme(key),
-          );
-        }),
-
-        // 6-й чип — «Мой стиль» (custom) + кнопка редактирования
-        Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            ChoiceChip(
-              label: Text(context.s('profile.theme_custom')),
-              selected: current == AppThemeKey.custom,
-              onSelected: (_) {
-                if (hasCustom) {
-                  ref
-                      .read(themeNotifierProvider.notifier)
-                      .setTheme(AppThemeKey.custom);
-                } else {
-                  context.push('/profile/custom-theme');
-                }
-              },
-            ),
-            if (hasCustom) ...[
-              const SizedBox(width: 4),
-              IconButton(
-                icon: const Icon(Icons.edit_outlined, size: 18),
-                tooltip: context.s('profile.theme_custom_edit'),
-                padding: EdgeInsets.zero,
-                constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
-                onPressed: () => context.push('/profile/custom-theme'),
-              ),
-            ],
-          ],
-        ),
-      ],
-    );
-  }
-}
-
-/// «Поделиться неделей»: view-only веб-ссылка (Ф3, ADR-030).
-/// Ссылка живёт 7 дней; друг открывает её в браузере без приложения.
-class _ShareWeekCard extends ConsumerStatefulWidget {
-  const _ShareWeekCard();
-
-  @override
-  ConsumerState<_ShareWeekCard> createState() => _ShareWeekCardState();
-}
-
-class _ShareWeekCardState extends ConsumerState<_ShareWeekCard> {
+class _ShareWeekRowState extends ConsumerState<_ShareWeekRow> {
   bool _working = false;
 
   Future<void> _share() async {
@@ -1141,417 +792,35 @@ class _ShareWeekCardState extends ConsumerState<_ShareWeekCard> {
 
   @override
   Widget build(BuildContext context) {
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    return Card(
-      child: ListTile(
-        // Иконка нейтральная (textMuted); primary — только одна CTA на экране
-        leading: _working
-            ? SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(
-                  strokeWidth: 2,
-                  color: Theme.of(context).colorScheme.primary,
-                ),
-              )
-            : Icon(Icons.ios_share, color: ext.textMuted),
-        title: Text(context.s('profile.share_week')),
-        subtitle: Text(context.s('profile.share_week_subtitle')),
-        trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-        onTap: _working ? null : _share,
-      ),
-    );
-  }
-}
-
-/// Карточка статуса подписки: показывает Free/Premium и ведёт на пейволл.
-class _PremiumCard extends ConsumerWidget {
-  const _PremiumCard();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final isPremium = ref.watch(isPremiumProvider).valueOrNull ?? false;
-
-    return Card(
-      // Акцентный фон только для премиум (как отличительный маркер активного статуса)
-      // Для free — стандартный surface
-      color: isPremium
-          ? ext.accentMuted
-          : null,
-      child: ListTile(
-        leading: Icon(
-          isPremium ? Icons.workspace_premium : Icons.workspace_premium_outlined,
-          // Иконка акцентная только для Premium (сигнал успеха), для free — нейтральная
-          color: isPremium
-              ? Theme.of(context).colorScheme.primary
-              : ext.textMuted,
-        ),
-        title: Text(
-          isPremium ? context.s('profile.premium_badge') : context.s('profile.free_plan'),
-          style: textTheme.titleSmall,
-        ),
-        subtitle: Text(
-          isPremium ? context.s('profile.premium_unlocked') : context.s('profile.premium_unlock_cta'),
-          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-        ),
-        trailing: isPremium
-            ? null
-            : Icon(Icons.chevron_right, color: ext.textMuted),
-        onTap: isPremium ? null : () => context.push('/paywall'),
-      ),
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Секция Kai — упрощённая (тумблер показа + выбор тона + живое превью)
-// ---------------------------------------------------------------------------
-
-/// Упрощённая секция «Kai» в Поведении.
-/// Заменила громоздкий пульт «Mood & Kai» с 4 пресетами и раскрывающимся
-/// меню тонкой настройки. Сохраняет ровно два значимых контрола:
-///   1. «Показывать Kai» — присутствие маскота (перенесено из Внешнего вида).
-///   2. «Тон» — Мягкий / Строгий (gentle/harsh).
-/// Живое превью остаётся: пользователь сразу видит разницу тонов.
-/// Провайдеры reactiveIntensityProvider и applyMoodPreset сохранены в коде
-/// (используются при будущем возврате настройки), но из UI убраны.
-class _KaiSettingsSection extends ConsumerWidget {
-  const _KaiSettingsSection();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final tone = ref.watch(toneProvider);
-    final mood = ref.watch(effectiveMoodProvider);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Заголовок секции — лаконичный «Kai», а не «Mood & Kai»
-        Text(context.s('profile.section_kai'), style: textTheme.titleMedium),
-        const SizedBox(height: 8),
-
-        // 1. Тумблер присутствия (перенесён из Внешнего вида — логично рядом с тоном)
-        const _ShowKaiSetting(),
-
-        const SizedBox(height: 4),
-
-        // 2. Тон: Мягкий / Строгий — только две опции, без «тонкой настройки»
-        _ToneRow(tone: tone),
-
-        const SizedBox(height: 12),
-
-        // Живое превью: сразу видно, как Kai звучит в выбранном тоне
-        _TonePreview(tone: tone, mood: mood),
-      ],
-    );
-  }
-}
-
-/// Строка выбора тона: подпись + описание + SegmentedButton (Gentle / Strict).
-/// Использует Expanded для подписи, чтобы не было overflow на 320 px.
-class _ToneRow extends ConsumerWidget {
-  const _ToneRow({required this.tone});
-
-  final AppTone tone;
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.center,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(context.s('profile.kai_tone'), style: textTheme.bodyLarge),
-              const SizedBox(height: 2),
-              Text(
-                context.s('profile.kai_tone_subtitle'),
-                style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        SegmentedButton<AppTone>(
-          segments: [
-            ButtonSegment(
-              value: AppTone.gentle,
-              label: Text(
-                context.s('settings.gentle'),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            ButtonSegment(
-              value: AppTone.harsh,
-              label: Text(
-                context.s('settings.harsh'),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-          selected: {tone},
-          showSelectedIcon: false,
-          onSelectionChanged: (s) =>
-              ref.read(toneProvider.notifier).set(s.first),
-        ),
-      ],
-    );
-  }
-}
-
-/// Живое превью тона: образец фразы Kai в выбранном тоне.
-///
-/// Цель — мгновенно показать связь «тон → оформление». gentle и harsh
-/// отличаются НЕ только текстом:
-///   • акцент (gentle = accent/primary, harsh = ember) — рамка, иконка, бейдж;
-///   • скругление карточки (gentle мягче, harsh резче);
-///   • иконка/эмодзи (🌿 росток / 🔥 молния);
-///   • плотность заголовка («вайб»-бейдж) и сам копирайт (мягкий/резкий);
-///   • Kai-маскот в соответствующем выражении (isHarsh).
-/// Свап между тонами анимирован (AnimatedContainer + switcher), чтобы
-/// переключение читалось как «живая» смена режима.
-class _TonePreview extends StatelessWidget {
-  const _TonePreview({required this.tone, required this.mood});
-
-  final AppTone tone;
-  final EffectiveMood mood;
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
     final colorScheme = Theme.of(context).colorScheme;
-    final v = ToneVisuals.of(context, tone);
-
-    // Выражение Kai: эмоция ведётся ТОЛЬКО от mood.level (состояния дня).
-    // Манера (брови/узкие глаза) — отдельно через isHarsh ниже.
-    final previewEmotion = switch (mood.level) {
-      MoodLevel.angry => KaiEmotion.anxious,
-      MoodLevel.stern => KaiEmotion.anxious,
-      MoodLevel.neutral => KaiEmotion.neutral,
-      MoodLevel.calm => KaiEmotion.success,
-    };
-
-    return AnimatedContainer(
-      duration: const Duration(milliseconds: 220),
-      curve: Curves.easeOut,
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        // Лёгкая заливка акцентом тона — harsh ember, gentle accent.
-        color: v.accent.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(v.cornerRadius),
-        border: Border.all(
-          color: v.accent.withValues(alpha: v.isHarsh ? 0.85 : 0.45),
-          width: v.isHarsh ? 1.5 : 1,
-        ),
-      ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          KaiMascot(
-            size: 48,
-            emotion: previewEmotion,
-            isHarsh: v.isHarsh,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                // «Вайб»-бейдж: иконка тона + одно слово, в акцентном цвете.
-                Row(
-                  children: [
-                    Icon(v.icon, size: 15, color: v.accent),
-                    const SizedBox(width: 5),
-                    Text(
-                      '${v.emoji} ${KaiCopy.previewVibe(context, tone)}',
-                      style: textTheme.labelSmall?.copyWith(
-                        color: v.accent,
-                        fontWeight: v.headingWeight,
-                        letterSpacing: v.isHarsh ? 0.4 : 0.0,
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 6),
-                // Сам образец фразы — меняется со сменой тона (с кроссфейдом).
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 200),
-                  child: Text(
-                    KaiCopy.preview(context, tone),
-                    key: ValueKey(tone),
-                    style: textTheme.bodyMedium?.copyWith(
-                      color: colorScheme.onSurface,
-                      // harsh — плотнее/строже, gentle — обычный.
-                      fontWeight:
-                          v.isHarsh ? FontWeight.w600 : FontWeight.w400,
-                      height: 1.3,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Размер шрифта (доступность) — влияет на весь интерфейс.
-class _TextSizeSetting extends ConsumerWidget {
-  const _TextSizeSetting();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final current = ref.watch(textScaleProvider);
-    final textTheme = Theme.of(context).textTheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(context.s('profile.text_size'), style: textTheme.bodyLarge),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          children: TextSizePref.values.map((p) {
-            // Маппинг enum → ключ локализации (резолвится здесь, в виджете)
-            final labelKey = switch (p) {
-              TextSizePref.small => 'profile.text_size_small',
-              TextSizePref.normal => 'profile.text_size_default',
-              TextSizePref.large => 'profile.text_size_large',
-              TextSizePref.larger => 'profile.text_size_xlarge',
-            };
-            return ChoiceChip(
-              label: Text(context.s(labelKey)),
-              selected: current == p,
-              onSelected: (_) => ref.read(textScaleProvider.notifier).set(p),
-            );
-          }).toList(),
-        ),
-      ],
-    );
-  }
-}
-
-// ---------------------------------------------------------------------------
-// FAB position setting
-// ---------------------------------------------------------------------------
-
-/// Выбор горизонтального положения кнопки «+» (FAB).
-/// SegmentedButton из трёх позиций: Left / Center / Right.
-/// Сохраняет выбор в fabPositionProvider (SharedPreferences).
-class _FabPositionSetting extends ConsumerWidget {
-  const _FabPositionSetting();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final current = ref.watch(fabPositionProvider);
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ListTile(
-          contentPadding: EdgeInsets.zero,
-          leading: Icon(Icons.add_circle_outline, color: ext.textMuted),
-          title: Text(context.s('profile.fab_position')),
-          subtitle: Padding(
-            padding: const EdgeInsets.only(top: 8),
-            child: SegmentedButton<FabPosition>(
-              segments: [
-                ButtonSegment(
-                  value: FabPosition.left,
-                  label: Text(
-                    context.s('profile.fab_position_left'),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  icon: const Icon(Icons.align_horizontal_left, size: 16),
-                ),
-                ButtonSegment(
-                  value: FabPosition.center,
-                  label: Text(
-                    context.s('profile.fab_position_center'),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  icon: const Icon(Icons.align_horizontal_center, size: 16),
-                ),
-                ButtonSegment(
-                  value: FabPosition.right,
-                  label: Text(
-                    context.s('profile.fab_position_right'),
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  icon: const Icon(Icons.align_horizontal_right, size: 16),
-                ),
-              ],
-              selected: {current},
-              showSelectedIcon: false,
-              onSelectionChanged: (s) =>
-                  ref.read(fabPositionProvider.notifier).set(s.first),
-            ),
-          ),
-          // isThreeLine даёт лишний вертикальный отступ — не нужен, subtitle не текст
-          isThreeLine: false,
-        ),
-      ],
+    return _NavRow(
+      icon: _working
+          ? SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 1.5,
+                color: colorScheme.primary,
+              ),
+            )
+          : Icon(PhosphorIcons.shareNetwork(), size: 20, color: ext.textMuted),
+      title: context.s('profile.share_week'),
+      subtitle: context.s('profile.share_week_subtitle'),
+      onTap: _working ? null : _share,
     );
   }
 }
 
-/// Версия приложения внизу профиля.
-/// Формат: «Version v1.0.0 (build 2 · abc1234)» — метка локализована,
-/// сам номер версии является данными и не переводится.
-/// Тег сборки (git-хэш или CI-идентификатор) передаётся компайл-тайм через
-/// --dart-define=APP_BUILD_TAG=<значение>; если не задан — опускается.
-class _AppVersionLabel extends StatelessWidget {
-  const _AppVersionLabel();
+class _SharedWithMeRow extends ConsumerStatefulWidget {
+  const _SharedWithMeRow();
 
   @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    return FutureBuilder<PackageInfo>(
-      future: PackageInfo.fromPlatform(),
-      builder: (context, snapshot) {
-        final info = snapshot.data;
-        if (info == null) return const SizedBox(height: 16);
-        // Тег сборки: · abc1234 если передан через --dart-define, иначе пусто.
-        final tagPart =
-            kAppBuildTag.isNotEmpty ? ' · $kAppBuildTag' : '';
-        final debugPart = kDebugMode ? ' · debug' : '';
-        final versionData =
-            'v${info.version} (build ${info.buildNumber}$tagPart)$debugPart';
-        return Text(
-          '${context.s('profile.version_label')} $versionData',
-          textAlign: TextAlign.center,
-          style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
-        );
-      },
-    );
-  }
+  ConsumerState<_SharedWithMeRow> createState() => _SharedWithMeRowState();
 }
 
-// ---------------------------------------------------------------------------
-// «Поделились со мной» (SPEC C7, Ф3, v1)
-// ---------------------------------------------------------------------------
-
-/// Карточка «Shared with me»: вставить ссылку/токен → посмотреть
-/// read-only план друга → скопировать события к себе.
-class _SharedWithMeCard extends ConsumerStatefulWidget {
-  const _SharedWithMeCard();
-
-  @override
-  ConsumerState<_SharedWithMeCard> createState() => _SharedWithMeCardState();
-}
-
-class _SharedWithMeCardState extends ConsumerState<_SharedWithMeCard> {
+class _SharedWithMeRowState extends ConsumerState<_SharedWithMeRow> {
   static final _dayFmt = DateFormat('EEE, d MMM');
   static final _timeFmt = DateFormat('HH:mm');
 
@@ -1618,9 +887,8 @@ class _SharedWithMeCardState extends ConsumerState<_SharedWithMeCard> {
       plan = await api.fetchSharedPlan(token);
     } on ApiException catch (e) {
       if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(e.message)),
-        );
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(e.message)));
       }
       return;
     } catch (_) {
@@ -1746,19 +1014,19 @@ class _SharedWithMeCardState extends ConsumerState<_SharedWithMeCard> {
   @override
   Widget build(BuildContext context) {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    return Card(
-      child: ListTile(
-        leading: Icon(Icons.group_outlined, color: ext.textMuted),
-        title: Text(context.s('profile.shared_with_me')),
-        subtitle: Text(context.s('profile.shared_with_me_subtitle')),
-        trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-        onTap: _openDialog,
-      ),
+    return _NavRow(
+      icon: Icon(PhosphorIcons.users(), size: 20, color: ext.textMuted),
+      title: context.s('profile.shared_with_me'),
+      subtitle: context.s('profile.shared_with_me_subtitle'),
+      onTap: _openDialog,
     );
   }
 }
 
-/// Содержимое шита просмотра чужого плана.
+// ---------------------------------------------------------------------------
+// Шит просмотра чужого плана
+// ---------------------------------------------------------------------------
+
 class _PlanSheetContent extends StatelessWidget {
   const _PlanSheetContent({
     required this.ownerName,
@@ -1792,7 +1060,6 @@ class _PlanSheetContent extends StatelessWidget {
       minChildSize: 0.4,
       builder: (_, scrollController) => Column(
         children: [
-          // Ручка шита (drag handle через BottomSheetTheme)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Container(
@@ -1804,7 +1071,6 @@ class _PlanSheetContent extends StatelessWidget {
               ),
             ),
           ),
-          // Заголовок
           Padding(
             padding: const EdgeInsets.fromLTRB(24, 0, 16, 0),
             child: Row(
@@ -1815,20 +1081,22 @@ class _PlanSheetContent extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        context.s('profile.plan_of').replaceAll('{name}', ownerName),
+                        context
+                            .s('profile.plan_of')
+                            .replaceAll('{name}', ownerName),
                         style: textTheme.headlineSmall,
                       ),
                       if (rangeLabel.isNotEmpty)
                         Text(
                           rangeLabel,
-                          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+                          style: textTheme.bodySmall
+                              ?.copyWith(color: ext.textMuted),
                         ),
                     ],
                   ),
                 ),
-                // Крестик закрытия — видимый аффорданс шита
                 IconButton(
-                  icon: const Icon(Icons.close),
+                  icon: Icon(PhosphorIcons.x()),
                   tooltip: context.s('btn.close'),
                   onPressed: () => Navigator.of(context).maybePop(),
                 ),
@@ -1836,14 +1104,14 @@ class _PlanSheetContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Divider(color: ext.border, height: 1),
-          // Список событий
+          Divider(color: ext.border, height: 1, thickness: 0.5),
           Expanded(
             child: rawItems.isEmpty
                 ? Center(
                     child: Text(
                       context.s('profile.no_events'),
-                      style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
+                      style: textTheme.bodyMedium
+                          ?.copyWith(color: ext.textMuted),
                     ),
                   )
                 : ListView.builder(
@@ -1853,7 +1121,6 @@ class _PlanSheetContent extends StatelessWidget {
                     itemBuilder: (_, index) => _buildRow(context, index, ext),
                   ),
           ),
-          // Единственная CTA на шите — FilledButton (03-components §2)
           Padding(
             padding: EdgeInsets.fromLTRB(
               24,
@@ -1862,12 +1129,14 @@ class _PlanSheetContent extends StatelessWidget {
               MediaQuery.of(context).padding.bottom + 16,
             ),
             child: FilledButton(
-              onPressed: rawItems.isEmpty ? null : () => onCopy(rawItems),
+              onPressed:
+                  rawItems.isEmpty ? null : () => onCopy(rawItems),
               style: FilledButton.styleFrom(
                 minimumSize: const Size.fromHeight(52),
               ),
               child: Text(
-                context.s('profile.copy_to_my_plan')
+                context
+                    .s('profile.copy_to_my_plan')
                     .replaceAll('{n}', '${rawItems.length}'),
               ),
             ),
@@ -1933,39 +1202,890 @@ class _PlanSheetContent extends StatelessWidget {
     return const SizedBox.shrink();
   }
 
-  IconData _typeIcon(String type) {
+  PhosphorIconData _typeIcon(String type) {
     switch (type) {
       case 'event':
-        return Icons.event_outlined;
+        return PhosphorIcons.calendar();
       case 'exam':
-        return Icons.school_outlined;
+        return PhosphorIcons.graduationCap();
       case 'deadline':
-        return Icons.alarm_outlined;
+        return PhosphorIcons.alarm();
       default:
-        return Icons.check_circle_outline;
+        return PhosphorIcons.checkCircle();
     }
   }
 }
 
 // ---------------------------------------------------------------------------
-// Тумблер напоминаний «выпрямись» (осанка) в Профиле
+// Виджеты настроек (Behavior screen)
 // ---------------------------------------------------------------------------
 
-/// Тумблер «Напоминания об осанке» — читает/пишет тот же ключ SharedPreferences
-/// ('posture_reminders_on'), что и postureRemindersProvider. Экран /posture убран
-/// из навигации (задача 7 эпика), поэтому единственная точка настройки — здесь.
+/// Переключатель ежедневных напоминаний.
+class _NotificationsSetting extends ConsumerWidget {
+  const _NotificationsSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(notificationsEnabledProvider);
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      secondary: Icon(PhosphorIcons.bell(), size: 20, color: ext.textMuted),
+      title: Text(context.s('profile.notifications')),
+      subtitle: Text(context.s('profile.notifications_subtitle')),
+      value: enabled,
+      onChanged: (want) async {
+        final result = await ref
+            .read(notificationsEnabledProvider.notifier)
+            .setEnabled(want);
+        if (want && !result && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(context.s('profile.notifications_snackbar')),
+            ),
+          );
+        }
+      },
+    );
+  }
+}
+
+/// Тумблер отображения маскота Kai.
+class _ShowKaiSetting extends ConsumerWidget {
+  const _ShowKaiSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final showKai = ref.watch(showKaiProvider);
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      title: Text(context.s('profile.show_kai')),
+      subtitle: Text(context.s('profile.show_kai_subtitle')),
+      value: showKai,
+      onChanged: (_) => ref.read(showKaiProvider.notifier).toggle(),
+    );
+  }
+}
+
+/// Тумблер звука завершения задачи.
+class _CompletionSoundSetting extends ConsumerWidget {
+  const _CompletionSoundSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(completionSoundEnabledProvider);
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      secondary: Icon(PhosphorIcons.speakerHigh(), size: 20, color: ext.textMuted),
+      title: Text(context.s('profile.completion_sound')),
+      subtitle: Text(context.s('profile.completion_sound_subtitle')),
+      value: enabled,
+      onChanged: (want) =>
+          ref.read(completionSoundEnabledProvider.notifier).set(want),
+    );
+  }
+}
+
+/// Настройка действий свайпа.
+class _SwipeActionsSetting extends ConsumerWidget {
+  const _SwipeActionsSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final config = ref.watch(swipeActionsProvider);
+
+    Widget row({
+      required PhosphorIconData leadingIconData,
+      required String title,
+      required SwipeAction current,
+      required ValueChanged<SwipeAction> onChanged,
+    }) {
+      return ListTile(
+        contentPadding: EdgeInsets.zero,
+        leading: Icon(leadingIconData, size: 20, color: ext.textMuted),
+        title: Text(title),
+        trailing: DropdownButton<SwipeAction>(
+          value: current,
+          underline: const SizedBox.shrink(),
+          dropdownColor: ext.surfaceElevated,
+          items: SwipeAction.values
+              .map((a) => DropdownMenuItem(
+                    value: a,
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(a.icon, size: 18, color: a.color(context)),
+                        const SizedBox(width: 8),
+                        Text(a.label(context)),
+                      ],
+                    ),
+                  ))
+              .toList(),
+          onChanged: (a) {
+            if (a != null) onChanged(a);
+          },
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        row(
+          leadingIconData: PhosphorIcons.arrowRight(),
+          title: context.s('profile.swipe_right'),
+          current: config.right,
+          onChanged: (a) =>
+              ref.read(swipeActionsProvider.notifier).setRight(a),
+        ),
+        row(
+          leadingIconData: PhosphorIcons.arrowLeft(),
+          title: context.s('profile.swipe_left'),
+          current: config.left,
+          onChanged: (a) =>
+              ref.read(swipeActionsProvider.notifier).setLeft(a),
+        ),
+      ],
+    );
+  }
+}
+
+/// Настройка часового пояса.
+class _TimezoneSetting extends ConsumerWidget {
+  const _TimezoneSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final pref = ref.watch(timezoneOverrideProvider);
+
+    final currentLabel =
+        pref.isAuto ? context.s('profile.timezone_auto') : pref.iana!;
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(PhosphorIcons.clock(), size: 20, color: ext.textMuted),
+      title: Text(context.s('profile.timezone')),
+      trailing: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: Text(
+              currentLabel,
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyMedium
+                  ?.copyWith(color: ext.textMuted),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          const SizedBox(width: 4),
+          Icon(PhosphorIcons.caretRight(), size: 16, color: ext.textFaint),
+        ],
+      ),
+      onTap: () => _pickTimezone(context, ref, pref),
+    );
+  }
+
+  Future<void> _pickTimezone(
+    BuildContext context,
+    WidgetRef ref,
+    TimezonePref current,
+  ) async {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final notifier = ref.read(timezoneOverrideProvider.notifier);
+    final colorScheme = Theme.of(context).colorScheme;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: ext.surfaceElevated,
+      isScrollControlled: true,
+      builder: (ctx) {
+        return SafeArea(
+          child: ConstrainedBox(
+            constraints: BoxConstraints(
+              maxHeight: MediaQuery.of(ctx).size.height * 0.7,
+            ),
+            child: ListView(
+              shrinkWrap: true,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 16, 8),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          ctx.s('profile.timezone_select'),
+                          style: Theme.of(ctx).textTheme.titleMedium,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(PhosphorIcons.x()),
+                        tooltip: ctx.s('btn.close'),
+                        onPressed: () => Navigator.of(ctx).maybePop(),
+                      ),
+                    ],
+                  ),
+                ),
+                ListTile(
+                  title: Text(ctx.s('profile.timezone_auto')),
+                  trailing: current.isAuto
+                      ? Icon(PhosphorIcons.check(PhosphorIconsStyle.fill),
+                          color: colorScheme.primary)
+                      : null,
+                  onTap: () {
+                    notifier.setAuto();
+                    Navigator.of(ctx).pop();
+                  },
+                ),
+                const Divider(height: 1),
+                ...kSelectableTimezones.map(
+                  (zone) => ListTile(
+                    title: Text(zone),
+                    trailing: (!current.isAuto && current.iana == zone)
+                        ? Icon(PhosphorIcons.check(PhosphorIconsStyle.fill),
+                            color: colorScheme.primary)
+                        : null,
+                    onTap: () {
+                      notifier.setOverride(zone);
+                      Navigator.of(ctx).pop();
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+/// Настройка высокого контраста (доступность).
+class _HighContrastSetting extends ConsumerWidget {
+  const _HighContrastSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final enabled = ref.watch(highContrastProvider);
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return SwitchListTile(
+      contentPadding: EdgeInsets.zero,
+      secondary: Icon(PhosphorIcons.eye(), size: 20, color: ext.textMuted),
+      title: Text(context.s('profile.high_contrast')),
+      subtitle: Text(context.s('profile.high_contrast_subtitle')),
+      value: enabled,
+      onChanged: (v) =>
+          ref.read(highContrastProvider.notifier).setHighContrast(v),
+    );
+  }
+}
+
+/// Выбор языка (Consumer — обращается к localeNotifierProvider).
+class _LanguageSetting extends ConsumerWidget {
+  const _LanguageSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final locale = ref.watch(localeNotifierProvider);
+    final currentTag = localeTag(locale);
+
+    return ListTile(
+      contentPadding: EdgeInsets.zero,
+      leading: Icon(PhosphorIcons.translate(), size: 20, color: ext.textMuted),
+      title: Text(context.s('profile.language')),
+      trailing: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 140),
+        child: DropdownButton<String>(
+          value: currentTag,
+          isExpanded: true,
+          underline: const SizedBox.shrink(),
+          dropdownColor: ext.surfaceElevated,
+          items: localeEntries
+              .map((e) => DropdownMenuItem(
+                    value: localeTag(e.locale),
+                    child: Text(e.displayName),
+                  ))
+              .toList(),
+          onChanged: (tag) {
+            if (tag != null) {
+              final entry = localeEntries.firstWhere(
+                (e) => localeTag(e.locale) == tag,
+                orElse: () => const LocaleEntry(Locale('en'), 'English'),
+              );
+              ref
+                  .read(localeNotifierProvider.notifier)
+                  .setLocale(entry.locale);
+            }
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Task defaults section
+// ---------------------------------------------------------------------------
+
+class _TaskDefaultsSection extends ConsumerWidget {
+  const _TaskDefaultsSection();
+
+  static String _minutesLabel(BuildContext context, int minutes,
+      {bool reminder = false}) {
+    if (reminder && minutes == 0) {
+      return context.s('profile.reminder_at_start');
+    }
+    return '$minutes ${context.s('profile.minutes_short')}';
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    final reminderDefault = ref.watch(reminderDefaultProvider);
+    final reminderPresets = ref.watch(reminderPresetsProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.s('profile.section_task_defaults'),
+          style: textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          context.s('profile.task_defaults_note'),
+          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+        ),
+        const SizedBox(height: 16),
+
+        Text(
+          context.s('profile.reminder_default_label'),
+          style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+        ),
+        const SizedBox(height: 8),
+        SegmentedButton<String>(
+          segments: [
+            ButtonSegment(
+              value: 'none',
+              label: Text(context.s('profile.reminder_mode_none')),
+            ),
+            ButtonSegment(
+              value: 'main',
+              label: Text(context.s('profile.reminder_mode_main')),
+            ),
+            ButtonSegment(
+              value: 'all',
+              label: Text(context.s('profile.reminder_mode_all')),
+            ),
+          ],
+          selected: {reminderDefault.mode},
+          showSelectedIcon: false,
+          onSelectionChanged: (s) =>
+              ref.read(reminderDefaultProvider.notifier).setMode(s.first),
+        ),
+
+        if (reminderDefault.mode != 'none') ...[
+          const SizedBox(height: 16),
+          Text(
+            context.s('profile.reminder_when_label'),
+            style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: reminderPresets.map((minutes) {
+              return ChoiceChip(
+                label: Text(_minutesLabel(context, minutes, reminder: true)),
+                selected: reminderDefault.minutes == minutes,
+                onSelected: (_) => ref
+                    .read(reminderDefaultProvider.notifier)
+                    .setMinutes(minutes),
+              );
+            }).toList(),
+          ),
+        ],
+
+        const SizedBox(height: 20),
+
+        _PresetEditor(
+          label: context.s('profile.duration_presets_label'),
+          presets: ref.watch(durationPresetsProvider),
+          reminder: false,
+          onChanged: (list) =>
+              ref.read(durationPresetsProvider.notifier).setPresets(list),
+        ),
+
+        const SizedBox(height: 20),
+
+        _PresetEditor(
+          label: context.s('profile.reminder_presets_label'),
+          presets: reminderPresets,
+          reminder: true,
+          onChanged: (list) =>
+              ref.read(reminderPresetsProvider.notifier).setPresets(list),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Workout defaults section
+// ---------------------------------------------------------------------------
+
+class _WorkoutDefaultsSection extends ConsumerWidget {
+  const _WorkoutDefaultsSection();
+
+  static String _formatSeconds(BuildContext context, int seconds) {
+    if (seconds < 60) {
+      return '$seconds ${context.s('workout.seconds_short')}';
+    }
+    final m = seconds ~/ 60;
+    final s = seconds % 60;
+    return s == 0 ? '$m:00' : '$m:${s.toString().padLeft(2, '0')}';
+  }
+
+  Future<void> _editRest(BuildContext context, WidgetRef ref) async {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final current = ref.read(restDefaultProvider);
+    final entered = await showDialog<int>(
+      context: context,
+      builder: (ctx) => NumberInputDialog(
+        backgroundColor: ext.surfaceElevated,
+        title: ctx.s('workout.rest_default_dialog_title'),
+        labelText: ctx.s('workout.rest_default_label'),
+        suffixText: ctx.s('workout.seconds_short'),
+        initialValue: current,
+        confirmLabel: ctx.s('btn.done'),
+        minValue: kRestDefaultMinSeconds,
+        maxValue: kRestDefaultMaxSeconds,
+        maxValueHint: ctx
+            .s('common.max_value_hint')
+            .replaceAll('{n}', (kRestDefaultMaxSeconds ~/ 60).toString()),
+      ),
+    );
+    if (entered == null) return;
+    await ref.read(restDefaultProvider.notifier).set(entered);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final restDefault = ref.watch(restDefaultProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.s('workout.section_defaults'),
+          style: textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          context.s('workout.rest_default_note'),
+          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+        ),
+        const SizedBox(height: 8),
+        ListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(
+            context.s('workout.rest_default_label'),
+            style: textTheme.bodyLarge,
+          ),
+          trailing: Text(
+            _formatSeconds(context, restDefault),
+            style: textTheme.titleMedium
+                ?.copyWith(color: colorScheme.primary),
+          ),
+          onTap: () => _editRest(context, ref),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Advanced features section
+// ---------------------------------------------------------------------------
+
+class _AdvancedFeaturesSection extends ConsumerWidget {
+  const _AdvancedFeaturesSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    final nutritionOn = ref.watch(nutritionModeProvider);
+    final workoutOn = ref.watch(workoutModeProvider);
+    final meditationOn = ref.watch(meditationLibraryModeProvider);
+    final breathingOn = ref.watch(breathingEditorModeProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          context.s('profile.section_advanced'),
+          style: textTheme.titleMedium,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          context.s('profile.advanced_section_note'),
+          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+        ),
+        const SizedBox(height: 8),
+
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(context.s('profile.advanced_nutrition')),
+          subtitle: Text(context.s('profile.advanced_nutrition_subtitle')),
+          value: nutritionOn,
+          onChanged: (v) =>
+              ref.read(nutritionModeProvider.notifier).set(v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(context.s('profile.advanced_workouts')),
+          subtitle: Text(context.s('profile.advanced_workouts_subtitle')),
+          value: workoutOn,
+          onChanged: (v) =>
+              ref.read(workoutModeProvider.notifier).set(v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(context.s('profile.advanced_meditation')),
+          subtitle: Text(context.s('profile.advanced_meditation_subtitle')),
+          value: meditationOn,
+          onChanged: (v) =>
+              ref.read(meditationLibraryModeProvider.notifier).set(v),
+        ),
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(context.s('profile.advanced_breathing')),
+          subtitle: Text(context.s('profile.advanced_breathing_subtitle')),
+          value: breathingOn,
+          onChanged: (v) =>
+              ref.read(breathingEditorModeProvider.notifier).set(v),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Preset editor
+// ---------------------------------------------------------------------------
+
+class _PresetEditor extends StatelessWidget {
+  const _PresetEditor({
+    required this.label,
+    required this.presets,
+    required this.reminder,
+    required this.onChanged,
+  });
+
+  final String label;
+  final List<int> presets;
+  final bool reminder;
+  final ValueChanged<List<int>> onChanged;
+
+  String _chipLabel(BuildContext context, int minutes) {
+    if (reminder && minutes == 0) {
+      return context.s('profile.reminder_at_start');
+    }
+    return '$minutes ${context.s('profile.minutes_short')}';
+  }
+
+  Future<void> _addPreset(BuildContext context) async {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final entered = await showDialog<int>(
+      context: context,
+      builder: (ctx) => NumberInputDialog(
+        backgroundColor: ext.surfaceElevated,
+        title: ctx.s('profile.presets_add_minutes_title'),
+        labelText: ctx.s('profile.presets_minutes_hint'),
+        confirmLabel: ctx.s('profile.presets_add'),
+        bordered: false,
+        minValue: 0,
+      ),
+    );
+    if (entered == null) return;
+    onChanged([...presets, entered]);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            ...presets.map((minutes) {
+              return InputChip(
+                label: Text(_chipLabel(context, minutes)),
+                onDeleted: presets.length > 1
+                    ? () => onChanged(
+                        presets.where((m) => m != minutes).toList())
+                    : null,
+              );
+            }),
+            ActionChip(
+              avatar: Icon(PhosphorIcons.plus(), size: 16, color: ext.textMuted),
+              label: Text(context.s('profile.presets_add')),
+              onPressed: () => _addPreset(context),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Kai settings section
+// ---------------------------------------------------------------------------
+
+class _KaiSettingsSection extends ConsumerWidget {
+  const _KaiSettingsSection();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final tone = ref.watch(toneProvider);
+    final mood = ref.watch(effectiveMoodProvider);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(context.s('profile.section_kai'), style: textTheme.titleMedium),
+        const SizedBox(height: 8),
+        const _ShowKaiSetting(),
+        const SizedBox(height: 4),
+        _ToneRow(tone: tone),
+        const SizedBox(height: 12),
+        _TonePreview(tone: tone, mood: mood),
+      ],
+    );
+  }
+}
+
+class _ToneRow extends ConsumerWidget {
+  const _ToneRow({required this.tone});
+
+  final AppTone tone;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(context.s('profile.kai_tone'), style: textTheme.bodyLarge),
+              const SizedBox(height: 2),
+              Text(
+                context.s('profile.kai_tone_subtitle'),
+                style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 12),
+        SegmentedButton<AppTone>(
+          segments: [
+            ButtonSegment(
+              value: AppTone.gentle,
+              label: Text(
+                context.s('settings.gentle'),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            ButtonSegment(
+              value: AppTone.harsh,
+              label: Text(
+                context.s('settings.harsh'),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+          selected: {tone},
+          showSelectedIcon: false,
+          onSelectionChanged: (s) =>
+              ref.read(toneProvider.notifier).set(s.first),
+        ),
+      ],
+    );
+  }
+}
+
+class _TonePreview extends StatelessWidget {
+  const _TonePreview({required this.tone, required this.mood});
+
+  final AppTone tone;
+  final EffectiveMood mood;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final v = ToneVisuals.of(context, tone);
+
+    final previewEmotion = switch (mood.level) {
+      MoodLevel.angry => KaiEmotion.anxious,
+      MoodLevel.stern => KaiEmotion.anxious,
+      MoodLevel.neutral => KaiEmotion.neutral,
+      MoodLevel.calm => KaiEmotion.success,
+    };
+
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOut,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: v.accent.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(v.cornerRadius),
+        border: Border.all(
+          color: v.accent.withValues(alpha: v.isHarsh ? 0.85 : 0.45),
+          width: v.isHarsh ? 1.5 : 1,
+        ),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          KaiMascot(
+            size: 48,
+            emotion: previewEmotion,
+            isHarsh: v.isHarsh,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(v.icon, size: 15, color: v.accent),
+                    const SizedBox(width: 5),
+                    Text(
+                      '${v.emoji} ${KaiCopy.previewVibe(context, tone)}',
+                      style: textTheme.labelSmall?.copyWith(
+                        color: v.accent,
+                        fontWeight: v.headingWeight,
+                        letterSpacing: v.isHarsh ? 0.4 : 0.0,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 6),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 200),
+                  child: Text(
+                    KaiCopy.preview(context, tone),
+                    key: ValueKey(tone),
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: colorScheme.onSurface,
+                      fontWeight:
+                          v.isHarsh ? FontWeight.w600 : FontWeight.w400,
+                      height: 1.3,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Размер шрифта (доступность)
+// ---------------------------------------------------------------------------
+
+class _TextSizeSetting extends ConsumerWidget {
+  const _TextSizeSetting();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(textScaleProvider);
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            Icon(PhosphorIcons.textAa(), size: 20, color: ext.textMuted),
+            const SizedBox(width: 12),
+            Text(context.s('profile.text_size'), style: textTheme.bodyLarge),
+          ],
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: TextSizePref.values.map((p) {
+            final labelKey = switch (p) {
+              TextSizePref.small => 'profile.text_size_small',
+              TextSizePref.normal => 'profile.text_size_default',
+              TextSizePref.large => 'profile.text_size_large',
+              TextSizePref.larger => 'profile.text_size_xlarge',
+            };
+            return ChoiceChip(
+              label: Text(context.s(labelKey)),
+              selected: current == p,
+              onSelected: (_) => ref.read(textScaleProvider.notifier).set(p),
+            );
+          }).toList(),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Тумблер напоминаний об осанке
+// ---------------------------------------------------------------------------
+
 class _PostureReminderSetting extends ConsumerWidget {
   const _PostureReminderSetting();
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final enabled = ref.watch(postureRemindersProvider);
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     return SwitchListTile(
       contentPadding: EdgeInsets.zero,
-      // Иконка нейтральная (textMuted) — не accent; уведомление не единственное CTA
       secondary: Icon(
-        Icons.accessibility,
-        color: Theme.of(context).extension<FocusThemeExtension>()!.textMuted,
+        PhosphorIcons.personSimpleWalk(),
+        size: 20,
+        color: ext.textMuted,
       ),
       title: Text(context.s('posture.reminders_title')),
       subtitle: Text(context.s('posture.reminders_subtitle')),
@@ -1973,7 +2093,6 @@ class _PostureReminderSetting extends ConsumerWidget {
       onChanged: (want) async {
         final result =
             await ref.read(postureRemindersProvider.notifier).setEnabled(want);
-        // Если разрешение на уведомления не выдано — показать снэкбар
         if (want && !result && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -1987,47 +2106,80 @@ class _PostureReminderSetting extends ConsumerWidget {
   }
 }
 
-/// Одна цифра в карточке streak (значение + подпись).
-class _StreakStat extends StatelessWidget {
-  const _StreakStat({required this.label, required this.value});
+// ---------------------------------------------------------------------------
+// Выбор темы
+// ---------------------------------------------------------------------------
 
-  final String label;
-  final String value;
+class _ThemePicker extends ConsumerWidget {
+  const _ThemePicker();
+
+  static const _available = [
+    (AppThemeKey.day, 'profile.theme_day'),
+    (AppThemeKey.night, 'profile.theme_night'),
+    (AppThemeKey.black, 'profile.theme_black'),
+    (AppThemeKey.calm, 'profile.theme_calm'),
+  ];
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(themeNotifierProvider);
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: _available.map((entry) {
+        final (key, labelKey) = entry;
+        return ChoiceChip(
+          label: Text(context.s(labelKey)),
+          selected: current == key,
+          onSelected: (_) =>
+              ref.read(themeNotifierProvider.notifier).setTheme(key),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Версия приложения
+// ---------------------------------------------------------------------------
+
+class _AppVersionLabel extends StatelessWidget {
+  const _AppVersionLabel();
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    return Column(
-      children: [
-        // Крупное число — headlineSmall (display font)
-        Text(value, style: textTheme.headlineSmall),
-        const SizedBox(height: 2),
-        // Подпись ужимается под узкую/крупную типографику, не ломая Row
-        Text(
-          label,
-          style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
+    return FutureBuilder<PackageInfo>(
+      future: PackageInfo.fromPlatform(),
+      builder: (context, snapshot) {
+        final info = snapshot.data;
+        if (info == null) return const SizedBox(height: 16);
+        final tagPart =
+            kAppBuildTag.isNotEmpty ? ' · $kAppBuildTag' : '';
+        final debugPart = kDebugMode ? ' · debug' : '';
+        final versionData =
+            'v${info.version} (build ${info.buildNumber}$tagPart)$debugPart';
+        return Text(
+          '${context.s('profile.version_label')} $versionData',
           textAlign: TextAlign.center,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
-      ],
+          style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
+        );
+      },
     );
   }
 }
 
 // ===========================================================================
-// Подстраницы профиля (3 штуки)
-// Все классы живут в этом файле, т.к. используют приватные виджеты (_Foo).
-// В /profile/appearance, /profile/behavior, /profile/account.
+// Подстраницы профиля
 // ===========================================================================
 
 // ---------------------------------------------------------------------------
 // Подстраница «Внешний вид»
-// Секции: тема, язык, масштаб текста, позиция FAB, Kai-тумблер.
+// Секции: тема (4 варианта). Язык и размер текста перенесены в «Поведение».
 // ---------------------------------------------------------------------------
 
-/// Подстраница «Внешний вид» — тема, язык, типографика, FAB, маскот.
 class ProfileAppearanceScreen extends ConsumerWidget {
   const ProfileAppearanceScreen({super.key});
 
@@ -2037,73 +2189,24 @@ class ProfileAppearanceScreen extends ConsumerWidget {
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
     return Scaffold(
-      appBar:
-          AppBar(title: Text(context.s('profile.section_appearance'))),
+      appBar: AppBar(
+        title: Text(context.s('profile.section_appearance')),
+      ),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         children: [
-          // Выбор темы
           Text(
             context.s('profile.section_appearance'),
             style: textTheme.titleMedium,
           ),
-          const SizedBox(height: 12),
-          const _ThemePicker(),
-
-          // Язык и базовые настройки отображения
-          const SizedBox(height: 28),
+          const SizedBox(height: 4),
           Text(
-            context.s('profile.section_preferences'),
-            style: textTheme.titleMedium,
+            context.s('profile.advanced_section_note'),
+            style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
           ),
-          const SizedBox(height: 8),
-
-          // Выбор языка (Consumer — обращается к localeNotifierProvider)
-          Consumer(
-            builder: (context, ref, _) {
-              final locale = ref.watch(localeNotifierProvider);
-              final currentTag = localeTag(locale);
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: Icon(Icons.language, color: ext.textMuted),
-                title: Text(context.s('profile.language')),
-                // Ограничиваем ширину, чтобы «Português (Brasil)» не вызывал overflow
-                trailing: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 140),
-                  child: DropdownButton<String>(
-                    value: currentTag,
-                    isExpanded: true,
-                    underline: const SizedBox.shrink(),
-                    dropdownColor: ext.surfaceElevated,
-                    items: localeEntries
-                        .map((e) => DropdownMenuItem(
-                              value: localeTag(e.locale),
-                              child: Text(e.displayName),
-                            ))
-                        .toList(),
-                    onChanged: (tag) {
-                      if (tag != null) {
-                        final entry = localeEntries.firstWhere(
-                          (e) => localeTag(e.locale) == tag,
-                          orElse: () =>
-                              const LocaleEntry(Locale('en'), 'English'),
-                        );
-                        ref
-                            .read(localeNotifierProvider.notifier)
-                            .setLocale(entry.locale);
-                      }
-                    },
-                  ),
-                ),
-              );
-            },
-          ),
-
-          const SizedBox(height: 8),
-          const _TextSizeSetting(),
-          const SizedBox(height: 8),
-          const _FabPositionSetting(),
-          // «Показывать Kai» перенесено в Поведение (рядом с тоном Kai)
+          const SizedBox(height: 16),
+          const _ThemePicker(),
+          const SizedBox(height: 32),
         ],
       ),
     );
@@ -2111,35 +2214,78 @@ class ProfileAppearanceScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Подстраница «Поведение»
-// Секции: дефолты задач/тренировок, флаги-режимы, настрой Kai, осанка,
-//         звук, уведомления, свайп-действия.
+// Подстраница «Поведение» / «Настройки»
+// Секции: Kai, Язык, Уведомления, Звук, Свайпы, Часовой пояс,
+//         Доступность (высокий контраст + размер текста),
+//         Умолчания задач, Умолчания тренировок, Расширенные функции.
+// FAB-позиция УБРАНА (позиция зафиксирована).
 // ---------------------------------------------------------------------------
 
-/// Подстраница «Поведение» — умолчания, флаги, Kai, уведомления.
 class ProfileBehaviorScreen extends StatelessWidget {
   const ProfileBehaviorScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
     return Scaffold(
       appBar: AppBar(title: Text(context.s('profile.section_behavior'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         children: [
-          const _TaskDefaultsSection(),
-          const SizedBox(height: 28),
-          const _WorkoutDefaultsSection(),
-          const SizedBox(height: 28),
-          const _AdvancedFeaturesSection(),
-          const SizedBox(height: 28),
-          // Упрощённая секция Kai: тумблер + тон + превью
+          // ── Kai ──────────────────────────────────────────────────────────
           const _KaiSettingsSection(),
-          const SizedBox(height: 16),
-          const _PostureReminderSetting(),
-          const _CompletionSoundSetting(),
+
+          // ── Язык ─────────────────────────────────────────────────────────
+          const SizedBox(height: 24),
+          Divider(color: ext.border, height: 1, thickness: 0.5),
+          const _LanguageSetting(),
+
+          // ── Уведомления / Звук / Осанка ───────────────────────────────────
+          Divider(color: ext.border, height: 1, thickness: 0.5),
           const _NotificationsSetting(),
+          Divider(color: ext.border, height: 1, thickness: 0.5),
+          const _CompletionSoundSetting(),
+          Divider(color: ext.border, height: 1, thickness: 0.5),
+          const _PostureReminderSetting(),
+
+          // ── Свайп-действия ────────────────────────────────────────────────
+          Divider(color: ext.border, height: 1, thickness: 0.5),
           const _SwipeActionsSetting(),
+
+          // ── Часовой пояс ──────────────────────────────────────────────────
+          Divider(color: ext.border, height: 1, thickness: 0.5),
+          const _TimezoneSetting(),
+
+          // ── Доступность ───────────────────────────────────────────────────
+          const SizedBox(height: 28),
+          Text(
+            context.s('profile.section_accessibility'),
+            style: textTheme.titleMedium,
+          ),
+          const SizedBox(height: 8),
+          const _HighContrastSetting(),
+          const SizedBox(height: 12),
+          const _TextSizeSetting(),
+
+          // ── Умолчания задач ───────────────────────────────────────────────
+          const SizedBox(height: 28),
+          Divider(color: ext.border, height: 1, thickness: 0.5),
+          const SizedBox(height: 20),
+          const _TaskDefaultsSection(),
+
+          // ── Умолчания тренировок ──────────────────────────────────────────
+          const SizedBox(height: 28),
+          Divider(color: ext.border, height: 1, thickness: 0.5),
+          const SizedBox(height: 20),
+          const _WorkoutDefaultsSection(),
+
+          // ── Расширенные функции ───────────────────────────────────────────
+          const SizedBox(height: 28),
+          Divider(color: ext.border, height: 1, thickness: 0.5),
+          const SizedBox(height: 20),
+          const _AdvancedFeaturesSection(),
         ],
       ),
     );
@@ -2148,11 +2294,10 @@ class ProfileBehaviorScreen extends StatelessWidget {
 
 // ---------------------------------------------------------------------------
 // Подстраница «Аккаунт»
-// Секции: аккаунт/email, стрик+заморозки, подписка, шеринг, мои данные,
-//         поддержка, реферал, условия, часовой пояс, выход.
+// Показывает имя/email и кнопку выхода (бизнес-логика входа/выхода здесь).
+// Геймификация, подписка и шеринг перенесены в главный ProfileScreen.
 // ---------------------------------------------------------------------------
 
-/// Подстраница «Аккаунт» — статус, стрик, подписка, данные, поддержка, выход.
 class ProfileAccountScreen extends ConsumerWidget {
   const ProfileAccountScreen({super.key});
 
@@ -2161,7 +2306,6 @@ class ProfileAccountScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final userAsync = ref.watch(currentUserProvider);
-    final streak = ref.watch(_streakProvider).valueOrNull;
     final isAuthenticated =
         ref.read(authControllerProvider.notifier).isAuthenticated;
 
@@ -2222,55 +2366,14 @@ class ProfileAccountScreen extends ConsumerWidget {
                     },
                   ),
 
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 32),
+                  Divider(color: ext.border, height: 1, thickness: 0.5),
 
-                  // Стрик + заморозки с прогрессом к награде
-                  _FreezeCard(streak: streak),
-
-                  const SizedBox(height: 12),
-                  const _PremiumCard(),
-                  const SizedBox(height: 8),
-                  const _ShareWeekCard(),
-                  const SizedBox(height: 8),
-                  const _SharedWithMeCard(),
-
-                  // Мои данные (тело / макросы / питание / здоровье)
-                  const SizedBox(height: 16),
-                  const _MyDataTile(),
-
-                  // Часовой пояс
-                  const SizedBox(height: 8),
-                  const _TimezoneSetting(),
-
-                  // Секция «Поддержка»
-                  const SizedBox(height: 28),
-                  Text(
-                    context.s('profile.section_support'),
-                    style: textTheme.titleMedium,
-                  ),
-                  const SizedBox(height: 8),
-
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.star_border, color: ext.textMuted),
-                    title: Text(context.s('profile.rate_app')),
-                    trailing: Icon(Icons.chevron_right, color: ext.textMuted),
-                    onTap: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        SnackBar(
-                          content:
-                              Text(context.s('profile.rate_coming_soon')),
-                        ),
-                      );
-                    },
-                  ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading:
-                        Icon(Icons.feedback_outlined, color: ext.textMuted),
-                    title: Text(context.s('profile.send_feedback')),
-                    subtitle: Text(context.s('profile.feedback_subtitle')),
-                    trailing: Icon(Icons.chevron_right, color: ext.textMuted),
+                  // Навигация по аккаунту (placeholder — функционал не реализован)
+                  _NavRow(
+                    icon: Icon(PhosphorIcons.envelope(), size: 20, color: ext.textMuted),
+                    title: context.s('profile.send_feedback'),
+                    subtitle: context.s('profile.feedback_subtitle'),
                     onTap: () {
                       ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(
@@ -2279,95 +2382,48 @@ class ProfileAccountScreen extends ConsumerWidget {
                       );
                     },
                   ),
-                  ListTile(
-                    contentPadding: EdgeInsets.zero,
-                    leading: Icon(Icons.description_outlined,
-                        color: ext.textMuted),
-                    title: Text(context.s('profile.terms_privacy')),
-                    trailing: Icon(Icons.chevron_right, color: ext.textMuted),
+                  Divider(color: ext.border, height: 1, thickness: 0.5),
+                  _NavRow(
+                    icon: Icon(PhosphorIcons.shieldCheck(), size: 20, color: ext.textMuted),
+                    title: context.s('profile.terms_privacy'),
                     onTap: () => context.push('/terms'),
                   ),
-
-                  // Реферальная карточка
-                  const SizedBox(height: 16),
-                  Card(
-                    child: Padding(
-                      padding: const EdgeInsets.all(16),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              const Text('🎁',
-                                  style: TextStyle(fontSize: 22)),
-                              const SizedBox(width: 10),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment:
-                                      CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      context.s('profile.invite_title'),
-                                      style: textTheme.titleSmall,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      context.s('profile.invite_subtitle'),
-                                      style: textTheme.bodySmall
-                                          ?.copyWith(color: ext.textMuted),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 14),
-                          OutlinedButton.icon(
-                            icon: const Icon(Icons.share, size: 16),
-                            label:
-                                Text(context.s('profile.share_kaizen')),
-                            onPressed: () {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(context
-                                      .s('profile.referral_coming_soon')),
-                                ),
-                              );
-                            },
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
+                  Divider(color: ext.border, height: 1, thickness: 0.5),
                 ],
               ),
             ),
 
             const SizedBox(height: 12),
-            // Выход / вход — деструктивный/акцентный: ember для Sign Out
+            // Выход / вход
             isAuthenticated
-                ? OutlinedButton(
+                ? OutlinedButton.icon(
+                    icon: Icon(PhosphorIcons.signOut(), size: 18),
+                    label: Text(context.s('btn.sign_out')),
                     onPressed: () async {
                       await ref
                           .read(authControllerProvider.notifier)
                           .logout();
                     },
                     style: OutlinedButton.styleFrom(
-                      foregroundColor: ext.ember,
-                      side: BorderSide(color: ext.ember),
+                      foregroundColor: ext.danger,
+                      side: BorderSide(color: ext.danger),
+                      minimumSize: const Size.fromHeight(48),
                     ),
-                    child: Text(context.s('btn.sign_out')),
                   )
-                : FilledButton(
+                : FilledButton.icon(
+                    icon: Icon(PhosphorIcons.signIn(), size: 18),
+                    label: Text(context.s('btn.sign_in')),
                     onPressed: () async {
                       await ref
                           .read(authControllerProvider.notifier)
                           .logout();
                     },
-                    child: Text(context.s('btn.sign_in')),
+                    style: FilledButton.styleFrom(
+                      minimumSize: const Size.fromHeight(48),
+                    ),
                   ),
             const SizedBox(height: 12),
-            const _AppVersionLabel(),
+            const Center(child: _AppVersionLabel()),
             const SizedBox(height: 8),
           ],
         ),

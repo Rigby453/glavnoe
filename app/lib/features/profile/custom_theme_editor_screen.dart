@@ -59,10 +59,12 @@ class _PreviewPalette {
 // Провайдер деривации для конкретного конфига (используется только в editor)
 // ---------------------------------------------------------------------------
 
-/// Деривация выполняется через ThemeData, которую мы создаём временно,
-/// затем читаем цвета из расширения. Это позволяет избежать доступа к _Palette.
+/// Деривация превью-палитры.
+/// Kaname v4 shim: custom-тема заменяется accent-пикером в Phase 4;
+/// сейчас возвращает day+indigo как плейсхолдер.
+// ignore: deprecated_member_use
 _PreviewPalette _derivePreviewPalette(CustomThemeConfig config) {
-  final theme = AppTheme.forKeyWithCustom(AppThemeKey.custom, config);
+  final theme = AppTheme.build(theme: AppThemeKey.day);
   final cs = theme.colorScheme;
   final ext = theme.extension<FocusThemeExtension>();
 
@@ -124,12 +126,9 @@ class _CustomThemeEditorScreenState
   // Пересчёт превью и флага принудительной коррекции
   void _recompute() {
     final config = _currentConfig;
-    // Вычисляем через forKeyWithCustom, чтобы получить нормализованный ThemeData
+    // Kaname v4 shim: custom-тема = day+indigo; forced всегда false для shim.
     final preview = _derivePreviewPalette(config);
-    // Проверяем принудительную коррекцию акцента через временный ThemeData:
-    // если accent в ThemeData отличается от _accent, коррекция была применена
-    final theme = AppTheme.forKeyWithCustom(AppThemeKey.custom, config);
-    final forced = theme.colorScheme.primary != _accent;
+    const forced = false;
     setState(() {
       _previewPalette = preview;
       _accentWasForced = forced;
@@ -141,10 +140,10 @@ class _CustomThemeEditorScreenState
     await ref
         .read(customThemeNotifierProvider.notifier)
         .save(_currentConfig);
-    // Переключаемся на custom-тему
+    // Kaname v4 shim: custom-тема → day; Phase 4 подключит accent-пикер.
     await ref
         .read(themeNotifierProvider.notifier)
-        .setTheme(AppThemeKey.custom);
+        .setTheme(AppThemeKey.day);
     if (mounted) context.pop();
   }
 
@@ -170,11 +169,10 @@ class _CustomThemeEditorScreenState
     if (confirmed != true) return;
 
     await ref.read(customThemeNotifierProvider.notifier).reset();
-    // Если была выбрана custom-тема — откатить на focus
-    if (ref.read(themeNotifierProvider) == AppThemeKey.custom) {
-      await ref
-          .read(themeNotifierProvider.notifier)
-          .setTheme(AppThemeKey.focus);
+    // Если была выбрана тема day (куда shim перенаправлял custom) — оставляем day.
+    // Phase 4 уточнит логику через accent-пикер.
+    if (ref.read(themeNotifierProvider) == AppThemeKey.day) {
+      // Уже на day — ничего не делаем.
     }
     if (mounted) context.pop();
   }

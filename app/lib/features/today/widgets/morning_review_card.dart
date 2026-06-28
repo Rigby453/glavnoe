@@ -166,7 +166,7 @@ class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
               ),
               // «Поправить» — открыть детальный лист (варианты, AI-план).
               OutlinedButton(
-                onPressed: () => _showMorningReviewSheet(context),
+                onPressed: () => showMorningReviewSheet(context),
                 child: Text(context.s('today.morning_review_adjust')),
               ),
               // «Оставить» — скрыть карточку до следующей сессии.
@@ -185,7 +185,10 @@ class _MorningReviewCardState extends ConsumerState<MorningReviewCard> {
   }
 }
 
-Future<void> _showMorningReviewSheet(BuildContext context) {
+/// Публичная точка входа: открыть лист детального утреннего разбора.
+/// Используется как из MorningReviewCard (кнопка «Поправить»), так и из
+/// сторонних виджетов (например, _KaiReviewCard в today_screen.dart).
+Future<void> showMorningReviewSheet(BuildContext context) {
   return showAppSheet<void>(
     context,
     isScrollControlled: true,

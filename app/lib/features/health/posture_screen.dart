@@ -1,13 +1,14 @@
 // Экран «Осанка» (SPEC C5 Ф2).
-// Тумблер ежедневных напоминаний «выпрямись» + список текстовых упражнений.
+// Kaname redesign (Phase 5): §4.2 cards, Phosphor icons.
+// Тумблер ежедневных напоминаний + список текстовых упражнений с раскрытием шагов.
 // Нет БД, нет видео, нет новых пакетов.
 //
 // ПРИМЕЧАНИЕ: экран убран из навигации (задача 7 эпика), файл сохранён
-// компилируемым. Провайдер напоминаний перенесён в
-// core/settings/posture_reminder_provider.dart, где доступен из Профиля.
+// компилируемым. Провайдер напоминаний — core/settings/posture_reminder_provider.dart.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/plurals.dart';
@@ -27,58 +28,58 @@ class PostureScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final remindersOn = ref.watch(postureRemindersProvider);
+    final surface = Theme.of(context).colorScheme.surface;
 
     return Scaffold(
       appBar: AppBar(title: Text(context.s('posture.title'))),
       body: ListView(
-        // 24dp screen margin — spec §4.1
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
         children: [
-          // headlineSmall — display font, заголовок раздела
-          Text(context.s('posture.title'), style: textTheme.headlineSmall),
+          // titleLarge — спокойный заголовок раздела
+          Text(context.s('posture.title'), style: textTheme.titleLarge),
           const SizedBox(height: 24),
 
-          // --- Карточка тумблера напоминаний ---
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-              child: SwitchListTile(
-                secondary: Icon(
-                  Icons.notifications_outlined,
-                  // Иконка нейтральная — не accent (не первичное действие)
-                  color: ext.textMuted,
-                ),
-                title: Text(
-                  context.s('posture.reminders_title'),
-                  style: textTheme.bodyLarge,
-                ),
-                subtitle: Text(
-                  // Используем subtitle строку (расписание) как подпись
-                  context.s('posture.reminders_subtitle'),
-                  style: textTheme.bodySmall,
-                ),
-                value: remindersOn,
-                onChanged: (value) async {
-                  final notifier =
-                      ref.read(postureRemindersProvider.notifier);
-                  final result = await notifier.setEnabled(value);
-                  // Если разрешение не выдано — показываем снэкбар
-                  if (value && !result && context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(context.s('posture.permission_required')),
-                        duration: const Duration(seconds: 4),
-                      ),
-                    );
-                  }
-                },
+          // ── Карточка тумблера напоминаний (§4.2) ───────────────────────
+          Container(
+            decoration: BoxDecoration(
+              color: surface,
+              border: Border.all(color: ext.border, width: 0.5),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            clipBehavior: Clip.antiAlias,
+            child: SwitchListTile(
+              secondary: Icon(
+                PhosphorIcons.bell(),
+                // Иконка нейтральная — не accent
+                color: ext.textMuted,
               ),
+              title: Text(
+                context.s('posture.reminders_title'),
+                style: textTheme.bodyLarge,
+              ),
+              subtitle: Text(
+                context.s('posture.reminders_subtitle'),
+                style: textTheme.bodySmall,
+              ),
+              value: remindersOn,
+              onChanged: (value) async {
+                final notifier = ref.read(postureRemindersProvider.notifier);
+                final result = await notifier.setEnabled(value);
+                if (value && !result && context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text(context.s('posture.permission_required')),
+                      duration: const Duration(seconds: 4),
+                    ),
+                  );
+                }
+              },
             ),
           ),
 
           const SizedBox(height: 32),
 
-          // --- Раздел упражнений ---
+          // ── Раздел упражнений ──────────────────────────────────────────
           Text(context.s('posture.exercises'), style: textTheme.titleMedium),
           const SizedBox(height: 12),
           ...postureExercises.map(
@@ -96,29 +97,38 @@ class PostureScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Плитка упражнения с раскрытием шагов
+// Плитка упражнения с раскрытием шагов (§4.2 card + ExpansionTile).
 // ---------------------------------------------------------------------------
 
 class _ExerciseTile extends StatelessWidget {
   const _ExerciseTile({required this.exercise});
-
   final PostureExercise exercise;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final surface = Theme.of(context).colorScheme.surface;
 
-    return Card(
+    return Container(
+      decoration: BoxDecoration(
+        color: surface,
+        border: Border.all(color: ext.border, width: 0.5),
+        borderRadius: BorderRadius.circular(14),
+      ),
+      clipBehavior: Clip.antiAlias,
       child: ExpansionTile(
         leading: Icon(
-          Icons.self_improvement,
-          // Иконка нейтральная (textMuted) — accent только для первичного элемента
+          // personSimpleWalk — Phosphor эквивалент accessibility_new (posture)
+          PhosphorIcons.personSimpleWalk(),
           color: ext.textMuted,
         ),
-        // Название упражнения — titleSmall (название задачи/сессии)
-        title: Text(context.s(exercise.nameKey), style: textTheme.titleSmall),
-        // Длительность — bodySmall + textFaint (мета-данные)
+        title: Text(
+          context.s(exercise.nameKey),
+          style: textTheme.titleSmall,
+          overflow: TextOverflow.ellipsis,
+        ),
+        // trailing — длительность упражнения (заменяет дефолтную стрелку ExpansionTile)
         trailing: Text(
           plPostureDuration(context, exercise.seconds),
           style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
@@ -126,7 +136,7 @@ class _ExerciseTile extends StatelessWidget {
         childrenPadding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
         expandedCrossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Шаги — bodyMedium
+          // Инструкция: bodyMedium
           Text(context.s(exercise.stepsKey), style: textTheme.bodyMedium),
         ],
       ),

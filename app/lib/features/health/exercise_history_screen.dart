@@ -1,20 +1,19 @@
-// Экран истории упражнения (Feature B, set-by-set дневник).
-// Показывает прошлые подходы упражнения, сгруппированные по дням,
-// и лёгкую динамику рабочего веса (макс. вес за сессию) в виде столбиков.
+// Экран истории упражнения — Kaname redesign §D.
+// Показывает прошлые подходы, сгруппированные по дням, и спарклайн динамики веса.
 // Офлайн-первый: данные только из Drift через WorkoutsDao.
-//
-// Заголовок = имя упражнения: берётся из watchExercise(id); если упражнение
-// уже удалено (null) — fallback на переданный exerciseName, затем на общий
-// заголовок «Exercise history».
+// Empty state: KaiMascot(neutral, 64) + bodyMedium.
+// Заголовок = имя упражнения из watchExercise(id); fallback на exerciseName / общий.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
+import '../../features/mascot/kai_mascot.dart';
 
 class ExerciseHistoryScreen extends ConsumerWidget {
   const ExerciseHistoryScreen({
@@ -24,9 +23,6 @@ class ExerciseHistoryScreen extends ConsumerWidget {
   });
 
   final String exerciseId;
-
-  /// Опциональное имя упражнения от вызывающей стороны — fallback, если
-  /// упражнение уже удалено и watchExercise вернёт null.
   final String? exerciseName;
 
   @override
@@ -34,7 +30,6 @@ class ExerciseHistoryScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    // Заголовок: имя упражнения из БД → переданное имя → общий заголовок.
     final exerciseAsync = ref.watch(_exerciseProvider(exerciseId));
     final title = exerciseAsync.valueOrNull?.name ??
         exerciseName ??
@@ -58,7 +53,7 @@ class ExerciseHistoryScreen extends ConsumerWidget {
   }
 
   // ---------------------------------------------------------------------------
-  // Пустое состояние
+  // Пустое состояние — KaiMascot(neutral, 64) + текст
   // ---------------------------------------------------------------------------
 
   Widget _empty(
@@ -72,8 +67,7 @@ class ExerciseHistoryScreen extends ConsumerWidget {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // Иконка пустого состояния — textFaint (тихая, не акцентная)
-            Icon(Icons.show_chart, size: 56, color: ext.textFaint),
+            const KaiMascot(size: 64, emotion: KaiEmotion.neutral),
             const SizedBox(height: 16),
             Text(
               context.s('workout.history_empty'),
@@ -87,7 +81,7 @@ class ExerciseHistoryScreen extends ConsumerWidget {
   }
 
   // ---------------------------------------------------------------------------
-  // История: динамика веса + подходы по дням
+  // История: спарклайн + подходы по дням
   // ---------------------------------------------------------------------------
 
   Widget _buildHistory(
@@ -96,43 +90,32 @@ class ExerciseHistoryScreen extends ConsumerWidget {
     TextTheme textTheme,
     List<WorkoutSetLogsTableData> logs,
   ) {
-    // logs приходят свежими первыми (completedAt desc). Группируем по дню.
     final groups = _groupByDay(logs);
-
-    // Динамика: рабочий вес (макс. за сессию) по времени, старые → новые.
     final sessionWeights = _topWeightPerSession(logs);
+    final colorScheme = Theme.of(context).colorScheme;
 
     return ListView(
       padding: const EdgeInsets.fromLTRB(24, 16, 24, 24),
       children: [
-        // Лёгкий спарклайн динамики рабочего веса (если есть числовой вес)
+        // Спарклайн динамики (если есть числовой вес)
         if (sessionWeights.isNotEmpty) ...[
           _WeightDynamics(
             values: sessionWeights,
             ext: ext,
             textTheme: textTheme,
-            accent: Theme.of(context).colorScheme.primary,
+            accent: colorScheme.primary,
           ),
           const SizedBox(height: 24),
         ],
-        // Подходы, сгруппированные по дням (свежие дни сверху)
+        // Подходы по дням — hairline-divided cards per day
         for (final group in groups) ...[
-          _DayHeader(date: group.date, ext: ext, textTheme: textTheme),
-          const SizedBox(height: 8),
-          for (final log in group.sets)
-            _SetRow(log: log, ext: ext, textTheme: textTheme),
-          const SizedBox(height: 20),
+          _DayCard(group: group, ext: ext, textTheme: textTheme),
+          const SizedBox(height: 12),
         ],
       ],
     );
   }
 
-  // ---------------------------------------------------------------------------
-  // Группировка/агрегация
-  // ---------------------------------------------------------------------------
-
-  /// Сгруппировать подходы по календарному дню (свежие дни первыми,
-  /// внутри дня — по времени, старые первыми).
   List<_DayGroup> _groupByDay(List<WorkoutSetLogsTableData> logs) {
     final byDay = <DateTime, List<WorkoutSetLogsTableData>>{};
     for (final log in logs) {
@@ -151,11 +134,7 @@ class ExerciseHistoryScreen extends ConsumerWidget {
     ];
   }
 
-  /// Топовый рабочий вес (макс. weightKg) на каждую сессию, по времени
-  /// (старые → новые) — для столбиковой динамики. Сессии без числового веса
-  /// (только bodyweight) пропускаются.
   List<double> _topWeightPerSession(List<WorkoutSetLogsTableData> logs) {
-    // Время сессии = минимальный completedAt её подходов (для сортировки).
     final maxBySession = <String, double>{};
     final timeBySession = <String, DateTime>{};
     for (final log in logs) {
@@ -176,7 +155,7 @@ class ExerciseHistoryScreen extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Провайдеры экрана (family по exerciseId)
+// Провайдеры
 // ---------------------------------------------------------------------------
 
 final _historyProvider = StreamProvider.autoDispose
@@ -190,48 +169,92 @@ final _exerciseProvider = StreamProvider.autoDispose
 });
 
 // ---------------------------------------------------------------------------
-// Модель группы подходов одного дня
+// Модель дня
 // ---------------------------------------------------------------------------
 
 class _DayGroup {
   _DayGroup({required this.date, required this.sets});
-
   final DateTime date;
   final List<WorkoutSetLogsTableData> sets;
 }
 
 // ---------------------------------------------------------------------------
-// Заголовок дня
+// Карточка дня — surface1 + hairline + R14, hairline-divided строки
 // ---------------------------------------------------------------------------
 
-class _DayHeader extends StatelessWidget {
-  const _DayHeader({
-    required this.date,
+class _DayCard extends StatelessWidget {
+  const _DayCard({
+    required this.group,
     required this.ext,
     required this.textTheme,
   });
 
-  final DateTime date;
+  final _DayGroup group;
   final FocusThemeExtension ext;
   final TextTheme textTheme;
 
   @override
   Widget build(BuildContext context) {
-    // «Mon, Jun 23» — короткая дата (как в week_agenda). DateFormat без явной
-    // локали следует Intl.defaultLocale (выставляется applyIntlLocale), поэтому
-    // дата локализуется вместе с языком приложения.
-    final label = DateFormat('EEE, MMM d').format(date);
-    return Text(
-      label,
-      style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
+    final colorScheme = Theme.of(context).colorScheme;
+    final dateLabel = DateFormat('EEE, MMM d').format(group.date);
+
+    return Material(
+      color: colorScheme.surface,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(14),
+        side: BorderSide(color: ext.border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Заголовок дня
+          Padding(
+            padding: const EdgeInsets.fromLTRB(13, 10, 13, 8),
+            child: Row(
+              children: [
+                Icon(
+                  PhosphorIcons.clockCounterClockwise(),
+                  size: 14,
+                  color: ext.textFaint,
+                ),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    dateLabel,
+                    style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Divider(height: 0, thickness: 0.5, color: ext.border),
+          // Строки подходов
+          ...group.sets.asMap().entries.map((entry) {
+            final i = entry.key;
+            final log = entry.value;
+            return Column(
+              children: [
+                if (i > 0)
+                  Divider(
+                    height: 0,
+                    thickness: 0.5,
+                    color: ext.border,
+                    indent: 40,
+                  ),
+                _SetRow(log: log, ext: ext, textTheme: textTheme),
+              ],
+            );
+          }),
+        ],
+      ),
     );
   }
 }
 
 // ---------------------------------------------------------------------------
-// Строка подхода: «12 × 40 kg» / «15 × Bodyweight»
+// Строка подхода: «1 · 12 × 40 kg»
 // ---------------------------------------------------------------------------
 
 class _SetRow extends StatelessWidget {
@@ -249,18 +272,19 @@ class _SetRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final weight = _formatWeight(context, log.weightKg);
     return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 9),
       child: Row(
         children: [
-          // Номер подхода — тихая подпись (setIndex 0-based → +1)
+          // Номер подхода — тихая подпись
           SizedBox(
-            width: 28,
+            width: 24,
             child: Text(
               '${log.setIndex + 1}',
               style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
             ),
           ),
-          // «reps × weight» — основная метрика подхода
+          const SizedBox(width: 4),
+          // reps × weight
           Expanded(
             child: Text(
               '${log.reps} × $weight',
@@ -274,8 +298,6 @@ class _SetRow extends StatelessWidget {
     );
   }
 
-  /// Форматирование веса: «40 kg» / «42.5 kg» / «Bodyweight» (null) —
-  /// та же идея, что в тренажёре.
   String _formatWeight(BuildContext context, double? w) {
     if (w == null) return context.s('workout.bodyweight');
     final v = w == w.truncateToDouble() ? '${w.round()}' : '$w';
@@ -284,8 +306,7 @@ class _SetRow extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Лёгкая динамика рабочего веса — ряд столбиков (без новых зависимостей).
-// Overflow-safe: столбики во Flexible, текст с ellipsis.
+// Спарклайн динамики рабочего веса — ряд столбиков (accent fill)
 // ---------------------------------------------------------------------------
 
 class _WeightDynamics extends StatelessWidget {
@@ -296,7 +317,6 @@ class _WeightDynamics extends StatelessWidget {
     required this.accent,
   });
 
-  /// Топовый рабочий вес по сессиям, старые → новые.
   final List<double> values;
   final FocusThemeExtension ext;
   final TextTheme textTheme;
@@ -306,7 +326,6 @@ class _WeightDynamics extends StatelessWidget {
   Widget build(BuildContext context) {
     final maxVal = values.reduce((a, b) => a > b ? a : b);
     final minVal = values.reduce((a, b) => a < b ? a : b);
-    // Диапазон для нормализации высоты: если все равны — все полной высоты.
     final span = (maxVal - minVal).abs();
 
     String fmt(double w) =>
@@ -315,16 +334,21 @@ class _WeightDynamics extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Подпись блока — тихая (textFaint)
-        Text(
-          context.s('workout.weight_dynamics'),
-          style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
+        Row(
+          children: [
+            Icon(PhosphorIcons.chartLineUp(), size: 14, color: ext.textFaint),
+            const SizedBox(width: 6),
+            Text(
+              context.s('workout.weight_dynamics'),
+              style: textTheme.bodySmall?.copyWith(color: ext.textFaint),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ],
         ),
         const SizedBox(height: 8),
         SizedBox(
-          height: 72,
+          height: 64,
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
@@ -354,9 +378,8 @@ class _WeightDynamics extends StatelessWidget {
   }
 
   Widget _bar(double value, double minVal, double span) {
-    // Высота столбика 0.35..1.0 от доступной — чтобы даже минимум был виден.
     final t = span == 0 ? 1.0 : (value - minVal) / span;
-    final factor = 0.35 + 0.65 * t;
+    final factor = 0.3 + 0.7 * t;
     return FractionallySizedBox(
       heightFactor: factor.clamp(0.0, 1.0),
       child: DecoratedBox(

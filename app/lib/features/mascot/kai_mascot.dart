@@ -1,20 +1,25 @@
 // Маскот «Kai» — pure-Flutter реализация через CustomPainter.
-// Источник истины: /docs/MASCOT.md (ADR-032).
-// Rive не используется; все анимации на AnimationController.
+// v4 (Kaname redesign, 2026-06-28): бесформенная жидкая «галька» —
+// суперэллипс без глаз, рта, бровей, лица любого вида.
+// Источник истины: /docs/REDESIGN-KANAME.md §Kai.
 //
-// Пять выражений (KaiEmotion):
-//   neutral  — тире-глаза, ровный squircle. База.
-//   success  — арки глаз вверх (^ ^), форма пружинит к кругу.
-//   thinking — один глаз прищурен, форма вытянута вертикально, лёгкая пульсация.
-//   anxious  — глаза чуть крупнее, форма сжата/дёрганая.
-//   away     — глаза-«нитки» (почти закрыты), форма немного осевшая.
+// Шесть состояний (5 KaiEmotion + модификатор isHarsh):
+//   neutral  — мягкая скруглённая галька, медленное дыхание, акцентный цвет.
+//   success  — заполняется к кругу, пружинный bounce, на мгновение ярче.
+//   thinking — вытягивается вертикально, пульс + внутренняя орбитальная частица.
+//   anxious  — сжимается, микро-дрожание, цвет сдвигается к ember.
+//   away     — оседает, тускнеет, медленные редкие морфы.
+//   isHarsh  — более собранный, острее края, ember-тинт, снаппер. Компонуется
+//              поверх любой эмоции (заменяет «глаза+брови» прежней реализации).
 //
-// Жёсткость (isHarsh) — отдельный флаг-оверлей: узкие глаза + брови + резкие углы.
-// Это МАНЕРА (тон), не эмоция; компонуется поверх любой из пяти эмоций.
+// При reduce-motion/high-contrast: статичная нейтральная галька без анимаций
+// и без таймеров (тесты не жалуются на pending timer).
 //
-// v2 (2026-06): добавлен моргания (blink) + micro-look (горизонтальный дрейф взгляда)
-// для читаемой «живости» на idle, усиленный pulse для thinking.
-// v3 (2026-06): интерактивный тап — баунс/wiggle + речевой пузырь с rotate-строками.
+// Публичный API (не менять — вызывается из kai_loader, today_screen, paywall,
+// onboarding, asset-gen теста):
+//   enum KaiEmotion { neutral, success, thinking, anxious, away }
+//   class KaiMascot({Key? key, double size, KaiEmotion emotion, bool isHarsh, VoidCallback? onTap})
+//   Future<List<int>> renderKaiPng({...}) — статичный PNG для нативного виджета.
 
 import 'dart:async';
 import 'dart:math' as math;
@@ -27,11 +32,10 @@ import '../../core/l10n/app_strings.dart';
 import 'kai_speech_bubble.dart';
 
 // ---------------------------------------------------------------------------
-// Enum выражений
+// Enum выражений (публичный API — не менять имена)
 // ---------------------------------------------------------------------------
 
-/// Пять выражений Kai из MASCOT.md §5.
-/// Жёсткость (строгость) — не эмоция; передаётся флагом [KaiMascot.isHarsh].
+/// Пять выражений Kai. Жёсткость — не эмоция; передаётся флагом [KaiMascot.isHarsh].
 enum KaiEmotion {
   neutral,
   success,
@@ -41,58 +45,41 @@ enum KaiEmotion {
 }
 
 // ---------------------------------------------------------------------------
-// Рендер в PNG (для нативного виджета — WIDGET.md §6)
+// renderKaiPng (публичный API — сигнатуру не менять)
 // ---------------------------------------------------------------------------
 
-/// Рендерит статичный кадр Kai в PNG-байты без виджет-дерева и без анимаций.
+/// Рендерит статичный PNG-кадр Kai без виджет-дерева и без анимаций.
 ///
-/// Используется скриптом генерации ассетов (test/generate_kai_assets_test.dart)
-/// для создания PNG-кадров, которые кладутся в Android `drawable-{density}/`
-/// и assets/kai_widget/ (iOS). Flutter/CustomPainter/Rive недоступны в нативном
-/// виджете, поэтому заранее рендерим статичные PNG (WIDGET.md §6).
+/// Используется скриптом генерации ассетов для нативного виджета.
 ///
-/// Параметры:
-///   [emotion]     — одно из выражений [KaiEmotion].
-///   [isHarsh]     — жёсткий тон (глаза уже, брови, ember-цвет).
-///   [eyeColor]    — цвет глаз (= accent темы; для белых нейтральных глаз — Colors.white).
-///   [bodyColor]   — цвет тела squircle (полупрозрачный тёмный для тёмных тем).
-///   [borderColor] — цвет обводки (полупрозрачный, обычно совпадает с bodyColor).
-///   [size]        — логический размер (в dp/pt), обычно 96.
-///   [pixelRatio]  — плотность пикселей (1.0 = mdpi, 2.0 = xhdpi, 4.0 = xxxhdpi).
-///
-/// Возвращает PNG-байты с прозрачным фоном.
-/// Анимационные параметры зафиксированы в «покое»:
-///   дыхание = 0.5 (середина), моргание = 0 (глаза открыты),
-///   взгляд = 0 (по центру), jitter = 0, thinkPulse = 0.
+/// [eyeColor]    — сохранён для совместимости вызывающего кода; в новой реализации
+///                 Kai не имеет глаз — параметр не используется.
+/// [bodyColor]   — интерпретируется как основной акцентный цвет заливки.
+/// [borderColor] — сохранён для совместимости; не используется напрямую в отрисовке.
 Future<List<int>> renderKaiPng({
   required KaiEmotion emotion,
   required bool isHarsh,
-  required Color eyeColor,
-  required Color bodyColor,
-  required Color borderColor,
+  required Color eyeColor,    // не используется (нет глаз); сохранён для совместимости
+  required Color bodyColor,   // основной акцентный цвет заливки
+  required Color borderColor, // не используется; сохранён для совместимости
   required double size,
   double pixelRatio = 1.0,
 }) async {
-  // Реальный размер в физических пикселях
   final pxSize = size * pixelRatio;
   final canvasSize = ui.Size(pxSize, pxSize);
 
-  // Вычисляем статичное состояние (без интерполяции, в «покое» для эмоции)
   final kaiState = _stateFor(emotion, isHarsh);
+  // Суб-блоб: осветлённая версия акцентного цвета
+  final subBlobColor = Color.lerp(bodyColor, Colors.white, 0.30) ?? bodyColor;
 
   final recorder = ui.PictureRecorder();
   final canvas = Canvas(recorder, Offset.zero & canvasSize);
 
   final painter = _KaiPainter(
     state: kaiState,
-    eyeColor: eyeColor,
-    bodyColor: bodyColor,
-    borderColor: borderColor,
-    breathValue: 0.5,   // середина цикла дыхания — нейтральный масштаб
-    jitterOffset: 0.0,  // нет дёргания
-    blinkT: 0.0,        // глаза открыты
-    microShiftX: 0.0,   // взгляд по центру
-    thinkPulseValue: 0.0, // нет пульса
+    accentColor: bodyColor,
+    subBlobColor: subBlobColor,
+    thinkOrbitT: 0.0, // статика — орбиты нет
   );
 
   painter.paint(canvas, canvasSize);
@@ -105,7 +92,6 @@ Future<List<int>> renderKaiPng({
     throw StateError('renderKaiPng: toByteData вернул null для $emotion');
   }
 
-  // Возвращаем Uint8List как List<int> (совместимо с dart:io File.writeAsBytes)
   return byteData.buffer.asUint8List().toList();
 }
 
@@ -113,14 +99,13 @@ Future<List<int>> renderKaiPng({
 // Публичный виджет
 // ---------------------------------------------------------------------------
 
-/// Маскот Kai — мягкий squircle с двумя глазами-тире.
+/// Маскот Kai — жидкая «галька» без лица. Эмоция — через форму, цвет и движение.
 ///
-/// Параметры:
-///   [size]    — размер квадрата, в который вписывается маскот (default 56).
-///   [emotion] — одно из шести выражений [KaiEmotion].
-///   [isHarsh] — жёсткий тон: глаза → узкие щели, цвет → ember, углы резче.
-///               Компонуется с emotion, а не переопределяет его.
-///   [onTap]   — необязательный коллбек (для дисмисса / цикла выражений).
+/// [size]    — размер квадрата, в который вписывается маскот (default 56).
+/// [emotion] — одно из пяти выражений [KaiEmotion].
+/// [isHarsh] — жёсткий тон: острее края, ember-тинт, снаппер анимация.
+///             Компонуется с emotion, а не переопределяет его.
+/// [onTap]   — необязательный коллбек.
 class KaiMascot extends StatefulWidget {
   const KaiMascot({
     super.key,
@@ -142,61 +127,38 @@ class KaiMascot extends StatefulWidget {
 // Количество ротируемых реплик при тапе (kai.tap_quip_0 .. kai.tap_quip_N-1).
 const int _kTapQuipCount = 5;
 
-class _KaiMascotState extends State<KaiMascot>
-    with TickerProviderStateMixin {
-  // --- Tap → neutral ---
-  // По тапу Kai ненадолго «успокаивается» к нейтральному выражению
-  // (override поверх widget.emotion), затем возвращается к исходной эмоции.
-  // _tapNeutralToken — маркер последнего тапа, чтобы отложенный сброс
-  // не сработал, если за это время был ещё один тап.
+class _KaiMascotState extends State<KaiMascot> with TickerProviderStateMixin {
+  // --- Tap → neutral (кратковременный override поверх widget.emotion) ---
   bool _tapNeutral = false;
   Object? _tapNeutralToken;
-  // Длительность «нейтральной паузы» по тапу — нормальная анимация (280мс)
-  // даёт время морфингу доехать до neutral, затем ещё короткая задержка.
   static const Duration _tapNeutralHold = Duration(milliseconds: 1200);
 
-  // --- Tap-реакция v3: баунс + речевой пузырь ---
-  // _tapCount — монотонный счётчик нажатий; индекс реплики = tapCount % N.
+  // --- Счётчик тапов + речевой пузырь ---
   int _tapCount = 0;
   bool _showBubble = false;
-  Timer? _bubbleTimer; // таймер авто-скрытия пузыря, отменяется в dispose
-
-  // Баунс: TweenSequence scale 1→1.15→0.92→1 за kDurationNormal (280мс).
-  // Wiggle на пике: дополнительный легкий поворот (±6°) — rotateZ через Transform.
-  late final AnimationController _bounceCtrl;
-  late Animation<double> _bounceScaleAnim;
-  late Animation<double> _bounceRotateAnim; // рад, маленькое значение
-
-  // Длительность авто-скрытия пузыря (мс).
+  Timer? _bubbleTimer;
   static const int _kBubbleHoldMs = 2000;
 
-  // --- Дыхание (idle, бесконечный цикл) ---
+  // --- Баунс при тапе ---
+  late final AnimationController _bounceCtrl;
+  late Animation<double> _bounceScaleAnim;
+  late Animation<double> _bounceRotateAnim;
+
+  // --- Дыхание (idle, ping-pong ~3.5 с) ---
   late final AnimationController _breathCtrl;
   late final Animation<double> _breathAnim;
 
-  // --- Морфинг между выражениями ---
+  // --- Морфинг между состояниями ---
   late final AnimationController _morphCtrl;
   late _KaiState _from;
   late _KaiState _to;
   late Animation<double> _morphAnim;
 
-  // --- Тревожное дёргание (только anxious) ---
+  // --- Дрожание (только для anxious) ---
   late final AnimationController _jitterCtrl;
   late final Animation<double> _jitterAnim;
 
-  // --- Моргание (v2) ---
-  // blinkT: 0 = глаза полностью открыты, 1 = полностью закрыты
-  late final AnimationController _blinkCtrl;
-  late final Animation<double> _blinkAnim;
-  Timer? _blinkTimer;
-
-  // --- Micro-look: тихий горизонтальный дрейф взгляда (v2) ---
-  // Значение -1..+1 умножается на maxShiftPx в painter
-  late final AnimationController _lookCtrl;
-  late final Animation<double> _lookAnim;
-
-  // --- Thinking-pulse: усиленный визуальный пульс при thinking (v2) ---
-  // Отдельный быстрый контроллер для pulsing scaleY во время thinking
+  // --- Орбитальная частица / пульс (только для thinking) ---
   late final AnimationController _thinkPulseCtrl;
   late final Animation<double> _thinkPulseAnim;
 
@@ -216,7 +178,7 @@ class _KaiMascotState extends State<KaiMascot>
       CurvedAnimation(parent: _breathCtrl, curve: Curves.easeInOut),
     );
 
-    // Морфинг: нормальная длительность
+    // Морфинг: нормальная длительность 280 мс
     _morphCtrl = AnimationController(
       vsync: this,
       duration: kDurationNormal,
@@ -225,7 +187,7 @@ class _KaiMascotState extends State<KaiMascot>
       CurvedAnimation(parent: _morphCtrl, curve: kCurveLift),
     );
 
-    // Тревожное дёргание
+    // Дрожание (anxious): быстрый ping-pong 80 мс
     _jitterCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 80),
@@ -234,36 +196,15 @@ class _KaiMascotState extends State<KaiMascot>
       CurvedAnimation(parent: _jitterCtrl, curve: Curves.easeInOut),
     );
 
-    // Моргание: быстро (70 мс закрыть → 70 мс открыть = 140 мс полный цикл)
-    _blinkCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 70),
-    );
-    _blinkAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _blinkCtrl, curve: Curves.easeInOut),
-    );
-
-    // Micro-look: медленный синус ~7 сек
-    _lookCtrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 7000),
-    );
-    _lookAnim = Tween<double>(begin: -1, end: 1).animate(
-      CurvedAnimation(parent: _lookCtrl, curve: Curves.easeInOut),
-    );
-
-    // Thinking-pulse: быстрее дыхания — 1.4 сек цикл, имитирует AI-пульс
+    // Орбитальная частица (thinking): 1.4 с полный оборот, линейный
     _thinkPulseCtrl = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1400),
     );
-    _thinkPulseAnim = Tween<double>(begin: 0, end: 1).animate(
-      CurvedAnimation(parent: _thinkPulseCtrl, curve: Curves.easeInOut),
-    );
+    _thinkPulseAnim = Tween<double>(begin: 0, end: 1).animate(_thinkPulseCtrl);
 
-    // Баунс-анимация при тапе: kDurationNormal (280мс), упругая.
-    // Scale: 1.0 → 1.15 → 0.92 → 1.0 (TweenSequence)
-    // Rotate: 0 → +0.10 → -0.10 → 0 рад (~±6°)
+    // Баунс-анимация при тапе: kDurationNormal (280 мс), упругая.
+    // Scale: 1.0 → 1.15 → 0.92 → 1.0; Rotate: 0 → +0.10 → -0.10 → 0 рад.
     _bounceCtrl = AnimationController(
       vsync: this,
       duration: kDurationNormal,
@@ -310,12 +251,11 @@ class _KaiMascotState extends State<KaiMascot>
     _startLoops();
   }
 
-  /// Эффективная эмоция: пока активен tap-override — neutral, иначе widget.emotion.
+  /// Эффективная эмоция: пока активен tap-override — neutral.
   KaiEmotion get _effectiveEmotion =>
       _tapNeutral ? KaiEmotion.neutral : widget.emotion;
 
-  /// Запускает морфинг к текущей [_effectiveEmotion] от текущего кадра.
-  /// Используется и при смене widget.emotion, и при tap-override.
+  /// Запускает морфинг к [_effectiveEmotion] от текущего кадра.
   void _morphToEffective() {
     final currentT = _morphAnim.value;
     _from = _lerpState(_from, _to, currentT);
@@ -331,32 +271,26 @@ class _KaiMascotState extends State<KaiMascot>
       ..forward();
   }
 
-  /// Обработчик тапа: успокаиваем Kai к neutral на короткое время, затем
-  /// возвращаемся к исходной эмоции. Внешний widget.onTap вызывается всегда.
-  /// При reduce-motion морфинг не нужен — только показываем пузырь статично.
+  /// Тап: bounce + пузырь + кратковременный neutral-override.
+  /// При reduce-motion: только вызывает onTap + показывает пузырь без таймера.
   void _handleTap() {
     widget.onTap?.call();
 
     final reduce = reduceMotionOf(context);
 
-    // Увеличиваем счётчик тапов и показываем пузырь (всегда, независимо от motion).
     setState(() {
       _tapCount++;
       _showBubble = true;
     });
 
-    // Баунс-анимация только при motion разрешён.
     if (!reduce) {
       _bounceCtrl
         ..reset()
         ..forward();
     }
 
-    // Авто-скрытие пузыря: отменяем предыдущий таймер и запускаем новый.
-    // Используем Timer (не Future.delayed), чтобы cancel() в dispose() предотвращал
-    // pending-timer в тестах.
-    // При reduce-motion пузырь не скрываем автоматически — пользователь сам тапнет снова
-    // (нет анимации = нет таймеров; иначе тест жалуется на pending timer).
+    // Авто-скрытие пузыря — только при разрешённых анимациях.
+    // При reduce-motion пузырь не скрываем автоматически (нет таймеров = нет pending).
     if (!reduce) {
       _bubbleTimer?.cancel();
       _bubbleTimer = Timer(Duration(milliseconds: _kBubbleHoldMs), () {
@@ -367,7 +301,7 @@ class _KaiMascotState extends State<KaiMascot>
 
     if (reduce) return;
 
-    // Морфинг к neutral (существующий механизм).
+    // Морфинг к neutral.
     final token = Object();
     _tapNeutralToken = token;
     if (!_tapNeutral) {
@@ -378,7 +312,7 @@ class _KaiMascotState extends State<KaiMascot>
 
     Future.delayed(_tapNeutralHold, () {
       if (!mounted) return;
-      if (_tapNeutralToken != token) return; // был ещё один тап позже
+      if (_tapNeutralToken != token) return;
       setState(() => _tapNeutral = false);
       _morphToEffective();
       _startLoops();
@@ -388,66 +322,33 @@ class _KaiMascotState extends State<KaiMascot>
   @override
   void didUpdateWidget(KaiMascot old) {
     super.didUpdateWidget(old);
-
     if (old.emotion != widget.emotion || old.isHarsh != widget.isHarsh) {
-      // Смена входной эмоции снимает tap-override (приоритет у нового состояния).
       _tapNeutral = false;
       _tapNeutralToken = null;
       _morphToEffective();
     }
-
     _startLoops();
-  }
-
-  /// Планирует следующее моргание через псевдослучайный интервал 4–7 сек.
-  /// «Случайность» детерминирована через widget.size и hashCode — разные
-  /// экземпляры моргают не синхронно, но без math.Random (воспроизводимо).
-  void _scheduleBlink() {
-    _blinkTimer?.cancel();
-    // Фаза 0..1 — уникальна для каждого экземпляра (size + hashCode)
-    final phase = ((widget.size * 1000).toInt() ^ widget.hashCode) & 0xFFFF;
-    // Интервал 4000..7000 мс на основе фазы + монотонного времени
-    final baseMs = 4000 + (phase % 3000); // 4000–6999 мс
-    _blinkTimer = Timer(Duration(milliseconds: baseMs), _doBlink);
-  }
-
-  /// Проигрывает один цикл моргания: закрыть → открыть → запланировать следующий.
-  Future<void> _doBlink() async {
-    if (!mounted) return;
-    final reduce = reduceMotionOf(context);
-    if (reduce) {
-      _scheduleBlink();
-      return;
-    }
-    // Закрываем глаза (0→1)
-    await _blinkCtrl.forward();
-    // Открываем (1→0)
-    await _blinkCtrl.reverse();
-    if (mounted) _scheduleBlink();
   }
 
   void _startLoops() {
     final reduce = reduceMotionOf(context);
 
     if (reduce) {
-      // При reduce-motion все петли останавливаем
+      // Все петли останавливаем — никаких pending timers в тестах.
       _breathCtrl.stop();
       _jitterCtrl.stop();
-      _blinkTimer?.cancel();
-      _blinkCtrl.stop();
-      _blinkCtrl.value = 0; // глаза открыты
-      _lookCtrl.stop();
-      _lookCtrl.value = 0;
+      _jitterCtrl.value = 0;
       _thinkPulseCtrl.stop();
+      _thinkPulseCtrl.value = 0;
       return;
     }
 
-    // Idle-дыхание: ping-pong
+    // Idle-дыхание: всегда ping-pong
     if (!_breathCtrl.isAnimating) {
       _breathCtrl.repeat(reverse: true);
     }
 
-    // Тревожное дёргание только для anxious
+    // Дрожание: только для anxious
     if (_effectiveEmotion == KaiEmotion.anxious) {
       if (!_jitterCtrl.isAnimating) {
         _jitterCtrl.repeat(reverse: true);
@@ -457,20 +358,10 @@ class _KaiMascotState extends State<KaiMascot>
       _jitterCtrl.value = 0;
     }
 
-    // Моргание: запускаем если таймер не активен
-    if (_blinkTimer == null || !_blinkTimer!.isActive) {
-      _scheduleBlink();
-    }
-
-    // Micro-look: медленный ping-pong
-    if (!_lookCtrl.isAnimating) {
-      _lookCtrl.repeat(reverse: true);
-    }
-
-    // Thinking-pulse: только для thinking
+    // Орбитальная частица: только для thinking (непрерывное вращение)
     if (_effectiveEmotion == KaiEmotion.thinking) {
       if (!_thinkPulseCtrl.isAnimating) {
-        _thinkPulseCtrl.repeat(reverse: true);
+        _thinkPulseCtrl.repeat();
       }
     } else {
       _thinkPulseCtrl.stop();
@@ -480,27 +371,29 @@ class _KaiMascotState extends State<KaiMascot>
 
   @override
   void dispose() {
-    _blinkTimer?.cancel();
     _bubbleTimer?.cancel();
     _breathCtrl.dispose();
     _morphCtrl.dispose();
     _jitterCtrl.dispose();
-    _blinkCtrl.dispose();
-    _lookCtrl.dispose();
     _thinkPulseCtrl.dispose();
     _bounceCtrl.dispose();
     super.dispose();
   }
 
-  /// Амплитуда дыхания по 04-kai.md §3.1:
-  ///   anxious / thinking → заменено другой анимацией (дыхание 0)
-  ///   isHarsh=true       → 0.01 (половина: напряжённое дыхание тона)
-  ///   всё остальное      → 0.02 (±2%)
+  /// Амплитуда дыхания (масштаб ±%).
   double get _breathAmplitude {
     if (_effectiveEmotion == KaiEmotion.anxious) return 0;
-    if (_effectiveEmotion == KaiEmotion.thinking) return 0;
+    if (_effectiveEmotion == KaiEmotion.thinking) return 0.01;
     if (widget.isHarsh) return 0.01;
     return 0.02;
+  }
+
+  /// Вычисляет итоговый акцентный цвет из схемы и состояния.
+  /// При emberBlend > 0 цвет сдвигается к colorScheme.secondary (ember).
+  Color _resolveAccent(ColorScheme cs, _KaiState state) {
+    final base = cs.primary;
+    if (state.emberBlend <= 0.001) return base;
+    return Color.lerp(base, cs.secondary, state.emberBlend) ?? base;
   }
 
   @override
@@ -508,27 +401,13 @@ class _KaiMascotState extends State<KaiMascot>
     final reduce = reduceMotionOf(context);
     final colorScheme = Theme.of(context).colorScheme;
 
-    // Цвет глаз: оранжевый (secondary/ember) только для тревоги — эмоция.
-    // Тон (isHarsh) влияет на ФОРМУ (узкие глаза, брови), но НЕ на цвет.
-    final eyeColor = widget.emotion == KaiEmotion.anxious
-        ? colorScheme.secondary
-        : colorScheme.primary;
-    final bodyColor = colorScheme.onSurface.withAlpha(28);
-    final borderColor = colorScheme.onSurface.withAlpha(18);
-
-    // Реплика при тапе: ротация по счётчику (не RNG — детерминированно, воспроизводимо).
-    // _tapCount уже инкрементирован в _handleTap перед показом пузыря.
+    // Реплика при тапе: ротация по счётчику (детерминированно, воспроизводимо).
     final quipIndex = (_tapCount - 1).clamp(0, _kTapQuipCount - 1) % _kTapQuipCount;
     final quipText = context.s('kai.tap_quip_$quipIndex');
 
-    // Пузырь: всплывает ПОВЕРХ (через Stack + Positioned), не занимает layout-место.
-    // AnimatedSwitcher даёт плавный fade при появлении/скрытии.
-    // Bubble позиционируется выше Kai через Positioned с отрицательным top —
-    // Stack имеет clipBehavior: Clip.none, поэтому пузырь рисуется вне bounds.
+    // Речевой пузырь плавает над Kai (Stack + Positioned, clipBehavior: Clip.none).
     final bubbleWidget = Positioned(
-      // Располагаем пузырь непосредственно над Kai: bottom = widget.size + 4 отступ.
       bottom: widget.size + 4,
-      // Горизонтально центрируем относительно Kai через left=0/right=0.
       left: 0,
       right: 0,
       child: Align(
@@ -554,35 +433,27 @@ class _KaiMascotState extends State<KaiMascot>
       ),
     );
 
-    // Сам Kai с bounce + существующими анимациями.
-    // Размещается в Stack на позиции (0,0) — занимает весь SizedBox.
-    // OverflowBox позволяет Transform.scale выходить за границы SizedBox при баунсе,
-    // иначе tight SizedBox обрезал бы scale > 1.0 и баунс оставался невидимым.
     final kaiWidget = AnimatedBuilder(
       animation: Listenable.merge([
         _breathAnim,
         _morphAnim,
         _jitterAnim,
-        _blinkAnim,
-        _lookAnim,
         _thinkPulseAnim,
         _bounceCtrl,
       ]),
       builder: (context, _) {
-        // При reduce-motion: статичный нейтральный рендер без трансформов.
+        // При reduce-motion: статичный neutral без трансформов.
         if (reduce) {
+          final staticState = _stateFor(KaiEmotion.neutral, widget.isHarsh);
+          final accent = _resolveAccent(colorScheme, staticState);
+          final sub = Color.lerp(accent, Colors.white, 0.28) ?? accent;
           return CustomPaint(
             size: Size(widget.size, widget.size),
             painter: _KaiPainter(
-              state: _stateFor(_effectiveEmotion, widget.isHarsh),
-              eyeColor: eyeColor,
-              bodyColor: bodyColor,
-              borderColor: borderColor,
-              breathValue: 0,
-              jitterOffset: 0,
-              blinkT: 0,
-              microShiftX: 0,
-              thinkPulseValue: 0,
+              state: staticState,
+              accentColor: accent,
+              subBlobColor: sub,
+              thinkOrbitT: 0,
             ),
           );
         }
@@ -590,26 +461,19 @@ class _KaiMascotState extends State<KaiMascot>
         final morphT = _morphAnim.value;
         final interpolated = _lerpState(_from, _to, morphT);
 
-        // Дыхание (idle).
-        final breathScale = 1.0 +
-            (_breathAnim.value - 0.5) * (_breathAmplitude * 2);
+        // Дыхание: ±breathAmplitude масштаб
+        final breathScale =
+            1.0 + (_breathAnim.value - 0.5) * (_breathAmplitude * 2);
 
-        // Thinking-pulse: добавляет видимое вертикальное «дыхание» во время
-        // обработки ИИ — усиленная пульсация scaleY (±4%) + opacity мерцание.
-        final thinkPulse = _thinkPulseAnim.value;
+        // Дрожание: ±1.5 px горизонтально (anxious)
+        final jitter = _jitterAnim.value * 1.5;
 
-        final jitter = _jitterAnim.value * 1.5; // px
-
-        // Micro-look: тихое горизонтальное смещение (±1.5 px при size=56)
-        // Не для anxious/thinking — там другие акценты
-        final doMicroLook = _effectiveEmotion != KaiEmotion.anxious;
-        final microShiftX = doMicroLook
-            ? _lookAnim.value * (widget.size * 0.027)
-            : 0.0;
-
-        // Баунс при тапе: scale + rotate поверх дыхания.
+        // Баунс при тапе
         final bounceScale = _bounceScaleAnim.value;
         final bounceRotate = _bounceRotateAnim.value;
+
+        final accent = _resolveAccent(colorScheme, interpolated);
+        final sub = Color.lerp(accent, Colors.white, 0.28) ?? accent;
 
         return Transform.rotate(
           angle: bounceRotate,
@@ -621,14 +485,9 @@ class _KaiMascotState extends State<KaiMascot>
                 size: Size(widget.size, widget.size),
                 painter: _KaiPainter(
                   state: interpolated,
-                  eyeColor: eyeColor,
-                  bodyColor: bodyColor,
-                  borderColor: borderColor,
-                  breathValue: _breathAnim.value,
-                  jitterOffset: jitter,
-                  blinkT: _blinkAnim.value,
-                  microShiftX: microShiftX,
-                  thinkPulseValue: thinkPulse,
+                  accentColor: accent,
+                  subBlobColor: sub,
+                  thinkOrbitT: _thinkPulseAnim.value,
                 ),
               ),
             ),
@@ -637,13 +496,9 @@ class _KaiMascotState extends State<KaiMascot>
       },
     );
 
-    // Корневой виджет: SizedBox фиксирует footprint (widget.size × widget.size).
-    // Stack(clipBehavior: Clip.none) позволяет:
-    //   • пузырю рисоваться выше через Positioned(bottom: size+4) без layout-сдвига;
-    //   • bounce Transform.scale > 1 немного выходить за bounds (видимый баунс).
+    // SizedBox фиксирует footprint; Stack(clipBehavior: Clip.none) позволяет
+    // пузырю рисоваться выше и bounce слегка выходить за bounds.
     return GestureDetector(
-      // По тапу Kai успокаивается к neutral и показывает пузырь.
-      // Внешний onTap вызывается всегда.
       onTap: _handleTap,
       behavior: HitTestBehavior.opaque,
       child: SizedBox(
@@ -652,9 +507,7 @@ class _KaiMascotState extends State<KaiMascot>
         child: Stack(
           clipBehavior: Clip.none,
           children: [
-            // Kai занимает всю площадь SizedBox.
             Positioned.fill(child: kaiWidget),
-            // Пузырь плавает над Kai без влияния на layout.
             bubbleWidget,
           ],
         ),
@@ -664,132 +517,121 @@ class _KaiMascotState extends State<KaiMascot>
 }
 
 // ---------------------------------------------------------------------------
-// Описание состояния для интерполяции
+// Внутреннее состояние для морфинга
 // ---------------------------------------------------------------------------
 
-/// Внутреннее описание визуального состояния Kai для морфинга.
+/// Описание визуального состояния Kai для интерполяции между эмоциями.
+/// Все поля — нормализованные значения; конкретные пиксели вычисляются в painter.
 class _KaiState {
   const _KaiState({
-    required this.cornerRadius,    // 0..1 (0 = острый, 1 = идеальный круг)
-    required this.scaleY,          // вертикальное растяжение squircle (0.9..1.15)
-    required this.leftEyeHeight,   // высота левого глаза (0..1, bar)
-    required this.rightEyeHeight,  // высота правого глаза
-    required this.leftEyeArch,     // изгиб левого глаза (-1..1, + = вверх)
-    required this.rightEyeArch,
-    required this.leftEyeOffsetY,  // смещение левого глаза по Y (px, относительно)
-    required this.rightEyeOffsetY,
-    required this.showBrow,        // показывать «бровь» над глазом (для harsh)
-    required this.opacity,         // общая прозрачность (для away — чуть тускнее)
+    required this.roundness,      // 0..1: 0 = более угловатый пебл, 1 = идеальный круг
+    required this.scaleY,         // вертикальное растяжение (0.85..1.15)
+    required this.asymmetry,      // лёгкая органическая асимметрия (0..0.08)
+    required this.brightness,     // сдвиг яркости заливки (< 0 = темнее, > 0 = ярче)
+    required this.emberBlend,     // 0..1: сдвиг цвета к ember (anxious / isHarsh)
+    required this.opacity,        // общая прозрачность (away = 0.70)
+    required this.subBlobScale,   // масштаб суб-блоба относительно основного (0..0.55)
+    required this.subBlobOffsetX, // X-смещение суб-блоба (доли rx, < 0 = влево)
+    required this.subBlobOffsetY, // Y-смещение суб-блоба (доли ry, < 0 = вверх)
   });
 
-  final double cornerRadius;
+  final double roundness;
   final double scaleY;
-  final double leftEyeHeight;
-  final double rightEyeHeight;
-  final double leftEyeArch;
-  final double rightEyeArch;
-  final double leftEyeOffsetY;
-  final double rightEyeOffsetY;
-  final double showBrow; // 0..1 (плавно показываем)
+  final double asymmetry;
+  final double brightness;
+  final double emberBlend;
   final double opacity;
+  final double subBlobScale;
+  final double subBlobOffsetX;
+  final double subBlobOffsetY;
 }
 
-/// Чистая эмоциональная база — без учёта isHarsh.
-/// Все шесть выражений по MASCOT.md §5.
+/// Чистая эмоциональная база (без isHarsh).
 _KaiState _emotionBase(KaiEmotion emotion) {
-  // Базовая асимметрия: левый глаз на ~1.5 условных единицы выше правого.
-  const leftBaseY = -1.5;
-  const rightBaseY = 0.0;
-
   switch (emotion) {
     case KaiEmotion.neutral:
       return const _KaiState(
-        cornerRadius: 0.60,
-        scaleY: 1.0,
-        leftEyeHeight: 0.28,
-        rightEyeHeight: 0.28,
-        leftEyeArch: 0,
-        rightEyeArch: 0,
-        leftEyeOffsetY: leftBaseY,
-        rightEyeOffsetY: rightBaseY,
-        showBrow: 0,
-        opacity: 1,
+        roundness: 0.65,
+        scaleY: 1.00,
+        asymmetry: 0.040,
+        brightness: 0.0,
+        emberBlend: 0.0,
+        opacity: 1.0,
+        subBlobScale: 0.45,
+        subBlobOffsetX: -0.18,
+        subBlobOffsetY: -0.22,
       );
 
     case KaiEmotion.success:
       return const _KaiState(
-        cornerRadius: 0.85,    // пружинит к кругу
-        scaleY: 0.96,
-        leftEyeHeight: 0.22,
-        rightEyeHeight: 0.22,
-        leftEyeArch: 0.9,     // арки вверх ^ ^
-        rightEyeArch: 0.9,
-        leftEyeOffsetY: leftBaseY - 1.5,
-        rightEyeOffsetY: rightBaseY - 1.5,
-        showBrow: 0,
-        opacity: 1,
+        roundness: 0.90,    // почти круг — пружинный overshoot к форме
+        scaleY: 0.97,
+        asymmetry: 0.015,
+        brightness: 0.18,   // кратковременная вспышка яркости
+        emberBlend: 0.0,
+        opacity: 1.0,
+        subBlobScale: 0.50,
+        subBlobOffsetX: -0.12,
+        subBlobOffsetY: -0.24,
       );
 
     case KaiEmotion.thinking:
       return const _KaiState(
-        cornerRadius: 0.55,
-        scaleY: 1.10,          // вытягивается вертикально
-        leftEyeHeight: 0.14,  // один глаз прищурен (левый)
-        rightEyeHeight: 0.30,
-        leftEyeArch: -0.2,    // лёгкий наклон
-        rightEyeArch: 0,
-        leftEyeOffsetY: leftBaseY,
-        rightEyeOffsetY: rightBaseY,
-        showBrow: 0,
-        opacity: 1,
+        roundness: 0.55,
+        scaleY: 1.13,       // вытянут вертикально — «AI работает»
+        asymmetry: 0.055,
+        brightness: 0.05,
+        emberBlend: 0.0,
+        opacity: 1.0,
+        subBlobScale: 0.38,
+        subBlobOffsetX: -0.14,
+        subBlobOffsetY: -0.28,
       );
 
     case KaiEmotion.anxious:
       return const _KaiState(
-        cornerRadius: 0.45,    // углы заострились
-        scaleY: 0.88,          // сжался
-        leftEyeHeight: 0.35,  // глаза чуть крупнее
-        rightEyeHeight: 0.35,
-        leftEyeArch: 0,
-        rightEyeArch: 0,
-        leftEyeOffsetY: leftBaseY,
-        rightEyeOffsetY: rightBaseY,
-        showBrow: 0,
-        opacity: 1,
+        roundness: 0.48,    // острее — тревожная напряжённость
+        scaleY: 0.87,       // сжат вертикально
+        asymmetry: 0.065,
+        brightness: 0.0,
+        emberBlend: 0.60,   // сильный сдвиг к ember
+        opacity: 1.0,
+        subBlobScale: 0.35,
+        subBlobOffsetX: -0.10,
+        subBlobOffsetY: -0.18,
       );
 
     case KaiEmotion.away:
       return const _KaiState(
-        cornerRadius: 0.58,
-        scaleY: 1.03,          // чуть осел
-        leftEyeHeight: 0.06,  // глаза-«нитки»
-        rightEyeHeight: 0.06,
-        leftEyeArch: 0,
-        rightEyeArch: 0,
-        leftEyeOffsetY: leftBaseY + 1.5,
-        rightEyeOffsetY: rightBaseY + 1.5,
-        showBrow: 0,
-        opacity: 0.75,         // тускнее
+        roundness: 0.62,
+        scaleY: 1.04,       // осел, чуть приплюснут
+        asymmetry: 0.030,
+        brightness: -0.10,  // тускнее
+        emberBlend: 0.0,
+        opacity: 0.70,
+        subBlobScale: 0.40,
+        subBlobOffsetX: -0.14,
+        subBlobOffsetY: -0.20,
       );
   }
 }
 
-/// Итоговое состояние: emotion-база + harsh-оверлей (04-kai.md §3.2).
+/// Итоговое состояние: эмоция-база + isHarsh-оверлей.
 _KaiState _stateFor(KaiEmotion emotion, bool isHarsh) {
   final base = _emotionBase(emotion);
   if (!isHarsh) return base;
 
+  // isHarsh: более собранная, острее края, ember-тинт, меньше двухтонового.
   return _KaiState(
-    cornerRadius: (base.cornerRadius - 0.08).clamp(0.40, 0.90),
-    scaleY: base.scaleY + 0.04,
-    leftEyeHeight: base.leftEyeHeight * 0.55,
-    rightEyeHeight: base.rightEyeHeight * 0.55,
-    leftEyeArch: base.leftEyeArch * 0.3,
-    rightEyeArch: base.rightEyeArch * 0.3,
-    leftEyeOffsetY: base.leftEyeOffsetY,
-    rightEyeOffsetY: base.rightEyeOffsetY,
-    showBrow: 1.0,
+    roundness: (base.roundness - 0.08).clamp(0.38, 0.90),
+    scaleY: base.scaleY + 0.03,
+    asymmetry: base.asymmetry * 0.4,       // более контролируемая форма
+    brightness: base.brightness,
+    emberBlend: math.max(base.emberBlend, 0.35),
     opacity: base.opacity,
+    subBlobScale: base.subBlobScale * 0.65, // меньше двухтонового выделения
+    subBlobOffsetX: base.subBlobOffsetX,
+    subBlobOffsetY: base.subBlobOffsetY,
   );
 }
 
@@ -797,16 +639,15 @@ _KaiState _stateFor(KaiEmotion emotion, bool isHarsh) {
 _KaiState _lerpState(_KaiState a, _KaiState b, double t) {
   double lerp(double x, double y) => x + (y - x) * t;
   return _KaiState(
-    cornerRadius: lerp(a.cornerRadius, b.cornerRadius),
+    roundness: lerp(a.roundness, b.roundness),
     scaleY: lerp(a.scaleY, b.scaleY),
-    leftEyeHeight: lerp(a.leftEyeHeight, b.leftEyeHeight),
-    rightEyeHeight: lerp(a.rightEyeHeight, b.rightEyeHeight),
-    leftEyeArch: lerp(a.leftEyeArch, b.leftEyeArch),
-    rightEyeArch: lerp(a.rightEyeArch, b.rightEyeArch),
-    leftEyeOffsetY: lerp(a.leftEyeOffsetY, b.leftEyeOffsetY),
-    rightEyeOffsetY: lerp(a.rightEyeOffsetY, b.rightEyeOffsetY),
-    showBrow: lerp(a.showBrow, b.showBrow),
+    asymmetry: lerp(a.asymmetry, b.asymmetry),
+    brightness: lerp(a.brightness, b.brightness),
+    emberBlend: lerp(a.emberBlend, b.emberBlend),
     opacity: lerp(a.opacity, b.opacity),
+    subBlobScale: lerp(a.subBlobScale, b.subBlobScale),
+    subBlobOffsetX: lerp(a.subBlobOffsetX, b.subBlobOffsetX),
+    subBlobOffsetY: lerp(a.subBlobOffsetY, b.subBlobOffsetY),
   );
 }
 
@@ -817,25 +658,15 @@ _KaiState _lerpState(_KaiState a, _KaiState b, double t) {
 class _KaiPainter extends CustomPainter {
   _KaiPainter({
     required this.state,
-    required this.eyeColor,
-    required this.bodyColor,
-    required this.borderColor,
-    required this.breathValue,
-    required this.jitterOffset,
-    required this.blinkT,
-    required this.microShiftX,
-    required this.thinkPulseValue,
+    required this.accentColor,   // итоговый акцентный цвет (уже смешан с ember если нужно)
+    required this.subBlobColor,  // осветлённая версия accent для суб-блоба
+    required this.thinkOrbitT,   // 0..1 — позиция орбитальной частицы (thinking)
   });
 
   final _KaiState state;
-  final Color eyeColor;
-  final Color bodyColor;
-  final Color borderColor;
-  final double breathValue;    // 0..1, для pulse-эффектов
-  final double jitterOffset;   // дёргание через Transform в виджете
-  final double blinkT;         // 0 = открыты, 1 = закрыты (моргание)
-  final double microShiftX;    // горизонтальный дрейф глаз (px)
-  final double thinkPulseValue; // 0..1 — пульс при thinking
+  final Color accentColor;
+  final Color subBlobColor;
+  final double thinkOrbitT;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -844,196 +675,164 @@ class _KaiPainter extends CustomPainter {
     final cx = w / 2;
     final cy = h / 2;
 
-    _drawBody(canvas, cx, cy, w, h);
-    _drawEyes(canvas, cx, cy, w, h);
+    // Базовый радиус: 42% от размера → остаётся в bounds при любом scaleY ≤ 1.15
+    // (0.42 * 1.15 = 0.483 < 0.5)
+    final baseR = math.min(w, h) * 0.42;
+    final rx = baseR;
+    final ry = baseR * state.scaleY;
 
-    if (state.showBrow > 0.01) {
-      _drawBrows(canvas, cx, cy, w, h);
+    // Корректируем цвет заливки через brightness:
+    //   brightness > 0 → осветляем (смешиваем с белым)
+    //   brightness < 0 → затемняем (смешиваем с чёрным)
+    final Color fillColor;
+    if (state.brightness >= 0) {
+      fillColor =
+          Color.lerp(accentColor, Colors.white, state.brightness * 0.45) ??
+              accentColor;
+    } else {
+      fillColor =
+          Color.lerp(accentColor, Colors.black, (-state.brightness) * 0.35) ??
+              accentColor;
+    }
+
+    // --- Основной блоб ---
+    final mainPath =
+        _buildBlobPath(cx, cy, rx, ry, state.roundness, state.asymmetry);
+
+    canvas.drawPath(
+      mainPath,
+      Paint()
+        ..color = fillColor.withValues(alpha: state.opacity)
+        ..style = PaintingStyle.fill,
+    );
+
+    // --- Суб-блоб (двухтоновый акцент, верхний квадрант) ---
+    // Даёт ощущение объёма без резкого градиента.
+    if (state.subBlobScale > 0.05) {
+      final subRx = rx * state.subBlobScale;
+      final subRy = ry * state.subBlobScale;
+      final subCx = cx + rx * state.subBlobOffsetX;
+      final subCy = cy + ry * state.subBlobOffsetY;
+
+      final subPath = _buildBlobPath(
+        subCx, subCy, subRx, subRy,
+        (state.roundness + 0.15).clamp(0.0, 1.0), // суб-блоб чуть круглее
+        state.asymmetry * 0.5,
+      );
+
+      canvas.drawPath(
+        subPath,
+        Paint()
+          ..color = subBlobColor.withValues(alpha: state.opacity * 0.50)
+          ..style = PaintingStyle.fill,
+      );
+    }
+
+    // --- Орбитальная частица (только для thinking) ---
+    // Маленький светлый круг вращается внутри блоба, передавая идею «AI в процессе».
+    if (thinkOrbitT > 0.001) {
+      _drawOrbitParticle(canvas, cx, cy, rx, ry);
     }
   }
 
-  /// Тело: squircle.
-  /// При thinking: thinkPulseValue добавляет пульсацию scaleY (±4%) +
-  /// слабое мерцание opacity (±8%) — делает Kai видимо «работающим».
-  void _drawBody(Canvas canvas, double cx, double cy, double w, double h) {
-    // Thinking-pulse: вертикальная пульсация формы
-    final thinkScaleY = thinkPulseValue > 0
-        ? state.scaleY + (thinkPulseValue - 0.5) * 0.08 // ±4%
-        : state.scaleY;
-    // Thinking-pulse: лёгкая пульсация прозрачности borderColor
-    final thinkOpacityMod = thinkPulseValue > 0
-        ? 1.0 + (thinkPulseValue - 0.5) * 0.16 // ±8% opacity
-        : 1.0;
+  /// Строит путь «жидкой гальки» через 4 кубических безье-кривых.
+  ///
+  /// Алгоритм: стандартная аппроксимация через коэффициент k — множитель контрольных
+  /// точек. k=0.5523 → идеальный круг. k < 0.5523 → органичный «пебл» с чуть угловатыми
+  /// краями (squircle-like). asymmetry сдвигает левый/правый и верхний/нижний радиусы.
+  Path _buildBlobPath(
+    double cx,
+    double cy,
+    double rx,
+    double ry,
+    double roundness,
+    double asymmetry,
+  ) {
+    // k интерполируется: 0.40 (угловатый) → 0.5523 (круг).
+    final k = 0.40 + roundness * 0.1523;
 
-    final bodyH = h * thinkScaleY;
-    final bodyW = w;
+    // Лёгкая органическая асимметрия
+    final rxL = rx * (1.0 - asymmetry * 0.30);
+    final rxR = rx * (1.0 + asymmetry * 0.30);
+    final ryT = ry * (1.0 - asymmetry * 0.15);
+    final ryB = ry * (1.0 + asymmetry * 0.15);
 
-    final minSide = math.min(bodyW, bodyH);
-    final r = minSide * (0.30 + state.cornerRadius * 0.20);
+    final path = Path()..moveTo(cx, cy - ryT);
 
-    final rect = Rect.fromCenter(
-      center: Offset(cx, cy),
-      width: bodyW,
-      height: bodyH,
+    // Верхняя точка → правая точка
+    path.cubicTo(
+      cx + k * rxR, cy - ryT,
+      cx + rxR, cy - k * ryT,
+      cx + rxR, cy,
     );
-    final rrect = RRect.fromRectXY(rect, r, r);
 
-    final bodyPaint = Paint()
-      ..color = bodyColor.withValues(alpha: state.opacity)
-      ..style = PaintingStyle.fill;
-    canvas.drawRRect(rrect, bodyPaint);
+    // Правая точка → нижняя точка
+    path.cubicTo(
+      cx + rxR, cy + k * ryB,
+      cx + k * rxR, cy + ryB,
+      cx, cy + ryB,
+    );
 
-    final borderPaint = Paint()
-      ..color = borderColor.withValues(
-          alpha: (state.opacity * 0.8 * thinkOpacityMod).clamp(0.0, 1.0))
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.5;
-    canvas.drawRRect(rrect, borderPaint);
+    // Нижняя точка → левая точка
+    path.cubicTo(
+      cx - k * rxL, cy + ryB,
+      cx - rxL, cy + k * ryB,
+      cx - rxL, cy,
+    );
+
+    // Левая точка → верхняя точка
+    path.cubicTo(
+      cx - rxL, cy - k * ryT,
+      cx - k * rxL, cy - ryT,
+      cx, cy - ryT,
+    );
+
+    path.close();
+    return path;
   }
 
-  /// Глаза с учётом моргания (blinkT) и micro-look (microShiftX).
-  void _drawEyes(Canvas canvas, double cx, double cy, double w, double h) {
-    final eyeW = w * 0.20;
-    final eyeBaseH = h * 0.06;
-    final eyeGap = w * 0.14;
+  /// Орбитальная частица для thinking: маленький светлый круг внутри блоба,
+  /// вращающийся по эллипсу на 65% от радиуса. Создаёт эффект «AI обрабатывает».
+  void _drawOrbitParticle(
+    Canvas canvas,
+    double cx,
+    double cy,
+    double rx,
+    double ry,
+  ) {
+    final angle = thinkOrbitT * 2 * math.pi;
 
-    final eyeCenterY = cy + (h * 0.04);
-    final unitPx = h * 0.025;
+    // Внутренняя орбита: 65% от радиуса блоба — без риска выхода за bounds
+    final orbitRx = rx * 0.65;
+    final orbitRy = ry * 0.65;
 
-    // Micro-look: горизонтальный сдвиг обоих глаз вместе (взгляд влево/вправо)
-    final leftCx = cx - eyeGap + microShiftX;
-    final rightCx = cx + eyeGap + microShiftX;
+    final px = cx + orbitRx * math.cos(angle);
+    final py = cy + orbitRy * math.sin(angle);
 
-    final leftCy = eyeCenterY + state.leftEyeOffsetY * unitPx;
-    final rightCy = eyeCenterY + state.rightEyeOffsetY * unitPx;
+    final particleR = (rx * 0.10).clamp(1.5, 5.5);
 
-    // Высота глаза: blinkT сплющивает до минимума (3% = почти-нитка)
-    // Для away глаза уже почти нитки — blink их не меняет заметно
-    final leftHBase = eyeBaseH * state.leftEyeHeight.clamp(0.04, 1.0) / 0.28;
-    final rightHBase = eyeBaseH * state.rightEyeHeight.clamp(0.04, 1.0) / 0.28;
-
-    // blinkT=1: высота → minH (1.0 px), blinkT=0: нормальная высота
-    const minBlinkH = 1.0;
-    final leftH = leftHBase + (minBlinkH - leftHBase) * blinkT;
-    final rightH = rightHBase + (minBlinkH - rightHBase) * blinkT;
-
-    // При moргании арки тоже немного поджимаются
-    final archFade = 1.0 - blinkT * 0.8;
-
-    final eyePaint = Paint()
-      ..color = eyeColor.withValues(alpha: state.opacity)
-      ..style = PaintingStyle.fill;
-
-    _drawEye(
-      canvas,
-      cx: leftCx,
-      cy: leftCy,
-      eyeW: eyeW,
-      eyeH: leftH,
-      arch: state.leftEyeArch * archFade,
-      paint: eyePaint,
-    );
-    _drawEye(
-      canvas,
-      cx: rightCx,
-      cy: rightCy,
-      eyeW: eyeW,
-      eyeH: rightH,
-      arch: state.rightEyeArch * archFade,
-      paint: eyePaint,
-    );
-  }
-
-  /// Один глаз: rounded-rect при arch==0, арка Безье при arch!=0.
-  void _drawEye(
-    Canvas canvas, {
-    required double cx,
-    required double cy,
-    required double eyeW,
-    required double eyeH,
-    required double arch,
-    required Paint paint,
-  }) {
-    if (arch.abs() < 0.05) {
-      final rect = Rect.fromCenter(
-        center: Offset(cx, cy),
-        width: eyeW,
-        height: math.max(eyeH, 1.0),
-      );
-      final radius = eyeH / 2;
-      canvas.drawRRect(
-        RRect.fromRectXY(rect, radius, radius),
-        paint,
-      );
-      return;
-    }
-
-    final x0 = cx - eyeW / 2;
-    final x1 = cx + eyeW / 2;
-    final archDy = eyeW * arch * 0.6;
-
-    final strokeW = math.max(eyeH, 1.5);
-    final strokePaint = Paint()
-      ..color = paint.color
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = strokeW
-      ..strokeCap = StrokeCap.round;
-
-    final path = Path()
-      ..moveTo(x0, cy)
-      ..quadraticBezierTo(cx, cy - archDy, x1, cy);
-
-    canvas.drawPath(path, strokePaint);
-  }
-
-  /// Брови: тонкие штрихи выше глаз (MASCOT.md §4: жёсткий тон).
-  void _drawBrows(Canvas canvas, double cx, double cy, double w, double h) {
-    final eyeGap = w * 0.14;
-    final eyeBaseH = h * 0.06;
-    final eyeCenterY = cy + (h * 0.04);
-    final unitPx = h * 0.025;
-
-    final leftCy = eyeCenterY + state.leftEyeOffsetY * unitPx;
-    final rightCy = eyeCenterY + state.rightEyeOffsetY * unitPx;
-
-    final browOffsetY = eyeBaseH * 1.8;
-    final browW = w * 0.16;
-
-    final browPaint = Paint()
-      ..color = eyeColor.withValues(alpha: state.opacity * state.showBrow * 0.7)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = math.max(h * 0.018, 1.0)
-      ..strokeCap = StrokeCap.round;
-
-    canvas.drawLine(
-      Offset(cx - eyeGap - browW / 2, leftCy - browOffsetY + h * 0.015),
-      Offset(cx - eyeGap + browW / 2, leftCy - browOffsetY - h * 0.015),
-      browPaint,
-    );
-    canvas.drawLine(
-      Offset(cx + eyeGap - browW / 2, rightCy - browOffsetY - h * 0.015),
-      Offset(cx + eyeGap + browW / 2, rightCy - browOffsetY + h * 0.015),
-      browPaint,
+    canvas.drawCircle(
+      Offset(px, py),
+      particleR,
+      Paint()
+        ..color = subBlobColor.withValues(alpha: state.opacity * 0.80)
+        ..style = PaintingStyle.fill,
     );
   }
 
   @override
   bool shouldRepaint(_KaiPainter old) {
-    return old.state.cornerRadius != state.cornerRadius ||
+    return old.state.roundness != state.roundness ||
         old.state.scaleY != state.scaleY ||
-        old.state.leftEyeHeight != state.leftEyeHeight ||
-        old.state.rightEyeHeight != state.rightEyeHeight ||
-        old.state.leftEyeArch != state.leftEyeArch ||
-        old.state.rightEyeArch != state.rightEyeArch ||
-        old.state.leftEyeOffsetY != state.leftEyeOffsetY ||
-        old.state.rightEyeOffsetY != state.rightEyeOffsetY ||
-        old.state.showBrow != state.showBrow ||
+        old.state.asymmetry != state.asymmetry ||
+        old.state.brightness != state.brightness ||
+        old.state.emberBlend != state.emberBlend ||
         old.state.opacity != state.opacity ||
-        old.eyeColor != eyeColor ||
-        old.bodyColor != bodyColor ||
-        old.breathValue != breathValue ||
-        old.blinkT != blinkT ||
-        old.microShiftX != microShiftX ||
-        old.thinkPulseValue != thinkPulseValue;
+        old.state.subBlobScale != state.subBlobScale ||
+        old.state.subBlobOffsetX != state.subBlobOffsetX ||
+        old.state.subBlobOffsetY != state.subBlobOffsetY ||
+        old.accentColor != accentColor ||
+        old.subBlobColor != subBlobColor ||
+        old.thinkOrbitT != thinkOrbitT;
   }
 }
