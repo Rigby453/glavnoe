@@ -16,7 +16,6 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
-import '../../core/settings/fab_position_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/id.dart';
 import '../../core/widgets/kai_loader.dart';
@@ -70,7 +69,6 @@ class GoalsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final goalsAsync = ref.watch(_goalsProvider);
-    final fabLocation = ref.watch(fabPositionProvider).fabLocation;
 
     // FAB показываем только когда список непустой:
     // пустое состояние имеет собственную primary-кнопку (ONE primary per screen).
@@ -81,7 +79,7 @@ class GoalsScreen extends ConsumerWidget {
 
     return Scaffold(
       appBar: AppBar(title: Text(context.s('plan.goals_screen_title'))),
-      floatingActionButtonLocation: fabLocation,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: showFab
           ? FloatingActionButton(
               heroTag: 'goals_add_fab',

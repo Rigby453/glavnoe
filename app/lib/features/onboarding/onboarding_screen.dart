@@ -11,6 +11,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/animations/constants.dart';
 import '../../core/l10n/app_strings.dart';
@@ -26,27 +27,27 @@ const onboardingDoneKey = 'onboarding_done';
 // Индекс language-слайда.
 const _kLangPage = 0;
 
-// Value-слайды (после language).
+// Value-слайды (после language). PhosphorIconData = IconData, поэтому final вместо const.
 class _SlideData {
-  const _SlideData(this.icon, this.titleKey, this.subtitleKey);
+  _SlideData(this.icon, this.titleKey, this.subtitleKey);
   final IconData icon;
   final String titleKey;
   final String subtitleKey;
 }
 
-const _slides = [
+final _slides = [
   _SlideData(
-    Icons.flag_outlined,
+    PhosphorIcons.flag(),
     'onboarding.slide1_title',
     'onboarding.slide1_subtitle',
   ),
   _SlideData(
-    Icons.wb_twilight,
+    PhosphorIcons.sunHorizon(),
     'onboarding.slide2_title',
     'onboarding.slide2_subtitle',
   ),
   _SlideData(
-    Icons.menu_book_outlined,
+    PhosphorIcons.bookOpen(),
     'onboarding.slide3_title',
     'onboarding.slide3_subtitle',
   ),
@@ -106,6 +107,104 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
   bool get _isLangPage => _page == _kLangPage;
   bool get _isLastPage => _page == _pageCount - 1;
 
+  // ---------------------------------------------------------------------------
+  // Прогресс-индикатор (X/4 + кнопка «Пропустить») — идентичен SetupFlowScreen,
+  // чтобы весь онбординг-поток ощущался единым.
+  // ---------------------------------------------------------------------------
+
+  Widget _buildProgressRow() {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 12, 12, 0),
+      child: Row(
+        children: [
+          Expanded(
+            child: ClipRRect(
+              borderRadius: BorderRadius.circular(999),
+              child: LinearProgressIndicator(
+                value: (_page + 1) / _pageCount,
+                backgroundColor: ext.border,
+                color: colorScheme.primary,
+                minHeight: 4,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Счётчик «1 / 4» — Flexible+ellipsis: переживает крупный textScale.
+          Flexible(
+            child: Text(
+              '${_page + 1} / $_pageCount',
+              maxLines: 1,
+              softWrap: false,
+              overflow: TextOverflow.ellipsis,
+              style: textTheme.labelMedium?.copyWith(color: ext.textMuted),
+            ),
+          ),
+          const SizedBox(width: 8),
+          TextButton(
+            onPressed: _finish,
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            ),
+            child: Text(
+              context.s('btn.skip'),
+              style: textTheme.labelSmall?.copyWith(color: ext.textMuted),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ---------------------------------------------------------------------------
+  // Нижние кнопки (скрыты на language-слайде; на value-слайдах: назад + CTA)
+  // ---------------------------------------------------------------------------
+
+  Widget _buildBottomButtons() {
+    // Языковой слайд управляется тапом по кнопке языка — нижняя панель не нужна.
+    if (_isLangPage) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 8, 24, 40),
+      child: Row(
+        children: [
+          if (_page > 0) ...[
+            SizedBox(
+              width: 52,
+              height: 52,
+              child: OutlinedButton(
+                onPressed: _back,
+                style: OutlinedButton.styleFrom(
+                  padding: EdgeInsets.zero,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                ),
+                child: Icon(PhosphorIcons.arrowLeft(), size: 20),
+              ),
+            ),
+            const SizedBox(width: 12),
+          ],
+          Expanded(
+            child: SizedBox(
+              height: 52,
+              child: FilledButton(
+                onPressed: _next,
+                child: Text(
+                  _isLastPage
+                      ? context.s('onboarding.btn_get_started')
+                      : context.s('onboarding.btn_next'),
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
@@ -119,25 +218,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
       body: SafeArea(
         child: Column(
           children: [
-            // Skip — показываем на всех страницах, включая language
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 8, 16, 0),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: [
-                  TextButton(
-                    onPressed: _finish,
-                    child: Text(
-                      context.s('btn.skip'),
-                      style: textTheme.labelLarge?.copyWith(
-                        color: ext.textMuted,
-                        fontWeight: FontWeight.w400,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+            // Прогресс-бар + счётчик + «Пропустить» — единый стиль с SetupFlowScreen.
+            _buildProgressRow(),
 
             // Страницы
             Expanded(
@@ -171,71 +253,8 @@ class _OnboardingScreenState extends ConsumerState<OnboardingScreen> {
               ),
             ),
 
-            // Dot-индикаторы
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: List.generate(_pageCount, (i) {
-                final active = i == _page;
-                return AnimatedContainer(
-                  duration: effectiveDuration(context, kDurationFast),
-                  curve: kCurveLift,
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  width: active ? 24 : 8,
-                  height: 8,
-                  decoration: BoxDecoration(
-                    color: active ? colorScheme.primary : ext.border,
-                    borderRadius: BorderRadius.circular(999),
-                  ),
-                );
-              }),
-            ),
-
-            const SizedBox(height: 32),
-
-            // Нижняя панель: скрыта на language-слайде (переход идёт через кнопки языка).
-            // На value-слайдах (1–3): кнопка «назад» (если не первый) + CTA.
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 0, 24, 40),
-              child: _isLangPage
-                  ? const SizedBox.shrink()
-                  : Row(
-                      children: [
-                        // Кнопка «назад» — только если есть предыдущий слайд.
-                        // На первом value-слайде (page 1) она видна; на page 0 скрыта
-                        // вместе со всей нижней панелью (_isLangPage выше).
-                        if (_page > 0) ...[
-                          SizedBox(
-                            width: 52,
-                            height: 52,
-                            child: OutlinedButton(
-                              onPressed: _back,
-                              style: OutlinedButton.styleFrom(
-                                padding: EdgeInsets.zero,
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(12),
-                                ),
-                              ),
-                              child: const Icon(Icons.arrow_back_rounded, size: 20),
-                            ),
-                          ),
-                          const SizedBox(width: 12),
-                        ],
-                        Expanded(
-                          child: SizedBox(
-                            height: 52,
-                            child: FilledButton(
-                              onPressed: _next,
-                              child: Text(
-                                _isLastPage
-                                    ? context.s('onboarding.btn_get_started')
-                                    : context.s('onboarding.btn_next'),
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-            ),
+            // Нижняя панель: «назад» + CTA (или пусто на language-слайде).
+            _buildBottomButtons(),
           ],
         ),
       ),
@@ -274,7 +293,7 @@ class _LanguageSlide extends ConsumerWidget {
           // Иконка языка — нейтральная, не accent
           Center(
             child: Icon(
-              Icons.language_rounded,
+              PhosphorIcons.globe(),
               size: 64,
               color: ext.textMuted,
             ),
@@ -368,7 +387,7 @@ class _LangButton extends StatelessWidget {
               ),
               if (selected)
                 Icon(
-                  Icons.check_circle_rounded,
+                  PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
                   color: colorScheme.primary,
                   size: 20,
                 ),
@@ -420,7 +439,7 @@ class _OnboardingSlide extends StatelessWidget {
                     isHarsh: tone == AppTone.harsh,
                   )
                 : Icon(
-                    slideData.icon,
+                    slideData.icon, // PhosphorIconData = IconData, тип совместим
                     size: 64,
                     color: ext.textMuted,
                   ),

@@ -22,6 +22,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/animations/constants.dart';
 import '../../core/database/database_providers.dart';
@@ -399,13 +400,13 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   duration: kDurationSnap,
                   child: selected
                       ? Icon(
-                          Icons.check_circle_rounded,
+                          PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
                           key: const ValueKey('chk'),
                           color: colorScheme.primary,
                           size: 20,
                         )
                       : Icon(
-                          Icons.circle_outlined,
+                          PhosphorIcons.circle(),
                           key: const ValueKey('unk'),
                           color: ext.border,
                           size: 20,
@@ -621,7 +622,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                 ),
-                child: const Icon(Icons.arrow_back_rounded, size: 20),
+                child: Icon(PhosphorIcons.arrowLeft(), size: 20),
               ),
             ),
             const SizedBox(width: 12),
@@ -1008,14 +1009,16 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
           if (recommended != null) ...[
             Row(
               children: [
-                Icon(Icons.water_drop_outlined,
-                    size: 16, color: ext.success),
+                Icon(PhosphorIcons.drop(), size: 16, color: ext.success),
                 const SizedBox(width: 6),
-                Text(
-                  '${context.s('onboarding.norms_recommended')}: $recommended ml',
-                  style: textTheme.bodyMedium?.copyWith(
-                    color: ext.success,
-                    fontWeight: FontWeight.w600,
+                Flexible(
+                  child: Text(
+                    '${context.s('onboarding.norms_recommended')}: $recommended ${context.s('onboarding_quiz.unit_ml')}',
+                    style: textTheme.bodyMedium?.copyWith(
+                      color: ext.success,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
@@ -1023,13 +1026,14 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
             const SizedBox(height: 6),
           ],
           // Слайдер воды
-          Text('$_waterGoal ml', style: textTheme.headlineSmall),
+          Text('$_waterGoal ${context.s('onboarding_quiz.unit_ml')}',
+              style: textTheme.headlineSmall),
           Slider(
             value: _waterGoal.toDouble(),
             min: 1000,
             max: 4000,
             divisions: 30,
-            label: '$_waterGoal ml',
+            label: '$_waterGoal ${context.s('onboarding_quiz.unit_ml')}',
             onChanged: (v) => setState(() => _waterGoal = v.round()),
           ),
           Text(
@@ -1162,7 +1166,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
               ),
               child: Row(
                 children: [
-                  Icon(Icons.check_circle_rounded,
+                  Icon(PhosphorIcons.checkCircle(PhosphorIconsStyle.fill),
                       color: colorScheme.primary, size: 18),
                   const SizedBox(width: 8),
                   Expanded(
@@ -1236,7 +1240,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
               children: [
                 Row(
                   children: [
-                    Icon(Icons.star_rounded,
+                    Icon(PhosphorIcons.star(PhosphorIconsStyle.fill),
                         color: colorScheme.primary, size: 18),
                     const SizedBox(width: 8),
                     Expanded(
@@ -1273,7 +1277,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
             ),
             const SizedBox(height: 12),
             OutlinedButton.icon(
-              icon: const Icon(Icons.schedule_rounded, size: 18),
+              icon: Icon(PhosphorIcons.clockCounterClockwise(), size: 18),
               label: Text(context.s('onboarding_quiz.s13_move_btn')),
               onPressed: () => setState(() => _taskMoved = true),
             ),
@@ -1366,7 +1370,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
           ),
           const SizedBox(height: 16),
           _sleepTimeCard(
-            icon: Icons.bedtime_outlined,
+            icon: PhosphorIcons.moon(),
             label: context.s('onboarding_quiz.s14_bedtime_q'),
             time: formatHour(_bedtimeHour),
             onTap: () async {
@@ -1381,7 +1385,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
           ),
           const SizedBox(height: 12),
           _sleepTimeCard(
-            icon: Icons.wb_sunny_outlined,
+            icon: PhosphorIcons.sun(),
             label: context.s('onboarding_quiz.s14_wake_q'),
             time: formatHour(_wakeHour),
             onTap: () async {
@@ -1458,7 +1462,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                 ),
               ),
               const SizedBox(width: 8),
-              Icon(Icons.edit_outlined, size: 18, color: ext.textMuted),
+              Icon(PhosphorIcons.pencilSimple(), size: 18, color: ext.textMuted),
             ],
           ),
         ),
@@ -1491,7 +1495,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                 shape: BoxShape.circle,
               ),
               child: Icon(
-                Icons.notifications_active_outlined,
+                PhosphorIcons.bellRinging(PhosphorIconsStyle.fill),
                 size: 40,
                 color: colorScheme.primary,
               ),
@@ -1738,7 +1742,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _summaryRow(
-                    icon: Icons.language_rounded,
+                    icon: PhosphorIcons.globe(),
                     label: context.s('onboarding_quiz.s15_lang_label'),
                     value: langName,
                     textTheme: textTheme,
@@ -1746,7 +1750,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   ),
                   _summaryDivider(ext),
                   _summaryRow(
-                    icon: Icons.flag_rounded,
+                    icon: PhosphorIcons.flag(PhosphorIconsStyle.fill),
                     label: context.s('onboarding_quiz.s15_goal_label'),
                     value: goalLabel,
                     textTheme: textTheme,
@@ -1754,7 +1758,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   ),
                   _summaryDivider(ext),
                   _summaryRow(
-                    icon: Icons.water_drop_outlined,
+                    icon: PhosphorIcons.drop(),
                     label: context.s('onboarding_quiz.s15_water_label'),
                     value: waterStr,
                     textTheme: textTheme,
@@ -1762,7 +1766,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   ),
                   _summaryDivider(ext),
                   _summaryRow(
-                    icon: Icons.local_fire_department_outlined,
+                    icon: PhosphorIcons.flame(),
                     label: context.s('onboarding_quiz.s15_cal_label'),
                     value: calStr,
                     textTheme: textTheme,
@@ -1770,16 +1774,15 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   ),
                   _summaryDivider(ext),
                   _summaryRow(
-                    icon: Icons.notifications_none_rounded,
-                    label:
-                        context.s('onboarding_quiz.s15_timing_label'),
+                    icon: PhosphorIcons.bell(),
+                    label: context.s('onboarding_quiz.s15_timing_label'),
                     value: timingLabel,
                     textTheme: textTheme,
                     ext: ext,
                   ),
                   _summaryDivider(ext),
                   _summaryRow(
-                    icon: Icons.bedtime_outlined,
+                    icon: PhosphorIcons.moon(),
                     label: context.s('health_profile.sleep_schedule_label'),
                     value: sleepStr,
                     textTheme: textTheme,
@@ -1787,7 +1790,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   ),
                   _summaryDivider(ext),
                   _summaryRow(
-                    icon: Icons.record_voice_over_outlined,
+                    icon: PhosphorIcons.speakerSimpleHigh(),
                     label: context.s('onboarding_quiz.s15_tone_label'),
                     value: toneLabel,
                     textTheme: textTheme,
@@ -1795,7 +1798,7 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
                   ),
                   _summaryDivider(ext),
                   _summaryRow(
-                    icon: Icons.palette_outlined,
+                    icon: PhosphorIcons.palette(),
                     label: context.s('onboarding_quiz.s15_theme_label'),
                     value: themeLabel,
                     textTheme: textTheme,
@@ -1871,7 +1874,8 @@ class _PriorityExplainer extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(Icons.star_rounded, color: colorScheme.primary, size: 18),
+              Icon(PhosphorIcons.star(PhosphorIconsStyle.fill),
+                  color: colorScheme.primary, size: 18),
               const SizedBox(width: 8),
               Expanded(
                 child: Text(

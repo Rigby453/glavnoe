@@ -10,7 +10,10 @@ class BreathPhase {
     this.hold = false,
   });
 
-  /// Отображаемое название фазы ('Inhale', 'Hold', 'Exhale').
+  /// Ключ локализации фазы ('Inhale', 'Hold', 'Exhale').
+  /// Резолвится в месте отображения через context.s(phase.label).
+  /// ВНИМАНИЕ: breathing_screen.dart:226 (_colorForPhaseLabel) и :244 (_localizePhaseLabel)
+  /// всё ещё используют old-EN switch — оркестратор должен обновить их на новые ключи.
   final String label;
 
   /// Длительность фазы.
@@ -40,6 +43,10 @@ class BreathingPreset {
 // Пресеты (константы)
 // ---------------------------------------------------------------------------
 
+// Метки фаз — ВНУТРЕННИЕ switch-ключи на EN ('Inhale'/'Hold'/'Exhale'); пользователю
+// напрямую НЕ показываются. В breathing_screen.dart цвет фазы выбирается switch'ем по
+// этой метке (_colorForPhaseLabel), а для показа метка локализуется через
+// _localizePhaseLabel → context.s('breathing.inhale'|'hold'|'exhale'). Не локализовать здесь.
 const breathingPresets = [
   BreathingPreset(
     name: 'Box 4-4-4-4',

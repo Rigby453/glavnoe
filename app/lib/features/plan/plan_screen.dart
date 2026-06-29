@@ -13,7 +13,6 @@ import 'package:intl/intl.dart' hide TextDirection;
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
-import '../../core/settings/fab_position_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/breakpoints.dart';
 import '../today/widgets/add_task_sheet.dart';
@@ -73,9 +72,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     // (как на остальных экранах). heroTag различается для tablet/mobile-веток,
     // чтобы избежать Hero-коллизии при смене раскладки.
     final isTablet = MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
-    final fabLocation = ref.watch(fabPositionProvider).fabLocation;
     return Scaffold(
-      floatingActionButtonLocation: fabLocation,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: isTablet
           ? FloatingActionButton(
               heroTag: 'plan_add_fab_tablet',

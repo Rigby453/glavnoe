@@ -14,7 +14,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../core/animations/app_toast.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
-import '../../core/l10n/app_strings.dart';
+import '../../core/l10n/app_strings.dart'; // S.all — для локализации уведомлений без context
 import '../../core/settings/feature_modes_provider.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/app_theme.dart';
@@ -100,6 +100,16 @@ class WaterReminderNotifier extends StateNotifier<bool> {
   static final _plugin = FlutterLocalNotificationsPlugin();
   static const _baseId = 400;
 
+  /// Резолвит строку по ключу из S.all, используя локаль из SharedPreferences.
+  /// Ключ 'app_locale' совпадает с locale_provider.dart (_kLocaleKey).
+  String _ls(String key) {
+    final tag = _prefs.getString('app_locale') ?? 'en';
+    final entry = S.all[key];
+    if (entry == null) return key;
+    final langCode = tag.split('-').first;
+    return entry[tag] ?? entry[langCode] ?? entry['en'] ?? key;
+  }
+
   Future<void> toggle(bool value) async {
     state = value;
     await _prefs.setBool('water_reminders', value);
@@ -127,8 +137,8 @@ class WaterReminderNotifier extends StateNotifier<bool> {
       final scheduled = _nextInstance(hour);
       await _plugin.zonedSchedule(
         id: _baseId + i,
-        title: 'Time to drink water',
-        body: 'Stay hydrated!',
+        title: _ls('health.water_reminder_title'),
+        body: _ls('health.water_reminder_body'),
         scheduledDate: scheduled,
         notificationDetails: details,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,

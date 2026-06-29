@@ -84,6 +84,34 @@ const Map<String, Map<String, String>> healthAStrings = {
     'ja': '水分目標達成 💧',
     'ko': '물 목표 달성 💧',
   },
+  // Тексты уведомлений о напоминаниях пить воду.
+  // Резолвятся через WaterReminderNotifier._ls() в health_screen.dart (без BuildContext).
+  'health.water_reminder_title': {
+    'en': 'Time to drink water',
+    'ru': 'Время пить воду',
+    'de': 'Zeit, Wasser zu trinken',
+    'fr': "Il est temps de boire de l'eau",
+    'it': 'È ora di bere acqua',
+    'pt': 'Hora de beber água',
+    'es': 'Hora de beber agua',
+    'id': 'Waktunya minum air',
+    'hi': 'पानी पीने का समय',
+    'ja': '水を飲む時間です',
+    'ko': '물 마실 시간이에요',
+  },
+  'health.water_reminder_body': {
+    'en': 'Stay hydrated!',
+    'ru': 'Пей достаточно воды!',
+    'de': 'Bleib hydriert!',
+    'fr': 'Reste bien hydraté !',
+    'it': 'Rimani idratato!',
+    'pt': 'Mantenha-se hidratado!',
+    'es': '¡Mantente hidratado!',
+    'id': 'Tetap terhidrasi!',
+    'hi': 'हाइड्रेटेड रहें!',
+    'ja': '水分補給を忘れずに！',
+    'ko': '수분을 유지하세요!',
+  },
 
   // ---------------------------------------------------------------------------
   // Health hub — Sleep card

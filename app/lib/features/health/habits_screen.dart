@@ -11,7 +11,6 @@ import '../../core/database/daos/habits_dao.dart';
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
-import '../../core/settings/fab_position_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/widgets/kai_loader.dart';
 import '../../core/widgets/swipe_to_delete.dart';
@@ -64,7 +63,6 @@ class HabitsScreen extends ConsumerWidget {
     // Кол-во заархивированных — для подписи у иконки архива.
     final archivedCount = ref.watch(_archivedHabitsProvider).value?.length ?? 0;
 
-    final fabLocation = ref.watch(fabPositionProvider).fabLocation;
     return Scaffold(
       appBar: AppBar(
         title: Text(context.s('habits.title')),
@@ -88,7 +86,7 @@ class HabitsScreen extends ConsumerWidget {
             ),
         ],
       ),
-      floatingActionButtonLocation: fabLocation,
+      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: FloatingActionButton(
         heroTag: 'habits_add_fab',
         onPressed: () => _showAddDialog(context, ref),

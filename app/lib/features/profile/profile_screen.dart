@@ -3,6 +3,8 @@
 // ProfileAccountScreen, ProfileBehaviorScreen, ProfileAppearanceScreen —
 //   подстраницы, живут здесь и экспортируются стабами.
 
+import 'dart:math' as math;
+
 import 'package:flutter/foundation.dart' show kDebugMode;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show Clipboard, ClipboardData;
@@ -2141,6 +2143,103 @@ class _ThemePicker extends ConsumerWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Выбор акцента (Phase 4 — 6 AccentKey свотчей)
+// ---------------------------------------------------------------------------
+
+/// Пикер акцентного цвета: 6 цветных кружков, по тапу устанавливает акцент.
+class _AccentPicker extends ConsumerWidget {
+  const _AccentPicker();
+
+  // Канонические цвета акцентов (light/day из design-tokens.json §accents).
+  static const Map<AccentKey, Color> _colors = {
+    AccentKey.indigo:  Color(0xFF4B57C9),
+    AccentKey.emerald: Color(0xFF1D9E75),
+    AccentKey.violet:  Color(0xFF7A4FC9),
+    AccentKey.ochre:   Color(0xFFB5772A),
+    AccentKey.rose:    Color(0xFFC24E78),
+    AccentKey.slate:   Color(0xFF3F6E9E),
+  };
+
+  static String _labelKey(AccentKey key) => switch (key) {
+        AccentKey.indigo  => 'accent.indigo',
+        AccentKey.emerald => 'accent.emerald',
+        AccentKey.violet  => 'accent.violet',
+        AccentKey.ochre   => 'accent.ochre',
+        AccentKey.rose    => 'accent.rose',
+        AccentKey.slate   => 'accent.slate',
+      };
+
+  // Выбирает чёрный или белый контрастный цвет для галочки
+  Color _contrastColor(Color bg) {
+    double lin(double v) =>
+        v <= 0.04045
+            ? v / 12.92
+            : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+    final l = 0.2126 * lin(bg.r) + 0.7152 * lin(bg.g) + 0.0722 * lin(bg.b);
+    return l > 0.35 ? const Color(0xFF0A0A0A) : const Color(0xFFFAFAFA);
+  }
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final current = ref.watch(accentNotifierProvider);
+    final onSurface = Theme.of(context).colorScheme.onSurface;
+    // Длительность анимации: fast=180ms, учитываем MediaQuery.disableAnimations.
+    final dur = MediaQuery.disableAnimationsOf(context)
+        ? Duration.zero
+        : const Duration(milliseconds: 180);
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: AccentKey.values.map((key) {
+        final color = _colors[key]!;
+        final selected = current == key;
+        final label = context.s(_labelKey(key));
+
+        return Tooltip(
+          message: label,
+          child: GestureDetector(
+            onTap: () =>
+                ref.read(accentNotifierProvider.notifier).setAccent(key),
+            child: AnimatedContainer(
+              duration: dur,
+              curve: Curves.easeOut,
+              width: 44,
+              height: 44,
+              decoration: BoxDecoration(
+                color: color,
+                shape: BoxShape.circle,
+                border: selected
+                    ? Border.all(color: onSurface, width: 2.5)
+                    : Border.all(color: Colors.transparent, width: 2.5),
+                boxShadow: selected
+                    ? [
+                        BoxShadow(
+                          color: color.withValues(alpha: 0.5),
+                          blurRadius: 8,
+                          offset: const Offset(0, 2),
+                        ),
+                      ]
+                    : null,
+              ),
+              child: selected
+                  ? Center(
+                      child: Icon(
+                        Icons.check,
+                        size: 18,
+                        color: _contrastColor(color),
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Версия приложения
 // ---------------------------------------------------------------------------
 
@@ -2205,7 +2304,16 @@ class ProfileAppearanceScreen extends ConsumerWidget {
             style: textTheme.bodySmall?.copyWith(color: ext.textMuted),
           ),
           const SizedBox(height: 16),
+          // Выбор темы (4 варианта: Day / Night / Black / Calm)
           const _ThemePicker(),
+          const SizedBox(height: 28),
+          // Выбор акцентного цвета (6 AccentKey) — Phase 4
+          Text(
+            context.s('profile.accent'),
+            style: textTheme.titleSmall,
+          ),
+          const SizedBox(height: 12),
+          const _AccentPicker(),
           const SizedBox(height: 32),
         ],
       ),

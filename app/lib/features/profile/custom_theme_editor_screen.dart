@@ -1,6 +1,7 @@
 // Экран редактора пользовательской темы.
 // Маршрут: /profile/custom-theme (05-custom-theme.md §2).
-// Компоненты: превью, переключатель режима, сетка свотчей, пикер цвета, слайдер тепла.
+// Kaname v4: HSV-пикер (Hue/Saturation/Brightness слайдеры) удалён;
+// выбор акцента заменён на 6 курируемых AccentKey (Phase 4).
 
 import 'dart:math' as math;
 
@@ -15,20 +16,31 @@ import '../../core/theme/custom_theme_provider.dart';
 import '../../core/theme/theme_provider.dart';
 
 // ---------------------------------------------------------------------------
-// Курируемая сетка акцентов (05-custom-theme.md §1)
+// Соответствие AccentKey → репрезентативный цвет (light/day из design-tokens)
 // ---------------------------------------------------------------------------
 
-/// 16 свотчей: 4 строки × 4 столбца (тёплые / прохладные / земляные / неон).
-const List<Color> _kAccentSwatches = [
-  // Тёплые
-  Color(0xFFD9F24B), Color(0xFFF2A93B), Color(0xFFFF6A3D), Color(0xFFE85D75),
-  // Прохладные
-  Color(0xFF6FB6A3), Color(0xFF5B7CFA), Color(0xFF85C1E9), Color(0xFFA78BFA),
-  // Земляные
-  Color(0xFFC9A96E), Color(0xFF8DB87E), Color(0xFF9B8EC4), Color(0xFFD4A5A5),
-  // Неон
-  Color(0xFFC8FF4D), Color(0xFFFFE600), Color(0xFF00E5A0), Color(0xFFFF4FA3),
-];
+/// Канонические цвета акцентов для свотчей (light/day из design-tokens.json §accents).
+const Map<AccentKey, Color> _kAccentKeyColors = {
+  AccentKey.indigo:  Color(0xFF4B57C9),
+  AccentKey.emerald: Color(0xFF1D9E75),
+  AccentKey.violet:  Color(0xFF7A4FC9),
+  AccentKey.ochre:   Color(0xFFB5772A),
+  AccentKey.rose:    Color(0xFFC24E78),
+  AccentKey.slate:   Color(0xFF3F6E9E),
+};
+
+// ---------------------------------------------------------------------------
+// Контрастный цвет (чёрный или белый) для иконки поверх цветного свотча
+// ---------------------------------------------------------------------------
+
+Color _contrastColor(Color bg) {
+  double lin(double v) =>
+      v <= 0.04045
+          ? v / 12.92
+          : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
+  final l = 0.2126 * lin(bg.r) + 0.7152 * lin(bg.g) + 0.0722 * lin(bg.b);
+  return l > 0.35 ? const Color(0xFF0A0A0A) : const Color(0xFFFAFAFA);
+}
 
 // ---------------------------------------------------------------------------
 // Упрощённая структура цветов для превью
@@ -56,13 +68,12 @@ class _PreviewPalette {
 }
 
 // ---------------------------------------------------------------------------
-// Провайдер деривации для конкретного конфига (используется только в editor)
+// Деривация превью-палитры
 // ---------------------------------------------------------------------------
 
-/// Деривация превью-палитры.
-/// Kaname v4 shim: custom-тема заменяется accent-пикером в Phase 4;
-/// сейчас возвращает day+indigo как плейсхолдер.
-// ignore: deprecated_member_use
+/// Деривация превью-палитры из конфига.
+/// Каркас (поверхности, текст, border) берётся из day-темы;
+/// акцент берётся из config.accentColor (отражает выбранный AccentKey).
 _PreviewPalette _derivePreviewPalette(CustomThemeConfig config) {
   final theme = AppTheme.build(theme: AppThemeKey.day);
   final cs = theme.colorScheme;
@@ -74,8 +85,8 @@ _PreviewPalette _derivePreviewPalette(CustomThemeConfig config) {
     text: cs.onSurface,
     textMuted: ext?.textMuted ?? cs.onSurfaceVariant,
     textFaint: ext?.textFaint ?? cs.onSurfaceVariant.withValues(alpha: 0.6),
-    accent: cs.primary,
-    onAccent: cs.onPrimary,
+    accent: config.accentColor,
+    onAccent: _contrastColor(config.accentColor),
     border: ext?.border ?? cs.outline,
   );
 }
@@ -96,11 +107,8 @@ class _CustomThemeEditorScreenState
     extends ConsumerState<CustomThemeEditorScreen> {
   // --- Редактируемое состояние ---
   late bool _isDark;
-  late Color _accent;
+  late AccentKey _accentKey;
   late int _bgHueDelta;
-
-  // Флаг: показывать предупреждение о принудительной корректировке акцента
-  bool _accentWasForced = false;
 
   // Кэш превью-палитры — пересчитывается при каждом изменении
   late _PreviewPalette _previewPalette;
@@ -108,10 +116,10 @@ class _CustomThemeEditorScreenState
   @override
   void initState() {
     super.initState();
-    // Инициализируем из сохранённой конфигурации или умолчаниями
+    // Инициализируем из сохранённой конфигурации и текущего акцента
     final saved = ref.read(customThemeNotifierProvider);
     _isDark = saved?.isDark ?? true;
-    _accent = saved?.accentColor ?? _kAccentSwatches.first;
+    _accentKey = ref.read(accentNotifierProvider);
     _bgHueDelta = saved?.bgHueDelta ?? 0;
     _previewPalette = _derivePreviewPalette(_currentConfig);
   }
@@ -119,35 +127,34 @@ class _CustomThemeEditorScreenState
   // Вспомогательный метод: конфиг из текущего состояния
   CustomThemeConfig get _currentConfig => CustomThemeConfig(
         isDark: _isDark,
-        accentColor: _accent,
+        accentColor: _kAccentKeyColors[_accentKey] ??
+            _kAccentKeyColors[AccentKey.indigo]!,
         bgHueDelta: _bgHueDelta,
       );
 
-  // Пересчёт превью и флага принудительной коррекции
+  // Пересчёт превью при изменении состояния
   void _recompute() {
-    final config = _currentConfig;
-    // Kaname v4 shim: custom-тема = day+indigo; forced всегда false для shim.
-    final preview = _derivePreviewPalette(config);
-    const forced = false;
     setState(() {
-      _previewPalette = preview;
-      _accentWasForced = forced;
+      _previewPalette = _derivePreviewPalette(_currentConfig);
     });
   }
 
-  // Сохранить и вернуться
+  // Сохранить: записать конфиг + установить тему day + установить акцент → pop
   Future<void> _save() async {
     await ref
         .read(customThemeNotifierProvider.notifier)
         .save(_currentConfig);
-    // Kaname v4 shim: custom-тема → day; Phase 4 подключит accent-пикер.
+    // Kaname v4: custom-тема → day + выбранный акцент (Phase 4).
     await ref
         .read(themeNotifierProvider.notifier)
         .setTheme(AppThemeKey.day);
+    await ref
+        .read(accentNotifierProvider.notifier)
+        .setAccent(_accentKey);
     if (mounted) context.pop();
   }
 
-  // Сброс — подтверждение, затем сброс → откат на focus → pop
+  // Сброс — подтверждение, затем сброс конфига и акцента → pop
   Future<void> _reset() async {
     final confirmed = await showDialog<bool>(
       context: context,
@@ -169,24 +176,10 @@ class _CustomThemeEditorScreenState
     if (confirmed != true) return;
 
     await ref.read(customThemeNotifierProvider.notifier).reset();
-    // Если была выбрана тема day (куда shim перенаправлял custom) — оставляем day.
-    // Phase 4 уточнит логику через accent-пикер.
-    if (ref.read(themeNotifierProvider) == AppThemeKey.day) {
-      // Уже на day — ничего не делаем.
-    }
+    await ref
+        .read(accentNotifierProvider.notifier)
+        .setAccent(AccentKey.indigo);
     if (mounted) context.pop();
-  }
-
-  // Открыть кастомный пикер цвета
-  Future<void> _openCustomColorPicker() async {
-    final picked = await showDialog<Color>(
-      context: context,
-      builder: (ctx) => _SimpleColorPickerDialog(initial: _accent),
-    );
-    if (picked != null) {
-      setState(() => _accent = picked);
-      _recompute();
-    }
   }
 
   @override
@@ -234,7 +227,7 @@ class _CustomThemeEditorScreenState
             ),
 
             // ----------------------------------------------------------------
-            // 2. Базовый режим
+            // 2. Базовый режим (тёмная / светлая основа)
             // ----------------------------------------------------------------
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -268,7 +261,7 @@ class _CustomThemeEditorScreenState
             ),
 
             // ----------------------------------------------------------------
-            // 3. Сетка акцентов
+            // 3. Акцент — 6 AccentKey свотчей (заменяет HSV-пикер)
             // ----------------------------------------------------------------
             Padding(
               padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
@@ -279,54 +272,14 @@ class _CustomThemeEditorScreenState
             ),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: 4,
-                  mainAxisSpacing: 8,
-                  crossAxisSpacing: 8,
-                  childAspectRatio: 1,
-                ),
-                itemCount: _kAccentSwatches.length,
-                itemBuilder: (_, i) {
-                  final swatch = _kAccentSwatches[i];
-                  final selected = _accent == swatch;
-                  return _AccentSwatch(
-                    color: swatch,
-                    selected: selected,
-                    onTap: () {
-                      setState(() => _accent = swatch);
-                      _recompute();
-                    },
-                  );
+              child: _AccentKeyRow(
+                selected: _accentKey,
+                onChanged: (key) {
+                  setState(() => _accentKey = key);
+                  _recompute();
                 },
               ),
             ),
-
-            // Кнопка кастомного цвета
-            Padding(
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: ActionChip(
-                  avatar: const Icon(Icons.colorize_outlined, size: 18),
-                  label: Text(context.s('custom_theme.custom_color')),
-                  onPressed: _openCustomColorPicker,
-                ),
-              ),
-            ),
-
-            // Предупреждение о принудительной коррекции акцента
-            if (_accentWasForced)
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
-                child: Text(
-                  context.s('custom_theme.accent_forced'),
-                  style: textTheme.bodySmall
-                      ?.copyWith(color: colorScheme.onSurfaceVariant),
-                ),
-              ),
 
             // ----------------------------------------------------------------
             // 4. Дополнительные настройки (скрытые за ExpansionTile)
@@ -408,67 +361,69 @@ class _LivePreview extends StatelessWidget {
           border: Border.all(color: palette.border),
         ),
         // Превью — мини-макет фиксированного размера: системный text-scale
-        // (Profile → Text size = Extra large) НЕ должен его растягивать,
-        // иначе fixed-height Column переполняется (overflow + жёлто-чёрные полосы).
+        // НЕ должен его растягивать (overflow + жёлто-чёрные полосы).
         child: MediaQuery.withNoTextScaling(
           child: Stack(
-          children: [
-            Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  // Строка приветствия
-                  AnimatedDefaultTextStyle(
-                    duration: dur,
-                    style: TextStyle(
-                      color: palette.text,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Строка приветствия — локализованная
+                    AnimatedDefaultTextStyle(
+                      duration: dur,
+                      style: TextStyle(
+                        color: palette.text,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
+                      child: Text(context.s('today.greeting_morning')),
                     ),
-                    child: const Text('Good morning'),
-                  ),
-                  const SizedBox(height: 3),
-                  AnimatedDefaultTextStyle(
-                    duration: dur,
-                    style: TextStyle(
-                      color: palette.textMuted,
-                      fontSize: 11,
+                    const SizedBox(height: 3),
+                    AnimatedDefaultTextStyle(
+                      duration: dur,
+                      style: TextStyle(
+                        color: palette.textMuted,
+                        fontSize: 11,
+                      ),
+                      child: Text(context.s('nav.today')),
                     ),
-                    child: const Text('Today'),
-                  ),
-                  const SizedBox(height: 12),
-                  // Три пилюли-задачи
-                  ...List.generate(3, (i) => _TaskPill(
-                    palette: palette,
-                    isFirst: i == 0,
-                    width: 80 - i * 16.0,
-                    dur: dur,
-                  )),
-                ],
-              ),
-            ),
-            // FAB в правом нижнем углу
-            Positioned(
-              right: 16,
-              bottom: 16,
-              child: AnimatedContainer(
-                duration: dur,
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: palette.accent,
-                  borderRadius: BorderRadius.circular(18),
-                ),
-                child: Icon(
-                  Icons.add,
-                  size: 20,
-                  color: palette.onAccent,
+                    const SizedBox(height: 12),
+                    // Три пилюли-задачи
+                    ...List.generate(
+                      3,
+                      (i) => _TaskPill(
+                        palette: palette,
+                        isFirst: i == 0,
+                        width: 80 - i * 16.0,
+                        dur: dur,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ),
-          ],
-        ),
+              // FAB в правом нижнем углу
+              Positioned(
+                right: 16,
+                bottom: 16,
+                child: AnimatedContainer(
+                  duration: dur,
+                  width: 36,
+                  height: 36,
+                  decoration: BoxDecoration(
+                    color: palette.accent,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Icon(
+                    Icons.add,
+                    size: 20,
+                    color: palette.onAccent,
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -532,183 +487,67 @@ class _TaskPill extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
-// Свотч акцента
+// Ряд из 6 AccentKey свотчей (заменяет HSV-пикер и сетку 16 цветов)
 // ---------------------------------------------------------------------------
 
-class _AccentSwatch extends StatelessWidget {
-  const _AccentSwatch({
-    required this.color,
+/// Горизонтальный Wrap из 6 курируемых свотчей акцентов.
+/// Используется в CustomThemeEditorScreen вместо HSV-слайдеров.
+class _AccentKeyRow extends StatelessWidget {
+  const _AccentKeyRow({
     required this.selected,
-    required this.onTap,
+    required this.onChanged,
   });
 
-  final Color color;
-  final bool selected;
-  final VoidCallback onTap;
+  final AccentKey selected;
+  final ValueChanged<AccentKey> onChanged;
 
   @override
   Widget build(BuildContext context) {
-    final duration = effectiveDuration(context, kDurationFast);
+    final dur = effectiveDuration(context, kDurationFast);
+    final onSurface = Theme.of(context).colorScheme.onSurface;
 
-    return GestureDetector(
-      onTap: onTap,
-      child: AnimatedContainer(
-        duration: duration,
-        curve: kCurveSnap,
-        width: 44,
-        height: 44,
-        decoration: BoxDecoration(
-          color: color,
-          borderRadius: BorderRadius.circular(10),
-          border: selected
-              ? Border.all(
-                  color: Theme.of(context).colorScheme.onSurface,
-                  width: 2.5,
-                )
-              : Border.all(color: Colors.transparent, width: 2.5),
-          boxShadow: selected
-              ? [
-                  BoxShadow(
-                    color: color.withValues(alpha: 0.5),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
+    return Wrap(
+      spacing: 12,
+      runSpacing: 12,
+      children: AccentKey.values.map((key) {
+        final color = _kAccentKeyColors[key]!;
+        final isSelected = selected == key;
+
+        return GestureDetector(
+          onTap: () => onChanged(key),
+          child: AnimatedContainer(
+            duration: dur,
+            curve: kCurveSnap,
+            width: 44,
+            height: 44,
+            decoration: BoxDecoration(
+              color: color,
+              shape: BoxShape.circle,
+              border: isSelected
+                  ? Border.all(color: onSurface, width: 2.5)
+                  : Border.all(color: Colors.transparent, width: 2.5),
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: color.withValues(alpha: 0.5),
+                        blurRadius: 8,
+                        offset: const Offset(0, 2),
+                      ),
+                    ]
+                  : null,
+            ),
+            child: isSelected
+                ? Center(
+                    child: Icon(
+                      Icons.check,
+                      size: 18,
+                      color: _contrastColor(color),
+                    ),
                   )
-                ]
-              : null,
-        ),
-        child: selected
-            ? Center(
-                child: Icon(
-                  Icons.check,
-                  size: 18,
-                  color: _contrastColor(color),
-                ),
-              )
-            : null,
-      ),
-    );
-  }
-
-  // Выбирает чёрный или белый контрастный цвет для иконки
-  Color _contrastColor(Color bg) {
-    double lin(double v) =>
-        v <= 0.04045
-            ? v / 12.92
-            : math.pow((v + 0.055) / 1.055, 2.4).toDouble();
-    final l = 0.2126 * lin(bg.r) + 0.7152 * lin(bg.g) + 0.0722 * lin(bg.b);
-    return l > 0.35 ? const Color(0xFF0A0A0A) : const Color(0xFFFAFAFA);
-  }
-}
-
-// ---------------------------------------------------------------------------
-// Простой HSV пикер цвета (диалог)
-// ---------------------------------------------------------------------------
-
-class _SimpleColorPickerDialog extends StatefulWidget {
-  const _SimpleColorPickerDialog({required this.initial});
-
-  final Color initial;
-
-  @override
-  State<_SimpleColorPickerDialog> createState() =>
-      _SimpleColorPickerDialogState();
-}
-
-class _SimpleColorPickerDialogState extends State<_SimpleColorPickerDialog> {
-  late double _hue;
-  late double _sat;
-  late double _val;
-
-  @override
-  void initState() {
-    super.initState();
-    final hsv = HSVColor.fromColor(widget.initial);
-    _hue = hsv.hue;
-    _sat = hsv.saturation;
-    _val = hsv.value;
-  }
-
-  Color get _color => HSVColor.fromAHSV(1.0, _hue, _sat, _val).toColor();
-
-  @override
-  Widget build(BuildContext context) {
-    final textTheme = Theme.of(context).textTheme;
-
-    return AlertDialog(
-      title: Text(context.s('custom_theme.custom_color')),
-      content: SizedBox(
-        width: 280,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Предпросмотр выбранного цвета
-            AnimatedContainer(
-              duration: kDurationFast,
-              height: 48,
-              decoration: BoxDecoration(
-                color: _color,
-                borderRadius: BorderRadius.circular(8),
-              ),
-            ),
-            const SizedBox(height: 16),
-            // Оттенок (Hue)
-            Row(
-              children: [
-                Text('Hue', style: textTheme.labelSmall),
-                const Spacer(),
-                Text('${_hue.round()}°', style: textTheme.labelSmall),
-              ],
-            ),
-            Slider(
-              value: _hue,
-              min: 0,
-              max: 360,
-              divisions: 360,
-              onChanged: (v) => setState(() => _hue = v),
-            ),
-            // Насыщенность (Sat)
-            Row(
-              children: [
-                Text('Saturation', style: textTheme.labelSmall),
-                const Spacer(),
-                Text('${(_sat * 100).round()}%', style: textTheme.labelSmall),
-              ],
-            ),
-            Slider(
-              value: _sat,
-              min: 0,
-              max: 1,
-              divisions: 100,
-              onChanged: (v) => setState(() => _sat = v),
-            ),
-            // Яркость (Value)
-            Row(
-              children: [
-                Text('Brightness', style: textTheme.labelSmall),
-                const Spacer(),
-                Text('${(_val * 100).round()}%', style: textTheme.labelSmall),
-              ],
-            ),
-            Slider(
-              value: _val,
-              min: 0,
-              max: 1,
-              divisions: 100,
-              onChanged: (v) => setState(() => _val = v),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.s('btn.cancel')),
-        ),
-        FilledButton(
-          onPressed: () => Navigator.of(context).pop(_color),
-          child: Text(context.s('custom_theme.save')),
-        ),
-      ],
+                : null,
+          ),
+        );
+      }).toList(),
     );
   }
 }

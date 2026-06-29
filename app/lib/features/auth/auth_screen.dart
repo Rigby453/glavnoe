@@ -10,8 +10,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/animations/constants.dart';
+import '../../core/branding.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/settings/mascot_provider.dart';
 import '../../core/settings/tone_provider.dart';
@@ -197,9 +199,9 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           // Fallback если Kai отключён: пустое место той же высоты
                           const SizedBox(height: 72),
                         const SizedBox(height: 20),
-                        // Kaizen — displaySmall — editorial первое впечатление
+                        // Wordmark — displaySmall — editorial первое впечатление
                         Text(
-                          'Kaizen',
+                          kAppWordmark,
                           style: textTheme.displaySmall,
                           textAlign: TextAlign.center,
                         ),
@@ -394,12 +396,12 @@ class _IdentifierToggle extends StatelessWidget {
         ButtonSegment(
           value: _IdentifierType.phone,
           label: Text(context.s('auth.tab_phone')),
-          icon: const Icon(Icons.phone_outlined),
+          icon: Icon(PhosphorIcons.phone()),
         ),
         ButtonSegment(
           value: _IdentifierType.email,
           label: Text(context.s('auth.tab_email')),
-          icon: const Icon(Icons.email_outlined),
+          icon: Icon(PhosphorIcons.envelope()),
         ),
       ],
       selected: {selected},

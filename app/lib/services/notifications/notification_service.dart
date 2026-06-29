@@ -14,6 +14,7 @@ import 'package:timezone/timezone.dart' as tz;
 import '../../core/database/daos/habits_dao.dart'
     show HabitReminder, computeHabitReminders, habitReminderBaseId,
         kHabitReminderSlots;
+import '../../core/l10n/app_strings.dart';
 import '../../core/settings/timezone_provider.dart';
 import '../../core/theme/theme_provider.dart'; // sharedPreferencesProvider
 
@@ -26,12 +27,32 @@ class NotificationService {
   /// [overrideTzGetter] возвращает выбранный пользователем IANA-таймзон
   /// (или null/пусто = авто/зона устройства). Передаётся провайдером, который
   /// читает SharedPreferences. Если не задан — поведение по умолчанию (авто).
-  NotificationService(this._plugin, {String? Function()? overrideTzGetter})
-      : _overrideTzGetter = overrideTzGetter; // ignore: prefer_initializing_formals
+  ///
+  /// [localeLangGetter] возвращает сохранённый в SharedPreferences тег локали
+  /// ('ru', 'en', 'pt-BR'...). Используется для локализации текстов уведомлений
+  /// без BuildContext. Если null/пусто — откат на 'en'.
+  NotificationService(
+    this._plugin, {
+    String? Function()? overrideTzGetter,
+    String? Function()? localeLangGetter,
+  })  : _overrideTzGetter = overrideTzGetter,
+        _localeLangGetter = localeLangGetter;
 
   final FlutterLocalNotificationsPlugin _plugin;
   final String? Function()? _overrideTzGetter;
+  final String? Function()? _localeLangGetter;
   bool _inited = false;
+
+  /// Резолвит строку по ключу из S.all, используя сохранённую локаль приложения.
+  /// Не требует BuildContext — предназначен для текстов уведомлений.
+  /// Порядок: точный тег ('pt-BR') → языковой код ('pt') → 'en' → сам ключ.
+  String _ls(String key) {
+    final tag = _localeLangGetter?.call() ?? 'en';
+    final entry = S.all[key];
+    if (entry == null) return key;
+    final langCode = tag.split('-').first;
+    return entry[tag] ?? entry[langCode] ?? entry['en'] ?? key;
+  }
 
   Future<void> init() async {
     if (_inited || kIsWeb) return;
@@ -154,8 +175,8 @@ class NotificationService {
     await cancelAll();
     await _plugin.zonedSchedule(
       id: _kMorningId,
-      title: 'Plan your day',
-      body: 'Carry over what slipped and protect what matters.',
+      title: _ls('notif.morning_title'),
+      body: _ls('notif.morning_body'),
       scheduledDate: _nextInstanceOf(morningHour),
       notificationDetails: _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -163,8 +184,8 @@ class NotificationService {
     );
     await _plugin.zonedSchedule(
       id: _kEveningId,
-      title: 'Plan tomorrow',
-      body: 'Two minutes now saves a panicked morning.',
+      title: _ls('notif.evening_title'),
+      body: _ls('notif.evening_body'),
       scheduledDate: _nextInstanceOf(eveningHour),
       notificationDetails: _details,
       androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -216,8 +237,8 @@ class NotificationService {
     for (var i = 0; i < _kPostureHours.length; i++) {
       await _plugin.zonedSchedule(
         id: _kPostureIds[i],
-        title: 'Sit up straight',
-        body: 'Quick check: shoulders relaxed, back tall.',
+        title: _ls('notif.posture_title'),
+        body: _ls('notif.posture_body'),
         scheduledDate: _nextInstanceOf(_kPostureHours[i]),
         notificationDetails: _postureDetails,
         androidScheduleMode: AndroidScheduleMode.inexactAllowWhileIdle,
@@ -397,6 +418,10 @@ final notificationServiceProvider = Provider<NotificationService>((ref) {
     // Эффективная зона: override из настроек (если задан), иначе зона устройства.
     overrideTzGetter: () =>
         ref.read(sharedPreferencesProvider).getString(kTimezoneOverrideKey),
+    // Локаль для текстов уведомлений (сохранена в prefs при смене языка).
+    // Ключ 'app_locale' — тот же, что в locale_provider.dart (_kLocaleKey).
+    localeLangGetter: () =>
+        ref.read(sharedPreferencesProvider).getString('app_locale'),
   );
 });
 
