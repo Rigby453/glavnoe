@@ -9,6 +9,11 @@ import 'package:app/features/health/breathing_editor_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
+// Карточки фаз — Container+hairline (не Material Card). Считаем по одной кнопке
+// удаления (trash) на фазу. Степпер «+» секунд — IconButton (в отличие от
+// ghost-кнопки «Add phase» = TextButton.icon).
 
 Future<void> _pumpEditor(
   WidgetTester tester, {
@@ -38,7 +43,7 @@ void main() {
   testWidgets('редактор рендерится: имя + 2 дефолтные фазы', (tester) async {
     await _pumpEditor(tester, width: 360, textScale: 1.0);
     expect(find.byType(TextField), findsOneWidget);
-    expect(find.byType(Card), findsNWidgets(2)); // дефолт Inhale + Exhale
+    expect(find.byIcon(PhosphorIcons.trash()), findsNWidgets(2)); // дефолт Inhale + Exhale
     expect(find.text('Add phase'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -46,18 +51,18 @@ void main() {
   testWidgets('добавление и удаление фазы меняет число карточек',
       (tester) async {
     await _pumpEditor(tester, width: 360, textScale: 1.0);
-    expect(find.byType(Card), findsNWidgets(2));
+    expect(find.byIcon(PhosphorIcons.trash()), findsNWidgets(2));
 
     // Добавить фазу → 3 карточки.
     await tester.ensureVisible(find.text('Add phase'));
     await tester.tap(find.text('Add phase'));
     await tester.pumpAndSettle();
-    expect(find.byType(Card), findsNWidgets(3));
+    expect(find.byIcon(PhosphorIcons.trash()), findsNWidgets(3));
 
     // Удалить первую фазу → 2 карточки.
-    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.tap(find.byIcon(PhosphorIcons.trash()).first);
     await tester.pumpAndSettle();
-    expect(find.byType(Card), findsNWidgets(2));
+    expect(find.byIcon(PhosphorIcons.trash()), findsNWidgets(2));
     expect(tester.takeException(), isNull);
   });
 
@@ -67,7 +72,7 @@ void main() {
     expect(find.text('4 seconds'), findsNWidgets(2));
 
     // Плюс у первой фазы → 5 секунд.
-    await tester.tap(find.byIcon(Icons.add_circle_outline).first);
+    await tester.tap(find.widgetWithIcon(IconButton, PhosphorIcons.plus()).first);
     await tester.pumpAndSettle();
     expect(find.text('5 seconds'), findsOneWidget);
     expect(tester.takeException(), isNull);

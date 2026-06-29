@@ -10,6 +10,10 @@ import 'package:app/features/health/meditation_editor_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
+
+// Карточки шагов — Container+hairline (не Material Card): считаем по trash на шаг.
+// Степпер секунд — plusCircle/minusCircle (add-step = plus, не путать).
 
 Future<void> _pumpEditor(
   WidgetTester tester, {
@@ -40,7 +44,7 @@ void main() {
     await _pumpEditor(tester, width: 360, textScale: 1.0);
     // Имя сессии + поле инструкции одного шага = 2 TextField.
     expect(find.byType(TextField), findsNWidgets(2));
-    expect(find.byType(Card), findsOneWidget); // один дефолтный шаг
+    expect(find.byIcon(PhosphorIcons.trash()), findsOneWidget); // один дефолтный шаг
     expect(find.text('Add step'), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
@@ -48,18 +52,18 @@ void main() {
   testWidgets('добавление и удаление шага меняет число карточек',
       (tester) async {
     await _pumpEditor(tester, width: 360, textScale: 1.0);
-    expect(find.byType(Card), findsOneWidget);
+    expect(find.byIcon(PhosphorIcons.trash()), findsOneWidget);
 
     // Добавить шаг → 2 карточки.
     await tester.ensureVisible(find.text('Add step'));
     await tester.tap(find.text('Add step'));
     await tester.pumpAndSettle();
-    expect(find.byType(Card), findsNWidgets(2));
+    expect(find.byIcon(PhosphorIcons.trash()), findsNWidgets(2));
 
     // Удалить первый шаг → 1 карточка.
-    await tester.tap(find.byIcon(Icons.delete_outline).first);
+    await tester.tap(find.byIcon(PhosphorIcons.trash()).first);
     await tester.pumpAndSettle();
-    expect(find.byType(Card), findsOneWidget);
+    expect(find.byIcon(PhosphorIcons.trash()), findsOneWidget);
     expect(tester.takeException(), isNull);
   });
 
@@ -70,7 +74,7 @@ void main() {
     expect(find.textContaining('01:00'), findsOneWidget);
 
     // Плюс → +5 секунд = 65; превью обновляется на 01:05.
-    await tester.tap(find.byIcon(Icons.add_circle_outline).first);
+    await tester.tap(find.byIcon(PhosphorIcons.plusCircle()).first);
     await tester.pumpAndSettle();
     expect(find.text('65 seconds'), findsOneWidget);
     expect(find.textContaining('01:05'), findsOneWidget);
