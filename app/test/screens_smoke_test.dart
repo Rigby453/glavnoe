@@ -5,6 +5,8 @@
 import 'package:app/core/database/database.dart';
 import 'package:app/core/database/database_providers.dart';
 import 'package:app/core/theme/app_theme.dart';
+import 'package:app/features/mascot/kai_mascot.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:app/core/theme/theme_provider.dart'
     show sharedPreferencesProvider;
 import 'package:app/core/utils/id.dart';
@@ -120,11 +122,10 @@ void main() {
       await tester.pump(const Duration(milliseconds: 600));
 
       expect(find.textContaining('Good '), findsOneWidget); // приветствие
-      // today.main_tasks = 'Focus' (EN) — hero-заголовок секции главных задач
-      expect(find.text('Focus'), findsOneWidget);
+      // Редизайн: ring/секцию «Focus» заменил счётчик «Main · X/Y» (EN label='Main').
+      expect(find.text('Main · 0/1'), findsOneWidget);
       expect(find.text('Write essay'), findsOneWidget);
       expect(find.byType(FloatingActionButton), findsOneWidget);
-      expect(find.text('0/1'), findsOneWidget); // кольцо: main не закрыт
 
       await unmountAndFlush(tester);
     });
@@ -174,7 +175,8 @@ void main() {
           () => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump(const Duration(milliseconds: 100));
 
-      expect(find.byIcon(Icons.shopping_cart_outlined), findsOneWidget);
+      // Empty-state теперь Kai (§4.2), а не Material shopping_cart.
+      expect(find.byType(KaiMascot), findsOneWidget);
       expect(find.textContaining('Nothing here yet'), findsOneWidget);
 
       await unmountAndFlush(tester);
@@ -189,8 +191,8 @@ void main() {
 
       // Вводим название и нажимаем кнопку добавления
       await tester.enterText(find.byType(TextField), 'Apples');
-      // Экран использует Icons.add_circle_outline (не Icons.add)
-      await tester.tap(find.byIcon(Icons.add_circle_outline));
+      // Экран использует Phosphor plusCircle (раньше Icons.add_circle_outline)
+      await tester.tap(find.byIcon(PhosphorIcons.plusCircle()));
       // Ждём записи в Drift и обновления стрима
       await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 100)));
