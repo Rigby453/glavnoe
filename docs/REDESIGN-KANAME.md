@@ -62,6 +62,11 @@ Formless fluid "liquid pebble" (metaball/superellipse), ONE solid accent fill, n
 Sizes: 22–30 inline/sheets, 64 empty/paywall, up to 96 onboarding. Never overlaps content. `KaiLoader` = the brand loader for
 ALL AI/loading. Tone (gentle/harsh) lives in Profile. Freezes neutral under reduce-motion/high-contrast. Off-toggle in Profile.
 
+## RESUME 2026-06-30 (ветка night/…, запушено; analyze=0)
+- 🔴→✅ **Блокер сборки решён:** phosphor_flutter расширял `IconData` (стал final во Flutter 3.44) → app не компилировался; `analyze` не ловил. Вендорнут+пропатчен в `app/third_party/phosphor_flutter` (commit 1731ed2). **analyze=0 ≠ собирается — проверяй `flutter test`.**
+- ✅ **Гэпы закрыты (commit 9e1a3ce):** accent picker (6 акцентов) в Профиль→Внешний вид; custom_theme_editor HSV→accent; удалён fab_position_provider (FAB=endFloat в plan/food/habits/goals); auth 'Kaizen'→kAppWordmark; онбординг визуально унифицирован + Phosphor; l10n нотификаций/воды/превью темы (11 яз). Today/Plan-лента+Kai+KaiLoader+Paywall — подтверждены готовыми аудитом.
+- ⏳ **Осталось:** (1) `flutter test` — ~38 устаревших ассертов под старую структуру (НЕ баги app, напр. date_navigator ждёт Material chevron вместо Phosphor caret) → обновить тесты; (2) 34 analyze-warning (линты); (3) overflow-тесты для 8 экранов; (4) опц.: структурное слияние онбординга (сейчас 3 маршрута, визуально едины), убрать bg-warmth слайдер; (5) реальный build/`flutter run` — рендер иконок; (6) иконка app (юзер).
+
 ## Phase tracker
 - **[x] Phase 1 — Foundation:** tokens v4 → app_theme.dart (4 themes surfaces-only + accent decoupled + HankenGrotesk/Atkinson + a11y hooks),
   AccentKey + accentNotifierProvider, ThemeNotifier (4 themes + prefs migration focus→night/white→day), highContrastProvider + text-size,
