@@ -46,6 +46,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:phosphor_flutter/phosphor_flutter.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -410,7 +411,8 @@ void main() {
       await tester.pumpWidget(
           harness(const TodayScreen(), extraOverrides: apiOverride()));
       await settle(tester);
-      await tester.tap(find.byIcon(Icons.add).first);
+      // FAB теперь Phosphor plus() (не Material Icons.add).
+      await tester.tap(find.widgetWithIcon(FloatingActionButton, PhosphorIcons.plus()));
       await settle(tester);
       expect(find.byType(AddTaskSheet), findsOneWidget);
     }
@@ -640,8 +642,10 @@ void main() {
       expect(rows, isNotNull);
       expect(rows!.single.status, 'done');
 
-      // Undo-тост (_AppToastOverlay) ставит таймер автоскрытия ~4с. Прокачиваем
-      // время, чтобы таймер сработал в теле теста (иначе «Timer still pending»).
+      // Undo-тост (_AppToastOverlay) ставит таймер автоскрытия ~4с. Тост может
+      // появиться на кадр позже (после async markDone) → прокачиваем время дважды,
+      // чтобы 4-с таймер гарантированно сработал до unmount (иначе «Timer still pending»).
+      await tester.pump(const Duration(seconds: 5));
       await tester.pump(const Duration(seconds: 5));
       await unmountAndFlush(tester);
     });
@@ -699,9 +703,9 @@ void main() {
 
       expect(find.byType(DiaryHistoryScreen), findsOneWidget);
 
-      // Шаг на предыдущий день: DateNavigator использует Icons.chevron_left
+      // Шаг на предыдущий день: DateNavigator использует Phosphor caretLeft
       // (а не arrow_back, который остался только в AppBar и вызывает context.pop()).
-      await tester.tap(find.byIcon(Icons.chevron_left).first);
+      await tester.tap(find.byIcon(PhosphorIcons.caretLeft()).first);
       await settle(tester);
       expect(tester.takeException(), isNull);
       // Вчерашняя заметка отрисовалась.
@@ -751,7 +755,10 @@ void main() {
 
       // Кнопка «Create group» (TextButton.icon в шапке секции групп).
       await tester.tap(find.text('Create group').first);
-      await tester.pumpAndSettle();
+      // KaiMascot в пустом состоянии дышит бесконечно → pumpAndSettle зависает.
+      // Фиксированные кадры на анимацию открытия диалога.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
 
       // Диалог открыт: TextField для имени группы.
       expect(find.byType(TextField), findsWidgets);
@@ -759,7 +766,8 @@ void main() {
 
       // Закрываем «Cancel» — контроллер диалога должен корректно освободиться.
       await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
       expect(tester.takeException(), isNull);
 
       await unmountAndFlush(tester);
@@ -772,12 +780,15 @@ void main() {
       await settle(tester);
 
       await tester.tap(find.text('Join by code').first);
-      await tester.pumpAndSettle();
+      // KaiMascot дышит бесконечно → фиксированные кадры вместо pumpAndSettle.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
       expect(find.byType(TextField), findsWidgets);
       expect(tester.takeException(), isNull);
 
       await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
-      await tester.pumpAndSettle();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 350));
       expect(tester.takeException(), isNull);
 
       await unmountAndFlush(tester);
