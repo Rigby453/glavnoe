@@ -1475,6 +1475,33 @@ const Map<String, Map<String, String>> planDiaryStrings = {
     'ja': 'AIインサイト',
     'ko': 'AI 인사이트',
   },
+  // Год-календарь дневника (diary_history_screen.dart) — heatmap по настроению.
+  'diary.history_legend': {
+    'en': 'Mood colors',
+    'ru': 'Цвета настроения',
+    'de': 'Stimmungsfarben',
+    'fr': 'Couleurs de l\'humeur',
+    'it': 'Colori dell\'umore',
+    'pt': 'Cores de humor',
+    'es': 'Colores de ánimo',
+    'id': 'Warna suasana hati',
+    'hi': 'मूड के रंग',
+    'ja': '気分の色',
+    'ko': '기분 색상',
+  },
+  'diary.history_add_entry': {
+    'en': 'Add entry',
+    'ru': 'Добавить запись',
+    'de': 'Eintrag hinzufügen',
+    'fr': 'Ajouter une entrée',
+    'it': 'Aggiungi voce',
+    'pt': 'Adicionar entrada',
+    'es': 'Añadir entrada',
+    'id': 'Tambah catatan',
+    'hi': 'प्रविष्टि जोड़ें',
+    'ja': '記録を追加',
+    'ko': '기록 추가',
+  },
 
   // Plan — тумблер раскладки (список ↔ сетка времени)
   'plan.layout_grid_tooltip': {

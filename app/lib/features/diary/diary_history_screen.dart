@@ -1,68 +1,87 @@
-// Просмотр записей дневника за прошлые даты — Kaname restyle.
-// Календарь + выбор даты → отображение записи.
-// Иконки: Phosphor. Карточки: surface1 + hairline + R14.
+// FL-DIARY-HISTORY: Год-календарь дневника (heatmap по настроению).
+// - 12 мини-месяцев года; каждый день окрашен по mood записи day_logs за
+//   этот день (если есть). Цвет получается интерполяцией между ext.danger
+//   (плохое настроение) и ext.success (хорошее) — без хардкода цветов мимо
+//   темы (используются только токены FocusThemeExtension).
+// - Тап по дню → DiaryDayDetailScreen (просмотр + правка записи ЛЮБОГО дня).
+// - Год переключается стрелками ‹ YYYY ›, нижняя граница — 2020 (как в
+//   DateNavigator), верхняя — текущий год (нельзя смотреть в будущее).
+// - Структура мини-месяца зеркалит features/plan/widgets/year_view.dart
+//   (_MiniMonth/_MiniDayCell), но красит по настроению, а не по «занятости».
+//
+// Иконки: Phosphor. Карточки/легенда: surface1 + hairline + R14.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
-import '../../core/database/database.dart';
-import '../../core/database/database_providers.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
-import '../../core/widgets/date_navigator.dart';
 import '../../core/widgets/kai_loader.dart';
-
-/// Запись дневника за конкретный день
-final dayLogProvider = FutureProvider.family
-    .autoDispose<DayLogsTableData?, DateTime>((ref, date) async {
-      final start = DateTime.utc(date.year, date.month, date.day);
-      return ref.watch(dayLogsDaoProvider).getForDate(start);
-    });
-
-/// Ключ тега → ключ локализации (зеркалит diary_screen).
-const Map<String, String> _issueL10nKeys = {
-  'social_media': 'diary.issue_social_media',
-  'went_out': 'diary.issue_went_out',
-  'was_tired': 'diary.issue_was_tired',
-  'sick': 'diary.issue_sick',
-  'other': 'diary.issue_other',
-};
+import 'diary_day_detail_screen.dart';
+import 'diary_history_providers.dart';
 
 const List<String> _moodEmojis = ['😞', '😕', '😐', '🙂', '😄'];
-const String _issuesPrefix = '\n\nIssues: ';
+
+/// Ключи однобуквенных подписей дней недели (Пн..Вс) — переиспользуем
+/// существующие строки plan-модуля (уже локализованы на все языки).
+const List<String> _weekdayKeys = [
+  'plan.weekday_mon',
+  'plan.weekday_tue',
+  'plan.weekday_wed',
+  'plan.weekday_thu',
+  'plan.weekday_fri',
+  'plan.weekday_sat',
+  'plan.weekday_sun',
+];
 
 class DiaryHistoryScreen extends ConsumerStatefulWidget {
   const DiaryHistoryScreen({super.key});
 
   @override
-  ConsumerState<DiaryHistoryScreen> createState() => _DiaryHistoryScreenState();
+  ConsumerState<DiaryHistoryScreen> createState() =>
+      _DiaryHistoryScreenState();
 }
 
 class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
-  late DateTime _selectedDate;
+  late int _year;
+
+  static const int _firstYear = 2020;
 
   @override
   void initState() {
     super.initState();
-    _selectedDate = DateTime.now();
+    _year = DateTime.now().year;
+  }
+
+  void _changeYear(int delta) {
+    final next = _year + delta;
+    if (next < _firstYear || next > DateTime.now().year) return;
+    setState(() => _year = next);
+  }
+
+  Future<void> _openDay(DateTime day) async {
+    await Navigator.of(context).push(
+      MaterialPageRoute<void>(
+        builder: (_) => DiaryDayDetailScreen(date: day),
+      ),
+    );
+    // После возврата (возможна правка) — обновляем heatmap года.
+    ref.invalidate(dayLogsInYearProvider(_year));
   }
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
-    final dayLog = ref.watch(dayLogProvider(_selectedDate));
+    final yearData = ref.watch(dayLogsInYearProvider(_year));
 
     return Scaffold(
-      // elevation=0 — AppBar без тени (Kaname: flat by default)
       appBar: AppBar(
         leading: IconButton(
-          // arrowLeft (Phosphor) — стандартная навигация «назад»
           icon: Icon(PhosphorIcons.arrowLeft()),
-          onPressed: () => context.pop(),
+          onPressed: () => Navigator.of(context).pop(),
         ),
         title: Text(
           context.s('diary.history_screen_title'),
@@ -70,168 +89,301 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
         ),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          // Выбор даты — surface с hairline border снизу
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-            color: colorScheme.surface,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // --- Переключатель года ---
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  context.s('diary.history_select_date'),
-                  style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
+                IconButton(
+                  icon: Icon(PhosphorIcons.caretLeft()),
+                  onPressed:
+                      _year > _firstYear ? () => _changeYear(-1) : null,
                 ),
-                const SizedBox(height: 12),
-                // Единый DateNavigator — locale-aware, без хардкод-массивов
-                DateNavigator(
-                  date: _selectedDate,
-                  onChanged: (d) => setState(() => _selectedDate = d),
+                Text('$_year', style: textTheme.headlineSmall),
+                IconButton(
+                  icon: Icon(PhosphorIcons.caretRight()),
+                  onPressed: _year < DateTime.now().year
+                      ? () => _changeYear(1)
+                      : null,
                 ),
               ],
             ),
-          ),
-          // Hairline разделитель (0.5dp, ext.border — Kaname spec)
-          Divider(height: 1, thickness: 0.5, color: ext.border),
-          // Содержимое записи
-          Expanded(
-            child: dayLog.when(
-              data: (log) => _buildDayContent(context, log, textTheme, ext),
-              // KaiLoader вместо стандартного спиннера
-              loading: () => Center(
-                child: KaiLoader(label: context.s('loading.generic')),
+            const SizedBox(height: 12),
+
+            // --- Легенда цветов настроения ---
+            Text(
+              context.s('diary.history_legend'),
+              style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
+            ),
+            const SizedBox(height: 8),
+            Wrap(
+              spacing: 16,
+              runSpacing: 8,
+              children: List.generate(5, (i) {
+                final mood = i + 1;
+                return Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        color: moodColor(ext, mood),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(_moodEmojis[i], style: const TextStyle(fontSize: 14)),
+                  ],
+                );
+              }),
+            ),
+            const SizedBox(height: 20),
+
+            // --- Год-сетка из 12 мини-месяцев ---
+            yearData.when(
+              data: (moods) => _YearGrid(
+                year: _year,
+                moods: moods,
+                onSelectDay: _openDay,
               ),
-              error: (err, st) => Center(
+              loading: () => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 48),
+                child: Center(
+                  child: KaiLoader(label: context.s('loading.generic')),
+                ),
+              ),
+              error: (err, st) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 24),
                 child: Text(
                   context.s('error.generic').replaceFirst('{err}', '$err'),
                   style: textTheme.bodyMedium?.copyWith(color: ext.ember),
                 ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
+}
 
-  Widget _buildDayContent(
-    BuildContext context,
-    DayLogsTableData? log,
-    TextTheme textTheme,
-    FocusThemeExtension ext,
-  ) {
-    // Пустое состояние — textFaint, нет лишних элементов
-    if (log == null) {
-      return Center(
-        child: Text(
-          context.s('diary.history_no_entry'),
-          // textFaint — tertiary, пустое состояние
-          style: textTheme.bodyMedium?.copyWith(color: ext.textFaint),
-        ),
-      );
-    }
+/// Адаптивная сетка из 12 мини-месяцев. Колонок столько, сколько помещается
+/// по ширине (минимум 170dp на колонку) — на узком телефоне это 1 колонка
+/// (месяцы идут друг под другом, страница скроллится целиком), на широком
+/// экране — 2-4 колонки.
+class _YearGrid extends StatelessWidget {
+  const _YearGrid({
+    required this.year,
+    required this.moods,
+    required this.onSelectDay,
+  });
 
-    // Парсим issue из note
-    String noteText = log.note ?? '';
-    List<String> issues = [];
-    if (noteText.contains(_issuesPrefix)) {
-      final parts = noteText.split(_issuesPrefix);
-      noteText = parts[0];
-      issues = parts[1].split(', ').where((i) => i.isNotEmpty).toList();
-    }
+  final int year;
+  final Map<String, int> moods;
+  final ValueChanged<DateTime> onSelectDay;
 
-    return SingleChildScrollView(
-      // 24dp горизонтальные поля (design-tokens §spacing)
-      padding: const EdgeInsets.fromLTRB(24, 20, 24, 32),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // --- Настроение ---
-          if (log.mood != null) ...[
-            Text(
-              context.s('diary.mood'),
-              style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
-            ),
-            const SizedBox(height: 12),
-            // Эмодзи большой — фиксированный размер (не текстовая роль)
-            Text(
-              _moodEmojis[log.mood! - 1],
-              style: const TextStyle(fontSize: 48),
-            ),
-            const SizedBox(height: 24),
-          ],
+  @override
+  Widget build(BuildContext context) {
+    final today = DateTime.now();
 
-          // --- Заметка ---
-          if (noteText.isNotEmpty) ...[
-            Text(
-              context.s('diary.note'),
-              style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
-            ),
-            const SizedBox(height: 12),
-            // surface1 + hairline + R14 (Kaname card spec)
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: Theme.of(context).colorScheme.surface,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: ext.border, width: 0.5),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        const spacing = 12.0;
+        final cols = (constraints.maxWidth / 170).floor().clamp(1, 4);
+        final cellW =
+            (constraints.maxWidth - spacing * (cols - 1)) / cols;
+        final cellH = cellW / 0.78; // чуть выше плана — крупнее круги дней
+
+        return GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          padding: EdgeInsets.zero,
+          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+            crossAxisCount: cols,
+            childAspectRatio: cellW / cellH,
+            crossAxisSpacing: spacing,
+            mainAxisSpacing: spacing,
+          ),
+          itemCount: 12,
+          itemBuilder: (context, index) {
+            final month = index + 1;
+            return RepaintBoundary(
+              child: _MiniMonth(
+                year: year,
+                month: month,
+                moods: moods,
+                today: today,
+                onSelectDay: onSelectDay,
               ),
-              child: Text(noteText, style: textTheme.bodyLarge),
-            ),
-            const SizedBox(height: 24),
-          ],
+            );
+          },
+        );
+      },
+    );
+  }
+}
 
-          // --- Теги «что пошло не так» ---
-          if (issues.isNotEmpty) ...[
-            Text(
-              context.s('diary.history_what_went_wrong'),
-              style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
-            ),
-            const SizedBox(height: 12),
-            Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              children: issues
-                  .map(
-                    (issue) => Chip(
-                      label: Text(
-                        _issueL10nKeys.containsKey(issue)
-                            ? context.s(_issueL10nKeys[issue]!)
-                            : issue,
-                      ),
+/// Мини-сетка одного месяца: заголовок + однобуквенная шапка дней недели +
+/// строки чисел (Пн..Вс). Каждый день окрашен по настроению (если есть запись).
+class _MiniMonth extends StatelessWidget {
+  const _MiniMonth({
+    required this.year,
+    required this.month,
+    required this.moods,
+    required this.today,
+    required this.onSelectDay,
+  });
+
+  final int year;
+  final int month;
+  final Map<String, int> moods;
+  final DateTime today;
+  final ValueChanged<DateTime> onSelectDay;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final textFaint = ext?.textFaint ?? Theme.of(context).colorScheme.onSurface;
+
+    final firstOfMonth = DateTime(year, month, 1);
+    final leadingBlanks = firstOfMonth.weekday - 1; // Mon=0..Sun=6
+    final daysInMonth = DateTime(year, month + 1, 0).day;
+    final todayMidnight = DateTime(today.year, today.month, today.day);
+
+    final monthLabel = DateFormat('MMM').format(firstOfMonth);
+
+    final cells = <Widget>[
+      for (var i = 0; i < leadingBlanks; i++) const SizedBox.shrink(),
+      for (var d = 1; d <= daysInMonth; d++)
+        _MoodDayCell(
+          day: d,
+          mood: moods['$year-$month-$d'],
+          isToday: year == today.year && month == today.month && d == today.day,
+          isFuture: DateTime(year, month, d).isAfter(todayMidnight),
+          onTap: () => onSelectDay(DateTime(year, month, d)),
+        ),
+    ];
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(left: 4, bottom: 2),
+          child: Text(
+            monthLabel,
+            style: textTheme.titleSmall,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        Row(
+          children: [
+            for (final key in _weekdayKeys)
+              Expanded(
+                child: Center(
+                  child: Text(
+                    _firstChar(context.s(key)),
+                    style: textTheme.labelSmall?.copyWith(
+                      color: textFaint,
+                      fontSize: 9,
+                      height: 1.0,
                     ),
-                  )
-                  .toList(),
-            ),
-            const SizedBox(height: 24),
-          ],
-
-          // --- AI-инсайт: accentMuted фон (low-emphasis accent fill) ---
-          if (log.insight != null && log.insight!.isNotEmpty) ...[
-            Text(
-              context.s('diary.history_ai_insight'),
-              style: textTheme.titleSmall?.copyWith(color: ext.textMuted),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                // accentMuted: low-emphasis accent fill для AI-контента
-                color: ext.accentMuted,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(
-                  color: Theme.of(context)
-                      .colorScheme
-                      .primary
-                      .withValues(alpha: 0.3),
-                  width: 0.5,
+                    maxLines: 1,
+                  ),
                 ),
               ),
-              child: Text(log.insight!, style: textTheme.bodyMedium),
-            ),
           ],
-        ],
+        ),
+        const SizedBox(height: 2),
+        Expanded(
+          child: GridView.count(
+            physics: const NeverScrollableScrollPhysics(),
+            crossAxisCount: 7,
+            childAspectRatio: 1.0,
+            children: cells,
+          ),
+        ),
+      ],
+    );
+  }
+
+  static String _firstChar(String s) =>
+      s.characters.isEmpty ? '' : s.characters.first;
+}
+
+/// Одна ячейка дня: круг, залитый цветом настроения (если есть запись).
+/// Без записи — прозрачный (только число). Сегодня — тонкая accent-рамка.
+/// Будущие дни — приглушены и недоступны для тапа (логировать наперёд нельзя).
+class _MoodDayCell extends StatelessWidget {
+  const _MoodDayCell({
+    required this.day,
+    required this.mood,
+    required this.isToday,
+    required this.isFuture,
+    required this.onTap,
+  });
+
+  final int day;
+  final int? mood;
+  final bool isToday;
+  final bool isFuture;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final textTheme = Theme.of(context).textTheme;
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+
+    final Color? fill = mood != null ? moodColor(ext, mood!) : null;
+    final bool dense = mood != null && mood! != 3;
+    final Color textColor = fill != null
+        ? colorScheme.onPrimary
+        : (isFuture ? ext.textFaint : colorScheme.onSurface);
+
+    return GestureDetector(
+      onTap: isFuture ? null : onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Opacity(
+        opacity: isFuture ? 0.35 : 1.0,
+        child: Padding(
+          padding: const EdgeInsets.all(1),
+          child: Center(
+            child: Container(
+              decoration: BoxDecoration(
+                color: fill,
+                shape: BoxShape.circle,
+                border: isToday
+                    ? Border.all(color: colorScheme.primary, width: 1.0)
+                    : null,
+              ),
+              alignment: Alignment.center,
+              child: FittedBox(
+                fit: BoxFit.scaleDown,
+                child: Padding(
+                  padding: const EdgeInsets.all(2),
+                  child: Text(
+                    '$day',
+                    maxLines: 1,
+                    softWrap: false,
+                    style: textTheme.labelSmall?.copyWith(
+                      color: textColor,
+                      fontWeight:
+                          isToday || dense ? FontWeight.w700 : FontWeight.w400,
+                      height: 1.0,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }

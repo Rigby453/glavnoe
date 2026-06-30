@@ -40,6 +40,22 @@ class DayLogsDao extends DatabaseAccessor<AppDatabase> with _$DayLogsDaoMixin {
         .get();
   }
 
+  /// Записи за период [from, to) — для раскраски год-календаря (diary history).
+  /// Полуоткрытый интервал, как в getForDate; границы нормализуются до
+  /// 00:00 UTC по календарным компонентам (тот же приём, что в getForDate /
+  /// saveForDate), чтобы не зависеть от времени суток внутри [from]/[to].
+  Future<List<DayLogsTableData>> getBetween(DateTime from, DateTime to) {
+    final normalizedFrom = DateTime.utc(from.year, from.month, from.day);
+    final normalizedTo = DateTime.utc(to.year, to.month, to.day);
+    return (select(dayLogsTable)
+          ..where(
+            (t) =>
+                t.date.isBiggerOrEqualValue(normalizedFrom) &
+                t.date.isSmallerThanValue(normalizedTo),
+          ))
+        .get();
+  }
+
   // ---------------------------------------------------------------------------
   // Запись (upsert)
   // ---------------------------------------------------------------------------
