@@ -288,23 +288,22 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
         padding: const EdgeInsets.fromLTRB(24, 8, 24, 48),
         children: [
           // ── Шапка: аватар + имя + email ──────────────────────────────────
+          // (#9) Отдельный NavRow «Аккаунт» убран — он дублировал тап по
+          // шапке, который уже ведёт на /profile/account (редактирование
+          // имени/аватара живёт там и остаётся доступным через шапку).
           const SizedBox(height: 12),
           _UserHeader(userAsync: userAsync),
           const SizedBox(height: 20),
-          const _Hairline(),
-
-          // ── Аккаунт ──────────────────────────────────────────────────────
-          _NavRow(
-            icon: Icon(PhosphorIcons.user(), size: 20, color: ext.textMuted),
-            title: context.s('profile.section_account'),
-            onTap: () => context.push('/profile/account'),
-          ),
           const _Hairline(),
           const SizedBox(height: 8),
 
           // ── Прогресс (геймификация, перенесена из Today) ─────────────────
           _SectionLabel(context.s('profile.section_progress'), topPad: 0),
           const _ProfileProgressSection(),
+          // (#10) «Поделиться стриком» — рядом с прогрессом/стриком.
+          const SizedBox(height: 12),
+          const _Hairline(),
+          const _ShareStreakRow(),
 
           // ── Подписка, шеринг ─────────────────────────────────────────────
           const SizedBox(height: 20),
@@ -312,8 +311,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const _SubscriptionRow(),
           const _Hairline(),
           const _ShareWeekRow(),
-          const _Hairline(),
-          const _ShareStreakRow(),
           const _Hairline(),
           const _SharedWithMeRow(),
           const _Hairline(),
@@ -442,6 +439,8 @@ class _UserHeader extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final identity = ref.watch(profileIdentityProvider);
+    // (#11) Премиум-выделение: бейдж рядом с именем + акцент аватара.
+    final isPremium = ref.watch(isPremiumProvider).valueOrNull ?? false;
 
     return userAsync.when(
       loading: () => Center(
@@ -462,18 +461,29 @@ class _UserHeader extends ConsumerWidget {
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
-                _AvatarCircle(avatar: identity.avatar),
+                _AvatarCircle(avatar: identity.avatar, isPremium: isPremium),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Text(
-                        name,
-                        style: textTheme.titleMedium,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          Flexible(
+                            child: Text(
+                              name,
+                              style: textTheme.titleMedium,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          if (isPremium) ...[
+                            const SizedBox(width: 6),
+                            const _PremiumBadge(),
+                          ],
+                        ],
                       ),
                       if (email.isNotEmpty) ...[
                         const SizedBox(height: 2),
@@ -511,28 +521,120 @@ class _UserHeader extends ConsumerWidget {
 /// Без сетевых картинок — тема всегда задаёт фон/обводку/цвет иконки, поэтому
 /// аватар автоматически переcкинивается при смене темы (Focus/Black/White/...).
 class _AvatarCircle extends StatelessWidget {
-  const _AvatarCircle({required this.avatar, this.size = 48, this.iconSize = 22});
+  const _AvatarCircle({
+    required this.avatar,
+    this.size = 48,
+    this.iconSize = 22,
+    this.isPremium = false,
+  });
 
   final AvatarPreset avatar;
   final double size;
   final double iconSize;
 
+  /// (#11) Премиум-аккаунт — более яркая обводка + маленькая корона поверх
+  /// аватара. Чисто визуальный акцент, без сети/доп. данных.
+  final bool isPremium;
+
   @override
   Widget build(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
-    return Container(
+    final circle = Container(
       width: size,
       height: size,
       decoration: BoxDecoration(
         color: colorScheme.primary.withAlpha(18),
         shape: BoxShape.circle,
         border: Border.all(
-          color: colorScheme.primary.withAlpha(40),
-          width: 0.5,
+          color: isPremium
+              ? colorScheme.primary
+              : colorScheme.primary.withAlpha(40),
+          width: isPremium ? 2 : 0.5,
         ),
       ),
       child: Center(
         child: Icon(avatar.icon(), size: iconSize, color: colorScheme.primary),
+      ),
+    );
+
+    if (!isPremium) return circle;
+
+    final badgeSize = (size * 0.36).clamp(14.0, 20.0);
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        circle,
+        Positioned(
+          right: -2,
+          bottom: -2,
+          child: Container(
+            width: badgeSize,
+            height: badgeSize,
+            decoration: BoxDecoration(
+              color: colorScheme.primary,
+              shape: BoxShape.circle,
+              border: Border.all(color: colorScheme.surface, width: 1.5),
+            ),
+            child: Center(
+              child: Icon(
+                PhosphorIcons.crownSimple(PhosphorIconsStyle.fill),
+                size: badgeSize * 0.58,
+                color: colorScheme.onPrimary,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// (#11) Бейдж «Premium» рядом с именем в шапке профиля.
+// ---------------------------------------------------------------------------
+
+class _PremiumBadge extends StatelessWidget {
+  const _PremiumBadge();
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    // Бейдж — фиксированный "чип" рядом с именем, не основной текст: при
+    // огромном textScale (a11y до 2.0×) даём ему свой, мягко ограниченный
+    // масштаб, иначе он распирает шапку и ломает Flex рядом с именем (имя и
+    // так ужимается до ellipsis Flexible-ом — overflow гарантирован, если
+    // бейдж растёт без ограничений).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+        decoration: BoxDecoration(
+          color: colorScheme.primary.withAlpha(28),
+          borderRadius: BorderRadius.circular(999),
+          border:
+              Border.all(color: colorScheme.primary.withAlpha(110), width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              PhosphorIcons.crownSimple(PhosphorIconsStyle.fill),
+              size: 11,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 4),
+            Text(
+              context.s('profile.premium_chip'),
+              style: textTheme.labelSmall?.copyWith(
+                color: colorScheme.primary,
+                fontWeight: FontWeight.w600,
+                height: 1.0,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -882,7 +984,7 @@ class _ShareWeekRowState extends ConsumerState<_ShareWeekRow> {
 // G1: Строка «Поделиться стриком» + открытие StreakShareModal
 // ---------------------------------------------------------------------------
 
-/// Строка в профиле рядом с «Share my week».
+/// Строка в профиле рядом с секцией «Прогресс» (#10 — ближе к стрику).
 /// По тапу открывает [StreakShareModal] с предпросмотром карточки стрика.
 class _ShareStreakRow extends ConsumerWidget {
   const _ShareStreakRow();

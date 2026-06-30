@@ -793,6 +793,21 @@ const Map<String, Map<String, String>> profilePaywallStrings = {
     'ja': r'AIを解放 — $10/月',
     'ko': r'AI 잠금 해제 — $10/월',
   },
+  // (#11) Маленький бейдж «Premium» рядом с именем в шапке профиля
+  // (показывается только премиум-пользователям).
+  'profile.premium_chip': {
+    'en': 'Premium',
+    'ru': 'Premium',
+    'de': 'Premium',
+    'fr': 'Premium',
+    'it': 'Premium',
+    'pt': 'Premium',
+    'es': 'Premium',
+    'id': 'Premium',
+    'hi': 'Premium',
+    'ja': 'Premium',
+    'ko': 'Premium',
+  },
 
   // ---- Profile: «Поделиться неделей» ----
   'profile.share_week': {
