@@ -363,6 +363,37 @@ class ItemsDao extends DatabaseAccessor<AppDatabase> with _$ItemsDaoMixin {
     return result;
   }
 
+  /// Возвращает все уникальные теги из колонки [tags] всех задач пользователя.
+  /// Теги хранятся comma-joined («shopping,urgent,учёба»); метод разбивает,
+  /// нормализует (trim + lowercase), дедуплицирует и сортирует по частоте
+  /// использования (убывание), при равной частоте — по алфавиту.
+  /// Обычный Dart-метод: build_runner не требуется.
+  Future<List<String>> allUsedTags() async {
+    // Читаем только строки с непустым полем tags.
+    final rows = await (select(itemsTable)
+          ..where((t) => t.tags.isNotNull()))
+        .get();
+    // Подсчёт частоты тегов.
+    final freq = <String, int>{};
+    for (final row in rows) {
+      final raw = row.tags;
+      if (raw == null || raw.trim().isEmpty) continue;
+      for (final part in raw.split(',')) {
+        final tag = part.trim().toLowerCase();
+        if (tag.isNotEmpty) {
+          freq[tag] = (freq[tag] ?? 0) + 1;
+        }
+      }
+    }
+    // Сортируем по частоте (убывание); при равной частоте — алфавит.
+    final sorted = freq.keys.toList()
+      ..sort((a, b) {
+        final c = freq[b]!.compareTo(freq[a]!);
+        return c != 0 ? c : a.compareTo(b);
+      });
+    return sorted;
+  }
+
   // ---------------------------------------------------------------------------
   // Повторяющиеся задачи (серии) — материализация одного дня
   // ---------------------------------------------------------------------------

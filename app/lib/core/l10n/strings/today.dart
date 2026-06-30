@@ -2022,11 +2022,27 @@ const Map<String, Map<String, String>> todayStrings = {
     'en': 'Subtasks',
     'ru': 'Подзадачи',
     'de': 'Teilaufgaben',
+    'fr': 'Sous-tâches',
+    'it': 'Sotto-attività',
+    'pt': 'Subtarefas',
+    'es': 'Subtareas',
+    'id': 'Subtugas',
+    'hi': 'उप-कार्य',
+    'ja': 'サブタスク',
+    'ko': '하위 할 일',
   },
   'today.subtask_hint': {
     'en': 'Add a subtask…',
     'ru': 'Добавить подзадачу…',
     'de': 'Teilaufgabe hinzufügen…',
+    'fr': 'Ajouter une sous-tâche…',
+    'it': 'Aggiungi una sotto-attività…',
+    'pt': 'Adicionar subtarefa…',
+    'es': 'Agregar una subtarea…',
+    'id': 'Tambahkan subtugas…',
+    'hi': 'उप-कार्य जोड़ें…',
+    'ja': 'サブタスクを追加…',
+    'ko': '하위 할 일 추가…',
   },
 
   // --- Редизайн формы создания/редактирования задачи (add_task_sheet) ---
@@ -2642,5 +2658,20 @@ const Map<String, Map<String, String>> todayStrings = {
     'hi': 'बिना शीर्षक',
     'ja': 'タイトルなし',
     'ko': '제목 없음',
+  },
+
+  // Подсказки-теги (autocomplete) под полем заголовка — часто используемые теги.
+  'today.suggested_tags': {
+    'en': 'Suggested tags',
+    'ru': 'Часто используемые теги',
+    'de': 'Vorgeschlagene Tags',
+    'fr': 'Tags suggérés',
+    'it': 'Tag suggeriti',
+    'pt': 'Tags sugeridas',
+    'es': 'Etiquetas sugeridas',
+    'id': 'Tag yang disarankan',
+    'hi': 'सुझाए गए टैग',
+    'ja': 'おすすめタグ',
+    'ko': '추천 태그',
   },
 };

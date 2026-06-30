@@ -295,6 +295,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                               ),
                             ),
                           ),
+                          // Иконка фильтра (B6)
+                          const _FilterButton(),
                         ],
                       ),
                       if (searchVisible)
@@ -422,6 +424,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               }
             },
           ),
+          // --- Иконка фильтра с бейджем активных фильтров (B6). ---
+          const _FilterButton(),
           // --- Тумблер раскладки (список ↔ сетка времени) — Day/3 дня/Week.
           // Для month/year скрыт (всегда календарь). ---
           if (_supportsLayoutToggle(view)) _LayoutToggleButton(layout: layout),
@@ -767,6 +771,235 @@ class _LayoutToggleButton extends ConsumerWidget {
           ? context.s('plan.layout_list_tooltip')
           : context.s('plan.layout_grid_tooltip'),
       onPressed: () => ref.read(planLayoutProvider.notifier).toggle(),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// B6 — Кнопка-фильтр с бейджем и фильтр-шит
+// ---------------------------------------------------------------------------
+
+/// Применяет переключение значения [value] в группе [field] фильтра [current].
+/// [selected] — новое состояние чипа (true = добавить, false = убрать).
+PlanFilters _applyFilterSet(
+  PlanFilters current,
+  String field,
+  String value, {
+  required bool selected,
+}) {
+  switch (field) {
+    case 'priority':
+      final s = Set<String>.from(current.priorities);
+      selected ? s.add(value) : s.remove(value);
+      return current.copyWith(priorities: s);
+    case 'status':
+      final s = Set<String>.from(current.statuses);
+      selected ? s.add(value) : s.remove(value);
+      return current.copyWith(statuses: s);
+    default: // 'type'
+      final s = Set<String>.from(current.types);
+      selected ? s.add(value) : s.remove(value);
+      return current.copyWith(types: s);
+  }
+}
+
+/// Компактная иконка-фильтр с бейджем числа активных фильтров.
+/// Нейтральный цвет без акцента в покое; primary + fill когда фильтры активны.
+class _FilterButton extends ConsumerWidget {
+  const _FilterButton();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filters = ref.watch(planFiltersProvider);
+    final active = filters.activeCount;
+    final isActive = active > 0;
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final textMuted = ext?.textMuted ?? Theme.of(context).colorScheme.onSurface;
+    final cs = Theme.of(context).colorScheme;
+
+    return Badge(
+      isLabelVisible: isActive,
+      label: Text('$active'),
+      child: IconButton(
+        visualDensity: VisualDensity.compact,
+        icon: Icon(
+          isActive
+              ? PhosphorIcons.funnelSimple(PhosphorIconsStyle.fill)
+              : PhosphorIcons.funnelSimple(PhosphorIconsStyle.regular),
+          color: isActive ? cs.primary : textMuted,
+        ),
+        tooltip: context.s('plan.filter_tooltip'),
+        onPressed: () => showModalBottomSheet<void>(
+          context: context,
+          isScrollControlled: true,
+          useSafeArea: true,
+          builder: (_) => const PlanFilterSheet(),
+        ),
+      ),
+    );
+  }
+}
+
+/// Панель фильтров плана — чипы Приоритет / Статус / Тип.
+/// Открывается через showModalBottomSheet из [_FilterButton].
+/// Публичный класс (без ведущего _) — доступен для виджет-тестов.
+class PlanFilterSheet extends ConsumerWidget {
+  const PlanFilterSheet({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final filters = ref.watch(planFiltersProvider);
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    final cs = Theme.of(context).colorScheme;
+    final tt = Theme.of(context).textTheme;
+
+    // Цвет активного чипа: accentTint фон + accentInk текст (Kaname style).
+    final chipSelectedBg = ext?.accentTint ?? cs.primaryContainer;
+    final chipInk = ext?.accentInk ?? cs.onPrimaryContainer;
+
+    // Строит FilterChip для одного значения в группе [field].
+    Widget chip(String field, String value, String label) {
+      final selected = switch (field) {
+        'priority' => filters.priorities.contains(value),
+        'status' => filters.statuses.contains(value),
+        _ => filters.types.contains(value),
+      };
+      return FilterChip(
+        label: Text(
+          label,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: tt.labelMedium?.copyWith(
+            color: selected ? chipInk : null,
+            fontWeight: selected ? FontWeight.w600 : null,
+          ),
+        ),
+        selected: selected,
+        selectedColor: chipSelectedBg,
+        checkmarkColor: chipInk,
+        side: selected
+            ? BorderSide(color: chipInk.withValues(alpha: 0.5), width: 1)
+            : null,
+        onSelected: (s) {
+          final cur = ref.read(planFiltersProvider);
+          ref.read(planFiltersProvider.notifier).state =
+              _applyFilterSet(cur, field, value, selected: s);
+        },
+      );
+    }
+
+    // Заголовок секции фильтра (UPPERCASE labelSmall — Kaname style).
+    Widget sectionLabel(String key) => Padding(
+          padding: const EdgeInsets.only(top: 16, bottom: 6),
+          child: Text(
+            context.s(key).toUpperCase(),
+            style: tt.labelSmall?.copyWith(
+              color: ext?.textMuted ?? cs.onSurface,
+              letterSpacing: 0.8,
+            ),
+          ),
+        );
+
+    return Padding(
+      // Клавиатуры нет (нет текстовых полей), но нижний inset важен
+      // на устройствах с выступающим навигационным баром.
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(context).bottom,
+      ),
+      child: SafeArea(
+        top: false,
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Drag handle
+              Center(
+                child: Container(
+                  width: 36,
+                  height: 4,
+                  margin: const EdgeInsets.only(bottom: 12),
+                  decoration: BoxDecoration(
+                    color: ext?.border ?? cs.outline,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              // Заголовок + кнопка «Сбросить»
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      context.s('plan.filter_title'),
+                      style: tt.titleMedium,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (!filters.isEmpty)
+                    TextButton(
+                      onPressed: () {
+                        ref.read(planFiltersProvider.notifier).state =
+                            const PlanFilters();
+                      },
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 36),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                      ),
+                      child: Text(context.s('plan.filter_clear')),
+                    ),
+                ],
+              ),
+              // Приоритет
+              sectionLabel('plan.filter_priority'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  chip('priority', 'main',
+                      context.s('today.priority_main')),
+                  chip('priority', 'high',
+                      context.s('today.priority_high')),
+                  chip('priority', 'medium',
+                      context.s('today.priority_medium')),
+                  chip('priority', 'low',
+                      context.s('today.priority_low')),
+                ],
+              ),
+              // Статус
+              sectionLabel('plan.filter_status'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  chip('status', 'pending',
+                      context.s('plan.filter_status_pending')),
+                  chip('status', 'done',
+                      context.s('plan.filter_status_done')),
+                  chip('status', 'skipped',
+                      context.s('plan.filter_status_skipped')),
+                ],
+              ),
+              // Тип
+              sectionLabel('plan.filter_type'),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: [
+                  chip('type', 'task', context.s('today.type_task')),
+                  chip('type', 'event', context.s('today.type_event')),
+                  chip('type', 'exam', context.s('today.type_exam')),
+                  chip('type', 'deadline',
+                      context.s('today.type_deadline')),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

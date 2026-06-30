@@ -241,6 +241,9 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   // Недавние уникальные названия задач (для ряда «быстрый выбор»).
   List<String> _recentTitles = [];
 
+  // Все уникальные теги из истории задач (для ряда подсказок тегов, B7).
+  List<String> _allUsedTags = [];
+
   final _imagePicker = ImagePicker();
 
   // --- NL datetime ---
@@ -336,6 +339,8 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     _loadMainCount();
     // Загружаем недавние названия задач для ряда «быстрый выбор».
     _loadRecentTitles();
+    // Загружаем все использованные теги для подсказок (B7).
+    _loadUsedTags();
     // Вложения. Для новой задачи сначала чистим возможные «осиротевшие»
     // '__pending__'-строки от предыдущей прерванной сессии (иначе они
     // протекли бы в новую задачу), затем — на Android подбираем потерянный
@@ -592,6 +597,39 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     final dao = ref.read(itemsDaoProvider);
     final titles = await dao.recentDistinctTitles(limit: 8);
     if (mounted) setState(() => _recentTitles = titles);
+  }
+
+  /// Загружает все использованные теги из истории задач (для подсказок, B7).
+  Future<void> _loadUsedTags() async {
+    final dao = ref.read(itemsDaoProvider);
+    final tags = await dao.allUsedTags();
+    if (mounted) setState(() => _allUsedTags = tags);
+  }
+
+  /// Вычисляет частичный #-префикс, который пользователь сейчас набирает.
+  /// Если заголовок заканчивается на «#слово» (без пробела после — незавершённый
+  /// тег), возвращает «слово» в lowercase как префикс для фильтрации подсказок.
+  /// Иначе — null (подсказки не фильтруются, показываются все).
+  String? get _typingTagPrefix {
+    final text = _titleController.text;
+    // Ищем #word в конце строки (без trailing-пробела — незавершённый тег).
+    final match = RegExp(r'(?:^|[\s(])#([\wЀ-ӿ]+)$').firstMatch(text);
+    if (match == null) return null;
+    return match.group(1)!.toLowerCase();
+  }
+
+  /// Список подсказок-тегов для отображения: все использованные теги, исключая
+  /// уже выбранные (_tags), отфильтрованные по частичному префиксу (если есть).
+  /// Ограничиваем 20 штуками для читаемости ряда.
+  List<String> get _tagSuggestions {
+    if (_allUsedTags.isEmpty) return const [];
+    final selectedLower = _tags.map((t) => t.toLowerCase()).toSet();
+    final prefix = _typingTagPrefix;
+    return _allUsedTags
+        .where((tag) => !selectedLower.contains(tag))
+        .where((tag) => prefix == null || tag.startsWith(prefix))
+        .take(20)
+        .toList();
   }
 
   /// Предзаполняет напоминание для НОВОЙ задачи из глобального дефолта, пока
@@ -1450,6 +1488,22 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
                 onRemove: (tag) => setState(() => _tags.remove(tag)),
               ),
             ],
+            // Подсказки-теги (B7): ряд часто-используемых тегов, не выбранных
+            // ещё, с фильтрацией по частичному #-префиксу из заголовка.
+            Builder(builder: (context) {
+              final suggestions = _tagSuggestions;
+              if (suggestions.isEmpty) return const SizedBox.shrink();
+              return Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: _TagSuggestionsRow(
+                  suggestions: suggestions,
+                  onTap: (tag) => setState(() {
+                    if (!_tags.contains(tag)) _tags.add(tag);
+                  }),
+                  semanticLabel: context.s('today.suggested_tags'),
+                ),
+              );
+            }),
             const SizedBox(height: 12),
 
             // 2. Быстрый выбор — шаблоны (l10n) + недавние задачи, один ряд.
@@ -2031,6 +2085,79 @@ class _TagChipsRow extends StatelessWidget {
               ),
             ),
         ],
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Ряд подсказок-тегов (автодополнение, B7).
+// Показывает часто-используемые теги из истории, не выбранные ещё.
+// Стиль: surface-фон + hairline-border, accent при тапе (добавляет тег).
+// Overflow-safe: горизонтальный SingleChildScrollView.
+// ---------------------------------------------------------------------------
+
+class _TagSuggestionsRow extends StatelessWidget {
+  const _TagSuggestionsRow({
+    required this.suggestions,
+    required this.onTap,
+    required this.semanticLabel,
+  });
+
+  final List<String> suggestions;
+  final void Function(String tag) onTap;
+  final String semanticLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    final ext = Theme.of(context).extension<FocusThemeExtension>();
+    // surface-фон + тонкая рамка hairline (Kaname-стиль)
+    final bgColor = colorScheme.surface;
+    final borderColor =
+        ext?.border ?? colorScheme.outlineVariant.withAlpha(120);
+    final textColor =
+        ext?.textMuted ?? colorScheme.onSurface.withAlpha(180);
+    final accentColor = colorScheme.primary;
+    final textTheme = Theme.of(context).textTheme;
+
+    return Semantics(
+      label: semanticLabel,
+      child: SingleChildScrollView(
+        scrollDirection: Axis.horizontal,
+        child: Row(
+          children: [
+            // Иконка-подсказка (hash / tag): намекает на назначение ряда.
+            Padding(
+              padding: const EdgeInsets.only(right: 6),
+              child: PhosphorIcon(
+                PhosphorIcons.hash(PhosphorIconsStyle.regular),
+                size: 14,
+                color: textColor,
+              ),
+            ),
+            for (final tag in suggestions) ...[
+              GestureDetector(
+                onTap: () => onTap(tag),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(20),
+                    border: Border.all(color: borderColor, width: 1),
+                  ),
+                  child: Text(
+                    '#$tag',
+                    style: textTheme.bodySmall?.copyWith(color: accentColor),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 6),
+            ],
+          ],
+        ),
       ),
     );
   }

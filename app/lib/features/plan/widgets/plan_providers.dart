@@ -79,10 +79,15 @@ final yearTaskCountsProvider =
   // Фильтр поиска: при активном запросе год-вид считает «занятость» только по
   // совпавшим задачам (точки-индикаторы остаются на днях с совпадениями).
   final query = ref.watch(planSearchQueryProvider);
+  final filters = ref.watch(planFiltersProvider);
   return itemsAsync.whenData((items) {
-    final filtered = query.trim().isEmpty
+    final filtered = (query.trim().isEmpty && filters.isEmpty)
         ? items
-        : items.where((i) => planSearchMatches(i, query));
+        : items.where((i) {
+            final searchOk =
+                query.trim().isEmpty || planSearchMatches(i, query);
+            return searchOk && planFilterMatches(i, filters);
+          });
     final counts = <String, int>{};
     for (final i in filtered) {
       // День задачи = ЛОКАЛЬНАЯ дата scheduledAt (согласовано с watchTodayItems
@@ -238,3 +243,89 @@ final pinnedDeadlineCollapsedProvider =
     NotifierProvider<PinnedDeadlineCollapsedNotifier, bool>(
   PinnedDeadlineCollapsedNotifier.new,
 );
+
+// ---------------------------------------------------------------------------
+// B6 — Фильтры плана (priority / status / type)
+// ---------------------------------------------------------------------------
+
+/// Набор выбранных фильтров на экране Plan.
+/// Пустые множества = «фильтр не активен» = показывать всё.
+class PlanFilters {
+  const PlanFilters({
+    this.priorities = const <String>{},
+    this.statuses = const <String>{},
+    this.types = const <String>{},
+  });
+
+  /// Выбранные приоритеты: 'main', 'high', 'medium', 'low'.
+  final Set<String> priorities;
+
+  /// Выбранные статусы: 'pending', 'done', 'skipped'.
+  final Set<String> statuses;
+
+  /// Выбранные типы: 'task', 'event', 'exam', 'deadline'.
+  final Set<String> types;
+
+  /// Нет активных фильтров — показывать всё.
+  bool get isEmpty =>
+      priorities.isEmpty && statuses.isEmpty && types.isEmpty;
+
+  /// Суммарное число активных фильтров (для бейджа-счётчика на иконке).
+  int get activeCount =>
+      priorities.length + statuses.length + types.length;
+
+  /// Создать копию с заменёнными полями.
+  PlanFilters copyWith({
+    Set<String>? priorities,
+    Set<String>? statuses,
+    Set<String>? types,
+  }) =>
+      PlanFilters(
+        priorities: priorities ?? this.priorities,
+        statuses: statuses ?? this.statuses,
+        types: types ?? this.types,
+      );
+
+  static bool _setsEqual(Set<String> a, Set<String> b) =>
+      a.length == b.length && a.containsAll(b);
+
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      other is PlanFilters &&
+          _setsEqual(priorities, other.priorities) &&
+          _setsEqual(statuses, other.statuses) &&
+          _setsEqual(types, other.types);
+
+  @override
+  int get hashCode => Object.hash(
+        priorities.fold<int>(0, (h, s) => h ^ s.hashCode),
+        statuses.fold<int>(0, (h, s) => h ^ s.hashCode),
+        types.fold<int>(0, (h, s) => h ^ s.hashCode),
+      );
+}
+
+/// Активные фильтры экрана Plan. По умолчанию — без фильтров (всё видно).
+final planFiltersProvider =
+    StateProvider<PlanFilters>((ref) => const PlanFilters());
+
+/// Проверяет, проходит ли [item] набор фильтров [filters].
+///
+/// Чистая функция (без I/O, без provider) — юнит-тестируемая.
+/// Пустой набор фильтров → совпадает со всем.
+/// AND-семантика: item должен пройти каждую непустую группу фильтров.
+bool planFilterMatches(ItemsTableData item, PlanFilters filters) {
+  if (filters.isEmpty) return true;
+  if (filters.priorities.isNotEmpty &&
+      !filters.priorities.contains(item.priority)) {
+    return false;
+  }
+  if (filters.statuses.isNotEmpty &&
+      !filters.statuses.contains(item.status)) {
+    return false;
+  }
+  if (filters.types.isNotEmpty && !filters.types.contains(item.type)) {
+    return false;
+  }
+  return true;
+}

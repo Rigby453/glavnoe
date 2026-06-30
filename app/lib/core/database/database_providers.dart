@@ -121,3 +121,12 @@ final customMeditationDaoProvider = Provider<CustomMeditationDao>((ref) {
 final moodLogsDaoProvider = Provider<MoodLogsDao>((ref) {
   return ref.watch(appDatabaseProvider).moodLogsDao;
 });
+
+/// Все уникальные теги из истории задач (sorted by usage frequency desc).
+/// Используется формой создания задачи — ряд подсказок тегов (B7).
+final allUsedTagsProvider = FutureProvider<List<String>>((ref) {
+  // ref.watch, а не ref.read: Riverpod требует watch внутри провайдера, чтобы
+  // граф зависимостей строился корректно (itemsDaoProvider стабилен, но явная
+  // зависимость необходима для lint и будущих перезагрузок).
+  return ref.watch(itemsDaoProvider).allUsedTags();
+});

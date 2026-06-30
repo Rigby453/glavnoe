@@ -4,6 +4,14 @@
 > *Что обещали* (продукт) — в `docs/SPEC.md`. Архитектурные решения — в `docs/decisions.md`.
 > Статусы задач в журнале ниже: `[ ]` todo · `[~]` в работе · `[x]` сделано · `[!]` заблокировано.
 
+## Feature B7 — autocomplete/подсказки тегов в форме создания задачи (2026-06-30)
+
+- **[x] `app/lib/core/database/daos/items_dao.dart`** — новый метод `allUsedTags()`: читает все строки с тегами, split по запятой, trim+lowercase, подсчёт частоты, сортировка по частоте (убывание)+алфавит. Чистый Dart, build_runner не требуется.
+- **[x] `app/lib/core/database/database_providers.dart`** — `allUsedTagsProvider` (FutureProvider) для публичного доступа к тегам из других потребителей.
+- **[x] `app/lib/features/today/widgets/add_task_sheet.dart`** — `_allUsedTags` state + `_loadUsedTags()` + `_typingTagPrefix` (regex-детектор частичного `#tag` в конце заголовка) + `_tagSuggestions` (фильтр: исключить выбранные, фильтр по префиксу, лимит 20). В `build()`: `Builder` → `_TagSuggestionsRow` под `_TagChipsRow` (показывается когда есть подсказки). Новый виджет `_TagSuggestionsRow`: Phosphor `hash`-иконка + чипы surface+hairline-border, accent цвет текста, тап добавляет тег в `_tags`.
+- **[x] `app/lib/core/l10n/strings/today.dart`** — ключ `today.suggested_tags` (11 языков).
+- **[x] `app/test/tags_autocomplete_test.dart`** — 8 DAO unit-тестов + 3 виджет-теста: пустая БД, null-теги, дедупликация, нормализация lowercase, сортировка по частоте, trim, чипы рендерятся, тап добавляет тег, no overflow на 320px+textScale 2.0.
+
 ## Feature E2 — экран «Прозрачность Premium» (2026-06-30)
 
 - **[x] `app/lib/core/widgets/premium_lock_badge.dart`** — NEW. Переиспользуемый виджет-таблетка `PremiumLockBadge` (Phosphor `lock(fill)` + метка «Premium» через l10n). Параметр `showLabel` для компактного использования (только иконка). Размещается рядом с любой premium-фичей на любом экране.

@@ -16,7 +16,12 @@ import '../../../core/utils/day_window.dart';
 import '../../../core/utils/tag_parser.dart';
 import '../../today/widgets/add_task_sheet.dart';
 import 'day_timeline.dart' show dayItemsProvider;
-import 'plan_providers.dart' show planSearchMatches, planSearchQueryProvider;
+import 'plan_providers.dart'
+    show
+        planFilterMatches,
+        planFiltersProvider,
+        planSearchMatches,
+        planSearchQueryProvider;
 import 'week_strip.dart' show selectedDayProvider;
 
 class WeekAgenda extends ConsumerWidget {
@@ -144,12 +149,17 @@ class _DaySection extends ConsumerWidget {
     // Образец: day_timeline.dart (isLoading && valueOrNull==null).
     final isDayLoading = itemsAsync.isLoading && itemsAsync.valueOrNull == null;
     final allItems = itemsAsync.valueOrNull ?? const <ItemsTableData>[];
-    // Фильтр поиска: подстрока заголовка + #хэштег + тип (см. planSearchMatches).
+    // Поиск + фильтр-панель (B6): AND-семантика.
     // Применяется и в недельной агенде, и в 3-дневной (общий _DaySection).
     final query = ref.watch(planSearchQueryProvider);
-    final items = query.trim().isEmpty
+    final filters = ref.watch(planFiltersProvider);
+    final items = (query.trim().isEmpty && filters.isEmpty)
         ? allItems
-        : allItems.where((i) => planSearchMatches(i, query)).toList();
+        : allItems.where((i) {
+            final searchOk =
+                query.trim().isEmpty || planSearchMatches(i, query);
+            return searchOk && planFilterMatches(i, filters);
+          }).toList();
 
     final today = DateTime.now();
     final isToday =

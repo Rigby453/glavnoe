@@ -45,11 +45,16 @@ class DayTimeline extends ConsumerWidget {
     }
 
     final items = itemsAsync.valueOrNull ?? const <ItemsTableData>[];
-    // Фильтр поиска: подстрока заголовка + #хэштег + тип
+    // Фильтр поиска + фильтр-панели (B6): AND-семантика
     final query = ref.watch(planSearchQueryProvider);
-    final filtered = query.trim().isEmpty
+    final filters = ref.watch(planFiltersProvider);
+    final filtered = (query.trim().isEmpty && filters.isEmpty)
         ? items
-        : items.where((i) => planSearchMatches(i, query)).toList();
+        : items.where((i) {
+            final searchOk =
+                query.trim().isEmpty || planSearchMatches(i, query);
+            return searchOk && planFilterMatches(i, filters);
+          }).toList();
 
     // Закрепляем экзамены/дедлайны вверху, выполненные — вниз
     final pinned = filtered

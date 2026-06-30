@@ -75,12 +75,17 @@ class MonthView extends ConsumerWidget {
       return const Center(child: KaiLoader());
     }
     final allItems = rangeAsync.valueOrNull ?? const <ItemsTableData>[];
-    // Фильтр поиска: подстрока заголовка + #хэштег + тип (см. planSearchMatches).
-    // При активном запросе точки-полоски остаются только на днях с совпадениями.
+    // Поиск + фильтр-панель (B6): AND-семантика.
+    // При активных фильтрах точки/полоски видны только у совпавших задач.
     final query = ref.watch(planSearchQueryProvider);
-    final items = query.trim().isEmpty
+    final filters = ref.watch(planFiltersProvider);
+    final items = (query.trim().isEmpty && filters.isEmpty)
         ? allItems
-        : allItems.where((i) => planSearchMatches(i, query)).toList();
+        : allItems.where((i) {
+            final searchOk =
+                query.trim().isEmpty || planSearchMatches(i, query);
+            return searchOk && planFilterMatches(i, filters);
+          }).toList();
 
     // Группируем задачи по числу дня месяца (по локальной дате scheduledAt).
     // Сортировка устойчивая по времени старта — полоски идут хронологически.
