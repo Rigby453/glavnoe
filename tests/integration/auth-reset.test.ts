@@ -17,6 +17,15 @@ import type { FastifyInstance } from 'fastify';
 import prisma from '../../backend/src/models/prisma';
 import { randomEmail, cleanupUser } from '../helpers';
 
+// Реальный Resend никогда не вызываем из тестов — мокаем модуль доставки.
+// sendPasswordResetEmail по умолчанию резолвится в "успех", чтобы не трогать
+// поведение forgot-password при тестах без RESEND_API_KEY (где она не вызывается).
+const sendPasswordResetEmailMock = jest.fn().mockResolvedValue({ sent: true });
+jest.mock('../../backend/src/lib/email', () => ({
+  isEmailDeliveryConfigured: () => Boolean(process.env['RESEND_API_KEY']),
+  sendPasswordResetEmail: (...args: unknown[]) => sendPasswordResetEmailMock(...args),
+}));
+
 let app: FastifyInstance;
 const userIdsToCleanup: string[] = [];
 
@@ -95,6 +104,66 @@ describe('POST /api/v1/auth/forgot-password', () => {
       payload: { email, code: firstCode, newPassword: 'BrandNew123!' },
     });
     expect(res.statusCode).toBe(400);
+  });
+});
+
+describe('POST /api/v1/auth/forgot-password — email delivery (Resend, ADR-059)', () => {
+  const ORIGINAL_RESEND_API_KEY = process.env['RESEND_API_KEY'];
+
+  afterEach(() => {
+    sendPasswordResetEmailMock.mockClear();
+    sendPasswordResetEmailMock.mockResolvedValue({ sent: true });
+    if (ORIGINAL_RESEND_API_KEY === undefined) {
+      delete process.env['RESEND_API_KEY'];
+    } else {
+      process.env['RESEND_API_KEY'] = ORIGINAL_RESEND_API_KEY;
+    }
+  });
+
+  test('RESEND_API_KEY задан → письмо отправляется, dev_code НЕ возвращается', async () => {
+    process.env['RESEND_API_KEY'] = 'test_resend_key';
+    const { email } = await register();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/forgot-password',
+      payload: { email },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ message: string; dev_code?: string }>();
+    expect(body.dev_code).toBeUndefined();
+    expect(body.message).toBe('If this email is registered, a reset code was sent.');
+
+    expect(sendPasswordResetEmailMock).toHaveBeenCalledTimes(1);
+    const [sentToEmail, sentCode] = sendPasswordResetEmailMock.mock.calls[0] as [string, string];
+    expect(sentToEmail).toBe(email);
+    expect(sentCode).toMatch(/^\d{6}$/);
+  });
+
+  test('RESEND_API_KEY задан, но отправка падает → всё равно 200 без dev_code (не палим аккаунт)', async () => {
+    process.env['RESEND_API_KEY'] = 'test_resend_key';
+    sendPasswordResetEmailMock.mockResolvedValueOnce({ sent: false, error: 'Resend API 500' });
+    const { email } = await register();
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/forgot-password',
+      payload: { email },
+    });
+
+    expect(res.statusCode).toBe(200);
+    const body = res.json<{ dev_code?: string }>();
+    expect(body.dev_code).toBeUndefined();
+  });
+
+  test('RESEND_API_KEY не задан → старое dev-поведение, email не отправляется', async () => {
+    delete process.env['RESEND_API_KEY'];
+    const { email } = await register();
+
+    const code = await requestCode(email);
+    expect(code).toMatch(/^\d{6}$/);
+    expect(sendPasswordResetEmailMock).not.toHaveBeenCalled();
   });
 });
 

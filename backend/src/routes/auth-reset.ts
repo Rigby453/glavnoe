@@ -7,6 +7,7 @@ import {
   generateResetCode,
   hashResetCode,
 } from "../models/passwordReset.js";
+import { isEmailDeliveryConfigured, sendPasswordResetEmail } from "../lib/email.js";
 
 // Коды восстановления хранятся в таблице PasswordResetCode (ADR-047), а не в
 // Map в памяти процесса: память не переживает рестарт/засыпание/масштабирование
@@ -59,10 +60,29 @@ const authResetRoutes: FastifyPluginAsync = async (fastify) => {
         }),
       ]);
 
-      // TODO: в production отправить email через SMTP/SES (заблокировано отсутствием SMTP)
-      fastify.log.info({ email }, "Password reset code generated");
-      // В dev/test-режиме возвращаем код в ответе для тестирования
-      if (devCodeAllowed()) {
+      // Реальная доставка через Resend (ADR-059), если задан RESEND_API_KEY.
+      // Без ключа — старое dev-поведение (код возвращается в ответе ниже).
+      const emailConfigured = isEmailDeliveryConfigured();
+      if (emailConfigured) {
+        const result = await sendPasswordResetEmail(email, code);
+        if (result.sent) {
+          fastify.log.info({ email }, "Password reset email sent");
+        } else {
+          // Не раскрываем ошибку клиенту — только логируем. Ответ ниже
+          // остаётся одинаковым для успеха/сбоя отправки и для
+          // несуществующего email (security: не палим существование аккаунта).
+          fastify.log.error({ email, error: result.error }, "Failed to send password reset email");
+        }
+      } else {
+        fastify.log.info({ email }, "Password reset code generated (RESEND_API_KEY not set — dev mode)");
+      }
+
+      // В dev/test-режиме без настроенной доставки возвращаем код в ответе,
+      // чтобы тесты/локальная разработка могли пройти flow без реального email.
+      // Как только доставка настроена (emailConfigured) — dev_code больше не
+      // раскрывается, даже в dev/test (иначе утечка кода в HTTP-ответе на проде
+      // с забытым NODE_ENV была бы избыточным риском поверх уже работающей почты).
+      if (devCodeAllowed() && !emailConfigured) {
         return reply.status(200).send({
           message: "If this email is registered, a reset code was sent.",
           dev_code: code,
