@@ -1017,13 +1017,14 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     // Строим заголовок для сохранения: чистый заголовок (без NL-фраз) + #теги в конце.
     // В Drift хранится «чистый заголовок #tag1 #tag2» — обратная совместимость и
     // полнотекстовый поиск; колонка tags хранит их же как comma-joined (schemaVersion 18).
-    final title = buildStoredTitle(_cleanedTitle, _tags);
-    if (title.trim().isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.s('today.title_required'))),
-      );
-      return;
-    }
+    final storedTitle = buildStoredTitle(_cleanedTitle, _tags);
+    // Если нет ни текста, ни тегов — сохраняем плейсхолдер вместо отказа:
+    // текст из контекста (локализованный) пишется напрямую в БД, чтобы списки,
+    // синк и виджет видели осмысленное имя. Если есть хотя бы теги —
+    // buildStoredTitle уже вернул непустую строку (#tag1 …).
+    final title = storedTitle.trim().isEmpty
+        ? context.s('today.untitled_default')
+        : storedTitle;
 
     final dao = ref.read(itemsDaoProvider);
     final now = DateTime.now();

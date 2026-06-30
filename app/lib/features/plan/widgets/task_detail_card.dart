@@ -231,7 +231,9 @@ class TaskDetailCard extends ConsumerWidget {
                   ),
                 ],
                 Expanded(
-                  child: Text(
+                  // SelectableText: пользователь может скопировать заголовок.
+                  // Деталь-карточка не свайпается → конфликта с drag нет.
+                  child: SelectableText(
                     item.title,
                     style: textTheme.titleMedium?.copyWith(
                       // w500 вместо w700 (design tokens: max w600, обычно w500)
@@ -279,10 +281,12 @@ class TaskDetailCard extends ConsumerWidget {
             // задано; пустое/null — не рисуем (как вложения/подзадачи).
             if ((item.location ?? '').trim().isNotEmpty) ...[
               const SizedBox(height: 6),
+              // selectable: пользователь может скопировать адрес/название места.
               _DetailRow(
                 icon: PhosphorIcons.mapPin(PhosphorIconsStyle.regular),
                 text: item.location!.trim(),
                 color: textMuted,
+                selectable: true,
               ),
             ],
 
@@ -469,8 +473,10 @@ class _SubtaskChecklist extends ConsumerWidget {
                     ),
                   ),
                   const SizedBox(width: 8),
+                  // SelectableText: пользователь может скопировать текст подзадачи.
+                  // Чеклист находится в статичной карточке-детали (не в свайп-списке).
                   Expanded(
-                    child: Text(
+                    child: SelectableText(
                       s.title,
                       style: textTheme.bodyMedium?.copyWith(
                         decoration: s.done
@@ -578,26 +584,35 @@ class _AttachmentsSection extends ConsumerWidget {
 }
 
 /// Строка детали: иконка + текст приглушённым цветом.
+/// [selectable] = true → SelectableText (пользователь может скопировать),
+/// false (умолчание) → обычный Text (время, тип, приоритет, повтор).
 class _DetailRow extends StatelessWidget {
   const _DetailRow({
     required this.icon,
     required this.text,
     required this.color,
+    this.selectable = false,
   });
 
   final IconData icon;
   final String text;
   final Color color;
 
+  /// Если true — рендерит SelectableText вместо Text.
+  final bool selectable;
+
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
+    final style = textTheme.bodyMedium?.copyWith(color: color);
     return Row(
       children: [
         Icon(icon, size: 16, color: color),
         const SizedBox(width: 8),
         Expanded(
-          child: Text(text, style: textTheme.bodyMedium?.copyWith(color: color)),
+          child: selectable
+              ? SelectableText(text, style: style)
+              : Text(text, style: style),
         ),
       ],
     );

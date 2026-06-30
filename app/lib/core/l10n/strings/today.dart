@@ -2625,4 +2625,22 @@ const Map<String, Map<String, String>> todayStrings = {
     'ja': 'カテゴリ',
     'ko': '카테고리',
   },
+
+  // Плейсхолдер заголовка задачи без текста и без тегов.
+  // Сохраняется в БД как реальный текст, чтобы списки/синк/виджет показывали
+  // осмысленное имя. Ключ today.title_required оставлен для возможного
+  // использования в других местах.
+  'today.untitled_default': {
+    'en': 'Untitled',
+    'ru': 'Без названия',
+    'de': 'Ohne Titel',
+    'fr': 'Sans titre',
+    'it': 'Senza titolo',
+    'pt': 'Sem título',
+    'es': 'Sin título',
+    'id': 'Tanpa judul',
+    'hi': 'बिना शीर्षक',
+    'ja': 'タイトルなし',
+    'ko': '제목 없음',
+  },
 };
