@@ -12,6 +12,7 @@ import { buildMenu } from "../ai/menuBuild.js";
 import { buildWorkoutProgram } from "../ai/workoutBuild.js";
 import { searchProducts } from "../food/openFoodFacts.js";
 import type { FoodProduct } from "../food/openFoodFacts.js";
+import { parseLangCode } from "../lib/lang.js";
 import { resolveEntitlement } from "../models/entitlement.js";
 
 /**
@@ -312,7 +313,8 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         // Сбой поиска не валит распознавание — вернём пустой список.
         let products: FoodProduct[] = [];
         try {
-          products = await searchProducts(rec.dish, 5);
+          const lang = parseLangCode(request.headers["accept-language"]);
+          products = await searchProducts(rec.dish, 5, lang);
         } catch (err) {
           fastify.log.warn({ err }, "OFF lookup after food-recognize failed");
         }

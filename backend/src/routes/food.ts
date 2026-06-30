@@ -6,6 +6,7 @@ import {
   searchProducts,
   type FoodProduct,
 } from "../food/openFoodFacts.js";
+import { parseLangCode } from "../lib/lang.js";
 
 // FoodProduct → snake_case ответ API
 function serialize(p: FoodProduct) {
@@ -37,8 +38,9 @@ const foodRoutes: FastifyPluginAsync = async (fastify) => {
       if (!/^\d{6,14}$/.test(code)) {
         return reply.status(400).send({ error: "Invalid barcode" });
       }
+      const lang = parseLangCode(request.headers["accept-language"]);
       try {
-        const product = await lookupBarcode(code);
+        const product = await lookupBarcode(code, lang);
         if (!product) return reply.status(404).send({ error: "Not found" });
         return reply.status(200).send(serialize(product));
       } catch (err) {
@@ -59,8 +61,9 @@ const foodRoutes: FastifyPluginAsync = async (fastify) => {
       if (!parsed.success) {
         return reply.status(400).send({ error: "Query 'q' is required" });
       }
+      const lang = parseLangCode(request.headers["accept-language"]);
       try {
-        const products = await searchProducts(parsed.data.q);
+        const products = await searchProducts(parsed.data.q, 20, lang);
         return reply.status(200).send({ products: products.map(serialize) });
       } catch (err) {
         fastify.log.error({ err }, "OFF search failed");
