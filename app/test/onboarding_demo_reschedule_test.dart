@@ -126,8 +126,13 @@ void main() {
 
       await goToPage(tester, _demoPage);
 
-      await tester.tap(
-          find.widgetWithText(FilledButton, 'Move all to tomorrow'));
+      // Контент демо-экрана (4 карточки + ember-баннер) выше дефолтного
+      // тестового вьюпорта — кнопка может оказаться вне видимой области
+      // скролла, ensureVisible прокручивает SingleChildScrollView к ней.
+      final moveAllBtn = find.widgetWithText(FilledButton, 'Move all to tomorrow');
+      await tester.ensureVisible(moveAllBtn);
+      await tester.pump();
+      await tester.tap(moveAllBtn);
       await tester.pump(const Duration(milliseconds: 50));
 
       expect(tester.takeException(), isNull);

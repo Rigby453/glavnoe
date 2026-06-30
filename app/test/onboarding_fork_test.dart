@@ -195,17 +195,25 @@ void main() {
       );
     }
 
+    // KaiMascot держит бесконечную «дыхательную» анимацию (_breathCtrl.repeat),
+    // поэтому pumpAndSettle() здесь НИКОГДА не осядет — используем ограниченные
+    // pump() с фиксированной длительностью (как во всех остальных onboarding-тестах).
+    Future<void> settle(WidgetTester tester) async {
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+    }
+
     testWidgets(
       '«Продолжить как гость» → /setup МИНУЯ /auth, guest_mode выставлен',
       (tester) async {
         await tester.pumpWidget(routedApp());
-        await tester.pumpAndSettle();
+        await settle(tester);
 
         await goToPage(tester, _forkPage);
-        await tester.pumpAndSettle();
+        await settle(tester);
 
         await tester.tap(find.widgetWithText(OutlinedButton, 'Continue as guest'));
-        await tester.pumpAndSettle();
+        await settle(tester);
 
         // Сразу /setup, экран /auth ни разу не показан.
         expect(find.text('SETUP_PLACEHOLDER'), findsOneWidget);
@@ -229,13 +237,13 @@ void main() {
       '«Войти или зарегистрироваться» → /auth, onboarding_done выставлен',
       (tester) async {
         await tester.pumpWidget(routedApp());
-        await tester.pumpAndSettle();
+        await settle(tester);
 
         await goToPage(tester, _forkPage);
-        await tester.pumpAndSettle();
+        await settle(tester);
 
         await tester.tap(find.widgetWithText(FilledButton, 'Log in or sign up'));
-        await tester.pumpAndSettle();
+        await settle(tester);
 
         expect(find.text('AUTH_PLACEHOLDER'), findsOneWidget);
         expect(prefs.getBool(onboardingDoneKey), isTrue);

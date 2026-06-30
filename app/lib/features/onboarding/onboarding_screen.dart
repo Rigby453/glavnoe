@@ -490,6 +490,31 @@ class _LangButton extends StatelessWidget {
 }
 
 // ---------------------------------------------------------------------------
+// Скролл-безопасная обёртка для центрированного контента слайда.
+//
+// На обычных экранах контент визуально центрирован по вертикали (как и
+// раньше); на узких/маленьких экранах или при крупном textScale, когда
+// контент не помещается, ConstrainedBox(minHeight) + SingleChildScrollView
+// дают скролл вместо RenderFlex overflow (anti-regression rule B).
+// ---------------------------------------------------------------------------
+
+Widget _centeredSlideContent({required Widget child}) {
+  return LayoutBuilder(
+    builder: (context, constraints) {
+      return SingleChildScrollView(
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(
+            minHeight: constraints.maxHeight - 32, // компенсация vertical padding
+          ),
+          child: Center(child: child),
+        ),
+      );
+    },
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Value-слайд (editorial)
 // ---------------------------------------------------------------------------
 
@@ -514,10 +539,9 @@ class _OnboardingSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    return _centeredSlideContent(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           // Kai или иконка — по центру горизонтально
@@ -577,10 +601,9 @@ class _ForkSlide extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 24),
+    return _centeredSlideContent(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Center(
