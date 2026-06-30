@@ -1023,9 +1023,12 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   }
 
   void _viewAttachment(ItemAttachmentsTableData a) {
-    viewAttachmentFullscreen(
+    // Открываем галерею для ВСЕХ вложений задачи с позиции тапнутого элемента.
+    final idx = _attachments.indexOf(a);
+    viewAttachmentGallery(
       context,
-      a,
+      _attachments,
+      idx >= 0 ? idx : 0,
       onUnsupportedVideo: () => _showAttachmentSnack(
         context.s('today.attachment_web_video_unsupported'),
       ),

@@ -734,6 +734,22 @@ const Map<String, Map<String, String>> todayStrings = {
     'ko': '아직 첨부 파일이 없어',
   },
 
+  // Счётчик позиции в полноэкранной галерее вложений: «1/3», «2/3» и т.д.
+  // {current} — текущий номер (1-based), {total} — всего вложений.
+  'attachments.counter': {
+    'en': '{current}/{total}',
+    'ru': '{current}/{total}',
+    'de': '{current}/{total}',
+    'fr': '{current}/{total}',
+    'it': '{current}/{total}',
+    'pt': '{current}/{total}',
+    'es': '{current}/{total}',
+    'id': '{current}/{total}',
+    'hi': '{current}/{total}',
+    'ja': '{current}/{total}',
+    'ko': '{current}/{total}',
+  },
+
   // Утренний разбор
   'today.morning_review': {
     'en': 'Morning review',

@@ -67,6 +67,11 @@ dependencies:
   # Бесплатный системный TTS, без ключей и сети. Деградирует в no-op там,
   # где плагин недоступен (web/desktop) — сервис обёрнут в try/catch.
   flutter_tts: ^4.2.0
+
+  # G1: шеринг карточки стрика (PNG-файл + текстовый fallback).
+  # Поддерживает iOS, Android, web (Web Share API с clipboard-fallback).
+  share_plus: ^10.0.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

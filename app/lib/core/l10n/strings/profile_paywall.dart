@@ -3568,4 +3568,68 @@ const Map<String, Map<String, String>> profilePaywallStrings = {
     'ja': 'AI日記インサイト',
     'ko': 'AI 일기 인사이트',
   },
+
+  // ---------------------------------------------------------------------------
+  // G1 — шер-карточка стрика (streak.share_*)
+  // ---------------------------------------------------------------------------
+
+  // Заголовок строки в профиле (рядом с «Share my week»).
+  'streak.share_btn': {
+    'en': 'Share streak',
+    'ru': 'Поделиться стриком',
+    'de': 'Streak teilen',
+    'fr': 'Partager la série',
+    'it': 'Condividi la serie',
+    'pt': 'Compartilhar sequência',
+    'es': 'Compartir racha',
+    'id': 'Bagikan streak',
+    'hi': 'स्ट्रीक शेयर करो',
+    'ja': 'ストリークをシェア',
+    'ko': '스트릭 공유하기',
+  },
+
+  // Подзаголовок строки / заголовок модального шита.
+  'streak.share_title': {
+    'en': 'Share your progress card',
+    'ru': 'Поделись карточкой прогресса',
+    'de': 'Teile deine Fortschrittskarte',
+    'fr': 'Partage ta carte de progression',
+    'it': 'Condividi la tua scheda progressi',
+    'pt': 'Compartilhe seu cartão de progresso',
+    'es': 'Comparte tu tarjeta de progreso',
+    'id': 'Bagikan kartu kemajuanmu',
+    'hi': 'अपना प्रगति कार्ड शेयर करो',
+    'ja': '進捗カードをシェアする',
+    'ko': '내 진행 카드 공유하기',
+  },
+
+  // Текст карточки и буфера обмена. {count} — число дней подряд.
+  'streak.share_text': {
+    'en': '{count} days in a row in Kaname 🔥',
+    'ru': '{count} дней подряд в Kaname 🔥',
+    'de': '{count} Tage in Folge in Kaname 🔥',
+    'fr': '{count} jours d\'affilée dans Kaname 🔥',
+    'it': '{count} giorni di fila in Kaname 🔥',
+    'pt': '{count} dias seguidos no Kaname 🔥',
+    'es': '{count} días seguidos en Kaname 🔥',
+    'id': '{count} hari berturut-turut di Kaname 🔥',
+    'hi': 'Kaname में {count} दिन लगातार 🔥',
+    'ja': 'Kanameで{count}日連続 🔥',
+    'ko': 'Kaname에서 {count}일 연속 🔥',
+  },
+
+  // Снэкбар при clipboard-fallback (нативный share недоступен).
+  'streak.copied': {
+    'en': 'Copied to clipboard',
+    'ru': 'Скопировано в буфер',
+    'de': 'In Zwischenablage kopiert',
+    'fr': 'Copié dans le presse-papiers',
+    'it': 'Copiato negli appunti',
+    'pt': 'Copiado para a área de transferência',
+    'es': 'Copiado al portapapeles',
+    'id': 'Disalin ke clipboard',
+    'hi': 'क्लिपबोर्ड में कॉपी हुआ',
+    'ja': 'クリップボードにコピーしました',
+    'ko': '클립보드에 복사됨',
+  },
 };

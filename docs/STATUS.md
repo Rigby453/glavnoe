@@ -4,6 +4,14 @@
 > *Что обещали* (продукт) — в `docs/SPEC.md`. Архитектурные решения — в `docs/decisions.md`.
 > Статусы задач в журнале ниже: `[ ]` todo · `[~]` в работе · `[x]` сделано · `[!]` заблокировано.
 
+## Feature G1 — шер-карточка стрика (2026-06-30)
+
+- **[x] `app/lib/features/today/widgets/streak_share_card.dart`** — NEW. `StreakShareCard` (квадратная 1:1 карточка: Phosphor `fire(fill)` ember + крупное число accent + подпись через `streak.share_text` + бренд-ватермарк; `FittedBox(scaleDown)` защита от overflow при textScale 2.0). `StreakShareModal` (нижний шит: предпросмотр карточки + кнопка «Поделиться»; логика: `RepaintBoundary→PNG→Share.shareXFiles` → при ошибке clipboard fallback + снэкбар). `captureCardAsPng(GlobalKey)` (рендер boundary в Uint8List, pixelRatio 3.0, тихий try/catch).
+- **[x] `app/pubspec.yaml`** — добавлен `share_plus: ^10.0.0` (web+mobile, PNG через `XFile.fromData`).
+- **[x] `app/lib/features/profile/profile_screen.dart`** — `_ShareStreakRow` (ConsumerWidget, `_NavRow` с Phosphor `fire(fill)` ember, читает `_streakProvider`, открывает `StreakShareModal`). Вставлен между `_ShareWeekRow` и `_SharedWithMeRow`.
+- **[x] `app/lib/core/l10n/strings/profile_paywall.dart`** — 4 ключа, все 11 языков: `streak.share_btn` / `streak.share_title` / `streak.share_text` ({count}) / `streak.copied`.
+- **[x] `app/test/streak_share_card_test.dart`** — 6 тестов: no-overflow 320px (textScale 1.0 и 2.0), no-overflow 400px textScale 2.0, число стрика на экране, стрик=0, стрик=1234 (длинный). Нативный Share не тестируется — только виджет.
+
 ## Feature B4 Stage 2 — перенос повторяющихся задач: UI-диалог + интеграция (2026-06-30)
 
 - **[x] `app/lib/features/plan/widgets/recurrence_scope_dialog.dart`** — NEW. `enum RecurrenceEditScope { onlyThis, thisAndFuture, wholeSeries }` + `showRecurrenceScopeDialog(BuildContext) → Future<RecurrenceEditScope?>`. Нижний лист Kaname (R20, hairline 0.5, Phosphor-иконки calendarBlank/arrowRight/repeat). 3 опции + Cancel. Overflow-safe на 320px + textScale 2.0.

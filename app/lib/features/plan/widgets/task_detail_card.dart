@@ -560,9 +560,11 @@ class _AttachmentsSection extends ConsumerWidget {
                   final a = attachments[i];
                   return AttachmentThumb(
                     attachment: a,
-                    onTap: () => viewAttachmentFullscreen(
+                    // Открываем галерею для всех вложений с позиции тапнутого.
+                    onTap: () => viewAttachmentGallery(
                       context,
-                      a,
+                      attachments,
+                      i,
                       onUnsupportedVideo: () =>
                           ScaffoldMessenger.of(context).showSnackBar(
                         SnackBar(

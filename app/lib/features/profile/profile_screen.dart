@@ -33,6 +33,7 @@ import '../../core/widgets/number_input_dialog.dart';
 import '../../core/utils/app_version.dart';
 import '../../core/utils/id.dart';
 import 'shared_plan.dart';
+import '../today/widgets/streak_share_card.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/locale_provider.dart';
 import '../../core/mood/mood_provider.dart';
@@ -273,6 +274,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
           const _SubscriptionRow(),
           const _Hairline(),
           const _ShareWeekRow(),
+          const _Hairline(),
+          const _ShareStreakRow(),
           const _Hairline(),
           const _SharedWithMeRow(),
           const _Hairline(),
@@ -811,6 +814,39 @@ class _ShareWeekRowState extends ConsumerState<_ShareWeekRow> {
       title: context.s('profile.share_week'),
       subtitle: context.s('profile.share_week_subtitle'),
       onTap: _working ? null : _share,
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// G1: Строка «Поделиться стриком» + открытие StreakShareModal
+// ---------------------------------------------------------------------------
+
+/// Строка в профиле рядом с «Share my week».
+/// По тапу открывает [StreakShareModal] с предпросмотром карточки стрика.
+class _ShareStreakRow extends ConsumerWidget {
+  const _ShareStreakRow();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final streakCount =
+        ref.watch(_streakProvider).valueOrNull?.current ?? 0;
+
+    return _NavRow(
+      icon: Icon(
+        PhosphorIcons.fire(PhosphorIconsStyle.fill),
+        size: 20,
+        color: ext.ember,
+      ),
+      title: context.s('streak.share_btn'),
+      subtitle: context.s('streak.share_title'),
+      onTap: () => showModalBottomSheet<void>(
+        context: context,
+        isScrollControlled: true,
+        useSafeArea: true,
+        builder: (_) => StreakShareModal(streakCount: streakCount),
+      ),
     );
   }
 }
