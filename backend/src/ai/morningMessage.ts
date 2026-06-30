@@ -2,10 +2,13 @@
  * AI-02: Утреннее сообщение (tone-aware).
  * Генерирует 1-2 предложения под тон gentle/harsh через провайдер (Gemini/Claude).
  * Вызов модели — только через provider.ts.
+ *
+ * Issue #18: обёрнут withAiRetry — раньше этот вызов не ретраился вовсе.
  */
 
 import { generateText } from "./provider.js";
 import { unwrapMaybeJson } from "./textResponse.js";
+import { withAiRetry } from "./retry.js";
 
 export type Tone = "gentle" | "harsh";
 
@@ -51,14 +54,21 @@ export async function generateMorningMessage(params: {
     `${who}${taskSituation} ` +
     "Write a short morning nudge with one concrete focus tip. Do not mention the count.";
 
+  // withAiRetry повторяет вызов при временных сбоях (rate-limit/перегрузка);
+  // постоянные сбои (гео-блок, суточная квота, пустой ответ) идут наверх сразу.
+  const message = await withAiRetry(() => callAndUnwrap({ system, user }));
+  return { message };
+}
+
+async function callAndUnwrap(args: { system: string; user: string }): Promise<string> {
   const raw = await generateText({
-    system,
-    user,
+    system: args.system,
+    user: args.user,
     maxTokens: 180,
     tier: "fast",
   });
   // Защита: если модель всё же вернула JSON {"message":"..."} — разворачиваем в текст.
   const message = unwrapMaybeJson(raw, "message");
   if (!message) throw new Error("AI returned an empty morning message.");
-  return { message };
+  return message;
 }

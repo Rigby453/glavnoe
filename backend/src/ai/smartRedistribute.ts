@@ -3,10 +3,13 @@
  * Предлагает 2-3 варианта плана дня для просроченных задач через провайдер
  * (Gemini/Claude). Дата собирается в коде (детерминированно). Модель только
  * раскладывает по времени. Вызов модели — только через provider.ts.
+ *
+ * Issue #18: обёрнут withAiRetry — раньше этот вызов не ретраился вовсе.
  */
 
 import { z } from "zod";
 import { generateText, stripJsonFences } from "./provider.js";
+import { withAiRetry } from "./retry.js";
 
 export interface PlanInputItem {
   id: string;
@@ -102,29 +105,14 @@ export async function generateSmartPlans(params: {
     })),
   });
 
-  const text = await generateText({
-    system,
-    user,
-    maxTokens: 1500,
-    tier: "smart",
-    json: true,
-  });
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripJsonFences(text));
-  } catch {
-    throw new Error("AI returned unparseable JSON for smart-redistribute.");
-  }
-  const result = RawPlanSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error("AI returned an unexpected smart-redistribute shape.");
-  }
+  // withAiRetry повторяет вызов при временных сбоях (rate-limit/перегрузка/
+  // битый JSON); постоянные сбои (гео-блок, суточная квота) идут наверх сразу.
+  const rawPlans = await withAiRetry(() => callAndParse({ system, user }));
 
   // Индекс входных задач по id — для обогащения items title+priority без AI.
   const inputById = new Map(pendingItems.map((i) => [i.id, i]));
 
-  const plans: SmartPlan[] = result.data.slice(0, 3).map((plan) => ({
+  const plans: SmartPlan[] = rawPlans.slice(0, 3).map((plan) => ({
     label: plan.label,
     reason: plan.reason,
     items: plan.items
@@ -145,4 +133,29 @@ export async function generateSmartPlans(params: {
   }));
 
   return { plans };
+}
+
+async function callAndParse(args: {
+  system: string;
+  user: string;
+}): Promise<z.infer<typeof RawPlanSchema>> {
+  const text = await generateText({
+    system: args.system,
+    user: args.user,
+    maxTokens: 1500,
+    tier: "smart",
+    json: true,
+  });
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripJsonFences(text));
+  } catch {
+    throw new Error("AI returned unparseable JSON for smart-redistribute.");
+  }
+  const result = RawPlanSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error("AI returned an unexpected smart-redistribute shape.");
+  }
+  return result.data;
 }

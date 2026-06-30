@@ -191,18 +191,41 @@ test("caps plans at 3 even if AI returns 4 or more", async () => {
   expect(plans).toHaveLength(3);
 });
 
-test("throws with 'unparseable' on non-JSON response", async () => {
-  mockGenerate.mockResolvedValueOnce("Sorry, I cannot process that.");
+test("throws with 'unparseable' on non-JSON response (retries 3x on this transient shape, still fails)", async () => {
+  // Issue #18: generateSmartPlans теперь wrapped в withAiRetry — "unparseable"
+  // классифицируется как transient (aiErrors.ts), поэтому use mockResolvedValue
+  // (persists across all retries) so every attempt sees the same bad text and
+  // the final rejected error keeps the expected message.
+  mockGenerate.mockResolvedValue("Sorry, I cannot process that.");
   await expect(
     generateSmartPlans({ pendingItems: TASKS, occupiedTimes: [], targetDate: "2026-06-28" })
   ).rejects.toThrow(/unparseable/i);
+  expect(mockGenerate).toHaveBeenCalledTimes(3); // 1 + 2 retries (NODE_ENV=test → no delay)
 });
 
-test("throws with 'unexpected' on wrong JSON shape", async () => {
-  mockGenerate.mockResolvedValueOnce(JSON.stringify({ plans: "wrong" }));
+test("throws with 'unexpected' on wrong JSON shape (retries 3x, still fails)", async () => {
+  mockGenerate.mockResolvedValue(JSON.stringify({ plans: "wrong" }));
   await expect(
     generateSmartPlans({ pendingItems: TASKS, occupiedTimes: [], targetDate: "2026-06-28" })
   ).rejects.toThrow(/unexpected/i);
+  expect(mockGenerate).toHaveBeenCalledTimes(3);
+});
+
+test("retries once on transient unparseable JSON then succeeds", async () => {
+  // Issue #18: a single flaky response should self-heal via withAiRetry
+  // instead of surfacing as a user-facing error.
+  mockGenerate
+    .mockResolvedValueOnce("Sorry, I cannot process that.")
+    .mockResolvedValueOnce(VALID_RESPONSE);
+
+  const { plans } = await generateSmartPlans({
+    pendingItems: TASKS,
+    occupiedTimes: [],
+    targetDate: "2026-06-28",
+  });
+
+  expect(plans).toHaveLength(2);
+  expect(mockGenerate).toHaveBeenCalledTimes(2);
 });
 
 test("handles markdown-fenced JSON correctly (strips fences)", async () => {

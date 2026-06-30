@@ -3,10 +3,13 @@
  * Все числа приходят от клиента (посчитаны кодом из локальной БД) — модель
  * только превращает их в короткий тёплый абзац. Вызов — через provider.ts.
  * On-demand вместо воскресного cron+Batch (ADR-026).
+ *
+ * Issue #18: обёрнут withAiRetry — раньше этот вызов не ретраился вовсе.
  */
 
 import { generateText } from "./provider.js";
 import { unwrapMaybeJson } from "./textResponse.js";
+import { withAiRetry } from "./retry.js";
 
 export interface WrappedStats {
   periodDays: number;
@@ -66,13 +69,19 @@ export async function generateWrappedSummary(
     "Name one strength, one growth area, and one concrete next-week recommendation. " +
     "Do not list these numbers back — give only your insight and advice.";
 
+  // withAiRetry повторяет вызов при временных сбоях (rate-limit/перегрузка);
+  // постоянные сбои (гео-блок, суточная квота) идут наверх сразу.
+  const summary = await withAiRetry(() => callAndUnwrap({ system, user }));
+  return { summary };
+}
+
+async function callAndUnwrap(args: { system: string; user: string }): Promise<string> {
   const text = await generateText({
-    system,
-    user,
+    system: args.system,
+    user: args.user,
     maxTokens: 350,
     tier: "fast",
   });
-
   // Защита: если модель всё же вернула JSON {"summary":"..."} — разворачиваем в текст.
-  return { summary: unwrapMaybeJson(text, "summary") };
+  return unwrapMaybeJson(text, "summary");
 }

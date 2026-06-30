@@ -2,10 +2,13 @@
  * AI-04: Инсайт по дневнику (premium).
  * По последним записям (настроение/заметки) даёт 2-3 предложения инсайта
  * через провайдер (Gemini/Claude). Вызов модели — только через provider.ts.
+ *
+ * Issue #18: обёрнут withAiRetry — раньше этот вызов не ретраился вовсе.
  */
 
 import { generateText } from "./provider.js";
 import { unwrapMaybeJson } from "./textResponse.js";
+import { withAiRetry } from "./retry.js";
 
 export type Tone = "gentle" | "harsh";
 
@@ -87,14 +90,22 @@ export async function generateDiaryInsight(params: {
 
   // maxTokens повышен до 650 (был 450) — исправляет обрезание инсайта.
   // Подробности в JSDoc выше.
+  // withAiRetry повторяет вызов при временных сбоях (rate-limit/перегрузка);
+  // постоянные сбои (гео-блок, суточная квота, пустой ответ модели) идут
+  // наверх сразу — повтор внутри того же запроса им не поможет.
+  const insight = await withAiRetry(() => callAndUnwrap({ system, user }));
+  return { insight, coveredFrom, coveredTo };
+}
+
+async function callAndUnwrap(args: { system: string; user: string }): Promise<string> {
   const raw = await generateText({
-    system,
-    user,
+    system: args.system,
+    user: args.user,
     maxTokens: 650,
     tier: "smart",
   });
   // Защита: если модель всё же вернула JSON {"insight":"..."} — разворачиваем в текст.
   const insight = unwrapMaybeJson(raw, "insight");
   if (!insight) throw new Error("AI returned an empty diary insight.");
-  return { insight, coveredFrom, coveredTo };
+  return insight;
 }

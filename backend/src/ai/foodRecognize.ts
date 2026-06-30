@@ -3,10 +3,13 @@
  * Модель ТОЛЬКО называет блюдо ({dish, portion_description, confidence}) —
  * числа КБЖУ берутся из food DB (Open Food Facts), не из модели (правило ТЗ).
  * Вызов модели — только через provider.ts.
+ *
+ * Issue #18: обёрнут withAiRetry — раньше этот вызов не ретраился вовсе.
  */
 
 import { z } from "zod";
 import { generateText, stripJsonFences } from "./provider.js";
+import { withAiRetry } from "./retry.js";
 
 export interface FoodRecognition {
   dish: string;
@@ -37,13 +40,32 @@ export async function recognizeFood(params: {
 
   const user = "What food is shown in this photo? JSON only.";
 
+  // withAiRetry повторяет вызов при временных сбоях (rate-limit/перегрузка/
+  // битый JSON); постоянные сбои (гео-блок, суточная квота) идут наверх сразу.
+  const result = await withAiRetry(() =>
+    callAndParse({ system, user, imageBase64: params.imageBase64, mediaType: params.mediaType })
+  );
+
+  return {
+    dish: result.dish,
+    portionDescription: result.portion_description,
+    confidence: result.confidence,
+  };
+}
+
+async function callAndParse(args: {
+  system: string;
+  user: string;
+  imageBase64: string;
+  mediaType: "image/jpeg" | "image/png";
+}): Promise<z.infer<typeof RecognitionSchema>> {
   const text = await generateText({
-    system,
-    user,
+    system: args.system,
+    user: args.user,
     maxTokens: 150,
     tier: "fast",
     json: true,
-    image: { base64: params.imageBase64, mediaType: params.mediaType },
+    image: { base64: args.imageBase64, mediaType: args.mediaType },
   });
 
   let parsed: unknown;
@@ -56,10 +78,5 @@ export async function recognizeFood(params: {
   if (!result.success) {
     throw new Error("AI returned an unexpected food-recognition shape.");
   }
-
-  return {
-    dish: result.data.dish,
-    portionDescription: result.data.portion_description,
-    confidence: result.data.confidence,
-  };
+  return result.data;
 }

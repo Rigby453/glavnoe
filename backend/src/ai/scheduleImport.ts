@@ -3,10 +3,15 @@
  * Распознаёт расписание с изображения через провайдер (Gemini/Claude).
  * Дата-арифметика — в коде (детерминированно); модель только извлекает title+time.
  * Вызов модели — только через provider.ts.
+ *
+ * Issue #18: обёрнут withAiRetry — раньше этот вызов не ретраился вовсе, и
+ * любой кратковременный сбой (429 RPM/перегрузка/один неудачный JSON) сразу
+ * становился пользовательской ошибкой вместо тихого повтора.
  */
 
 import { z } from "zod";
 import { generateText, stripJsonFences } from "./provider.js";
+import { withAiRetry } from "./retry.js";
 
 export interface ScheduleImportItem {
   title: string;
@@ -57,29 +62,16 @@ export async function importScheduleFromPhoto(params: {
     "Extract all schedule items from this timetable image. " +
     'Return a JSON array of { "title": string, "time": "HH:MM" } objects only.';
 
-  const text = await generateText({
-    system,
-    user,
-    maxTokens: 500,
-    tier: "fast",
-    json: true,
-    image: { base64: imageBase64, mediaType },
-  });
-
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(stripJsonFences(text));
-  } catch {
-    throw new Error("AI returned an unparseable response for schedule import.");
-  }
-  const result = RawScheduleSchema.safeParse(parsed);
-  if (!result.success) {
-    throw new Error("AI returned an unexpected schedule-import shape.");
-  }
+  // withAiRetry повторяет вызов модели при временных сбоях Gemini (rate-limit,
+  // перегрузка, битый JSON) — постоянные ошибки (гео-блок, суточная квота)
+  // уходят наверх сразу (retry.ts/aiErrors.ts).
+  const rawEntries = await withAiRetry(() =>
+    callAndParse({ system, user, maxTokens: 500, imageBase64, mediaType })
+  );
 
   // Строим ScheduleImportItem[], комбинируя targetDate + HH:MM (детерминированно).
   const items: ScheduleImportItem[] = [];
-  for (const entry of result.data) {
+  for (const entry of rawEntries) {
     const [hhStr, mmStr] = entry.time.split(":");
     const hh = parseInt(hhStr ?? "", 10);
     const mm = parseInt(mmStr ?? "", 10);
@@ -93,4 +85,33 @@ export async function importScheduleFromPhoto(params: {
   }
 
   return { items };
+}
+
+async function callAndParse(args: {
+  system: string;
+  user: string;
+  maxTokens: number;
+  imageBase64: string;
+  mediaType: "image/jpeg" | "image/png";
+}): Promise<z.infer<typeof RawScheduleSchema>> {
+  const text = await generateText({
+    system: args.system,
+    user: args.user,
+    maxTokens: args.maxTokens,
+    tier: "fast",
+    json: true,
+    image: { base64: args.imageBase64, mediaType: args.mediaType },
+  });
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stripJsonFences(text));
+  } catch {
+    throw new Error("AI returned an unparseable response for schedule import.");
+  }
+  const result = RawScheduleSchema.safeParse(parsed);
+  if (!result.success) {
+    throw new Error("AI returned an unexpected schedule-import shape.");
+  }
+  return result.data;
 }

@@ -9,6 +9,7 @@
  */
 
 import Anthropic from "@anthropic-ai/sdk";
+import { AiError, classifyAiError, type AiErrorKind } from "./aiErrors.js";
 
 export type AiProvider = "gemini" | "anthropic";
 export type ModelTier = "fast" | "smart";
@@ -34,15 +35,28 @@ export function activeProvider(): AiProvider {
   );
 }
 
+/**
+ * Решает, стоит ли переключиться на Anthropic при сбое Gemini (issue #18).
+ * Только для ПОСТОЯННЫХ сбоев, которые withAiRetry внутри того же провайдера
+ * не лечит: гео-блок (регион не обслуживается Gemini) и исчерпанная
+ * СУТОЧНАЯ квота free-tier (ждать сброс ~24ч иначе бессмысленно).
+ * Поминутный rate-limit (quota_rate) сюда НЕ входит — для него есть быстрый
+ * ретрай того же провайдера (withAiRetry); переключать провайдера на каждый
+ * короткий всплеск 429 не нужно. Чистая функция — тестируется без SDK/сети.
+ */
+export function shouldFallbackToAnthropic(err: unknown, hasAnthropicKey: boolean): boolean {
+  if (!hasAnthropicKey) return false;
+  const kind = classifyAiError(err);
+  return kind === "region" || kind === "quota_daily";
+}
+
 /** Единая точка генерации текста для всех AI-фич. */
 export async function generateText(params: GenerateParams): Promise<string> {
   if (activeProvider() !== "gemini") return anthropicGenerate(params);
   try {
     return await geminiGenerate(params);
   } catch (err) {
-    // Gemini гео-блокирует некоторые регионы — автоматически fallback на Anthropic.
-    const msg = err instanceof Error ? err.message : String(err);
-    if (msg.includes("User location is not supported") && process.env["ANTHROPIC_API_KEY"]) {
+    if (shouldFallbackToAnthropic(err, Boolean(process.env["ANTHROPIC_API_KEY"]))) {
       return anthropicGenerate(params);
     }
     throw err;
@@ -135,7 +149,7 @@ async function geminiGenerate({
 
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Gemini API error ${res.status}: ${body.slice(0, 300)}`);
+    throw buildGeminiError(res.status, body);
   }
 
   const data = (await res.json()) as GeminiResponse;
@@ -150,6 +164,69 @@ async function geminiGenerate({
     );
   }
   return text;
+}
+
+interface GeminiErrorDetailViolation {
+  quotaId?: string;
+}
+interface GeminiErrorDetail {
+  violations?: GeminiErrorDetailViolation[];
+}
+interface GeminiErrorBody {
+  error?: {
+    message?: string;
+    status?: string;
+    details?: GeminiErrorDetail[];
+  };
+}
+
+/**
+ * Строит классифицируемую ошибку (issue #18) из тела ответа Gemini при !res.ok.
+ * Gemini отдаёт `{"error":{"code","message","status","details"}}`; для квоты
+ * `status` — "RESOURCE_EXHAUSTED", а `details[].violations[].quotaId`
+ * различает суточный лимит ("...PerDayPerProjectPerModel...") от поминутного
+ * ("...PerMinutePerProjectPerModel..."). Если тело — не JSON (proxy-ошибка,
+ * HTML-страница и т.п.), используем обрезанный сырой текст — классификация
+ * по http-статусу/ключевым словам всё ещё сработает в classifyAiError.
+ */
+function buildGeminiError(httpStatus: number, bodyText: string): AiError {
+  let message = bodyText.slice(0, 500);
+  let apiStatus = "";
+  let quotaId = "";
+  try {
+    const body = JSON.parse(bodyText) as GeminiErrorBody;
+    if (body.error?.message) message = body.error.message;
+    if (body.error?.status) apiStatus = body.error.status;
+    for (const detail of body.error?.details ?? []) {
+      const found = detail.violations?.find((v) => v.quotaId);
+      if (found?.quotaId) {
+        quotaId = found.quotaId;
+        break;
+      }
+    }
+  } catch {
+    // тело не JSON — оставляем сырой обрезанный текст, классификация по
+    // ключевым словам/http-статусу в classifyAiError всё равно сработает.
+  }
+
+  // classifyAiError() читает сообщение целиком (включая quotaId и apiStatus,
+  // вшитые в текст ниже) — отдельный объект kind тут не нужен, достаточно
+  // включить в message все маркеры, по которым она различает quota_daily от
+  // quota_rate/region/overloaded.
+  const fullMessage =
+    `Gemini API error ${httpStatus}${apiStatus ? ` (${apiStatus})` : ""}: ${message}` +
+    (quotaId ? ` [quotaId=${quotaId}]` : "");
+  let kind: AiErrorKind;
+  if (apiStatus === "RESOURCE_EXHAUSTED" || httpStatus === 429) {
+    kind = quotaId.toLowerCase().includes("perday") ? "quota_daily" : "quota_rate";
+  } else if (message.toLowerCase().includes("user location is not supported")) {
+    kind = "region";
+  } else if (httpStatus === 503 || apiStatus === "UNAVAILABLE") {
+    kind = "overloaded";
+  } else {
+    kind = "unknown";
+  }
+  return new AiError(kind, fullMessage);
 }
 
 // ---------------------------------------------------------------------------
