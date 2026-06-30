@@ -34,6 +34,7 @@ import '../../core/widgets/number_input_dialog.dart';
 import '../../core/utils/app_version.dart';
 import '../../core/utils/id.dart';
 import 'shared_plan.dart';
+import 'profile_identity_provider.dart';
 import '../today/widgets/streak_share_card.dart';
 import '../../core/l10n/app_strings.dart';
 import '../../core/l10n/locale_provider.dart';
@@ -69,6 +70,25 @@ final currentUserProvider = FutureProvider.autoDispose<Map<String, dynamic>?>((r
     return null;
   }
 });
+
+/// Резолвит имя для показа в шапке/подстранице «Аккаунт»:
+/// локальное переопределение (profileIdentityProvider) > имя аккаунта с
+/// бэкенда > дефолтная подпись ("You" в офлайн-режиме — "Offline mode").
+String resolveDisplayName(
+  BuildContext context,
+  ProfileIdentity identity,
+  String? accountName,
+  bool hasAccount,
+) {
+  final override = identity.displayName;
+  if (override != null && override.isNotEmpty) return override;
+  if (accountName != null && accountName.trim().isNotEmpty) {
+    return accountName.trim();
+  }
+  return hasAccount
+      ? context.s('profile.you')
+      : context.s('profile.offline_mode');
+}
 
 // ---------------------------------------------------------------------------
 // §4.2 Вспомогательные виджеты: hairline-строки и секции
@@ -412,16 +432,16 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 // Шапка профиля (аватар + имя + email)
 // ---------------------------------------------------------------------------
 
-class _UserHeader extends StatelessWidget {
+class _UserHeader extends ConsumerWidget {
   const _UserHeader({required this.userAsync});
 
   final AsyncValue<Map<String, dynamic>?> userAsync;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final textTheme = Theme.of(context).textTheme;
-    final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final identity = ref.watch(profileIdentityProvider);
 
     return userAsync.when(
       loading: () => Center(
@@ -429,63 +449,91 @@ class _UserHeader extends StatelessWidget {
       ),
       error: (_, _) => const SizedBox.shrink(),
       data: (user) {
-        final name = user == null
-            ? context.s('profile.offline_mode')
-            : ((user['name'] as String?) ?? context.s('profile.you'));
+        final accountName = user?['name'] as String?;
+        final name = resolveDisplayName(context, identity, accountName, user != null);
         final email =
             user != null ? ((user['email'] as String?) ?? '') : '';
 
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.center,
-          children: [
-            // Аватар в акцентном кружке
-            Container(
-              width: 48,
-              height: 48,
-              decoration: BoxDecoration(
-                color: colorScheme.primary.withAlpha(18),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: colorScheme.primary.withAlpha(40),
-                  width: 0.5,
-                ),
-              ),
-              child: Center(
-                child: Icon(
-                  PhosphorIcons.user(PhosphorIconsStyle.fill),
-                  size: 22,
-                  color: colorScheme.primary,
-                ),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(
-                    name,
-                    style: textTheme.titleMedium,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
+        return InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () => context.push('/profile/account'),
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 4),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
+              children: [
+                _AvatarCircle(avatar: identity.avatar),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        name,
+                        style: textTheme.titleMedium,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      if (email.isNotEmpty) ...[
+                        const SizedBox(height: 2),
+                        Text(
+                          email,
+                          style: textTheme.bodySmall
+                              ?.copyWith(color: ext.textMuted),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ],
                   ),
-                  if (email.isNotEmpty) ...[
-                    const SizedBox(height: 2),
-                    Text(
-                      email,
-                      style: textTheme.bodySmall
-                          ?.copyWith(color: ext.textMuted),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ],
-                ],
-              ),
+                ),
+                const SizedBox(width: 8),
+                Icon(
+                  PhosphorIcons.caretRight(),
+                  size: 16,
+                  color: ext.textFaint,
+                ),
+              ],
             ),
-          ],
+          ),
         );
       },
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Аватар-кружок (используется в шапке профиля и подстранице «Аккаунт»)
+// ---------------------------------------------------------------------------
+
+/// Аватар-пресет, нарисованный иконкой в акцентном кружке текущей темы.
+/// Без сетевых картинок — тема всегда задаёт фон/обводку/цвет иконки, поэтому
+/// аватар автоматически переcкинивается при смене темы (Focus/Black/White/...).
+class _AvatarCircle extends StatelessWidget {
+  const _AvatarCircle({required this.avatar, this.size = 48, this.iconSize = 22});
+
+  final AvatarPreset avatar;
+  final double size;
+  final double iconSize;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        color: colorScheme.primary.withAlpha(18),
+        shape: BoxShape.circle,
+        border: Border.all(
+          color: colorScheme.primary.withAlpha(40),
+          width: 0.5,
+        ),
+      ),
+      child: Center(
+        child: Icon(avatar.icon(), size: iconSize, color: colorScheme.primary),
+      ),
     );
   }
 }
@@ -2462,13 +2510,14 @@ class ProfileAccountScreen extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
     final userAsync = ref.watch(currentUserProvider);
+    final identity = ref.watch(profileIdentityProvider);
 
     return Scaffold(
       appBar: AppBar(title: Text(context.s('profile.section_account'))),
       body: ListView(
         padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
         children: [
-          // Имя / email
+          // Аватар (редактируемый) + имя (редактируемое) / email
           userAsync.when(
             loading: () => Center(
               child: Padding(
@@ -2478,43 +2527,264 @@ class ProfileAccountScreen extends ConsumerWidget {
             ),
             error: (_, _) => const SizedBox.shrink(),
             data: (user) {
-              if (user == null) {
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      context.s('profile.offline_mode'),
-                      style: textTheme.headlineSmall,
-                    ),
+              final accountName = user?['name'] as String?;
+              final name =
+                  resolveDisplayName(context, identity, accountName, user != null);
+              final email =
+                  user != null ? ((user['email'] as String?) ?? '') : '';
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _AvatarEditRow(avatar: identity.avatar),
+                  const SizedBox(height: 20),
+                  _NameEditRow(name: name),
+                  if (email.isNotEmpty) ...[
                     const SizedBox(height: 4),
+                    Text(
+                      email,
+                      style: textTheme.bodyMedium
+                          ?.copyWith(color: ext.textMuted),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                  if (user == null) ...[
+                    const SizedBox(height: 12),
                     Text(
                       context.s('profile.offline_subtitle'),
                       style: textTheme.bodyMedium
                           ?.copyWith(color: ext.textMuted),
                     ),
                   ],
-                );
-              }
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    (user['name'] as String?) ?? context.s('profile.you'),
-                    style: textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    (user['email'] as String?) ?? '',
-                    style: textTheme.bodyMedium?.copyWith(color: ext.textMuted),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
                 ],
               );
             },
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Редактирование аватара (строка с кружком + кнопкой)
+// ---------------------------------------------------------------------------
+
+class _AvatarEditRow extends StatelessWidget {
+  const _AvatarEditRow({required this.avatar});
+
+  final AvatarPreset avatar;
+
+  Future<void> _openPicker(BuildContext context) {
+    return showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (_) => _AvatarPickerSheet(current: avatar),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        InkWell(
+          borderRadius: BorderRadius.circular(40),
+          onTap: () => _openPicker(context),
+          child: Tooltip(
+            message: context.s('profile.edit_avatar'),
+            child: _AvatarCircle(avatar: avatar, size: 72, iconSize: 32),
+          ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          child: TextButton.icon(
+            icon: Icon(PhosphorIcons.pencilSimple(), size: 16),
+            label: Text(
+              context.s('profile.edit_avatar'),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            onPressed: () => _openPicker(context),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Шит выбора аватара-пресета: тап сразу применяет выбор и закрывает шит.
+class _AvatarPickerSheet extends ConsumerWidget {
+  const _AvatarPickerSheet({required this.current});
+
+  final AvatarPreset current;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
+    final textTheme = Theme.of(context).textTheme;
+
+    return SafeArea(
+      child: SingleChildScrollView(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 36,
+                height: 4,
+                margin: const EdgeInsets.only(bottom: 16),
+                decoration: BoxDecoration(
+                  color: ext.border,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            Text(
+              context.s('profile.choose_avatar_title'),
+              style: textTheme.titleMedium,
+            ),
+            const SizedBox(height: 16),
+            Wrap(
+              spacing: 16,
+              runSpacing: 16,
+              children: AvatarPreset.values.map((preset) {
+                final selected = preset == current;
+                return InkWell(
+                  borderRadius: BorderRadius.circular(40),
+                  onTap: () {
+                    ref.read(profileIdentityProvider.notifier).setAvatar(preset);
+                    Navigator.of(context).pop();
+                  },
+                  child: Container(
+                    padding: const EdgeInsets.all(3),
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      border: selected
+                          ? Border.all(color: colorScheme.primary, width: 2)
+                          : null,
+                    ),
+                    child: _AvatarCircle(avatar: preset, size: 56, iconSize: 26),
+                  ),
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Редактирование имени (строка с текстом + кнопка-карандаш)
+// ---------------------------------------------------------------------------
+
+class _NameEditRow extends ConsumerWidget {
+  const _NameEditRow({required this.name});
+
+  final String name;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final textTheme = Theme.of(context).textTheme;
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [
+        Expanded(
+          child: Text(
+            name,
+            style: textTheme.headlineSmall,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
+        const SizedBox(width: 4),
+        IconButton(
+          icon: Icon(PhosphorIcons.pencilSimple(), size: 18),
+          tooltip: context.s('profile.edit_name'),
+          visualDensity: VisualDensity.compact,
+          onPressed: () async {
+            final result = await showDialog<String>(
+              context: context,
+              builder: (_) => _EditNameDialog(initialName: name),
+            );
+            if (result == null) return;
+            await ref
+                .read(profileIdentityProvider.notifier)
+                .setDisplayName(result);
+            if (!context.mounted) return;
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text(context.s('profile.name_updated'))),
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+/// Диалог переименования. Возвращает введённую строку (включая пустую —
+/// пустая строка означает «сбросить переопределение») или null при отмене.
+/// Контроллер живёт в State (а не создаётся заново в build) — иначе краш
+/// «used after being disposed» при раннем dispose (см. NumberInputDialog).
+class _EditNameDialog extends StatefulWidget {
+  const _EditNameDialog({required this.initialName});
+
+  final String initialName;
+
+  @override
+  State<_EditNameDialog> createState() => _EditNameDialogState();
+}
+
+class _EditNameDialogState extends State<_EditNameDialog> {
+  late final TextEditingController _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller = TextEditingController(text: widget.initialName);
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  void _submit() => Navigator.of(context).pop(_controller.text.trim());
+
+  @override
+  Widget build(BuildContext context) {
+    final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    return AlertDialog(
+      backgroundColor: ext.surfaceElevated,
+      title: Text(context.s('profile.edit_name_title')),
+      content: TextField(
+        controller: _controller,
+        autofocus: true,
+        textCapitalization: TextCapitalization.words,
+        maxLength: kProfileDisplayNameMaxLength,
+        decoration: InputDecoration(
+          labelText: context.s('profile.edit_name_label'),
+          helperText: context.s('profile.edit_name_hint'),
+        ),
+        onSubmitted: (_) => _submit(),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: Text(context.s('btn.cancel')),
+        ),
+        FilledButton(
+          onPressed: _submit,
+          child: Text(context.s('btn.save')),
+        ),
+      ],
     );
   }
 }
