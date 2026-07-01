@@ -5,11 +5,15 @@
 // Profile → Behavior).
 //
 // Проверяем:
-//   1. Default (все флаги=false): Nutrition/Sleep всегда видны (Water/Sleep —
-//      не опциональны); Mind/Movement ПОЛНОСТЬЮ скрыты (оба их модуля выключены);
-//      нет ни одной карточки/Switch для Food/Meditation/Breathing/Workouts.
-//   2. Все флаги=true: все 4 секции видны, модули — nav-карточки (caretRight),
-//      БЕЗ инлайн-Switch (тумблер живёт только в Profile → Behavior).
+//   1. Default (все флаги=false): только Sleep всегда виден (Water — теперь
+//      опциональный модуль, как Food/Workouts/Meditation/Breathing, решение
+//      владельца); Nutrition/Mind/Movement ПОЛНОСТЬЮ скрыты (все их модули
+//      выключены); нет ни одной карточки/Switch для Water/Food/Meditation/
+//      Breathing/Workouts.
+//   2. Все флаги=true (включая Water): все 4 секции видны, опциональные
+//      модули — nav-карточки (caretRight) БЕЗ инлайн-Switch (тумблер живёт
+//      только в Profile → Behavior); карточка воды — не nav-tile, у неё
+//      остаётся собственный инлайн-Switch (напоминания).
 //   3. Нет RenderFlex overflow ни на 320x2500px, ни при textScale 1.5 на 360x2500px
 //      (в обоих состояниях флагов).
 //
@@ -135,8 +139,8 @@ void main() {
 
   group('HealthScreen — taxonomy grouping', () {
     testWidgets(
-        '320px width, default (все модули выключены): Nutrition/Sleep видны, '
-        'Mind/Movement скрыты целиком, нет overflow', (tester) async {
+        '320px width, default (все модули выключены): только Sleep виден, '
+        'Nutrition/Mind/Movement скрыты целиком, нет overflow', (tester) async {
       // Высота 2500px чтобы все lazy-ListView элементы попали в дерево;
       // ширина 320px для проверки горизонтального overflow.
       await _setSize(tester, _narrowTallSize);
@@ -145,9 +149,11 @@ void main() {
       );
       await _settle(tester);
 
-      // Water/Sleep не опциональны — секции всегда есть.
-      expect(find.text('Nutrition'), findsWidgets);
+      // Sleep — единственный всегда видимый модуль.
       expect(find.text('Sleep'), findsWidgets);
+      // Nutrition держит ТОЛЬКО Water+Food — оба выключены (Water теперь
+      // опциональна, решение владельца) → секция не рендерится вообще.
+      expect(find.text('Nutrition'), findsNothing);
       // Mind/Movement держат ТОЛЬКО опциональные модули — оба выключены →
       // секции (и их заголовки) #17 не рендерятся вообще.
       expect(find.text('Mind'), findsNothing);
@@ -161,7 +167,7 @@ void main() {
 
     testWidgets(
         'default (все модули выключены): нет ни одной карточки/Switch для '
-        'Food/Meditation/Breathing/Workouts (#17)', (tester) async {
+        'Water/Food/Meditation/Breathing/Workouts (#17)', (tester) async {
       await _setSize(tester, _narrowTallSize);
       await tester.pumpWidget(
         _buildHarness(db, prefs, const HealthScreen()),
@@ -174,20 +180,23 @@ void main() {
       expect(find.text('Breathing'), findsNothing);
       expect(find.text('Workouts'), findsNothing);
 
-      // Единственный Switch на экране в default-состоянии — water reminders.
+      // Water выключена по умолчанию — её карточка (и её инлайн-Switch
+      // напоминаний) вообще не рендерится → на экране нет ни одного Switch.
       final switchWidgets =
           find.byWidgetPredicate((w) => w is Switch || w is CupertinoSwitch);
-      expect(switchWidgets, findsOneWidget);
+      expect(switchWidgets, findsNothing);
 
       expect(tester.takeException(), isNull);
       await _unmount(tester);
     });
 
     testWidgets(
-        'все модули включены: все 4 секции видны, модули — nav-карточки '
-        'БЕЗ инлайн-Switch (тумблер только в Profile → Behavior)',
+        'все модули включены (включая Water): все 4 секции видны, опциональные '
+        'модули — nav-карточки БЕЗ инлайн-Switch (тумблер только в Profile → '
+        'Behavior); у карточки воды остаётся свой Switch напоминаний',
         (tester) async {
       SharedPreferences.setMockInitialValues({
+        kWaterModeKey: true,
         kNutritionModeKey: true,
         kWorkoutModeKey: true,
         kMeditationLibraryModeKey: true,
@@ -211,7 +220,7 @@ void main() {
       expect(find.text('Breathing'), findsOneWidget);
       expect(find.text('Workouts'), findsOneWidget);
 
-      // Только water reminders Switch — модульные карточки больше не имеют
+      // Только water reminders Switch — модульные nav-карточки не имеют
       // инлайн-тумблера (#17): включаются только в Profile → Behavior.
       final switchWidgets =
           find.byWidgetPredicate((w) => w is Switch || w is CupertinoSwitch);
@@ -228,9 +237,11 @@ void main() {
     });
 
     testWidgets(
-        'все модули включены, textScale 1.5: все 4 секции видны, нет overflow',
+        'все модули включены (включая Water), textScale 1.5: все 4 секции '
+        'видны, нет overflow',
         (tester) async {
       SharedPreferences.setMockInitialValues({
+        kWaterModeKey: true,
         kNutritionModeKey: true,
         kWorkoutModeKey: true,
         kMeditationLibraryModeKey: true,

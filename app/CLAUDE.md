@@ -23,7 +23,7 @@ app/lib/
 ├── features/
 │   ├── today/          ← Today tab
 │   ├── plan/           ← Plan tab
-│   ├── health/         ← Health tab (summary: Water+Sleep always; Food/Workouts/Meditation/Breathing behind mode-flags)
+│   ├── health/         ← Health tab (summary: Sleep always; Water/Food/Workouts/Meditation/Breathing behind mode-flags)
 │   ├── diary/          ← Diary tab
 │   └── profile/        ← Profile screen (NOT a tab)
 └── services/
@@ -145,7 +145,7 @@ Tap [+] → AddEventSheet with type selector (task/event/exam/deadline).
 | Navigation | Profile is AppBar leading button, NOT a 5th tab. Placement rationale + refinements in /docs/UX-LAYOUT.md (ADR-033) |
 | Mascot | "Kai" presence (Rive) per /docs/MASCOT.md (ADR-032); eyes = theme accent; behaviour from gentle/harsh tone; off-toggle in Profile; static under disableAnimations |
 | Main limit | Max 3 items with priority=main per day — enforce in AddTaskBottomSheet |
-| Optional modules | Health screen is a **summary**: Water + Sleep always visible; **Food/Workouts/Meditation/Breathing are optional modules behind mode-flags** (`core/settings/feature_modes_provider.dart`), toggled in Profile → Behavior, off by default. They are NOT premium gates. Posture is reminder-toggle-only (no nav). Habits + co-study tiles are removed from nav. See SPEC §C5/§C8b. |
+| Optional modules | Health screen is a **summary**: Sleep always visible; **Water/Food/Workouts/Meditation/Breathing are optional modules behind mode-flags** (`core/settings/feature_modes_provider.dart`), toggled in Profile → Behavior, off by default. They are NOT premium gates. Posture is reminder-toggle-only (no nav). Habits + co-study tiles are removed from nav. See SPEC §C5/§C8b. |
 | Animations | Follow /docs/ANIMATIONS.md exactly (snap=120, fast=180, normal=280, slow=400; constants in core/animations/constants.dart); all disableable via MediaQuery.disableAnimations |
 | Tone | gentle/harsh stored in prefs, affects display strings ONLY (not logic) |
 

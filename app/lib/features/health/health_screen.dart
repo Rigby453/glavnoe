@@ -211,6 +211,7 @@ class HealthScreen extends ConsumerWidget {
     final progress = (total / waterGoalMl).clamp(0.0, 1.0);
     final dao = ref.read(waterDaoProvider);
 
+    final waterOn = ref.watch(waterModeProvider);
     final nutritionOn = ref.watch(nutritionModeProvider);
     final workoutOn = ref.watch(workoutModeProvider);
     final meditationOn = ref.watch(meditationLibraryModeProvider);
@@ -223,19 +224,20 @@ class HealthScreen extends ConsumerWidget {
         Text(context.s('health.title'), style: textTheme.displaySmall),
 
         // ── NUTRITION ──────────────────────────────────────────────────────
-        // Water — всегда видим, поэтому секция/заголовок остаются всегда.
-        _HealthSectionHeader(labelKey: 'health.section_nutrition'),
-        _buildWaterCard(context, ref, textTheme, total, waterGoalMl, progress, dao),
-        // Food — опциональный модуль (#17): выключен → НЕ показываем карточку
-        // вообще (ни тумблер, ни ссылку). Включается только в Profile → Behavior.
-        if (nutritionOn) ...[
-          const SizedBox(height: 8),
-          _HealthModuleTile(
-            titleKey: 'health.food',
-            subtitleKey: 'health.food_subtitle',
-            icon: PhosphorIcons.forkKnife(),
-            route: '/food',
-          ),
+        // Water и Food — опциональные модули (#17/#владелец): секция целиком
+        // скрыта, если ОБА выключены. Сон — единственный всегда видимый модуль.
+        if (waterOn || nutritionOn) ...[
+          _HealthSectionHeader(labelKey: 'health.section_nutrition'),
+          if (waterOn)
+            _buildWaterCard(context, ref, textTheme, total, waterGoalMl, progress, dao),
+          if (waterOn && nutritionOn) const SizedBox(height: 8),
+          if (nutritionOn)
+            _HealthModuleTile(
+              titleKey: 'health.food',
+              subtitleKey: 'health.food_subtitle',
+              icon: PhosphorIcons.forkKnife(),
+              route: '/food',
+            ),
         ],
 
         // ── SLEEP ──────────────────────────────────────────────────────────
@@ -289,6 +291,7 @@ class HealthScreen extends ConsumerWidget {
     final progress = (total / waterGoalMl).clamp(0.0, 1.0);
     final dao = ref.read(waterDaoProvider);
 
+    final waterOn = ref.watch(waterModeProvider);
     final nutritionOn = ref.watch(nutritionModeProvider);
     final workoutOn = ref.watch(workoutModeProvider);
     final meditationOn = ref.watch(meditationLibraryModeProvider);
@@ -301,8 +304,8 @@ class HealthScreen extends ConsumerWidget {
         const SizedBox(height: 8),
 
         // ── NUTRITION + SLEEP side by side ─────────────────────────────────
-        // Food — опциональный модуль (#17): выключен → карточка не рендерится
-        // вообще. Включается только в Profile → Behavior.
+        // Water и Food — опциональные модули (#17/#владелец): выключены →
+        // ничего не рендерится. Включаются только в Profile → Behavior.
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -310,18 +313,20 @@ class HealthScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _HealthSectionHeader(labelKey: 'health.section_nutrition'),
-                  _buildWaterCard(
-                    context, ref, textTheme, total, waterGoalMl, progress, dao,
-                  ),
-                  if (nutritionOn) ...[
-                    const SizedBox(height: 8),
-                    _HealthModuleTile(
-                      titleKey: 'health.food',
-                      subtitleKey: 'health.food_subtitle',
-                      icon: PhosphorIcons.forkKnife(),
-                      route: '/food',
-                    ),
+                  if (waterOn || nutritionOn) ...[
+                    _HealthSectionHeader(labelKey: 'health.section_nutrition'),
+                    if (waterOn)
+                      _buildWaterCard(
+                        context, ref, textTheme, total, waterGoalMl, progress, dao,
+                      ),
+                    if (waterOn && nutritionOn) const SizedBox(height: 8),
+                    if (nutritionOn)
+                      _HealthModuleTile(
+                        titleKey: 'health.food',
+                        subtitleKey: 'health.food_subtitle',
+                        icon: PhosphorIcons.forkKnife(),
+                        route: '/food',
+                      ),
                   ],
                 ],
               ),

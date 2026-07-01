@@ -15,6 +15,7 @@ const kNutritionModeKey = 'nutrition_mode';
 const kWorkoutModeKey = 'workout_mode';
 const kMeditationLibraryModeKey = 'meditation_library_mode';
 const kBreathingEditorModeKey = 'breathing_editor_mode';
+const kWaterModeKey = 'water_mode';
 
 // ---------------------------------------------------------------------------
 // Базовый Notifier — булевый флаг в SharedPreferences.
@@ -98,3 +99,21 @@ class BreathingEditorModeNotifier extends _BoolFlagNotifier {
 final breathingEditorModeProvider =
     NotifierProvider<BreathingEditorModeNotifier, bool>(
         BreathingEditorModeNotifier.new);
+
+// ---------------------------------------------------------------------------
+// Water Mode
+// Секция/карточка воды на экране Здоровья vs полностью скрыта.
+// (#решение владельца: вода — опциональный модуль, как Food/Workouts/
+// Meditation/Breathing; Сон при этом остаётся всегда видимым.)
+// ---------------------------------------------------------------------------
+
+class WaterModeNotifier extends _BoolFlagNotifier {
+  @override
+  String get key => kWaterModeKey;
+}
+
+/// true → секция «Nutrition» на Health показывает карточку воды.
+/// false (дефолт) → карточка воды полностью скрыта; включается в
+/// Profile → Behavior, как остальные опциональные модули.
+final waterModeProvider =
+    NotifierProvider<WaterModeNotifier, bool>(WaterModeNotifier.new);

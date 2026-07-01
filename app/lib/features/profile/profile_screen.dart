@@ -1925,6 +1925,7 @@ class _AdvancedFeaturesSection extends ConsumerWidget {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
+    final waterOn = ref.watch(waterModeProvider);
     final nutritionOn = ref.watch(nutritionModeProvider);
     final workoutOn = ref.watch(workoutModeProvider);
     final meditationOn = ref.watch(meditationLibraryModeProvider);
@@ -1944,6 +1945,13 @@ class _AdvancedFeaturesSection extends ConsumerWidget {
         ),
         const SizedBox(height: 8),
 
+        SwitchListTile(
+          contentPadding: EdgeInsets.zero,
+          title: Text(context.s('profile.advanced_water')),
+          subtitle: Text(context.s('profile.advanced_water_subtitle')),
+          value: waterOn,
+          onChanged: (v) => ref.read(waterModeProvider.notifier).set(v),
+        ),
         SwitchListTile(
           contentPadding: EdgeInsets.zero,
           title: Text(context.s('profile.advanced_nutrition')),

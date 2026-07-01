@@ -1,7 +1,7 @@
 // Юнит-тесты для feature_modes_provider.dart.
 // Проверяем: дефолт = false; после set(true) значение сохраняется
 // при пересоздании ProviderContainer (тот же SharedPreferences-мок).
-// Тестируются все 4 провайдера.
+// Тестируются все 5 провайдеров (включая waterModeProvider).
 
 import 'package:app/core/settings/feature_modes_provider.dart';
 import 'package:app/core/theme/theme_provider.dart';
@@ -55,6 +55,17 @@ void main() {
       addTearDown(container.dispose);
 
       expect(container.read(breathingEditorModeProvider), isFalse);
+    });
+
+    test('waterModeProvider: дефолт = false при пустых prefs', () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+      final container = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container.dispose);
+
+      expect(container.read(waterModeProvider), isFalse);
     });
   });
 
@@ -149,6 +160,27 @@ void main() {
 
       expect(container2.read(breathingEditorModeProvider), isTrue);
     });
+
+    test('waterModeProvider: set(true) сохраняется при пересоздании провайдера',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final prefs = await SharedPreferences.getInstance();
+
+      final container1 = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container1.dispose);
+
+      await container1.read(waterModeProvider.notifier).set(true);
+      expect(container1.read(waterModeProvider), isTrue);
+
+      final container2 = ProviderContainer(
+        overrides: [sharedPreferencesProvider.overrideWithValue(prefs)],
+      );
+      addTearDown(container2.dispose);
+
+      expect(container2.read(waterModeProvider), isTrue);
+    });
   });
 
   group('feature_modes_provider — toggle', () {
@@ -174,7 +206,7 @@ void main() {
   });
 
   group('feature_modes_provider — разные ключи не конфликтуют', () {
-    test('все 4 ключа независимы', () async {
+    test('все 5 ключей независимы', () async {
       SharedPreferences.setMockInitialValues({});
       final prefs = await SharedPreferences.getInstance();
       final container = ProviderContainer(
@@ -190,6 +222,7 @@ void main() {
       expect(container.read(workoutModeProvider), isFalse);
       expect(container.read(meditationLibraryModeProvider), isFalse);
       expect(container.read(breathingEditorModeProvider), isFalse);
+      expect(container.read(waterModeProvider), isFalse);
     });
   });
 }
