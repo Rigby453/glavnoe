@@ -1,6 +1,7 @@
 // Классическая схема приёмов пищи (slots) для модуля Food.
 //
-// Пользователь выбирает число приёмов в день (foodPrefs.mealsPerDay, 3..5).
+// Пользователь выбирает число приёмов в день (foodPrefs.mealsPerDay, 1..6+ —
+// минимум 1 приём поддерживает интервальное голодание/OMAD, см. ITEM A).
 // В зависимости от этого числа day делится на классические слоты:
 //   3 → завтрак, обед, ужин
 //   4 → завтрак, обед, полдник, ужин
@@ -26,11 +27,13 @@ const List<String> kMealSlotOrder = [
 
 /// Возвращает список слотов нужной длины по КЛАССИЧЕСКОЙ схеме.
 ///
-/// [mealsPerDay] обычно 3..5. Маппинг:
+/// [mealsPerDay] поддерживает минимум 1 (OMAD/интервальное голодание) и
+/// не ограничен сверху. Маппинг:
+///   n == 1 → [breakfast]                                    (OMAD)
+///   n == 2 → [breakfast, lunch]                             (зажим базовой тройки)
 ///   n == 3 → [breakfast, lunch, dinner]
 ///   n == 4 → [breakfast, lunch, afternoon_snack, dinner]
 ///   n == 5 → [breakfast, second_breakfast, lunch, afternoon_snack, dinner]
-///   n <= 2 → первые n из [breakfast, lunch, dinner] (зажим)
 ///   n >= 6 → список для n==5 плюс завершающий 'snack'
 List<String> mealsForCount(int mealsPerDay) {
   switch (mealsPerDay) {
