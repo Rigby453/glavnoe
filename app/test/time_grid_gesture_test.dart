@@ -2,8 +2,9 @@
 // in-memory Drift + настоящем DayTimeGrid:
 //   • drag по ТЕЛУ блока стартует перенос С ПЕРВОГО касания (без tap/long-press)
 //     и меняет scheduledAt;
-//   • ВЕРХНЯЯ ручка меняет startTime (начало) и не даёт длительности уйти в ноль
-//     (clamp на минимум), удерживая конец на месте.
+//   • нижняя ручка (ЕДИНСТВЕННАЯ — верхняя убрана по решению владельца
+//     продукта) меняет длительность (конец), включая на коротких блоках, и
+//     срабатывает СРАЗУ и мышью, и пальцем, без предварительного выбора блока.
 //
 // Жесты драйвим через tester.startGesture + moveBy + up (точный pan по координате
 // внутри тела/ручки). DAO-результат читаем через runAsync после settle, как в
@@ -214,69 +215,74 @@ void main() {
   );
 
   testWidgets(
-    'верхняя ручка тянет начало (startTime) и не даёт длительности уйти в ноль',
+    'нижняя ручка мышью меняет длительность СРАЗУ, без предварительного '
+    'выбора/клика по блоку',
     (tester) async {
-      // Задача 09:00–11:00 (120 мин, 112px) — БОЛЬШОЙ блок, на нём показаны ОБЕ
-      // ручки (порог _kBothHandlesMinHeight ~58px). Тянем верхнюю ручку ВНИЗ
-      // почти до конца — длительность зажимается минимумом (15 мин), конец 11:00.
-      await insertTask(id: 'top', hour: 9, minute: 0, durationMinutes: 120);
+      // Задача 09:00–11:00 (120 мин, 112px) — обычный блок. Тянем нижнюю ручку
+      // ВНИЗ мышью В ПЕРВОМ касании (без предшествующего тапа/выбора) — длина
+      // должна вырасти сразу.
+      await insertTask(id: 'bottom-mouse', hour: 9, minute: 0, durationMinutes: 120);
       await pumpGrid(tester);
 
-      final before = await readTask('top');
+      final before = await readTask('bottom-mouse');
       expect(before.durationMinutes, 120);
 
-      // Берём геометрию блока по его ключу (ValueKey(id)) — надёжно.
-      final blockBox = tester.getRect(find.byKey(const ValueKey('top')));
-      // Верхняя ручка занимает первые 22px блока — целимся в её центр.
-      final grabTop = Offset(blockBox.center.dx, blockBox.top + 11);
+      final blockBox = tester.getRect(find.byKey(const ValueKey('bottom-mouse')));
+      // Нижняя ручка занимает последние ~22px блока — целимся в её центр.
+      final grabBottom = Offset(blockBox.center.dx, blockBox.bottom - 11);
 
-      // Тянем верхнюю ручку ВНИЗ на 200px (≈3.5ч) — заведомо больше длительности.
-      await tester.dragFrom(grabTop, const Offset(0, 200));
+      final gesture = await tester.startGesture(
+        grabBottom,
+        kind: PointerDeviceKind.mouse,
+      );
+      // Никакого предварительного тапа/паузы — сразу тянем вниз на час.
+      await gesture.moveBy(const Offset(0, hourHeight));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.up();
       await tester.pump();
       await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump(const Duration(milliseconds: 300));
 
-      final after = await readTask('top');
-      // Длительность зажата минимумом, не ноль/минус.
-      expect(after.durationMinutes, kMinDurationMinutes,
-          reason: 'длительность не ушла в ноль при ресайзе верхом');
-      // Конец остался на месте (10:00): начало = конец − минимум.
-      final endMin = after.scheduledAt.hour * 60 +
-          after.scheduledAt.minute +
-          after.durationMinutes;
-      expect(endMin, 11 * 60, reason: 'конец задачи остался 11:00');
-      // Начало сдвинулось позже исходных 09:00.
-      expect(after.scheduledAt.hour * 60 + after.scheduledAt.minute,
-          greaterThan(9 * 60));
+      final after = await readTask('bottom-mouse');
+      expect(after.durationMinutes, 180,
+          reason:
+              'мышиный ресайз нижней ручкой сработал с первого касания (+1ч)');
+      // Начало НЕ изменилось — верхней ручки больше нет, тянет только низ.
+      expect(after.scheduledAt.hour, 9);
+      expect(after.scheduledAt.minute, 0);
 
       await unmountAndFlush(tester);
     },
   );
 
   testWidgets(
-    'верхняя ручка тянет начало раньше, удлиняя задачу (конец фиксирован)',
+    'верхней ручки больше нет: перенос за верхний край блока двигает блок '
+    '(тело), а не меняет начало',
     (tester) async {
-      // Задача 09:00–10:30 (90 мин, 84px) — БОЛЬШОЙ блок (обе ручки). Тянем верх
-      // ВВЕРХ на 1 час → начало 08:00, длительность 150 мин (конец 10:30 фиксирован).
-      await insertTask(id: 'grow', hour: 9, minute: 0, durationMinutes: 90);
+      // Раньше верхние ~22px были ручкой resize-начала. Теперь там тело блока —
+      // долгое нажатие там должно ПЕРЕНОСИТЬ блок, а не резать длительность.
+      await insertTask(id: 'no-top', hour: 9, minute: 0, durationMinutes: 120);
       await pumpGrid(tester);
 
-      final blockBox = tester.getRect(find.byKey(const ValueKey('grow')));
-      final grabTop = Offset(blockBox.center.dx, blockBox.top + 11);
+      final blockBox = tester.getRect(find.byKey(const ValueKey('no-top')));
+      final grabTop = Offset(blockBox.center.dx, blockBox.top + 5);
 
-      // Тянем верхнюю ручку ВВЕРХ на час → начало 08:00, длительность 120.
-      await tester.dragFrom(grabTop, const Offset(0, -hourHeight));
+      final gesture = await tester.startGesture(grabTop);
+      await tester.pump(_kBlockPickupDelay + const Duration(milliseconds: 50));
+      await gesture.moveBy(const Offset(0, hourHeight));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.up();
       await tester.pump();
       await tester.runAsync(
           () => Future<void>.delayed(const Duration(milliseconds: 50)));
       await tester.pump(const Duration(milliseconds: 300));
 
-      final after = await readTask('grow');
-      expect(after.scheduledAt.hour, 8, reason: 'начало уехало на 08:00');
-      expect(after.scheduledAt.minute, 0);
-      expect(after.durationMinutes, 150,
-          reason: 'задача удлинилась до 2.5 часов (конец 10:30 фиксирован)');
+      final after = await readTask('no-top');
+      // Длительность НЕ изменилась (перенос, не ресайз), время сдвинулось.
+      expect(after.durationMinutes, 120,
+          reason: 'верхний край теперь тело — перенос, длительность цела');
+      expect(after.scheduledAt.hour, 10, reason: 'блок переехал на час вниз');
 
       await unmountAndFlush(tester);
     },
@@ -297,25 +303,20 @@ void main() {
   }
 
   testWidgets(
-    'МАЛЕНЬКИЙ блок — только нижняя ручка; БОЛЬШОЙ — обе (верх+низ)',
+    'И маленький, и большой блок — РОВНО одна (нижняя) ручка ресайза; '
+    'верхней больше нет ни у кого',
     (tester) async {
-      // Маленький блок: 45 мин = 42px. Это >= _kBottomHandleMinHeight (~36px),
-      // но < _kBothHandlesMinHeight (~58px) → показывается ТОЛЬКО нижняя ручка.
+      // Маленький блок: 45 мин = 42px. Большой: 120 мин = 112px. Раньше у
+      // большого было 2 ручки (верх+низ) — теперь верхняя убрана совсем, у
+      // ОБОИХ ровно одна (нижняя), независимо от высоты.
       await insertTask(id: 'small', hour: 8, minute: 0, durationMinutes: 45);
-      // Большой блок: 120 мин = 112px >= _kBothHandlesMinHeight → ОБЕ ручки.
       await insertTask(id: 'big', hour: 12, minute: 0, durationMinutes: 120);
       await pumpGrid(tester);
 
-      // Маленький блок: ровно одна зона хвата (нижняя), верхней нет.
       expect(resizeHandleCount(tester, 'small'), 1,
-          reason: 'на маленьком блоке только нижняя ручка (верхней нет)');
-      // Большой блок: две зоны хвата (верхняя + нижняя).
-      expect(resizeHandleCount(tester, 'big'), 2,
-          reason: 'на большом блоке обе ручки (верх + низ)');
-
-      // Курсор ресайза действительно задан на зонах хвата (веб/десктоп): хотя бы
-      // одна MouseRegion с resizeUpDown присутствует у обоих блоков.
-      expect(resizeHandleCount(tester, 'small'), greaterThan(0));
+          reason: 'маленький блок: одна нижняя ручка');
+      expect(resizeHandleCount(tester, 'big'), 1,
+          reason: 'большой блок: тоже одна ручка — верхней больше нет');
 
       await unmountAndFlush(tester);
     },
@@ -448,15 +449,90 @@ void main() {
   );
 
   testWidgets(
-    'ОЧЕНЬ короткий блок — ручек нет совсем',
+    'ОЧЕНЬ короткий блок (15 мин, 24px, реальный пол высоты) — ручка ЕСТЬ '
+    'и её можно схватить',
     (tester) async {
-      // 15 мин → durationToHeight зажимает до 24px (< _kBottomHandleMinHeight
-      // ~36px) → ручек нет, ресайз только через карточку-деталь.
+      // 15 мин → durationToHeight зажимает до 24px — это реальный минимум
+      // высоты блока в приложении. Правка владельца продукта: раньше ручек не
+      // было совсем; теперь ручка показывается ВСЕГДА (bottomHandleHeight
+      // адаптирует её размер, но не убирает).
       await insertTask(id: 'tiny', hour: 8, minute: 0, durationMinutes: 15);
       await pumpGrid(tester);
 
-      expect(resizeHandleCount(tester, 'tiny'), 0,
-          reason: 'очень короткий блок без ручек ресайза');
+      expect(resizeHandleCount(tester, 'tiny'), 1,
+          reason: 'даже самый короткий блок имеет ручку ресайза');
+
+      await unmountAndFlush(tester);
+    },
+  );
+
+  testWidgets(
+    'ОЧЕНЬ короткий блок — нижнюю ручку можно потянуть и увеличить длительность '
+    '(тач-путь)',
+    (tester) async {
+      await insertTask(id: 'tiny-drag', hour: 8, minute: 0, durationMinutes: 15);
+      await pumpGrid(tester);
+
+      final before = await readTask('tiny-drag');
+      expect(before.durationMinutes, 15);
+
+      final blockBox = tester.getRect(find.byKey(const ValueKey('tiny-drag')));
+      // Блок 24px высотой; ручка адаптивной высоты (16px) прижата к низу —
+      // целимся в нижний край блока.
+      final grabBottom = Offset(blockBox.center.dx, blockBox.bottom - 4);
+
+      await tester.dragFrom(grabBottom, Offset(0, hourHeight));
+      await tester.pump();
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final after = await readTask('tiny-drag');
+      expect(after.durationMinutes, greaterThan(15),
+          reason: 'даже самый короткий блок реально ресайзится за нижний край');
+      expect(after.scheduledAt.hour, 8, reason: 'начало не тронуто (нет верхней ручки)');
+      expect(after.scheduledAt.minute, 0);
+
+      await unmountAndFlush(tester);
+    },
+  );
+
+  testWidgets(
+    'ОЧЕНЬ короткий блок — мышиный ресайз за нижний край стартует СРАЗУ, без '
+    'предварительного выбора блока',
+    (tester) async {
+      // Ключевой сценарий фидбека владельца продукта: на коротких блоках
+      // ресайз мышью "работал только после выбора блока", потому что ручки не
+      // было совсем и палец/мышь попадали в тело (перенос). Теперь ручка есть
+      // всегда — первое же нажатие-и-протягивание мышью по низу должно менять
+      // длительность, БЕЗ какого-либо предшествующего тапа/клика по блоку.
+      await insertTask(
+          id: 'tiny-mouse', hour: 8, minute: 0, durationMinutes: 15);
+      await pumpGrid(tester);
+
+      final blockBox =
+          tester.getRect(find.byKey(const ValueKey('tiny-mouse')));
+      final grabBottom = Offset(blockBox.center.dx, blockBox.bottom - 4);
+
+      // ПЕРВОЕ и единственное касание — сразу мышиный drag по ручке, без
+      // предварительного tap/select.
+      final gesture = await tester.startGesture(
+        grabBottom,
+        kind: PointerDeviceKind.mouse,
+      );
+      await gesture.moveBy(const Offset(0, hourHeight));
+      await tester.pump(const Duration(milliseconds: 16));
+      await gesture.up();
+      await tester.pump();
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final after = await readTask('tiny-mouse');
+      expect(after.durationMinutes, greaterThan(15),
+          reason:
+              'мышиный ресайз короткого блока сработал с первого касания, '
+              'без предварительного выбора');
 
       await unmountAndFlush(tester);
     },

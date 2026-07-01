@@ -170,8 +170,17 @@ enum CompactBlockContent {
 /// Минимальная ширина блока, при которой имеет смысл рисовать текст вообще.
 const double kCompactMinTextWidth = 36.0;
 
-/// Минимальная высота блока для читаемого заголовка в узком виде.
-const double kCompactMinTextHeight = 22.0;
+/// Минимальная высота блока для читаемого заголовка. Снижена с 22 до 10 px
+/// (правка владельца продукта): раньше короткие задачи (10–25 мин, реальный
+/// пол высоты блока — 24px из-за minHeight в durationToHeight) оставались
+/// совсем пустыми — после вычитания вертикальных паддингов блока (3+3=6px)
+/// их эффективная высота текста (~18px) была НИЖЕ старого порога 22 и заголовок
+/// не показывался вовсе. FittedBox(scaleDown) в _buildDayContent/
+/// _buildCompactContent — жёсткий гард от overflow на ЛЮБОЙ высоте, поэтому
+/// порог можно безопасно снижать: перегрузки Column не будет, риск только в
+/// нечитаемо мелком тексте на совсем крошечных высотах (тут запас 10px всё ещё
+/// разборчив после scaleDown).
+const double kCompactMinTextHeight = 10.0;
 
 /// Минимальная ширина для отображения диапазона времени (он длиннее заголовка).
 const double kCompactMinTimeWidth = 64.0;
@@ -190,6 +199,34 @@ CompactBlockContent compactBlockContent(double width, double height) {
     return CompactBlockContent.titleAndTime;
   }
   return CompactBlockContent.titleOnly;
+}
+
+/// Резерв «тела» блока (тап → карточка-деталь, долгое нажатие → перенос),
+/// который остаётся ВСЕГДА, даже на самом коротком блоке — иначе нижняя ручка
+/// ресайза съедала бы блок целиком, и тело стало бы недостижимо для tap/move.
+const double kHandleBodyReserve = 8.0;
+
+/// Высота зоны хвата нижней ручки ресайза для блока высотой [blockHeight].
+/// Правка владельца продукта: раньше на блоках ниже ~36px ручки не было
+/// СОВСЕМ (ни ресайза, ни подсказки, что он возможен) — теперь ручка
+/// показывается ВСЕГДА (как в Google Calendar), а её высота адаптивно
+/// уменьшается на маленьких блоках, но никогда не съедает больше
+/// [blockHeight] минус [minBodyReserve] — так тело блока (тап/перенос)
+/// остаётся достижимым. На обычных блоках (>= [handleHitHeight] +
+/// [minBodyReserve], т.е. по умолчанию 30px) высота ручки полная (22px).
+/// На самом коротком реальном блоке (24px, минимум durationToHeight) высота
+/// ручки — 16px (24 − 8 резерва) — достаточно для надёжного хвата мышью и
+/// пальцем. Чистая функция — покрыта юнит-тестами.
+double bottomHandleHeight(
+  double blockHeight, {
+  double handleHitHeight = 22.0,
+  double minBodyReserve = kHandleBodyReserve,
+}) {
+  final available = blockHeight - minBodyReserve;
+  // Вырожденный случай (блок меньше самого резерва тела) — отдаём ручке весь
+  // блок целиком: лучше ресайзабельный блок без тела, чем совсем без ручки.
+  if (available <= 0) return blockHeight > 0 ? blockHeight : 0;
+  return available < handleHitHeight ? available : handleHitHeight;
 }
 
 /// Раскладка перекрывающихся событий по равным колонкам-«дорожкам».
@@ -1252,10 +1289,11 @@ class _CreateLayerState extends State<_CreateLayer> {
   }
 }
 
-/// Активный жест блока: перенос (drag), изменение конца (resize, нижняя ручка)
-/// или изменение начала (resizeTop, верхняя ручка — двигает верхнюю границу,
-/// меняя startTime и длительность, нижняя граница фиксирована).
-enum _GestureKind { none, drag, resize, resizeTop, settling }
+/// Активный жест блока: перенос (drag), изменение длительности через нижнюю
+/// ручку (resize, меняет конец блока) или «приземление» после коммита
+/// (settling). Верхней ручки (resize начала) больше нет — по решению владельца
+/// продукта оставлена ТОЛЬКО нижняя ручка ресайза (см. bottomHandleHeight).
+enum _GestureKind { none, drag, resize, settling }
 
 /// Эфемерное состояние жеста блока. Хранится в ValueNotifier, чтобы во время
 /// жеста перерисовывался только Positioned + плавающая подсказка, а не весь
@@ -1355,24 +1393,6 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
   static const double _handleHitHeight = 22.0;
   static const double _laneGap = 2.0;
 
-  // Пороги показа ручек ресайза (по baseHeight). Модель Google Calendar:
-  // на МАЛЕНЬКОМ блоке мало места — оставляем ТОЛЬКО нижнюю ручку (resize конца),
-  // на БОЛЬШОМ — обе (верх тянет начало, низ — конец). Нижняя появляется РАНЬШЕ
-  // (на меньшей высоте), чем верхняя.
-  //
-  // Запас [_kHandleBodyGap] — это тело блока, которое зоны хвата НЕ должны
-  // съедать целиком, иначе tap/long-press-move перестанут попадать в тело.
-  //   • нижняя ручка: блок должен вместить одну зону хвата + тело →
-  //     baseHeight >= _handleHitHeight + _kHandleBodyGap (~36px);
-  //   • обе ручки: блок должен вместить ДВЕ зоны хвата + тело между ними →
-  //     baseHeight >= _handleHitHeight*2 + _kHandleBodyGap (~58px).
-  // Ниже нижнего порога — совсем короткий блок, ручек нет (как было), ресайз
-  // через карточку-деталь.
-  static const double _kHandleBodyGap = 14.0;
-  static const double _kBottomHandleMinHeight =
-      _handleHitHeight + _kHandleBodyGap; // ~36px → появляется нижняя ручка
-  static const double _kBothHandlesMinHeight =
-      _handleHitHeight * 2 + _kHandleBodyGap; // ~58px → добавляется верхняя
   // Минимальная высота блока во время resize в пикселях (= минимум 15 минут
   // визуально, но не меньше, чтобы хват не схлопнулся).
   static const double _minResizePx = 18.0;
@@ -1432,38 +1452,7 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
         );
       },
       onResizeEnd: _commitResize,
-      // Верхняя ручка: двигает ВЕРХНЮЮ границу (начало), нижняя зафиксирована.
-      onResizeTopStart: () {
-        HapticFeedback.selectionClick();
-        // Старт: снэп-слот = текущее снэпнутое начало (тик только при смене).
-        _lastSnapSlot = offsetToSnappedMinutes(baseTop, widget.hourHeight);
-        _gesture.value =
-            _BlockGesture(_GestureKind.resizeTop, baseTop, baseHeight);
-      },
-      onResizeTopUpdate: (dy) {
-        final g = _gesture.value;
-        // Нижняя граница фиксирована = исходный низ блока. Двигаем верх, высота
-        // = низ − верх. Clamp: высота не меньше минимума (не уходит в ноль/минус)
-        // и верх не выше 0 (не вылезает за сутки сверху).
-        final bottomPx = baseTop + baseHeight;
-        final curTop = g.kind == _GestureKind.resizeTop ? g.topPx : baseTop;
-        var nextTop = curTop + dy;
-        if (nextTop < 0) nextTop = 0;
-        if (nextTop > bottomPx - _minResizePx) {
-          nextTop = bottomPx - _minResizePx;
-        }
-        // B2: тик при смене снэпнутого начала (слот = снэпнутые минуты верха).
-        _tickOnSnapChange(offsetToSnappedMinutes(nextTop, widget.hourHeight));
-        _gesture.value = _BlockGesture(
-          _GestureKind.resizeTop,
-          nextTop,
-          bottomPx - nextTop,
-        );
-      },
-      onResizeTopEnd: _commitResizeTop,
       handleHitHeight: _handleHitHeight,
-      bottomHandleMinHeight: _kBottomHandleMinHeight,
-      bothHandlesMinHeight: _kBothHandlesMinHeight,
     );
 
     // Внутренняя обёртка лифта (масштаб + тень + подсказка). Вынесена из
@@ -1480,11 +1469,10 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
         final height = g.active ? g.heightPx : baseHeight;
         final dragging = g.kind == _GestureKind.drag;
         final resizing = g.kind == _GestureKind.resize;
-        final resizingTop = g.kind == _GestureKind.resizeTop;
 
-        // Плавающая подсказка: при drag — новое время начала; при resize (низ) —
-        // конец + длительность; при resizeTop (верх) — новое начало + длительность.
-        // Привязка к 15 мин показывается уже снэпнутой.
+        // Плавающая подсказка: при drag — новое время начала; при resize
+        // (нижняя ручка, единственная) — конец + длительность. Привязка к
+        // 15 мин показывается уже снэпнутой.
         Widget? floatingLabel;
         if (dragging) {
           final snapMin = offsetToSnappedMinutes(top, widget.hourHeight);
@@ -1494,14 +1482,6 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
           final dur = snapDuration(rawMinutes);
           floatingLabel = _GestureLabel(
             text: '${formatMinutesOfDay(startMin + dur)}  ·  '
-                '${_durationShort(dur)}',
-          );
-        } else if (resizingTop) {
-          final newStartMin = offsetToSnappedMinutes(top, widget.hourHeight);
-          final rawMinutes = (height / widget.hourHeight * 60).round();
-          final dur = snapDuration(rawMinutes);
-          floatingLabel = _GestureLabel(
-            text: '${formatMinutesOfDay(newStartMin)}  ·  '
                 '${_durationShort(dur)}',
           );
         }
@@ -1520,6 +1500,25 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
           scale: lifted ? 1.03 : 1.0,
           duration: effectiveDuration(context, kDurationSnap),
           curve: kCurveSnap,
+          // ВАЖНО (баг-фикс ресайза на первый жест мышью): у КАЖДОГО элемента
+          // этого Stack — СТАБИЛЬНЫЙ Key. Без ключей Flutter сопоставляет
+          // unkeyed children списка ПО ИНДЕКСУ; когда showShadow переключается
+          // false→true РОВНО в момент onResizeStart (тень появляется как НОВЫЙ
+          // элемент №0), индекс `Positioned.fill(child: child!)` («child!» —
+          // это `content`/_BlockContent, а внутри него живёт RawGestureDetector
+          // нижней ручки с _EagerVerticalDragRecognizer) СМЕЩАЕТСЯ. Flutter
+          // трактует это как «тип виджета в этой позиции сменился» и УНИЧТОЖАЕТ
+          // старый Element вместе с его State — а значит и recognizer,
+          // который в этот момент уже держит указатель в середине жеста
+          // (onStart уже вызван, но onEnd/onCancel для СТАРОГО recognizer'а
+          // никогда не придёт — указатель никто не трекает). На тач-пути жест
+          // (down→move→up) успевает завершиться до следующего pump() и
+          // разрушительный rebuild не успевает случиться раньше _commitResize;
+          // на мышином пути (эксплицитный pump() между move и up, как в UI:
+          // кадры рисуются во время live-драга) — успевает, ресайз ломается
+          // на первом же кадре. Явные Key делают сопоставление по ключу, а не
+          // по индексу — Element (и recognizer внутри) переживает переключение
+          // тени/подсказки без пересоздания.
           child: Stack(
             clipBehavior: Clip.none,
             children: [
@@ -1527,6 +1526,7 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
               // на settling её opacity → 0 (плавное гашение, B3).
               if (showShadow)
                 Positioned.fill(
+                  key: const ValueKey('block-shadow'),
                   child: AnimatedOpacity(
                     opacity: settling ? 0.0 : 1.0,
                     duration: effectiveDuration(context, kDurationSnap),
@@ -1545,10 +1545,15 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
                     ),
                   ),
                 ),
-              Positioned.fill(child: child!),
+              Positioned.fill(key: const ValueKey('block-content'), child: child!),
               // Плавающая подсказка не нужна на фазе приземления — жест отпущен.
               if (floatingLabel != null && !settling)
-                Positioned(top: 2, right: 2, child: floatingLabel),
+                Positioned(
+                  key: const ValueKey('block-label'),
+                  top: 2,
+                  right: 2,
+                  child: floatingLabel,
+                ),
             ],
           ),
         );
@@ -1573,9 +1578,9 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
     //     мышью по-прежнему открывает карточку-деталь.
     //   • Оба drag-пути переиспользуют общие beginBlockDrag/applyBlockDragDelta/
     //     cancelBlockDrag ниже — коммит (snap/сохранение) общий, _commitMove.
-    // Нижняя/верхняя ручки (resize) — отдельный _EagerVerticalDragRecognizer в
-    // _BlockContent, он выигрывает на своей зоне, поэтому tap/drag/resize/
-    // скролл не конфликтуют.
+    // Нижняя ручка (resize, единственная) — отдельный _EagerVerticalDragRecognizer
+    // в _BlockContent, он выигрывает на своей зоне (и для тача, и для мыши),
+    // поэтому tap/drag/resize/скролл не конфликтуют.
     var lastMoveDy = 0.0;
 
     // Общий старт переноса: хаптика-лифт (выключаема для мыши — на десктопе
@@ -1802,71 +1807,9 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
       ),
     );
   }
-
-  /// Сохраняет ресайз верхней ручкой: меняет НАЧАЛО (scheduledAt) и длительность
-  /// так, чтобы КОНЕЦ остался на месте. Новое начало снапится к сетке (15 мин),
-  /// длительность пересчитывается от фиксированного конца и зажимается минимумом
-  /// (никогда не уходит в ноль/минус).
-  Future<void> _commitResizeTop() async {
-    final g = _gesture.value;
-    if (g.kind != _GestureKind.resizeTop) {
-      _gesture.value = const _BlockGesture.none();
-      return;
-    }
-    HapticFeedback.selectionClick();
-
-    // Конец задачи в минутах от полуночи (фиксирован при ресайзе верхом).
-    final origStartMin = minutesFromMidnight(widget.item.scheduledAt);
-    final endMin = origStartMin + widget.item.durationMinutes;
-
-    // Новое начало = снап позиции верхней границы к сетке.
-    final snappedStart = offsetToSnappedMinutes(g.topPx, widget.hourHeight);
-    // Длительность от фиксированного конца, минимум kMinDurationMinutes.
-    var newDuration = endMin - snappedStart;
-    if (newDuration < kMinDurationMinutes) newDuration = kMinDurationMinutes;
-    final newStartMin = endMin - newDuration;
-
-    // B3: «приземление» — довозим верхнюю границу к снэпнутому началу; нижняя
-    // (top + height) фиксирована, поэтому новый top = снэп, высота от него.
-    final settledTop = minutesToOffset(newStartMin, widget.hourHeight);
-    _settle(settledTop, durationToHeight(newDuration, widget.hourHeight));
-
-    final newStart = DateTime(
-      widget.day.year,
-      widget.day.month,
-      widget.day.day,
-      newStartMin ~/ 60,
-      newStartMin % 60,
-    );
-
-    final unchanged = newStartMin == origStartMin &&
-        newDuration == widget.item.durationMinutes;
-    if (unchanged) return;
-
-    final dao = ref.read(itemsDaoProvider);
-    // Виртуальный повтор серии: материализуем день с новым началом и длительностью.
-    if (isVirtualOccurrenceId(widget.item.id)) {
-      await dao.materializeOccurrence(
-        anchorIdFromVirtual(widget.item.id),
-        dateFromVirtual(widget.item.id) ?? widget.day,
-        status: widget.item.status,
-        scheduledAt: newStart,
-        durationMinutes: newDuration,
-      );
-      return;
-    }
-    await dao.updateItem(
-      widget.item.id,
-      ItemsTableCompanion(
-        scheduledAt: Value(newStart),
-        durationMinutes: Value(newDuration),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
-  }
 }
 
-/// Карта распознавателей для зоны хвата ручки ресайза (верхней или нижней).
+/// Карта распознавателей для зоны хвата нижней ручки ресайза.
 /// Один [_EagerVerticalDragRecognizer] — он принимает жест в арене НЕМЕДЛЕННО
 /// (resolve(accepted) в addAllowedPointer), стабильно выигрывая над long-press
 /// родительского блока уже на ПЕРВЫЙ потяг. Распознаватель device-agnostic, т.е.
@@ -1924,43 +1867,30 @@ class _BlockContent extends StatelessWidget {
     required this.onResizeStart,
     required this.onResizeUpdate,
     required this.onResizeEnd,
-    required this.onResizeTopStart,
-    required this.onResizeTopUpdate,
-    required this.onResizeTopEnd,
     required this.handleHitHeight,
-    required this.bottomHandleMinHeight,
-    required this.bothHandlesMinHeight,
   });
 
   final ItemsTableData item;
   final ({Color bg, Color fg, Color border, Color accentStripe}) colors;
   final bool compact;
   final double baseHeight;
-  // Нижняя ручка (resize конца).
+  // Нижняя ручка ресайза (меняет длительность) — единственная ручка блока
+  // (верхняя убрана по решению владельца продукта).
   final VoidCallback onResizeStart;
   final ValueChanged<double> onResizeUpdate;
   final VoidCallback onResizeEnd;
-  // Верхняя ручка (resize начала).
-  final VoidCallback onResizeTopStart;
-  final ValueChanged<double> onResizeTopUpdate;
-  final VoidCallback onResizeTopEnd;
   final double handleHitHeight;
-  // Порог (по baseHeight), с которого показывается НИЖНЯЯ ручка (resize конца).
-  // Появляется раньше верхней — на меньшей высоте.
-  final double bottomHandleMinHeight;
-  // Порог (по baseHeight), с которого ДОБАВЛЯЕТСЯ ВЕРХНЯЯ ручка (resize начала).
-  // Выше нижнего: верх показываем лишь когда под ДВЕ зоны хвата + тело хватает места.
-  final double bothHandlesMinHeight;
 
   @override
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
-    // Пороговая логика показа ручек (модель Google Calendar):
-    //   • маленький блок (< bottomHandleMinHeight) — ручек нет;
-    //   • средний (>= bottomHandleMinHeight) — ТОЛЬКО нижняя;
-    //   • большой (>= bothHandlesMinHeight) — верхняя + нижняя.
-    final showBottomHandle = baseHeight >= bottomHandleMinHeight;
-    final showTopHandle = baseHeight >= bothHandlesMinHeight;
+    // Ручка показывается ВСЕГДА (как в Google Calendar) — даже на самом
+    // коротком блоке. Её высота адаптивно уменьшается на маленьких блоках, но
+    // никогда не съедает тело целиком (см. bottomHandleHeight).
+    final handleHeight = bottomHandleHeight(
+      baseHeight,
+      handleHitHeight: handleHitHeight,
+    );
     final timeRange = formatBlockTimeRange(item.scheduledAt, item.durationMinutes);
     final isDone = item.status == 'done';
 
@@ -2043,65 +1973,34 @@ class _BlockContent extends StatelessWidget {
             ),
           ),
           // Нижняя ручка изменения длительности: видимая полоска + крупная
-          // невидимая зона хвата (Закон Фиттса).
+          // невидимая зона хвата (Закон Фиттса). Единственная ручка ресайза —
+          // верхняя убрана по решению владельца продукта.
           //
-          // Арена жестов: родительский блок слушает onLongPress* (перенос). Если
-          // ручку повесить на обычный GestureDetector с onVerticalDrag, то на
-          // ПЕРВОМ касании арена сначала отдаёт жест долгому нажатию родителя
-          // (вертикальный drag «проигрывает» по умолчанию), и ресайз срабатывал
-          // лишь со второго хвата. Поэтому здесь RawGestureDetector с
+          // Арена жестов: родительский блок слушает onLongPress*/Pan (перенос).
+          // Если ручку повесить на обычный GestureDetector с onVerticalDrag, то
+          // на ПЕРВОМ касании арена сначала отдаёт жест родителю (вертикальный
+          // drag «проигрывает» по умолчанию), и ресайз срабатывал лишь со
+          // второго хвата. Поэтому здесь RawGestureDetector с
           // _EagerVerticalDragRecognizer — он принимает жест в арене немедленно
-          // (resolve(accepted) на старте), стабильно выигрывая над long-press
-          // родителя уже на первый потяг. Вне зоны ручки перенос блока работает
-          // как прежде.
+          // (resolve(accepted) на старте), стабильно выигрывая над родительским
+          // long-press/Pan уже на первый потяг — ТАЧ и МЫШЬ одинаково. Вне зоны
+          // ручки перенос блока работает как прежде.
           //
-          // ВЕРХНЯЯ ручка (resize начала) — зеркальна нижней, тем же eager-
-          // распознавателем. Показываем только когда блок достаточно высок, чтобы
-          // верхняя и нижняя зоны хвата не перекрыли весь блок (иначе тело стало
-          // бы недоступно для tap/move). startTime тянется верхом, endTime — низом.
-          if (showTopHandle)
-            Positioned(
-              left: 0,
-              right: 0,
-              top: 0,
-              height: handleHitHeight,
-              // MouseRegion-курсор ресайза (resizeUpDown): на вебе/десктопе при
-              // наведении мышью на зону хвата верхней ручки курсор сообщает «край
-              // тянется», как у Google Calendar. На тач-устройствах курсора нет —
-              // поведение не меняется.
-              child: MouseRegion(
-                cursor: SystemMouseCursors.resizeUpDown,
-                child: RawGestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  gestures: _resizeHandleGestures(
-                    onStart: onResizeTopStart,
-                    onUpdate: onResizeTopUpdate,
-                    onEnd: onResizeTopEnd,
-                  ),
-                  child: Align(
-                    alignment: Alignment.topCenter,
-                    child: Container(
-                      width: 28,
-                      height: 4,
-                      margin: const EdgeInsets.only(top: 3),
-                      decoration: BoxDecoration(
-                        // На плотной заливке ручка из цвета текста (автоконтраст)
-                        // читается лучше, чем граница (близкая к фону).
-                        color: colors.fg.withValues(alpha: 0.55),
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          if (showBottomHandle)
+          // Ручка показывается ВСЕГДА (handleHeight > 0 почти всегда — см.
+          // bottomHandleHeight), в т.ч. на самом коротком блоке: там её высота
+          // адаптивно меньше полной [handleHitHeight], но резерв тела
+          // (kHandleBodyReserve) не даёт ей съесть блок целиком — тап/перенос
+          // остаются доступны даже на короткой задаче.
+          if (handleHeight > 0)
             Positioned(
               left: 0,
               right: 0,
               bottom: 0,
-              height: handleHitHeight,
-              // MouseRegion-курсор ресайза для зоны хвата нижней ручки (см. выше).
+              height: handleHeight,
+              // MouseRegion-курсор ресайза (resizeUpDown): на вебе/десктопе при
+              // наведении мышью на зону хвата курсор сообщает «край тянется»,
+              // как у Google Calendar. На тач-устройствах курсора нет —
+              // поведение не меняется.
               child: MouseRegion(
                 cursor: SystemMouseCursors.resizeUpDown,
                 child: RawGestureDetector(

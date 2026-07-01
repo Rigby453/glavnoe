@@ -178,6 +178,36 @@ void main() {
     });
   });
 
+  group('bottomHandleHeight', () {
+    test('обычный блок (>= handleHitHeight + minBodyReserve) → полная ручка', () {
+      // По умолчанию handleHitHeight=22, minBodyReserve=8 → порог 30px.
+      expect(bottomHandleHeight(30), 22.0);
+      expect(bottomHandleHeight(100), 22.0);
+    });
+    test('реальный минимум блока (24px, пол durationToHeight) → адаптивная '
+        'ручка 16px, резерв тела 8px', () {
+      expect(bottomHandleHeight(24), 16.0);
+    });
+    test('ручка ВСЕГДА показывается — даже на очень коротком блоке', () {
+      expect(bottomHandleHeight(24), greaterThan(0));
+      expect(bottomHandleHeight(10), greaterThan(0));
+    });
+    test('вырожденный случай (блок меньше резерва тела) — ручка = весь блок', () {
+      expect(bottomHandleHeight(5, minBodyReserve: 8), 5.0);
+      expect(bottomHandleHeight(0), 0.0);
+    });
+    test('кастомные handleHitHeight/minBodyReserve уважаются', () {
+      expect(
+        bottomHandleHeight(50, handleHitHeight: 10, minBodyReserve: 4),
+        10.0,
+      );
+      expect(
+        bottomHandleHeight(12, handleHitHeight: 10, minBodyReserve: 4),
+        8.0,
+      );
+    });
+  });
+
   group('computeOverlapLanes', () {
     test('пустой список', () {
       expect(computeOverlapLanes([]), isEmpty);
