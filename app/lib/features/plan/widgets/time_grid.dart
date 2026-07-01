@@ -38,11 +38,15 @@ import 'recurrence_providers.dart';
 import 'task_detail_card.dart';
 import 'week_strip.dart' show selectedDayProvider;
 
-// Порог удержания для подхвата блока на перенос (long-press).
-// Дефолт Flutter kLongPressTimeout ≈ 500 мс — по живому тесту слишком долго
-// держать; 250 мс заметно отзывчивее, но всё ещё отличает «придержал → тяну»
-// от быстрого свайпа-скролла сетки. Подстраивать здесь.
-const _kBlockPickupDelay = Duration(milliseconds: 250);
+// Порог удержания для подхвата блока на перенос (long-press, ТАЧ-путь).
+// Дефолт Flutter kLongPressTimeout ≈ 500 мс — слишком долго держать; по
+// решению владельца продукта опущено до 120 мс — почти мгновенный подхват
+// пальцем, но ещё отличает «придержал → тяну» от быстрого свайпа-скролла
+// сетки. МЫШЬ/ТРЕКПАД/СТИЛУС не используют эту задержку вовсе — у них
+// немедленный PanGestureRecognizer (см. _EventBlock/_CreateLayer). Общая
+// константа для _CreateLayer (создание) и _EventBlock (перенос) — тач-подхват
+// консистентен на обоих путях.
+const _kBlockPickupDelay = Duration(milliseconds: 120);
 
 // ===========================================================================
 // Чистая математика (тестируемые top-level функции)
@@ -1554,26 +1558,59 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
     // Стабильная часть: распознаватели жеста строятся один раз за data-build и
     // не зависят от кадров жеста.
     //
-    // Арена жестов тела блока — модель Google Calendar:
-    //   • короткий ТАП (нажал-отпустил без увода пальца) → карточка-деталь;
-    //   • быстрый вертикальный СВАЙП по блоку (движение без удержания) →
-    //     ПРОКРУЧИВАЕТ сетку (жест уходит родительскому скроллу);
-    //   • ДОЛГОЕ нажатие (~500 мс) → блок «поднимается» (лифт + хаптика), и В ТОМ
-    //     ЖЕ касании, не отпуская палец, пользователь тянет его на новое время.
-    // LongPressGestureRecognizer по умолчанию выигрывает арену у вертикального
-    // скролла родителя только если палец удержан и почти не двигался первые
-    // мгновения — ровно нужное поведение: коротким движением листаешь сетку,
-    // удержанием берёшь блок. Раньше перенос висел на _EagerPanRecognizer (claim
-    // с первого смещения) и конфликтовал со скроллом — это и заменяем.
+    // Арена жестов тела блока — то же деление по типу указателя, что у
+    // _CreateLayer (drag-to-create на пустом месте):
+    //   • ТАЧ (палец): [LongPressGestureRecognizer] с коротким удержанием
+    //     (_kBlockPickupDelay = 120 мс, supportedDevices = touch). Быстрый
+    //     вертикальный свайп по блоку без паузы не успевает выиграть арену —
+    //     её забирает родительский SingleChildScrollView (скролл сетки
+    //     работает); почти-мгновенное удержание поднимает блок (лифт+хаптика)
+    //     и в том же касании тянет его на новое время.
+    //   • МЫШЬ/ТРЕКПАД/СТИЛУС: [PanGestureRecognizer] — подхват СРАЗУ по
+    //     нажатию-и-протягиванию, без удержания. Claim идёт по порогу
+    //     смещения (slop) самого распознавателя движения, поэтому клик БЕЗ
+    //     движения не крадёт арену у [TapGestureRecognizer] — короткий тап
+    //     мышью по-прежнему открывает карточку-деталь.
+    //   • Оба drag-пути переиспользуют общие beginBlockDrag/applyBlockDragDelta/
+    //     cancelBlockDrag ниже — коммит (snap/сохранение) общий, _commitMove.
     // Нижняя/верхняя ручки (resize) — отдельный _EagerVerticalDragRecognizer в
-    // _BlockContent, он выигрывает на своей зоне, поэтому tap/long-press-move/
-    // resize/скролл не конфликтуют.
-    //
-    // offsetFromOrigin у onLongPressMoveUpdate — это СУММАРНОЕ смещение от точки
-    // подхвата, а не дельта кадра. Считаем инкремент сами (текущее минус прошлое)
-    // и переиспользуем прежнюю функцию накопления top → снапинг/обновление
-    // времени (_commitMove) остаются без изменений.
+    // _BlockContent, он выигрывает на своей зоне, поэтому tap/drag/resize/
+    // скролл не конфликтуют.
     var lastMoveDy = 0.0;
+
+    // Общий старт переноса: хаптика-лифт (выключаема для мыши — на десктопе
+    // тактильной отдачи нет) + пометка active. mediumImpact — ощутимый «взял»,
+    // как принято в проекте для лифта жеста.
+    void beginBlockDrag({bool haptic = true}) {
+      if (haptic) HapticFeedback.mediumImpact();
+      lastMoveDy = 0.0;
+      // B2: снэп-слот = текущее снэпнутое начало (тик только при смене).
+      _lastSnapSlot = offsetToSnappedMinutes(baseTop, widget.hourHeight);
+      _gesture.value = _BlockGesture(_GestureKind.drag, baseTop, baseHeight);
+    }
+
+    // Общее обновление переноса по ПОКАДРОВОЙ дельте [deltaDy] (не суммарному
+    // смещению) — вызывающие стороны сами приводят свой формат к дельте кадра.
+    void applyBlockDragDelta(double deltaDy) {
+      final cur = _gesture.value;
+      final base = cur.kind == _GestureKind.drag ? cur.topPx : baseTop;
+      final nextTop = base + deltaDy;
+      // B2: тик при смене снэпнутого слота начала (шаг 15 мин).
+      _tickOnSnapChange(offsetToSnappedMinutes(nextTop, widget.hourHeight));
+      _gesture.value = _BlockGesture(
+        _GestureKind.drag,
+        nextTop,
+        cur.active ? cur.heightPx : baseHeight,
+      );
+    }
+
+    // Откатывает эфемерный лифт, если жест отменён ареной/уходом.
+    void cancelBlockDrag() {
+      if (_gesture.value.kind == _GestureKind.drag) {
+        _gesture.value = const _BlockGesture.none();
+      }
+    }
+
     final interactive = RawGestureDetector(
       behavior: HitTestBehavior.opaque,
       gestures: <Type, GestureRecognizerFactory>{
@@ -1588,50 +1625,62 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
                 );
           },
         ),
+        // ТАЧ-путь: короткое удержание (_kBlockPickupDelay) → перенос.
+        // Ограничен пальцем (supportedDevices = touch) — мышь идёт по
+        // отдельному немедленному PanGestureRecognizer ниже.
         LongPressGestureRecognizer:
             GestureRecognizerFactoryWithHandlers<LongPressGestureRecognizer>(
-          () => LongPressGestureRecognizer(duration: _kBlockPickupDelay),
+          () => LongPressGestureRecognizer(
+            duration: _kBlockPickupDelay,
+            supportedDevices: const {PointerDeviceKind.touch},
+          ),
           (r) {
+            // Блочные тела (не arrow): сеттеры распознавателя возвращают void,
+            // arrow `=> _commitMove()` дал бы use_of_void_result.
             r
               ..onLongPressStart = (_) {
-                // Подхват блока: хаптика-лифт + пометка active. mediumImpact —
-                // ощутимый «взял», как принято в проекте для лифта жеста.
-                HapticFeedback.mediumImpact();
-                lastMoveDy = 0.0;
-                // B2: снэп-слот = текущее снэпнутое начало (тик только при смене).
-                _lastSnapSlot =
-                    offsetToSnappedMinutes(baseTop, widget.hourHeight);
-                _gesture.value =
-                    _BlockGesture(_GestureKind.drag, baseTop, baseHeight);
+                beginBlockDrag();
               }
               ..onLongPressMoveUpdate = (d) {
-                final cur = _gesture.value;
-                // offsetFromOrigin — суммарное смещение от подхвата. Инкремент
-                // кадра = текущее − прошлое; накапливаем в top, как делал pan.
+                // offsetFromOrigin — суммарное смещение от подхвата; приводим
+                // к дельте кадра (текущее − прошлое) для общей функции.
                 final dy = d.offsetFromOrigin.dy;
-                final deltaDy = dy - lastMoveDy;
+                applyBlockDragDelta(dy - lastMoveDy);
                 lastMoveDy = dy;
-                final base =
-                    cur.kind == _GestureKind.drag ? cur.topPx : baseTop;
-                final nextTop = base + deltaDy;
-                // B2: тик при смене снэпнутого слота начала (шаг 15 мин).
-                _tickOnSnapChange(
-                    offsetToSnappedMinutes(nextTop, widget.hourHeight));
-                _gesture.value = _BlockGesture(
-                  _GestureKind.drag,
-                  nextTop,
-                  cur.active ? cur.heightPx : baseHeight,
-                );
               }
               ..onLongPressEnd = (_) {
                 _commitMove();
               }
-              ..onLongPressCancel = () {
-                // Откатываем эфемерный лифт, если жест отменён ареной/уходом.
-                if (_gesture.value.kind == _GestureKind.drag) {
-                  _gesture.value = const _BlockGesture.none();
-                }
-              };
+              ..onLongPressCancel = cancelBlockDrag;
+          },
+        ),
+        // МЫШЬ/ТРЕКПАД/СТИЛУС-путь: перенос начинается СРАЗУ по нажатию-и-
+        // протягиванию, без удержания (как _CreateLayer). Claim идёт по слопу
+        // самого PanGestureRecognizer, поэтому клик без движения не отбирает
+        // арену у TapGestureRecognizer выше — карточка-деталь по клику работает.
+        PanGestureRecognizer:
+            GestureRecognizerFactoryWithHandlers<PanGestureRecognizer>(
+          () => PanGestureRecognizer(
+            supportedDevices: const {
+              PointerDeviceKind.mouse,
+              PointerDeviceKind.trackpad,
+              PointerDeviceKind.stylus,
+            },
+          ),
+          (r) {
+            r
+              ..onStart = (_) {
+                beginBlockDrag(haptic: false);
+              }
+              ..onUpdate = (d) {
+                // d.delta.dy — уже покадровая дельта, дополнительный учёт
+                // lastMoveDy не нужен (в отличие от long-press-пути выше).
+                applyBlockDragDelta(d.delta.dy);
+              }
+              ..onEnd = (_) {
+                _commitMove();
+              }
+              ..onCancel = cancelBlockDrag;
           },
         ),
       },

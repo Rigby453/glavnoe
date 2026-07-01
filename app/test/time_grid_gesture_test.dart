@@ -14,12 +14,15 @@ import 'package:app/core/database/database_providers.dart';
 import 'package:app/core/theme/app_theme.dart';
 import 'package:app/core/theme/theme_provider.dart'
     show sharedPreferencesProvider;
+import 'package:app/features/plan/widgets/task_detail_card.dart'
+    show TaskDetailCard;
 import 'package:app/features/plan/widgets/time_grid.dart';
 import 'package:app/features/plan/widgets/week_strip.dart'
     show selectedDayProvider;
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,7 +30,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Зеркалит _kBlockPickupDelay из time_grid.dart (та константа приватна).
 // Если меняешь порог подхвата в виджете — обнови и здесь.
-const _kBlockPickupDelay = Duration(milliseconds: 250);
+const _kBlockPickupDelay = Duration(milliseconds: 120);
 
 ThemeData _testTheme() => ThemeData.dark().copyWith(
       extensions: const [
@@ -313,6 +316,132 @@ void main() {
       // Курсор ресайза действительно задан на зонах хвата (веб/десктоп): хотя бы
       // одна MouseRegion с resizeUpDown присутствует у обоих блоков.
       expect(resizeHandleCount(tester, 'small'), greaterThan(0));
+
+      await unmountAndFlush(tester);
+    },
+  );
+
+  testWidgets(
+    'мышиный drag по блоку двигает его СРАЗУ, без порога удержания, и меняет '
+    'scheduledAt',
+    (tester) async {
+      // Мышь/трекпад/стилус подхватывают блок по PanGestureRecognizer СРАЗУ по
+      // нажатию-и-протягиванию — без _kBlockPickupDelay (та задержка действует
+      // только на тач-путь через LongPressGestureRecognizer).
+      //
+      // PanGestureRecognizer «съедает» стартовый slop (kPanSlop ≈ 36px) как
+      // порог отличения клика от драга — это штатное поведение Flutter
+      // (DragStartBehavior.start): первые ~36px движения не долетают до
+      // onUpdate, зато 1:1-трекинг начинается СРАЗУ по их исчерпанию — этим и
+      // достигается «мгновенный подхват» (без задержки по ВРЕМЕНИ). Поэтому
+      // тянем заведомо больше одного часа и проверяем НАПРАВЛЕНИЕ/факт сдвига,
+      // а не точную снэпнутую минуту (та зависит от точного slop, что делает
+      // тест хрупким без выгоды).
+      await insertTask(
+          id: 'mouse-move', hour: 9, minute: 0, durationMinutes: 180);
+      await pumpGrid(tester);
+
+      final before = await readTask('mouse-move');
+      final blockBox = tester.getRect(find.byKey(const ValueKey('mouse-move')));
+      final grabCenter = blockBox.center;
+
+      final gesture = await tester.startGesture(
+        grabCenter,
+        kind: PointerDeviceKind.mouse,
+      );
+      // Никакого ожидания порога подхвата — pan мыши забирает арену по первому
+      // смещению (slop), а не по времени удержания. Тянем на 3 часа суммарно
+      // (168px) несколькими шагами — с запасом покрывает съеденный slop.
+      await tester.pump();
+      for (var i = 0; i < 6; i++) {
+        await gesture.moveBy(const Offset(0, hourHeight / 2));
+        await tester.pump(const Duration(milliseconds: 16));
+      }
+      await gesture.up();
+      await tester.pump();
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final after = await readTask('mouse-move');
+      expect(
+        after.scheduledAt.difference(before.scheduledAt).inMinutes,
+        greaterThanOrEqualTo(60),
+        reason:
+            'мышиный drag без удержания сдвинул блок минимум на час вниз',
+      );
+      expect(after.durationMinutes, 180);
+
+      await unmountAndFlush(tester);
+    },
+  );
+
+  testWidgets(
+    'мышиный клик по блоку БЕЗ движения открывает карточку-деталь, '
+    'scheduledAt не меняется',
+    (tester) async {
+      // Клик мышью без смещения не должен «украсть» арену у TapGestureRecognizer:
+      // PanGestureRecognizer заявляет победу только по порогу движения (slop).
+      await insertTask(
+          id: 'mouse-click', hour: 9, minute: 0, durationMinutes: 180);
+      await pumpGrid(tester);
+
+      final blockBox =
+          tester.getRect(find.byKey(const ValueKey('mouse-click')));
+
+      final gesture = await tester.startGesture(
+        blockBox.center,
+        kind: PointerDeviceKind.mouse,
+      );
+      await tester.pump();
+      await gesture.up();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.byType(TaskDetailCard), findsOneWidget,
+          reason: 'клик мышью без движения открывает карточку-деталь');
+
+      final after = await readTask('mouse-click');
+      expect(after.scheduledAt.hour, 9,
+          reason: 'клик без движения не переносит блок');
+      expect(after.scheduledAt.minute, 0);
+      expect(after.durationMinutes, 180);
+
+      await unmountAndFlush(tester);
+    },
+  );
+
+  testWidgets(
+    'тач-свайп по блоку БЕЗ удержания (быстрее _kBlockPickupDelay) НЕ двигает '
+    'блок — уходит скроллу',
+    (tester) async {
+      // Движение начинается раньше, чем истекает порог удержания (120 мс) —
+      // long-press не успевает выиграть арену у родительского скролла.
+      await insertTask(
+          id: 'fast-swipe', hour: 9, minute: 0, durationMinutes: 180);
+      await pumpGrid(tester);
+
+      final blockBox =
+          tester.getRect(find.byKey(const ValueKey('fast-swipe')));
+      final grabCenter = blockBox.center;
+
+      final gesture = await tester.startGesture(grabCenter);
+      for (var i = 0; i < 6; i++) {
+        await gesture.moveBy(const Offset(0, 12));
+        await tester.pump(const Duration(milliseconds: 8));
+      }
+      await gesture.up();
+      await tester.pump();
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 50)));
+      await tester.pump(const Duration(milliseconds: 300));
+
+      final after = await readTask('fast-swipe');
+      expect(after.scheduledAt.hour, 9,
+          reason:
+              'быстрый свайп без удержания не переносит блок (уходит скроллу)');
+      expect(after.scheduledAt.minute, 0);
+      expect(after.durationMinutes, 180);
 
       await unmountAndFlush(tester);
     },

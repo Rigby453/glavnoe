@@ -31,7 +31,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 // Зеркалит приватную _kBlockPickupDelay из time_grid.dart. Если меняешь порог
 // подхвата в виджете — обнови и здесь.
-const _kBlockPickupDelay = Duration(milliseconds: 250);
+const _kBlockPickupDelay = Duration(milliseconds: 120);
 
 ThemeData _testTheme() => ThemeData.dark().copyWith(
       extensions: const [
