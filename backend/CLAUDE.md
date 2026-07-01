@@ -103,9 +103,15 @@ On item status change to "done":
 ```
 DATABASE_URL=postgresql://...
 DIRECT_URL=postgresql://...   # прямая строка Neon (без -pooler) — только для миграций
-# AI provider is chosen by whichever key is set (see src/ai/provider.ts):
-#   GEMINI_API_KEY present → Gemini (GEMINI_MODEL, default gemini-2.5-flash-lite)
+# AI provider is chosen by whichever key is set (see src/ai/provider.ts),
+# priority order: GROQ_API_KEY → GEMINI_API_KEY → ANTHROPIC_API_KEY:
+#   GROQ_API_KEY present → Groq (GROQ_MODEL / GROQ_MODEL_SMART), checked BEFORE
+#     Gemini — dev/test fallback while Gemini is flaky (see decisions.md ADR)
+#   else GEMINI_API_KEY present → Gemini (GEMINI_MODEL, default gemini-2.5-flash-lite)
 #   else ANTHROPIC_API_KEY → Claude (haiku/sonnet)
+GROQ_API_KEY=gsk_...
+GROQ_MODEL=llama-3.1-8b-instant
+GROQ_MODEL_SMART=llama-3.3-70b-versatile
 GEMINI_API_KEY=AIza...
 GEMINI_MODEL=gemini-2.0-flash-lite
 ANTHROPIC_API_KEY=sk-ant-...

@@ -5,6 +5,31 @@
 
 ---
 
+## ADR-063: Groq added as third AI provider, prioritized above Gemini for dev/test
+**Date:** 2026-07-01
+**Decision:** `backend/src/ai/provider.ts` gains a third provider, `"groq"`, called via Groq's
+OpenAI-compatible REST API (`https://api.groq.com/openai/v1/chat/completions`, `fetch`, no SDK —
+same style as `geminiGenerate`). `activeProvider()` priority is now **`GROQ_API_KEY` →
+`GEMINI_API_KEY` → `ANTHROPIC_API_KEY`** (was Gemini → Anthropic). Models are picked by tier via
+env, mirroring the Gemini/Anthropic pattern: `GROQ_MODEL` (fast, default
+`llama-3.1-8b-instant`), `GROQ_MODEL_SMART` (smart, default `llama-3.3-70b-versatile`), and
+`GROQ_MODEL_VISION` (multimodal, default `meta-llama/llama-4-scout-17b-16e-instruct`) when an
+image is present. Groq errors are classified into the existing `AiError`/`classifyAiError`
+scheme (`buildGroqError`: 429 → `quota_daily`/`quota_rate` by keyword, 502/503 → `overloaded`,
+else `unknown`) so `retry.ts` and the routes need **no changes**. `generateText()` now routes by
+provider up front (`groq`/`anthropic` call directly, `gemini` keeps its existing
+`shouldFallbackToAnthropic` try/catch) — Groq has no cross-provider fallback since it is itself
+the dev-time escape hatch. OpenAI JSON mode requires the literal word "json" somewhere in the
+messages (else 400s); `groqGenerate` guards this by appending an instruction to the system
+message when `json:true` and neither `system` nor `user` already contains "json".
+**Reason:** Gemini has been unreliable during development (frequent 429/perceived overload),
+slowing down iteration on AI features. Groq offers an OpenAI-compatible API (near drop-in) with
+a genuinely free tier, so it is a good stopgap for dev/test while keeping the real paid
+Gemini/Anthropic path for production. Making the switch a pure `.env` change (no code edits, no
+route/engine changes) matches the existing provider-abstraction design (ADR-022) and keeps
+`backend/src/ai/` the sole place model calls happen. Prioritizing Groq over Gemini when both keys
+are present is intentional — during active dev we want the stable provider, not the flaky one.
+
 ## ADR-062: Profile (anthropometry + nutrition/water goals) synced to the server via User + PATCH /auth/me
 **Date:** 2026-07-01
 **Проблема (баг с устройства):** дневная цель калорий/КБЖУ и антропометрия (вес, рост,

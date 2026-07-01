@@ -40,7 +40,22 @@ services:
       - key: JWT_SECRET
         sync: false
 
-      # Gemini API key (если задан — AI использует Gemini; иначе — Claude)
+      # Groq API key — временный dev/test-провайдер AI (бесплатный тир,
+      # OpenAI-совместимый REST). Если задан — выбирается ПЕРВЫМ (см.
+      # backend/src/ai/provider.ts::activeProvider), раньше GEMINI_API_KEY,
+      # потому что Gemini в разработке нестабилен (частые 429/перегрузки).
+      - key: GROQ_API_KEY
+        sync: false
+
+      # Название быстрой модели Groq (напр. llama-3.1-8b-instant)
+      - key: GROQ_MODEL
+        sync: false
+
+      # Название "умной" модели Groq для сложных задач (напр. llama-3.3-70b-versatile)
+      - key: GROQ_MODEL_SMART
+        sync: false
+
+      # Gemini API key (если задан и GROQ_API_KEY не задан — AI использует Gemini; иначе — Claude)
       - key: GEMINI_API_KEY
         sync: false
 

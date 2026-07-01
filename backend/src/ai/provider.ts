@@ -1,17 +1,18 @@
 /**
  * Провайдер-агностичный слой генерации для AI-фич.
- * Выбор провайдера по env: есть GEMINI_API_KEY → Gemini; иначе ANTHROPIC_API_KEY → Claude.
- * Так переключение Gemini ↔ Anthropic — это только смена .env, без правки логики фич.
+ * Выбор провайдера по env, приоритет: GROQ_API_KEY → GEMINI_API_KEY → ANTHROPIC_API_KEY.
+ * Так переключение Groq ↔ Gemini ↔ Anthropic — это только смена .env, без правки логики фич.
  * Вызовы модели идут ТОЛЬКО отсюда (backend/src/ai/).
  *
- * Gemini зовётся по REST (global fetch, Node 22) — без SDK, чтобы не плодить
- * зависимости. Anthropic — через официальный SDK.
+ * Groq и Gemini зовутся по REST (global fetch, Node 22) — без SDK, чтобы не
+ * плодить зависимости. Anthropic — через официальный SDK. Groq использует
+ * OpenAI-совместимый REST API (chat/completions).
  */
 
 import Anthropic from "@anthropic-ai/sdk";
 import { AiError, classifyAiError, type AiErrorKind } from "./aiErrors.js";
 
-export type AiProvider = "gemini" | "anthropic";
+export type AiProvider = "gemini" | "anthropic" | "groq";
 export type ModelTier = "fast" | "smart";
 
 export interface GenerateParams {
@@ -26,12 +27,19 @@ export interface GenerateParams {
   image?: { base64: string; mediaType: string };
 }
 
-/** Какой провайдер активен (по наличию ключа). */
+/**
+ * Какой провайдер активен (по наличию ключа).
+ * Приоритет: GROQ_API_KEY → GEMINI_API_KEY → ANTHROPIC_API_KEY.
+ * Groq стоит первым НАМЕРЕННО: Gemini в разработке/тестировании ведёт себя
+ * нестабильно (частые 429/перегрузки), а у Groq есть щедрый бесплатный тир —
+ * если ключ Groq задан, считаем это осознанным выбором на время разработки.
+ */
 export function activeProvider(): AiProvider {
+  if (process.env["GROQ_API_KEY"]) return "groq";
   if (process.env["GEMINI_API_KEY"]) return "gemini";
   if (process.env["ANTHROPIC_API_KEY"]) return "anthropic";
   throw new Error(
-    "No AI key set — define GEMINI_API_KEY (or ANTHROPIC_API_KEY) in backend/.env"
+    "No AI key set — define GROQ_API_KEY (or GEMINI_API_KEY / ANTHROPIC_API_KEY) in backend/.env"
   );
 }
 
@@ -52,7 +60,9 @@ export function shouldFallbackToAnthropic(err: unknown, hasAnthropicKey: boolean
 
 /** Единая точка генерации текста для всех AI-фич. */
 export async function generateText(params: GenerateParams): Promise<string> {
-  if (activeProvider() !== "gemini") return anthropicGenerate(params);
+  const provider = activeProvider();
+  if (provider === "groq") return groqGenerate(params);
+  if (provider === "anthropic") return anthropicGenerate(params);
   try {
     return await geminiGenerate(params);
   } catch (err) {
@@ -232,6 +242,125 @@ function buildGeminiError(httpStatus: number, bodyText: string): AiError {
   } else if (message.toLowerCase().includes("user location is not supported")) {
     kind = "region";
   } else if (httpStatus === 503 || apiStatus === "UNAVAILABLE") {
+    kind = "overloaded";
+  } else {
+    kind = "unknown";
+  }
+  return new AiError(kind, fullMessage);
+}
+
+// ---------------------------------------------------------------------------
+// Groq (REST, OpenAI-совместимый chat/completions) — приоритетный dev-провайдер
+// ---------------------------------------------------------------------------
+
+interface GroqResponse {
+  choices?: { message?: { content?: string } }[];
+}
+
+function groqModel(tier: ModelTier, hasImage: boolean): string {
+  if (hasImage) {
+    return process.env["GROQ_MODEL_VISION"] ?? "meta-llama/llama-4-scout-17b-16e-instruct";
+  }
+  return tier === "smart"
+    ? (process.env["GROQ_MODEL_SMART"] ?? "llama-3.3-70b-versatile")
+    : (process.env["GROQ_MODEL"] ?? "llama-3.1-8b-instant");
+}
+
+async function groqGenerate({
+  system,
+  user,
+  maxTokens,
+  tier,
+  json,
+  image,
+}: GenerateParams): Promise<string> {
+  const apiKey = process.env["GROQ_API_KEY"];
+  if (!apiKey) throw new Error("GROQ_API_KEY is not set.");
+
+  const model = groqModel(tier ?? "fast", Boolean(image));
+
+  // OpenAI JSON-режим требует, чтобы слово "json" встречалось в сообщениях,
+  // иначе API отвечает 400. Подстраховываемся: если json=true, а слова "json"
+  // нет ни в system, ни в user — дописываем инструкцию в system.
+  let systemMessage = system;
+  if (json && !/json/i.test(system) && !/json/i.test(user)) {
+    systemMessage = `${system}\nRespond with a valid JSON object only.`;
+  }
+
+  const userContent: unknown = image
+    ? [
+        { type: "text", text: user },
+        {
+          type: "image_url",
+          image_url: { url: `data:${image.mediaType};base64,${image.base64}` },
+        },
+      ]
+    : user;
+
+  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: "system", content: systemMessage },
+        { role: "user", content: userContent },
+      ],
+      max_tokens: maxTokens,
+      temperature: 0.7,
+      ...(json ? { response_format: { type: "json_object" } } : {}),
+    }),
+  });
+
+  if (!res.ok) {
+    const body = await res.text();
+    throw buildGroqError(res.status, body);
+  }
+
+  const data = (await res.json()) as GroqResponse;
+  const text = (data.choices?.[0]?.message?.content ?? "").trim();
+  if (!text) {
+    throw new AiError("invalid_response", "Groq returned an empty response.");
+  }
+  return text;
+}
+
+interface GroqErrorBody {
+  error?: {
+    message?: string;
+    type?: string;
+    code?: string;
+  };
+}
+
+/**
+ * Строит классифицируемую ошибку из тела ответа Groq при !res.ok.
+ * Groq (OpenAI-совместимый) отдаёт `{"error":{"message","type","code"}}`.
+ */
+function buildGroqError(httpStatus: number, bodyText: string): AiError {
+  let message = bodyText.slice(0, 500);
+  try {
+    const body = JSON.parse(bodyText) as GroqErrorBody;
+    if (body.error?.message) message = body.error.message;
+  } catch {
+    // тело не JSON — оставляем сырой обрезанный текст.
+  }
+
+  const fullMessage = `Groq API error ${httpStatus}: ${message}`;
+  const lower = message.toLowerCase();
+  let kind: AiErrorKind;
+  if (httpStatus === 429) {
+    const dailySignal =
+      lower.includes("per day") ||
+      lower.includes("tokens per day") ||
+      lower.includes("requests per day") ||
+      lower.includes("rpd") ||
+      lower.includes("tpd");
+    kind = dailySignal ? "quota_daily" : "quota_rate";
+  } else if (httpStatus === 503 || httpStatus === 502) {
     kind = "overloaded";
   } else {
     kind = "unknown";
