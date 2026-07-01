@@ -91,9 +91,12 @@ Future<List<GlobalSearchHit>> _searchTasks({
         date: item.scheduledAt,
       ),
     );
-    if (hits.length >= kGlobalSearchSectionLimit) break;
   }
-  return hits;
+  // Свежие сверху: сортируем по дате убыв. и лишь ПОТОМ режем лимитом — иначе
+  // лимит отрезал бы недавние и наверх всплывали самые старые задачи (баг).
+  hits.sort((a, b) =>
+      (b.date ?? DateTime(1970)).compareTo(a.date ?? DateTime(1970)));
+  return hits.take(kGlobalSearchSectionLimit).toList();
 }
 
 // ---------------------------------------------------------------------------
@@ -122,9 +125,11 @@ Future<List<GlobalSearchHit>> _searchDiary({
         date: log.date,
       ),
     );
-    if (hits.length >= kGlobalSearchSectionLimit) break;
   }
-  return hits;
+  // Свежие записи сверху (см. _searchTasks): сортировка по дате убыв. → лимит.
+  hits.sort((a, b) =>
+      (b.date ?? DateTime(1970)).compareTo(a.date ?? DateTime(1970)));
+  return hits.take(kGlobalSearchSectionLimit).toList();
 }
 
 // ---------------------------------------------------------------------------
