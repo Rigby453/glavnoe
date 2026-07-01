@@ -12,8 +12,10 @@ services:
     region: frankfurt          # ближайший к EU; можно сменить на oregon/singapore
     rootDir: backend           # npm install/build запускаются внутри backend/
 
-    # Сборка: устанавливаем зависимости, компилируем TS, генерируем Prisma Client
-    buildCommand: npm install && npm run build && npx prisma generate
+    # Сборка: ставим ВСЕ зависимости (включая dev — typescript/@types/prisma
+    # нужны для tsc и prisma даже при NODE_ENV=production), компилируем TS,
+    # генерируем Prisma Client.
+    buildCommand: npm install --include=dev && npm run build && npx prisma generate
 
     # Старт: применяем миграции БД (idempotent), потом поднимаем сервер
     startCommand: npx prisma migrate deploy && node dist/index.js
@@ -24,9 +26,14 @@ services:
     envVars:
       # ── Значение задаётся в дашборде Render (sync: false = секрет) ──────────
 
-      # Строка подключения к PostgreSQL (Neon или другой провайдер)
-      # Формат: postgresql://user:password@host/dbname?sslmode=require
+      # Pooled-строка подключения к PostgreSQL (Neon: хост с -pooler) — рантайм.
+      # Формат: postgresql://user:password@host-pooler/dbname?sslmode=require
       - key: DATABASE_URL
+        sync: false
+
+      # Прямая строка Neon (БЕЗ -pooler) — нужна Prisma ТОЛЬКО для миграций
+      # (schema.prisma directUrl). Берётся из Neon, обязательна для migrate deploy.
+      - key: DIRECT_URL
         sync: false
 
       # Секрет для подписи JWT-токенов (минимум 32 символа, случайная строка)
