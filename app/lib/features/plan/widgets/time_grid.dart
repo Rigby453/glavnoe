@@ -230,29 +230,51 @@ CompactBlockContent compactBlockContent(double width, double height) {
 /// Резерв «тела» блока (тап → карточка-деталь, долгое нажатие → перенос),
 /// который остаётся ВСЕГДА, даже на самом коротком блоке — иначе нижняя ручка
 /// ресайза съедала бы блок целиком, и тело стало бы недостижимо для tap/move.
+/// Служит НИЖНЕЙ границей резерва (см. bottomHandleHeight) — на маленьких
+/// блоках реальный резерв обычно БОЛЬШЕ этого значения (половина блока).
 const double kHandleBodyReserve = 8.0;
 
 /// Высота зоны хвата нижней ручки ресайза для блока высотой [blockHeight].
-/// Правка владельца продукта: раньше на блоках ниже ~36px ручки не было
-/// СОВСЕМ (ни ресайза, ни подсказки, что он возможен) — теперь ручка
-/// показывается ВСЕГДА (как в Google Calendar), а её высота адаптивно
-/// уменьшается на маленьких блоках, но никогда не съедает больше
-/// [blockHeight] минус [minBodyReserve] — так тело блока (тап/перенос)
-/// остаётся достижимым. На обычных блоках (>= [handleHitHeight] +
-/// [minBodyReserve], т.е. по умолчанию 30px) высота ручки полная (22px).
-/// На самом коротком реальном блоке (24px, минимум durationToHeight) высота
-/// ручки — 16px (24 − 8 резерва) — достаточно для надёжного хвата мышью и
-/// пальцем. Чистая функция — покрыта юнит-тестами.
+///
+/// BUG-FIX (маленький блок нельзя было сразу перетащить, только ресайзить):
+/// раньше резерв тела был ФИКСИРОВАННЫМ [minBodyReserve] (8px) независимо от
+/// высоты блока — на реальном блоке-минимуме (24px, минимум durationToHeight)
+/// это давало ручке 16px (67% площади блока), а телу — тонкую полоску 8px
+/// (33%) наверху. Палец не может надёжно попасть в 8-пиксельную полосу —
+/// пользователь «всегда сначала ресайзил», хотя хотел подвинуть короткую
+/// задачу. Теперь ниже порога [handleHitHeight] + [minBodyReserve] (по
+/// умолчанию 30px — граница, где ручка ещё помещается полностью) резерв тела
+/// растёт линейно и на блоке-минимуме достигает ПОЛОВИНЫ высоты — тело
+/// остаётся БОЛЬШИНСТВОМ (или равной долей) площади блока при любом размере,
+/// а не тонкой полоской. На вырожденно крошечных блоках (резерв половины
+/// блока всё ещё меньше [minBodyReserve]) ручка обнуляется совсем — ниже
+/// [_BlockContent] такой блок рисуется БЕЗ ручки ресайза вовсе (см.
+/// `showResizeHandle && handleHeight > 0`), то есть весь блок становится
+/// зоной переноса/тапа, а ресайз доступен только когда блок подрастёт.
+///
+/// На обычных блоках (>= [handleHitHeight] + [minBodyReserve], т.е. по
+/// умолчанию 30px) высота ручки полная ([handleHitHeight], 22px) — поведение
+/// НЕ регрессирует, только маленькие блоки становятся надёжно перетаскиваемы.
+/// Чистая функция — покрыта юнит-тестами.
 double bottomHandleHeight(
   double blockHeight, {
   double handleHitHeight = 22.0,
   double minBodyReserve = kHandleBodyReserve,
 }) {
-  final available = blockHeight - minBodyReserve;
-  // Вырожденный случай (блок меньше самого резерва тела) — отдаём ручке весь
-  // блок целиком: лучше ресайзабельный блок без тела, чем совсем без ручки.
-  if (available <= 0) return blockHeight > 0 ? blockHeight : 0;
-  return available < handleHitHeight ? available : handleHitHeight;
+  if (blockHeight <= 0) return 0;
+  final threshold = handleHitHeight + minBodyReserve;
+  if (blockHeight >= threshold) return handleHitHeight;
+  // Маленький блок: резерв тела — не меньше половины блока (тело остаётся
+  // БОЛЬШИНСТВОМ площади), но и не меньше minBodyReserve (совместимость с
+  // кастомными/очень маленькими резервами).
+  final halfBody = blockHeight / 2;
+  final reserve = halfBody > minBodyReserve ? halfBody : minBodyReserve;
+  final available = blockHeight - reserve;
+  // Вырожденный случай (даже половина блока меньше резерва тела) — ручки НЕТ
+  // совсем: весь блок остаётся зоной переноса/тапа (см. showResizeHandle &&
+  // handleHeight > 0 в _BlockContent). Лучше блок без резайза, чем блок,
+  // который нельзя ни подвинуть, ни надёжно ресайзнуть.
+  return available < 0 ? 0 : available;
 }
 
 /// Раскладка перекрывающихся событий по равным колонкам-«дорожкам».
@@ -1458,14 +1480,39 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
   // B3 — анимация «приземления»: на коммите блок не перескакивает с сырого drag-
   // top на снэпнутый мгновенно, а короткое время держит снэпнутую геометрию в
   // «settling»-состоянии, и AnimatedPositioned плавно довозит его (а лифт-тень
-  // мягко гаснет). Таймер чистит settling после kDurationSnap. Отменяется в
-  // dispose, чтобы не было pending Timer.
+  // мягко гаснет). Таймер чистит settling после kDurationSnap — НО только если
+  // нет неподтверждённого коммита (см. _pendingScheduledAt/_pendingDurationMinutes
+  // и _maybeClearSettling ниже). Отменяется в dispose, чтобы не было pending Timer.
   Timer? _settleTimer;
+
+  // BUG-FIX (блик на старой позиции при drop, телефон): раньше _settleTimer
+  // срабатывал через фиксированные kDurationSnap (120мс), что могло произойти
+  // РАНЬШЕ, чем async-запись updateItem/materializeOccurrence долетала до БД,
+  // стрим Drift эмитил новое значение и оно доходило до widget.item — тогда
+  // _gesture сбрасывался в none, build() считал геометрию по СТАРОМУ
+  // widget.item.scheduledAt (провайдер ещё не прислал новый item), и на один
+  // кадр блок отрисовывался в СТАРОЙ позиции, прежде чем didUpdateWidget
+  // подхватывал новые данные (на вебе БД-запись быстрее 120мс, поэтому там
+  // бага не было видно).
+  //
+  // Фикс: коммит помечает, какое значение scheduledAt/durationMinutes он ждёт
+  // от провайдера. Settle-таймер (чисто визуальная анимация лифта/тени) больше
+  // НЕ единственный триггер очистки ephemeral-позиции — она снимается ТОЛЬКО
+  // когда didUpdateWidget увидит совпадающий widget.item (т.е. репаинт уже
+  // несёт новое значение) либо когда коммит явно провалился (см. catch в
+  // _commitMove/_commitResize — там ephemeral-позиция сбрасывается сразу, т.к.
+  // реальные данные не менялись и мигать нечему).
+  DateTime? _pendingScheduledAt;
+  int? _pendingDurationMinutes;
 
   /// Переводит блок в кратковременное «settling»: держит снэпнутую геометрию
   /// [topPx]/[heightPx], чтобы AnimatedPositioned доехал от сырого top к снэпу и
-  /// лифт-тень погасла плавно. Через [settleFor] состояние сбрасывается в none.
-  /// При reduce-motion (effectiveDuration == 0) фаза мгновенна — сразу none.
+  /// лифт-тень погасла плавно. Через [settleFor] ПЫТАЕТСЯ сброситься в none —
+  /// но см. [_maybeClearSettling]: если коммит ещё не подтверждён провайдером,
+  /// settling-геометрия (уже приземлённая/снэпнутая — НЕ старая) удерживается
+  /// дольше settleFor. При reduce-motion (effectiveDuration == 0) фаза
+  /// мгновенна — сразу none (в этот момент коммит ещё не начат: _settle
+  /// вызывается ДО выставления _pendingScheduledAt/_pendingDurationMinutes).
   void _settle(double topPx, double heightPx) {
     _settleTimer?.cancel();
     final settleFor = effectiveDuration(context, kDurationSnap);
@@ -1476,10 +1523,45 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
     _gesture.value = _BlockGesture(_GestureKind.settling, topPx, heightPx);
     _settleTimer = Timer(settleFor, () {
       if (!mounted) return;
-      // Сбрасываем только если всё ещё в settling (не начался новый жест).
-      if (_gesture.value.kind == _GestureKind.settling) {
-        _gesture.value = const _BlockGesture.none();
-      }
+      _maybeClearSettling();
+    });
+  }
+
+  /// Снимает settling-состояние (эфемерная позиция → none, build() дальше
+  /// использует baseTop/baseHeight из widget.item) — ТОЛЬКО если нет
+  /// неподтверждённого коммита. Если есть — оставляем блок в приземлённой
+  /// (уже снэпнутой, НЕ старой) позиции: [didUpdateWidget] вызовет эту же
+  /// функцию досрочно, как только провайдер пришлёт совпадающий item.
+  void _maybeClearSettling() {
+    if (_pendingScheduledAt == null &&
+        _pendingDurationMinutes == null &&
+        _gesture.value.kind == _GestureKind.settling) {
+      _gesture.value = const _BlockGesture.none();
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant _EventBlock oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Провайдер прислал новый item — если он совпадает с тем, что ждал коммит,
+    // снимаем ожидание. Саму очистку settling откладываем на пост-фрейм:
+    // нельзя дёргать ValueNotifier (а через него — setState у
+    // ValueListenableBuilder) синхронно внутри didUpdateWidget — он вызывается
+    // в том же buildScope, что и текущая перестройка дерева.
+    var confirmed = false;
+    if (_pendingScheduledAt != null &&
+        widget.item.scheduledAt == _pendingScheduledAt) {
+      _pendingScheduledAt = null;
+      confirmed = true;
+    }
+    if (_pendingDurationMinutes != null &&
+        widget.item.durationMinutes == _pendingDurationMinutes) {
+      _pendingDurationMinutes = null;
+      confirmed = true;
+    }
+    if (!confirmed) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _maybeClearSettling();
     });
   }
 
@@ -1843,7 +1925,10 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
     HapticFeedback.selectionClick();
     final snappedMin = offsetToSnappedMinutes(g.topPx, widget.hourHeight);
     // B3: «приземление» — довозим блок от сырого drag-top к снэпнутому top
-    // (высота не менялась при переносе), вместо мгновенного перескока.
+    // (высота не менялась при переносе), вместо мгновенного перескока. Это
+    // ЛАНДЕД (снэпнутая, целевая) позиция — не старая, поэтому держать её
+    // дольше settleFor (пока идёт async-коммит ниже) безопасно, см. BUG-FIX
+    // у _settle/_maybeClearSettling.
     _settle(minutesToOffset(snappedMin, widget.hourHeight), g.heightPx);
     final newStart = DateTime(
       widget.day.year,
@@ -1854,31 +1939,56 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
     );
     if (newStart == widget.item.scheduledAt) return;
     final dao = ref.read(itemsDaoProvider);
-    // Виртуальный повтор серии: материализуем этот день с новым временем
-    // (анкер получает EXDATE на дату), иначе updateItem по синтетическому id
-    // был бы no-op и перенос потерялся бы.
-    //
-    // TODO(B4): drag-перенос виртуального повтора сейчас всегда применяет
-    // «onlyThis» (materializeOccurrence). Добавить showRecurrenceScopeDialog
-    // здесь после того, как drag-конвейер станет async-safe (сейчас _commitDrag
-    // вызывается из _DragGestureHandler без await и без BuildContext для диалога).
-    // Корректный путь выбора области уже реализован в add_task_sheet._save().
-    if (isVirtualOccurrenceId(widget.item.id)) {
-      await dao.materializeOccurrence(
-        anchorIdFromVirtual(widget.item.id),
-        dateFromVirtual(widget.item.id) ?? widget.day,
-        status: widget.item.status,
-        scheduledAt: newStart,
-      );
+    // BUG-FIX: помечаем, какое scheduledAt ждём от провайдера — settle-таймер
+    // не снимет settling раньше, чем didUpdateWidget увидит именно это значение
+    // (или пока коммит явно не провалится — см. catch ниже).
+    _pendingScheduledAt = newStart;
+    try {
+      // Виртуальный повтор серии: материализуем этот день с новым временем
+      // (анкер получает EXDATE на дату), иначе updateItem по синтетическому id
+      // был бы no-op и перенос потерялся бы.
+      //
+      // TODO(B4): drag-перенос виртуального повтора сейчас всегда применяет
+      // «onlyThis» (materializeOccurrence). Добавить showRecurrenceScopeDialog
+      // здесь после того, как drag-конвейер станет async-safe (сейчас _commitDrag
+      // вызывается из _DragGestureHandler без await и без BuildContext для диалога).
+      // Корректный путь выбора области уже реализован в add_task_sheet._save().
+      if (isVirtualOccurrenceId(widget.item.id)) {
+        await dao.materializeOccurrence(
+          anchorIdFromVirtual(widget.item.id),
+          dateFromVirtual(widget.item.id) ?? widget.day,
+          status: widget.item.status,
+          scheduledAt: newStart,
+        );
+      } else {
+        await dao.updateItem(
+          widget.item.id,
+          ItemsTableCompanion(
+            scheduledAt: Value(newStart),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+    } catch (_) {
+      // Запись не удалась — откатываемся: реальный item НЕ менялся, поэтому
+      // снятие settling сейчас безопасно (базовая геометрия и так верна,
+      // мигать нечему).
+      _pendingScheduledAt = null;
+      if (mounted) _maybeClearSettling();
       return;
     }
-    await dao.updateItem(
-      widget.item.id,
-      ItemsTableCompanion(
-        scheduledAt: Value(newStart),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+    // Подстраховка: обычно didUpdateWidget подтвердит коммит почти сразу же
+    // (стрим Drift эмитит новое значение вскоре после успешной записи). Если
+    // почему-то этого не произойдёт (напр. фильтр Plan скрыл задачу сразу
+    // после переноса, и widget.item больше не обновляется) — не держим
+    // ephemeral-позицию бесконечно.
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      if (_pendingScheduledAt == newStart) {
+        _pendingScheduledAt = null;
+        _maybeClearSettling();
+      }
+    });
   }
 
   /// Сохраняет новую длительность после resize: snap к 15, минимум 15.
@@ -1892,27 +2002,45 @@ class _EventBlockState extends ConsumerState<_EventBlock> {
     final rawMinutes = (g.heightPx / widget.hourHeight * 60).round();
     final newDuration = snapDuration(rawMinutes);
     // B3: «приземление» — довозим нижнюю границу к снэпнутой высоте (top
-    // фиксирован при ресайзе низом).
+    // фиксирован при ресайзе низом). Ландед (целевая), а не старая высота —
+    // держать её дольше settleFor во время async-коммита ниже безопасно.
     _settle(g.topPx, durationToHeight(newDuration, widget.hourHeight));
     if (newDuration == widget.item.durationMinutes) return;
     final dao = ref.read(itemsDaoProvider);
-    // Виртуальный повтор серии: материализуем этот день с новой длительностью.
-    if (isVirtualOccurrenceId(widget.item.id)) {
-      await dao.materializeOccurrence(
-        anchorIdFromVirtual(widget.item.id),
-        dateFromVirtual(widget.item.id) ?? widget.day,
-        status: widget.item.status,
-        durationMinutes: newDuration,
-      );
+    // BUG-FIX: помечаем, какую durationMinutes ждём от провайдера — см. тот же
+    // механизм, что и в _commitMove (_pendingDurationMinutes/_maybeClearSettling).
+    _pendingDurationMinutes = newDuration;
+    try {
+      // Виртуальный повтор серии: материализуем этот день с новой длительностью.
+      if (isVirtualOccurrenceId(widget.item.id)) {
+        await dao.materializeOccurrence(
+          anchorIdFromVirtual(widget.item.id),
+          dateFromVirtual(widget.item.id) ?? widget.day,
+          status: widget.item.status,
+          durationMinutes: newDuration,
+        );
+      } else {
+        await dao.updateItem(
+          widget.item.id,
+          ItemsTableCompanion(
+            durationMinutes: Value(newDuration),
+            updatedAt: Value(DateTime.now()),
+          ),
+        );
+      }
+    } catch (_) {
+      _pendingDurationMinutes = null;
+      if (mounted) _maybeClearSettling();
       return;
     }
-    await dao.updateItem(
-      widget.item.id,
-      ItemsTableCompanion(
-        durationMinutes: Value(newDuration),
-        updatedAt: Value(DateTime.now()),
-      ),
-    );
+    // Подстраховка — см. аналогичный комментарий в _commitMove.
+    Future.delayed(const Duration(milliseconds: 800), () {
+      if (!mounted) return;
+      if (_pendingDurationMinutes == newDuration) {
+        _pendingDurationMinutes = null;
+        _maybeClearSettling();
+      }
+    });
   }
 }
 
