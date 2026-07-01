@@ -12,10 +12,13 @@ import 'package:phosphor_flutter/phosphor_flutter.dart';
 
 import '../../core/l10n/app_strings.dart';
 import '../../core/settings/food_preferences_provider.dart';
+import '../../core/settings/macro_override_provider.dart';
 import '../../core/settings/nutrition_targets.dart';
 import '../../core/settings/water_goal_provider.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/theme/theme_provider.dart';
+import '../../services/api/api_client.dart';
+import '../auth/auth_controller.dart';
 import 'widgets/food_preferences_section.dart';
 import 'widgets/health_profile_section.dart';
 import 'widgets/macro_editor.dart';
@@ -165,6 +168,35 @@ class _MyDataScreenState extends ConsumerState<MyDataScreen> {
 
     // Invalidate nutritionTargetsProvider — провайдер пересчитает нормы
     ref.invalidate(nutritionTargetsProvider);
+
+    // Пуш профиля на сервер (ADR-062) — устраняет расхождение посчитанных
+    // норм КБЖУ между устройствами одного аккаунта (сервер — общий источник
+    // истины). Локальное сохранение выше УЖЕ выполнено — сеть не блокирует
+    // UX. Только для реального аккаунта; гость/оффлайн не шлют профиль
+    // (нет сервера, которому его слать). Fire-and-forget: `.ignore()`
+    // поглощает ошибки сети, не блокируя пользователя.
+    if (ref.read(authControllerProvider.notifier).isAuthenticated) {
+      final macro = ref.read(macroOverrideProvider);
+      final targets = ref.read(nutritionTargetsProvider);
+      ref
+          .read(apiClientProvider)
+          .updateProfile(
+            weightKg: (weight != null && weight > 0) ? weight : null,
+            heightCm: (height != null && height > 0) ? height : null,
+            ageYears: (age != null && age > 0) ? age : null,
+            sex: _sex,
+            activityLevel: _activity,
+            foodGoal: _goal,
+            calorieGoal: targets.kcal,
+            macroOverrideEnabled: macro.enabled,
+            macroKcalTarget: macro.kcalTarget,
+            macroProteinG: macro.proteinG,
+            macroFatG: macro.fatG,
+            macroCarbsG: macro.carbsG,
+            waterGoalMl: _waterGoal,
+          )
+          .ignore();
+    }
 
     if (!mounted) return;
 

@@ -5,7 +5,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../theme/theme_provider.dart'; // sharedPreferencesProvider
 
-const _kWaterGoalKey = 'water_goal_ml';
+// Публичный (не '_'-приватный), потому что читается/пишется извне при
+// адопции профиля с сервера (ADR-062) — см. services/sync/profile_adoption_service.dart.
+const kWaterGoalMlKey = 'water_goal_ml';
 const kDefaultWaterGoalMl = 2000;
 
 // Ключи SharedPreferences для антропометрии — собираются в онбординге
@@ -61,11 +63,11 @@ int recommendedWaterMl({
 class WaterGoalNotifier extends Notifier<int> {
   @override
   int build() =>
-      ref.read(sharedPreferencesProvider).getInt(_kWaterGoalKey) ??
+      ref.read(sharedPreferencesProvider).getInt(kWaterGoalMlKey) ??
       kDefaultWaterGoalMl;
 
   Future<void> set(int ml) async {
-    await ref.read(sharedPreferencesProvider).setInt(_kWaterGoalKey, ml);
+    await ref.read(sharedPreferencesProvider).setInt(kWaterGoalMlKey, ml);
     state = ml;
   }
 }

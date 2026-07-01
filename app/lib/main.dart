@@ -76,6 +76,14 @@ class _KaizenAppState extends ConsumerState<KaizenApp> {
     ref.read(apiClientProvider).onUnauthorized =
         () => ref.read(authControllerProvider.notifier).refreshAuthState();
 
+    // ADR-062: если уже авторизован (токен сохранён с прошлой сессии) —
+    // подтягиваем профиль (антропометрия/цели питания/вода) с сервера один
+    // раз на холодном старте. Покрывает случай, когда пользователь поменял
+    // данные на ДРУГОМ устройстве, но не разлогинивался на этом — иначе
+    // адопция происходит только при login()/register(). Fire-and-forget:
+    // ошибки поглощаются внутри adoptServerProfileOnStartup().
+    ref.read(authControllerProvider.notifier).adoptServerProfileOnStartup();
+
     // Записываем timestamp первого открытия (для «дней без захода» в виджете).
     saveLastOpenedAt();
 

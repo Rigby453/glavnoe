@@ -3,14 +3,23 @@
 // Офлайн-режим (гость) сохраняет offline-first поведение: можно пользоваться
 // приложением без аккаунта, синхронизация включится после входа.
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database_providers.dart';
+import '../../core/settings/food_preferences_provider.dart'
+    show foodPreferencesProvider;
+import '../../core/settings/macro_override_provider.dart'
+    show macroOverrideProvider;
+import '../../core/settings/nutrition_targets.dart' show nutritionTargetsProvider;
+import '../../core/settings/water_goal_provider.dart' show waterGoalProvider;
 import '../../core/theme/theme_provider.dart'; // sharedPreferencesProvider
 import '../../services/api/api_client.dart';
 import '../../services/streak/freeze_accrual_service.dart'
     show kLocalPremiumUntilKey;
 import '../../services/sync/guest_migration_service.dart';
+import '../../services/sync/profile_adoption_service.dart'
+    show applyServerProfile;
 import '../../services/sync/sync_service.dart';
 import '../onboarding/setup_flow.dart' show setupDoneKey;
 
@@ -56,6 +65,13 @@ class AuthController extends Notifier<bool> {
           password: password,
         );
 
+    // ADR-062: адопция профиля (антропометрия/цели питания/вода) с сервера —
+    // сервер — источник истины для вернувшегося пользователя на новом
+    // устройстве (устраняет расхождение норм КБЖУ между устройствами).
+    // Делаем ДО гостевой миграции и ДО фонового синка задач (_syncInBackground
+    // ниже), как и требуется — профиль не зависит от синка Items/Water/DayLogs.
+    await _adoptServerProfile(resp['user']);
+
     // C2: токен уже сохранён внутри apiClient.login() → можно мигрировать.
     // Выполняем ДО _clearGuest(): флаг нам уже не нужен (прочитан выше),
     // но порядок «миграция → сброс флага» безопаснее (при ошибке следующий
@@ -97,6 +113,12 @@ class AuthController extends Notifier<bool> {
           name: name,
         );
 
+    // ADR-062: адопция профиля с сервера (обычно no-op для новой
+    // регистрации — сервер ещё не хранит ничего, кроме дефолтов), но
+    // держим тот же путь, что и в login(), на случай будущих server-side
+    // дефолтов/повторной регистрации по уже существующему email на сервере.
+    await _adoptServerProfile(resp['user']);
+
     // C2: мигрируем гостевые данные (если были) до смены состояния.
     if (wasGuest) {
       await ref.read(guestMigrationServiceProvider).migrateIfNeeded();
@@ -119,6 +141,45 @@ class AuthController extends Notifier<bool> {
     final user = authResponse['user'];
     if (user is Map<String, dynamic> && shouldMarkSetupDone(user)) {
       await ref.read(sharedPreferencesProvider).setBool(setupDoneKey, true);
+    }
+  }
+
+  // ---------------------------------------------------------------------------
+  // ADR-062 — адопция профиля (антропометрия/цели питания/вода) с сервера
+  // ---------------------------------------------------------------------------
+
+  /// Применяет объект `user` (из login/register/GET me) к локальным prefs
+  /// через [applyServerProfile] и инвалидирует провайдеры, которые кэшируют
+  /// вычисленные из этих ключей значения — иначе UI покажет старые нормы до
+  /// следующего пересчёта. Ошибки поглощаются: адопция не должна блокировать
+  /// вход/регистрацию/старт приложения (offline-first).
+  Future<void> _adoptServerProfile(Object? user) async {
+    if (user is! Map<String, dynamic>) return;
+    try {
+      await applyServerProfile(user, ref.read(sharedPreferencesProvider));
+      ref.invalidate(nutritionTargetsProvider);
+      ref.invalidate(macroOverrideProvider);
+      ref.invalidate(waterGoalProvider);
+      ref.invalidate(foodPreferencesProvider);
+    } catch (e) {
+      debugPrint('[AuthController] Адопция профиля с сервера не удалась: $e');
+    }
+  }
+
+  /// Если уже авторизован (токен сохранён с прошлой сессии — пользователь не
+  /// разлогинивался в ЭТОЙ сессии приложения) — подтягивает профиль с сервера
+  /// ОДИН РАЗ на холодном старте. Адопция в [login]/[register] покрывает
+  /// только момент входа; без этого метода уже залогиненное на двух
+  /// устройствах приложение не увидит профиль, изменённый на другом
+  /// устройстве, до следующего явного login(). Fire-and-forget-безопасно:
+  /// вызывающий код (main.dart) не обязан await'ить или обрабатывать ошибки.
+  Future<void> adoptServerProfileOnStartup() async {
+    if (!isAuthenticated) return;
+    try {
+      final me = await ref.read(apiClientProvider).me();
+      await _adoptServerProfile(me);
+    } catch (e) {
+      debugPrint('[AuthController] Стартовая адопция профиля не удалась: $e');
     }
   }
 

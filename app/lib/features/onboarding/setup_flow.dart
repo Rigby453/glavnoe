@@ -328,12 +328,24 @@ class _SetupFlowScreenState extends ConsumerState<SetupFlowScreen> {
 
     await prefs.setBool(setupDoneKey, true);
 
-    // Синхронизируем флаг онбординга с аккаунтом, чтобы на web/новом устройстве
-    // онбординг не показывался снова. Только для реального аккаунта; гость/оффлайн
-    // ведут себя как раньше. Не блокируем и гасим ошибки — это второстепенно.
+    // Синхронизируем флаг онбординга + собранную здесь антропометрию/норму
+    // воды с аккаунтом (ADR-062), чтобы (а) на web/новом устройстве онбординг
+    // не показывался снова и (б) нормы КБЖУ/воды совпадали на всех
+    // устройствах одного аккаунта — сервер теперь общий источник истины.
+    // Только для реального аккаунта; гость/оффлайн ведут себя как раньше
+    // (локальные prefs уже записаны выше). Не блокируем и гасим ошибки —
+    // это второстепенно.
     if (ref.read(authControllerProvider.notifier).isAuthenticated) {
       try {
-        await ref.read(apiClientProvider).updateProfile(onboardingDone: true);
+        await ref.read(apiClientProvider).updateProfile(
+              onboardingDone: true,
+              weightKg: (weight != null && weight > 0) ? weight : null,
+              heightCm: (height != null && height > 0) ? height : null,
+              ageYears: (age != null && age > 0) ? age : null,
+              sex: _sex,
+              activityLevel: _activity,
+              waterGoalMl: _waterGoal,
+            );
       } catch (_) {}
     }
 

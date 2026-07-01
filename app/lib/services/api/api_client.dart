@@ -45,6 +45,49 @@ class ApiException implements Exception {
 }
 
 // ---------------------------------------------------------------------------
+// PATCH /auth/me — сборка тела запроса (ADR-062)
+// ---------------------------------------------------------------------------
+
+/// Собирает тело PATCH /api/v1/auth/me: в результат попадают ТОЛЬКО заданные
+/// (non-null) поля, ключи — snake_case (контракт /docs/api-spec.yaml).
+/// Чистая функция — тестируется без Dio (см. test/api_client_profile_test.dart).
+Map<String, dynamic> buildProfileUpdateBody({
+  bool? onboardingDone,
+  double? weightKg,
+  int? heightCm,
+  int? ageYears,
+  String? sex,
+  String? activityLevel,
+  String? foodGoal,
+  int? calorieGoal,
+  bool? macroOverrideEnabled,
+  int? macroKcalTarget,
+  int? macroProteinG,
+  int? macroFatG,
+  int? macroCarbsG,
+  int? waterGoalMl,
+}) {
+  final body = <String, dynamic>{};
+  if (onboardingDone != null) body['onboarding_done'] = onboardingDone;
+  if (weightKg != null) body['weight_kg'] = weightKg;
+  if (heightCm != null) body['height_cm'] = heightCm;
+  if (ageYears != null) body['age_years'] = ageYears;
+  if (sex != null) body['sex'] = sex;
+  if (activityLevel != null) body['activity_level'] = activityLevel;
+  if (foodGoal != null) body['food_goal'] = foodGoal;
+  if (calorieGoal != null) body['calorie_goal'] = calorieGoal;
+  if (macroOverrideEnabled != null) {
+    body['macro_override_enabled'] = macroOverrideEnabled;
+  }
+  if (macroKcalTarget != null) body['macro_kcal_target'] = macroKcalTarget;
+  if (macroProteinG != null) body['macro_protein_g'] = macroProteinG;
+  if (macroFatG != null) body['macro_fat_g'] = macroFatG;
+  if (macroCarbsG != null) body['macro_carbs_g'] = macroCarbsG;
+  if (waterGoalMl != null) body['water_goal_ml'] = waterGoalMl;
+  return body;
+}
+
+// ---------------------------------------------------------------------------
 // Основной клиент
 // ---------------------------------------------------------------------------
 
@@ -222,12 +265,46 @@ class ApiClient {
   }
 
   /// Частичное обновление профиля текущего пользователя (PATCH /auth/me).
-  /// Поле onboarding_done добавляется в тело только если задано (non-null).
+  /// Все параметры опциональны; в тело запроса попадают ТОЛЬКО заданные
+  /// (non-null) поля — см. [buildProfileUpdateBody]. ADR-062: антропометрия
+  /// (weight/height/age/sex/activity), цели питания (food_goal/calorie_goal/
+  /// macro_override_*) и норма воды теперь синхронизируются через аккаунт —
+  /// раньше жили только в SharedPreferences устройства, что давало
+  /// расхождение посчитанных норм КБЖУ между устройствами одного аккаунта.
   /// Возвращает обновлённого пользователя. snake_case в теле запроса.
-  Future<Map<String, dynamic>> updateProfile({bool? onboardingDone}) async {
+  Future<Map<String, dynamic>> updateProfile({
+    bool? onboardingDone,
+    double? weightKg,
+    int? heightCm,
+    int? ageYears,
+    String? sex,
+    String? activityLevel,
+    String? foodGoal,
+    int? calorieGoal,
+    bool? macroOverrideEnabled,
+    int? macroKcalTarget,
+    int? macroProteinG,
+    int? macroFatG,
+    int? macroCarbsG,
+    int? waterGoalMl,
+  }) async {
     try {
-      final body = <String, dynamic>{};
-      if (onboardingDone != null) body['onboarding_done'] = onboardingDone;
+      final body = buildProfileUpdateBody(
+        onboardingDone: onboardingDone,
+        weightKg: weightKg,
+        heightCm: heightCm,
+        ageYears: ageYears,
+        sex: sex,
+        activityLevel: activityLevel,
+        foodGoal: foodGoal,
+        calorieGoal: calorieGoal,
+        macroOverrideEnabled: macroOverrideEnabled,
+        macroKcalTarget: macroKcalTarget,
+        macroProteinG: macroProteinG,
+        macroFatG: macroFatG,
+        macroCarbsG: macroCarbsG,
+        waterGoalMl: waterGoalMl,
+      );
       final response = await _dio.patch<Map<String, dynamic>>(
         '/api/v1/auth/me',
         data: body,
