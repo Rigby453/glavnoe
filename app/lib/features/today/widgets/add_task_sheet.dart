@@ -46,7 +46,6 @@ import '../../plan/recurrence.dart';
 import '../../plan/widgets/recurrence_providers.dart';
 import '../../plan/widgets/recurrence_scope_dialog.dart';
 import '../task_colors.dart';
-import '../undo_provider.dart';
 
 const List<String> _types = ['task', 'event', 'exam', 'deadline'];
 const List<String> _priorities = ['low', 'medium', 'high', 'main'];
@@ -1227,8 +1226,25 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
       await ref
           .read(itemAttachmentsDaoProvider)
           .reassignItemId(_pendingAttachmentItemId, newId);
-      // Записываем «добавлено» для одноуровневой отмены (кнопка ↩ на Today).
-      ref.read(lastUndoableActionProvider.notifier).recordAdd(newId);
+      // Undo-тост (единый механизм, §3.3 ANIMATIONS.md) — раньше создание
+      // писало только в постоянный undo-FAB (провайдер удалён). Показываем
+      // ДО pop: OverlayEntry живёт в корневом Overlay навигатора и переживает
+      // закрытие шита (тот же паттерн, что у _confirmDelete ниже).
+      if (mounted) {
+        showAppToast(
+          context,
+          variant: AppToastVariant.done,
+          message: context.s('today.task_created'),
+          // ВАЖНО: используем УЖЕ ЗАХВАЧЕННЫЙ выше `dao` (переменная в начале
+          // _save()), а НЕ ref.read(...) внутри closure — лист закрывается
+          // (Navigator.pop) сразу после показа тоста, State диспозится, и
+          // повторный ref.read() из disposed ConsumerState бросает
+          // "Cannot use ref after the widget was disposed" при тапе Undo.
+          onUndo: () async {
+            await dao.deleteItem(newId);
+          },
+        );
+      }
       // Напоминание планируем только для не-серийной задачи (newRuleString==null).
       if (newRuleString == null) savedItemId = newId;
     }
@@ -1371,31 +1387,12 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     if (mounted) Navigator.of(context).pop();
   }
 
-  /// Удаление задачи (режим редактирования) с подтверждением.
+  /// Удаление задачи (режим редактирования) — оптимистичное, БЕЗ блокирующего
+  /// AlertDialog-подтверждения: тот же паттерн, что у swipe-delete на Today
+  /// (удаляем сразу, отмена — через undo-тост, §2.2/§3.3 ANIMATIONS.md).
   Future<void> _confirmDelete() async {
     final existing = widget.existing;
     if (existing == null) return;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text(context.s('today.delete_task_title')),
-        content: Text('"${existing.title}"'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(context.s('btn.cancel')),
-          ),
-          FilledButton(
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(ctx).colorScheme.error,
-            ),
-            onPressed: () => Navigator.of(ctx).pop(true),
-            child: Text(context.s('btn.delete')),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true) return;
     final dao = ref.read(itemsDaoProvider);
     final subtasksDao = ref.read(subtasksDaoProvider);
     // Полный снимок ДО удаления: подзадачи (deleteItem удаляет их каскадно —
@@ -1404,8 +1401,6 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     await dao.deleteItem(existing.id);
     // Снимаем запланированное напоминание удаляемой задачи (если было).
     await ref.read(notificationServiceProvider).cancelTaskReminder(existing.id);
-    // Записываем «удалено» (полный снимок) для одноуровневой отмены кнопкой ↩.
-    ref.read(lastUndoableActionProvider.notifier).recordDelete(existing);
     if (!mounted) return;
     // §3.3: тост «Task removed» с Undo. Показываем до pop — OverlayEntry живёт
     // в корневом Overlay навигатора и переживает закрытие шита.

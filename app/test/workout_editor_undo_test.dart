@@ -205,6 +205,10 @@ void main() {
       reason: 'Undo должен восстановить удалённое упражнение',
     );
 
+    // Прокачиваем таймер автоскрытия тоста (4с) — иначе Timer still pending
+    // (showUndoSnackBar теперь форвардит на showAppToast, core/animations/app_toast.dart).
+    await tester.pump(const Duration(seconds: 5));
+
     expect(tester.takeException(), isNull);
     await _unmount(tester);
   });

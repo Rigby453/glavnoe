@@ -218,6 +218,36 @@ const Map<String, Map<String, String>> todayStrings = {
     'ko': '내일로 이동됨',
   },
 
+  // Toast: задача пропущена (свайп skip) — с Undo (унификация отмены)
+  'today.skipped': {
+    'en': 'skipped',
+    'ru': 'пропущено',
+    'de': 'übersprungen',
+    'fr': 'ignoré',
+    'it': 'saltato',
+    'pt': 'pulado',
+    'es': 'saltado',
+    'id': 'dilewati',
+    'hi': 'छोड़ दिया गया',
+    'ja': 'スキップしました',
+    'ko': '건너뜀',
+  },
+
+  // Toast: новая задача создана — с Undo (унификация отмены, убран undo-FAB)
+  'today.task_created': {
+    'en': 'Task created',
+    'ru': 'Задача создана',
+    'de': 'Aufgabe erstellt',
+    'fr': 'Tâche créée',
+    'it': 'Compito creato',
+    'pt': 'Tarefa criada',
+    'es': 'Tarea creada',
+    'id': 'Tugas dibuat',
+    'hi': 'काम बनाया गया',
+    'ja': 'タスクを作成しました',
+    'ko': '할 일이 생성됐어',
+  },
+
   // Форма добавления/редактирования задачи
   'today.new_task': {
     'en': 'New task',
@@ -1831,36 +1861,6 @@ const Map<String, Map<String, String>> todayStrings = {
     'hi': 'टास्क लोड करने में विफल: {err}',
     'ja': 'タスクの読み込みに失敗しました: {err}',
     'ko': '할 일 불러오기 실패: {err}',
-  },
-
-  // Постоянная кнопка ↩ слева от FAB: подсказка (tooltip).
-  'today.undo_tooltip': {
-    'en': 'Undo',
-    'ru': 'Отменить',
-    'de': 'Rückgängig',
-    'fr': 'Annuler',
-    'it': 'Annulla',
-    'pt': 'Desfazer',
-    'es': 'Deshacer',
-    'id': 'Batalkan',
-    'hi': 'पूर्ववत करें',
-    'ja': '元に戻す',
-    'ko': '실행 취소',
-  },
-
-  // Краткое подтверждение после нажатия ↩.
-  'today.undo_done': {
-    'en': 'Undone',
-    'ru': 'Действие отменено',
-    'de': 'Rückgängig gemacht',
-    'fr': 'Action annulée',
-    'it': 'Annullato',
-    'pt': 'Desfeito',
-    'es': 'Deshecho',
-    'id': 'Dibatalkan',
-    'hi': 'पूर्ववत किया गया',
-    'ja': '元に戻しました',
-    'ko': '실행이 취소되었습니다',
   },
 
   // --- Повтор задачи (ежедневная серия, цель #6) ---

@@ -6,6 +6,8 @@
 // Цвета: ext.success / ext.ember / surface — из FocusThemeExtension.
 // Foreground: вычисляется по яркости фона (белый или ink).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:phosphor_flutter/phosphor_flutter.dart';
 
@@ -108,6 +110,13 @@ class _AppToastOverlayState extends State<_AppToastOverlay>
   static const Curve _exitCurve = Curves.easeInCubic;
   static const double _slidePixels = 80.0;
 
+  // Таймер автоскрытия — храним как Timer (не «голый» Future.delayed), чтобы
+  // ГАРАНТИРОВАННО отменить его в dispose(). Ручное закрытие (тап Undo, замена
+  // новым тостом) удаляет OverlayEntry раньше срабатывания таймера; без cancel()
+  // таймер оставался бы «pending» до конца теста/после ухода с экрана
+  // ("A Timer is still pending" в widget-тестах — известный гэп до этого фикса).
+  Timer? _autoTimer;
+
   @override
   void initState() {
     super.initState();
@@ -120,7 +129,7 @@ class _AppToastOverlayState extends State<_AppToastOverlay>
 
   void _scheduleAuto() {
     final hangMs = widget.onUndo != null ? 4000 : 3500;
-    Future.delayed(Duration(milliseconds: hangMs), () {
+    _autoTimer = Timer(Duration(milliseconds: hangMs), () {
       if (mounted) _startExit();
     });
   }
@@ -136,6 +145,7 @@ class _AppToastOverlayState extends State<_AppToastOverlay>
 
   @override
   void dispose() {
+    _autoTimer?.cancel();
     _ctrl.dispose();
     super.dispose();
   }

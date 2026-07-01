@@ -794,4 +794,180 @@ void main() {
       await unmountAndFlush(tester);
     });
   });
+
+  // -------------------------------------------------------------------------
+  // 10. Undo-унификация (2026-07-01, решение владельца «Вариант 1»):
+  // постоянная кнопка ↩ (_UndoFab) и её провайдер удалены — skip/создание/
+  // форм-удаление теперь отменяются ЧЕРЕЗ ТОТ ЖЕ undo-тост, что и done/swipe-
+  // delete (showAppToast, единый механизм). Проверяем все три + отсутствие
+  // постоянного FAB.
+  // -------------------------------------------------------------------------
+
+  group('Interaction: Today undo unification (skip / create / edit-delete, no undo-FAB)', () {
+    testWidgets('swipe-skip shows undo toast; tapping Undo restores pending',
+        (tester) async {
+      await tester.runAsync(
+          () => prefs.setBool('completion_sound_enabled', false));
+      await tester.runAsync(() => insertTask('Read notes'));
+
+      await tester.pumpWidget(
+          harness(const TodayScreen(), extraOverrides: apiOverride()));
+      await settle(tester);
+
+      final taskFinder = find.text('Read notes');
+      expect(taskFinder, findsOneWidget);
+
+      // Ровно один FAB — постоянного undo-FAB больше нет.
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+
+      // Свайп влево (endToStart) → дефолт «skip» (swipe_action_provider.dart).
+      // Раньше skip был БЕЗ отмены вовсе.
+      await tester.drag(taskFinder, const Offset(-500, 0));
+      await tester.pump();
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.takeException(), isNull);
+
+      final rowsAfterSkip = await tester.runAsync(() =>
+          (db.select(db.itemsTable)
+                ..where((t) => t.title.equals('Read notes')))
+              .get());
+      expect(rowsAfterSkip, isNotNull);
+      expect(rowsAfterSkip!.single.status, 'skipped');
+
+      // Undo-тост показан; постоянный undo-FAB так и не появился.
+      expect(find.text('Undo'), findsOneWidget);
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+
+      await tester.tap(find.text('Undo'));
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final rowsAfterUndo = await tester.runAsync(() =>
+          (db.select(db.itemsTable)
+                ..where((t) => t.title.equals('Read notes')))
+              .get());
+      expect(rowsAfterUndo!.single.status, 'pending',
+          reason: 'Undo должен вернуть skip в pending');
+
+      // Прокачиваем таймер автоскрытия тоста, чтобы не оставить pending Timer.
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(seconds: 5));
+      await unmountAndFlush(tester);
+    });
+
+    testWidgets(
+        'creating a task via AddTaskSheet shows undo toast; Undo deletes it (no undo-FAB)',
+        (tester) async {
+      tester.view.physicalSize = const Size(900, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+          harness(const TodayScreen(), extraOverrides: apiOverride()));
+      await settle(tester);
+
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+      await tester
+          .tap(find.widgetWithIcon(FloatingActionButton, PhosphorIcons.plus()));
+      await settle(tester);
+      expect(find.byType(AddTaskSheet), findsOneWidget);
+
+      // Заголовок — autofocus TextField внутри _TitleField (первый в дереве).
+      await tester.enterText(find.byType(TextField).first, 'Buy notebook');
+      await tester.pump();
+
+      final saveBtn = find.widgetWithText(FilledButton, 'Add task');
+      await tester.ensureVisible(saveBtn);
+      await tester.pump();
+      await tester.tap(saveBtn);
+      await tester.pump();
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.takeException(), isNull);
+
+      // Лист закрылся после сохранения; задача создана в Drift.
+      expect(find.byType(AddTaskSheet), findsNothing);
+      final createdRows = await tester.runAsync(() =>
+          (db.select(db.itemsTable)
+                ..where((t) => t.title.equals('Buy notebook')))
+              .get());
+      expect(createdRows, isNotNull);
+      expect(createdRows!, hasLength(1));
+
+      // Undo-тост показан (раньше создание писало ТОЛЬКО в удалённый undo-FAB).
+      expect(find.text('Undo'), findsOneWidget);
+      // Постоянный undo-FAB не появился — ровно 1 FAB (только «Add»).
+      expect(find.byType(FloatingActionButton), findsOneWidget);
+
+      await tester.tap(find.text('Undo'));
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      final afterUndo = await tester.runAsync(() =>
+          (db.select(db.itemsTable)
+                ..where((t) => t.title.equals('Buy notebook')))
+              .get());
+      expect(afterUndo, isEmpty,
+          reason: 'Undo должен удалить только что созданную задачу');
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(seconds: 5));
+      await unmountAndFlush(tester);
+    });
+
+    testWidgets(
+        'edit-sheet delete is optimistic (no AlertDialog) and shows undo toast',
+        (tester) async {
+      tester.view.physicalSize = const Size(900, 2200);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.runAsync(() => insertTask('Old chore'));
+
+      await tester.pumpWidget(
+          harness(const TodayScreen(), extraOverrides: apiOverride()));
+      await settle(tester);
+
+      // Тап по карточке задачи (не свайп) открывает лист редактирования.
+      await tester.tap(find.text('Old chore'));
+      await settle(tester);
+      expect(find.byType(AddTaskSheet), findsOneWidget);
+
+      final deleteBtn = find.widgetWithText(TextButton, 'Delete task');
+      await tester.ensureVisible(deleteBtn);
+      await tester.pump();
+      await tester.tap(deleteBtn);
+      // Оптимистичное удаление — БЕЗ AlertDialog: один тап сразу удаляет
+      // и закрывает лист (раньше здесь блокировал showDialog<bool> confirm).
+      await tester.pump();
+      await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)));
+      await tester.pump(const Duration(milliseconds: 300));
+      expect(tester.takeException(), isNull);
+
+      expect(find.byType(AlertDialog), findsNothing,
+          reason: 'форм-удаление больше не спрашивает подтверждения');
+      expect(find.byType(AddTaskSheet), findsNothing,
+          reason: 'лист закрылся сразу же (оптимистично)');
+
+      final rowsAfterDelete = await tester.runAsync(() =>
+          (db.select(db.itemsTable)
+                ..where((t) => t.title.equals('Old chore')))
+              .get());
+      expect(rowsAfterDelete, isEmpty);
+
+      expect(find.text('Undo'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 5));
+      await tester.pump(const Duration(seconds: 5));
+      await unmountAndFlush(tester);
+    });
+  });
 }

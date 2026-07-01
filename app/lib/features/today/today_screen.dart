@@ -9,7 +9,14 @@
 // УБРАНО: ProgressRing, StreakRow, большой KaiMascot, тумблер тона,
 //         отдельные карточки MorningReview/EveningReview, секция «Главное»,
 //         HabitsTodaySection (файлы сохранены, рендер отключён).
-// СОХРАНЕНО: CelebrationOverlay, UndoFab, провайдеры, логика свайпов, синк.
+// СОХРАНЕНО: CelebrationOverlay, провайдеры, логика свайпов, синк.
+//
+// UNDO-UNIFICATION (2026-07-01, решение владельца «Вариант 1»): постоянная
+// кнопка ↩ (_UndoFab) и её провайдер (undo_provider.dart) УДАЛЕНЫ — они были
+// единственной отменой для создания/форм-удаления задачи, а skip/snooze были
+// вовсе без отмены. Теперь ЛЮБОЕ обратимое действие Today (done/skip/snooze/
+// swipe-delete/создание/форм-удаление) показывает undo-тост (showAppToast,
+// core/animations/app_toast.dart) — единый механизм на всё приложение.
 
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
@@ -37,7 +44,6 @@ import '../../services/rating/rating_service.dart'; // E3: оценка прил
 import '../../services/streak/streak_service.dart';
 import '../../services/widget/widget_service.dart';
 import '../plan/widgets/recurrence_providers.dart';
-import 'undo_provider.dart';
 import 'widgets/add_task_sheet.dart';
 import 'widgets/backup_reminder_card.dart';
 import 'widgets/celebration_overlay.dart';
@@ -114,19 +120,11 @@ class TodayScreen extends ConsumerWidget {
       children: [
         Scaffold(
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-          floatingActionButton: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const _UndoFab(),
-              const SizedBox(width: 12),
-              FloatingActionButton(
-                heroTag: 'today_add_fab',
-                onPressed: () => showAddTaskSheet(context, day: now),
-                tooltip: context.s('today.add_task_btn'),
-                child:
-                    PhosphorIcon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
-              ),
-            ],
+          floatingActionButton: FloatingActionButton(
+            heroTag: 'today_add_fab',
+            onPressed: () => showAddTaskSheet(context, day: now),
+            tooltip: context.s('today.add_task_btn'),
+            child: PhosphorIcon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
           ),
           body: itemsAsync.when(
             loading: () =>
@@ -840,7 +838,7 @@ class _TodayTimelineState extends ConsumerState<_TodayTimeline> {
           await _doDone(context, item);
           return false;
         case SwipeAction.skip:
-          await _doSkip(item);
+          await _doSkip(context, item);
           return false;
         case SwipeAction.snooze:
           await _doSnooze(context, item);
@@ -885,16 +883,21 @@ class _TodayTimelineState extends ConsumerState<_TodayTimeline> {
         context,
         variant: AppToastVariant.done,
         message: '"${item.title}" ${context.s('today.marked_done')}',
+        // ВАЖНО: используем УЖЕ ЗАХВАЧЕННЫЙ выше `dao` (Provider, не autoDispose —
+        // живёт весь app lifecycle), а НЕ ref.read(...) внутри closure. Между
+        // свайпом и тапом Undo экран уходит через кратковременный AsyncLoading
+        // (todayItemsProvider/expandedDayItemsProvider пересобираются), из-за
+        // чего ConsumerStatefulElement этого State успевает disposed+recreate —
+        // повторный ref.read() здесь бросал "Cannot use ref after disposed".
         onUndo: () async {
-          final d = ref.read(itemsDaoProvider);
           if (capturedAnchorId != null && capturedDate != null) {
-            await d.undoMaterializeOccurrence(
+            await dao.undoMaterializeOccurrence(
               anchorId: capturedAnchorId,
               date: capturedDate,
               concreteId: undoId,
             );
           } else {
-            await d.updateItem(
+            await dao.updateItem(
               undoId,
               ItemsTableCompanion(
                 status: const Value('pending'),
@@ -907,17 +910,57 @@ class _TodayTimelineState extends ConsumerState<_TodayTimeline> {
     }
   }
 
-  Future<void> _doSkip(ItemsTableData item) async {
+  Future<void> _doSkip(BuildContext context, ItemsTableData item) async {
     final dao = ref.read(itemsDaoProvider);
-    if (isVirtualOccurrenceId(item.id)) {
-      await dao.materializeOccurrence(
-        anchorIdFromVirtual(item.id),
-        dateFromVirtual(item.id) ?? item.scheduledAt,
+    final isVirtual = isVirtualOccurrenceId(item.id);
+    String? targetId = item.id;
+    String? virtualAnchorId;
+    DateTime? virtualDate;
+
+    if (isVirtual) {
+      virtualAnchorId = anchorIdFromVirtual(item.id);
+      virtualDate = dateFromVirtual(item.id) ?? item.scheduledAt;
+      targetId = await dao.materializeOccurrence(
+        virtualAnchorId,
+        virtualDate,
         status: 'skipped',
       );
     } else {
       await dao.markSkipped(item.id);
       await ref.read(notificationServiceProvider).cancelTaskReminder(item.id);
+    }
+
+    // Undo-тост (единый механизм, §3.3 ANIMATIONS.md) — раньше skip был БЕЗ
+    // отмены вовсе. Симметрично _doDone: виртуальный повтор откатывается через
+    // undoMaterializeOccurrence, обычная задача — возвратом status в pending.
+    if (context.mounted && targetId != null) {
+      final undoId = targetId;
+      final capturedAnchorId = virtualAnchorId;
+      final capturedDate = virtualDate;
+
+      showAppToast(
+        context,
+        variant: AppToastVariant.done,
+        message: '"${item.title}" ${context.s('today.skipped')}',
+        // dao захвачен ВЫШЕ (см. комментарий в _doDone) — не ref.read() внутри.
+        onUndo: () async {
+          if (capturedAnchorId != null && capturedDate != null) {
+            await dao.undoMaterializeOccurrence(
+              anchorId: capturedAnchorId,
+              date: capturedDate,
+              concreteId: undoId,
+            );
+          } else {
+            await dao.updateItem(
+              undoId,
+              ItemsTableCompanion(
+                status: const Value('pending'),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
+          }
+        },
+      );
     }
   }
 
@@ -925,12 +968,18 @@ class _TodayTimelineState extends ConsumerState<_TodayTimeline> {
     final dao = ref.read(itemsDaoProvider);
     final notifications = ref.read(notificationServiceProvider);
     final tomorrow = item.scheduledAt.add(const Duration(days: 1));
+    final originalScheduledAt = item.scheduledAt;
     String? rescheduledId;
+    final isVirtual = isVirtualOccurrenceId(item.id);
+    String? virtualAnchorId;
+    DateTime? virtualDate;
 
-    if (isVirtualOccurrenceId(item.id)) {
+    if (isVirtual) {
+      virtualAnchorId = anchorIdFromVirtual(item.id);
+      virtualDate = dateFromVirtual(item.id) ?? item.scheduledAt;
       rescheduledId = await dao.materializeOccurrence(
-        anchorIdFromVirtual(item.id),
-        dateFromVirtual(item.id) ?? item.scheduledAt,
+        virtualAnchorId,
+        virtualDate,
         scheduledAt: tomorrow,
       );
     } else {
@@ -955,11 +1004,36 @@ class _TodayTimelineState extends ConsumerState<_TodayTimeline> {
       }
     }
 
-    if (context.mounted) {
+    // Undo-тост: раньше здесь показывался тост БЕЗ кнопки Undo. Отмена
+    // возвращает исходный scheduledAt (виртуальный повтор — через
+    // undoMaterializeOccurrence, симметрично _doDone/_doSkip).
+    if (context.mounted && rescheduledId != null) {
+      final undoId = rescheduledId;
+      final capturedAnchorId = virtualAnchorId;
+      final capturedDate = virtualDate;
+
       showAppToast(
         context,
         variant: AppToastVariant.done,
         message: '"${item.title}" ${context.s('today.snoozed_tomorrow')}',
+        // dao захвачен ВЫШЕ (см. комментарий в _doDone) — не ref.read() внутри.
+        onUndo: () async {
+          if (capturedAnchorId != null && capturedDate != null) {
+            await dao.undoMaterializeOccurrence(
+              anchorId: capturedAnchorId,
+              date: capturedDate,
+              concreteId: undoId,
+            );
+          } else {
+            await dao.updateItem(
+              undoId,
+              ItemsTableCompanion(
+                scheduledAt: Value(originalScheduledAt),
+                updatedAt: Value(DateTime.now()),
+              ),
+            );
+          }
+        },
       );
     }
   }
@@ -988,12 +1062,12 @@ class _TodayTimelineState extends ConsumerState<_TodayTimeline> {
         context,
         variant: AppToastVariant.removed,
         message: '"${item.title}" ${context.s('today.deleted')}',
+        // dao/subtasksDao захвачены ВЫШЕ (см. комментарий в _doDone) —
+        // не ref.read() внутри onUndo.
         onUndo: snapshot == null
             ? null
             : () async {
-                await ref
-                    .read(itemsDaoProvider)
-                    .insertItem(snapshot.toCompanion(false));
+                await dao.insertItem(snapshot.toCompanion(false));
                 await subtasksDao.replaceForItem(
                   snapshot.id,
                   subtasksSnapshot.map((s) => s.toCompanion(false)).toList(),
@@ -1286,44 +1360,5 @@ class _TimelineRow extends StatelessWidget {
     final h = dt.hour.toString().padLeft(2, '0');
     final m = dt.minute.toString().padLeft(2, '0');
     return '$h:$m';
-  }
-}
-
-// ---------------------------------------------------------------------------
-// _UndoFab — постоянная кнопка ↩ слева от FAB «Add»
-// Идентична оригинальной из today_screen.dart.
-// ---------------------------------------------------------------------------
-
-class _UndoFab extends ConsumerWidget {
-  const _UndoFab();
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final action = ref.watch(lastUndoableActionProvider);
-    if (action == null) return const SizedBox.shrink();
-
-    final colorScheme = Theme.of(context).colorScheme;
-    final ext = Theme.of(context).extension<FocusThemeExtension>();
-
-    return FloatingActionButton.small(
-      heroTag: 'today_undo_fab',
-      backgroundColor: ext?.surfaceElevated ?? colorScheme.surface,
-      foregroundColor: colorScheme.primary,
-      tooltip: context.s('today.undo_tooltip'),
-      onPressed: () async {
-        final dao = ref.read(itemsDaoProvider);
-        final done =
-            await ref.read(lastUndoableActionProvider.notifier).undo(dao);
-        if (done && context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.s('today.undo_done'))),
-          );
-        }
-      },
-      child: PhosphorIcon(
-        PhosphorIcons.arrowCounterClockwise(PhosphorIconsStyle.regular),
-        size: 18,
-      ),
-    );
   }
 }
