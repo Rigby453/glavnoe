@@ -72,3 +72,14 @@ class S {
 extension SContext on BuildContext {
   String s(String key) => S.of(this, key);
 }
+
+/// Резолвит строку по тегу локали БЕЗ BuildContext — для мест, где виджет
+/// строится вне обычного дерева виджетов (например ErrorWidget.builder в
+/// core/error_boundary.dart, у которого нет доступа к Localizations).
+/// Тот же алгоритм отката, что и [S.of]: точный тег → languageCode → en → key.
+String sForLocale(String localeTag, String key) {
+  final entry = S.all[key];
+  if (entry == null) return key;
+  final languageCode = localeTag.split('-').first;
+  return entry[localeTag] ?? entry[languageCode] ?? entry['en'] ?? key;
+}

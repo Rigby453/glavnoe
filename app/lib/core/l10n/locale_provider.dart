@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import 'package:intl/intl.dart';
+import '../error_boundary.dart' show errorBoundaryLocaleTag;
 import '../theme/theme_provider.dart';
 
 const _kLocaleKey = 'app_locale';
@@ -43,6 +44,9 @@ class LocaleNotifier extends Notifier<Locale> {
     // Синхронно выставляем Intl.defaultLocale — данные уже загружены
     // через applyIntlLocale() в main() до первого кадра.
     Intl.defaultLocale = localeTag(locale);
+    // main() уже выставил errorBoundaryLocaleTag из prefs при холодном
+    // старте; дублируем здесь на случай, если этот провайдер пересоздаётся.
+    errorBoundaryLocaleTag = localeTag(locale);
     return locale;
   }
 
@@ -51,6 +55,9 @@ class LocaleNotifier extends Notifier<Locale> {
     // чтобы первый rebuild уже видел правильную локаль.
     await applyIntlLocale(localeTag(locale));
     state = locale;
+    // Фолбэк-экран ошибок (нет BuildContext) резолвит строки по этому тегу —
+    // держим его синхронизированным с выбором пользователя.
+    errorBoundaryLocaleTag = localeTag(locale);
     final prefs = ref.read(sharedPreferencesProvider);
     await prefs.setString(_kLocaleKey, localeTag(locale));
   }

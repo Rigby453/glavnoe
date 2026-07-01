@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'core/database/database_providers.dart';
+import 'core/error_boundary.dart';
 import 'core/l10n/locale_provider.dart';
 import 'core/router/app_router.dart';
 import 'core/settings/app_usage.dart'; // E3/G2: счётчик запусков
@@ -27,6 +28,11 @@ import 'services/widget/widget_actions.dart' show initWidgetActions;
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Глобальный error boundary: в release/profile подменяет красный
+  // ErrorWidget Flutter на дружелюбный экран (core/error_boundary.dart).
+  // Debug-режим не трогаем — разработчик должен видеть полную ошибку.
+  setupErrorBoundary();
+
   // Загружаем SharedPreferences до запуска приложения
   // чтобы ThemeNotifier мог синхронно прочитать сохранённый ключ
   final prefs = await SharedPreferences.getInstance();
@@ -43,6 +49,9 @@ Future<void> main() async {
     const kLocaleKey = 'app_locale';
     final savedLocale = prefs.getString(kLocaleKey) ?? 'en';
     await applyIntlLocale(savedLocale);
+    // Фолбэк-экран ошибок (ErrorWidget.builder) не имеет BuildContext,
+    // поэтому резолвит строки по этому тегу — см. core/error_boundary.dart.
+    errorBoundaryLocaleTag = savedLocale;
   }
 
   runApp(

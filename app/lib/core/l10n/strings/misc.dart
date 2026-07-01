@@ -1,6 +1,36 @@
 // Строки экранов Auth, Onboarding, Import, Focus, Wrapped. Наполняется агентом.
 const Map<String, Map<String, String>> miscStrings = {
   // ---------------------------------------------------------------------------
+  // Global error boundary (core/error_boundary.dart) — фолбэк вместо
+  // красного экрана Flutter в non-debug сборках.
+  // ---------------------------------------------------------------------------
+  'error_boundary.title': {
+    'en': 'Something went wrong',
+    'ru': 'Что-то пошло не так',
+    'de': 'Etwas ist schiefgelaufen',
+    'fr': 'Une erreur est survenue',
+    'it': 'Qualcosa è andato storto',
+    'pt': 'Algo deu errado',
+    'es': 'Algo salió mal',
+    'id': 'Terjadi kesalahan',
+    'hi': 'कुछ गड़बड़ हो गई',
+    'ja': '問題が発生しました',
+    'ko': '문제가 발생했어요',
+  },
+  'error_boundary.body': {
+    'en': 'Please go back and try again. If this keeps happening, restart the app.',
+    'ru': 'Вернись назад и попробуй ещё раз. Если это повторяется — перезапусти приложение.',
+    'de': 'Bitte geh zurück und versuch es erneut. Falls es weiter passiert, starte die App neu.',
+    'fr': "Reviens en arrière et réessaie. Si ça persiste, redémarre l'application.",
+    'it': "Torna indietro e riprova. Se il problema persiste, riavvia l'app.",
+    'pt': 'Volte e tente novamente. Se isso continuar acontecendo, reinicie o aplicativo.',
+    'es': 'Vuelve atrás e inténtalo de nuevo. Si sigue pasando, reinicia la app.',
+    'id': 'Silakan kembali dan coba lagi. Jika terus terjadi, mulai ulang aplikasi.',
+    'hi': 'कृपया वापस जाएं और फिर से कोशिश करें। अगर यह बार-बार हो, तो ऐप को रीस्टार्ट करें।',
+    'ja': '戻ってもう一度お試しください。繰り返す場合はアプリを再起動してください。',
+    'ko': '뒤로 가서 다시 시도해 주세요. 계속되면 앱을 재시작해 주세요.',
+  },
+  // ---------------------------------------------------------------------------
   // Auth (auth_screen.dart, forgot_password_screen.dart)
   // ---------------------------------------------------------------------------
   'auth.tagline': {
