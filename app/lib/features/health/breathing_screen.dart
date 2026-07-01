@@ -43,14 +43,50 @@ const _kJitterPeriod = Duration(milliseconds: 900);
 /// Амплитуда джиттера в долях масштаба (крошечная: ±0.015).
 const _kJitterAmplitude = 0.015;
 
-class BreathingScreen extends ConsumerStatefulWidget {
+// Тонкая обёртка со своим Scaffold+AppBar — для прямого маршрута /breathing
+// (deep-link из block_tool_router.dart: задача с moduleLink='breathing').
+// Объединённый экран /mind (mind_screen.dart) использует BreathingSessionBody
+// напрямую, без второго AppBar.
+class BreathingScreen extends StatelessWidget {
   const BreathingScreen({super.key});
 
   @override
-  ConsumerState<BreathingScreen> createState() => _BreathingScreenState();
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(PhosphorIcons.wind(), size: 20),
+            const SizedBox(width: 8),
+            // Flexible: при малой ширине (320px) и крупном textScale (1.5+)
+            // текст не выходит за ширину Row в AppBar.
+            Flexible(
+              child: Text(
+                context.s('breathing.title'),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+          ],
+        ),
+      ),
+      body: const BreathingSessionBody(),
+    );
+  }
 }
 
-class _BreathingScreenState extends ConsumerState<BreathingScreen>
+/// Тело дыхательной сессии (выбор техники → активная сессия → завершение).
+/// Без своего Scaffold/AppBar — переиспользуется и в [BreathingScreen], и как
+/// одна из вкладок объединённого экрана «Практики» (mind_screen.dart).
+class BreathingSessionBody extends ConsumerStatefulWidget {
+  const BreathingSessionBody({super.key});
+
+  @override
+  ConsumerState<BreathingSessionBody> createState() =>
+      _BreathingSessionBodyState();
+}
+
+class _BreathingSessionBodyState extends ConsumerState<BreathingSessionBody>
     with TickerProviderStateMixin {
   // --- Настройки ---
   // Выбранная техника: 'builtin:<index>' для встроенного пресета либо id
@@ -449,34 +485,15 @@ class _BreathingScreenState extends ConsumerState<BreathingScreen>
         const <CustomTechnique>[];
     _customTechniques = custom;
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(PhosphorIcons.wind(), size: 20),
-            const SizedBox(width: 8),
-            // Flexible: при малой ширине (320px) и крупном textScale (1.5+)
-            // текст не выходит за ширину Row в AppBar.
-            Flexible(
-              child: Text(
-                context.s('breathing.title'),
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-          ],
-        ),
-      ),
-      body: SafeArea(
-        child: Padding(
-          // 24dp screen margin — spec §4.1
-          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
-          child: _done
-              ? _buildDone(textTheme)
-              : _running
-                  ? _buildRunning(textTheme)
-                  : _buildIdle(textTheme, custom),
-        ),
+    return SafeArea(
+      child: Padding(
+        // 24dp screen margin — spec §4.1
+        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 24),
+        child: _done
+            ? _buildDone(textTheme)
+            : _running
+                ? _buildRunning(textTheme)
+                : _buildIdle(textTheme, custom),
       ),
     );
   }

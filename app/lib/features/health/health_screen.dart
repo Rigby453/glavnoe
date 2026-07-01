@@ -245,24 +245,17 @@ class HealthScreen extends ConsumerWidget {
         const _SleepCard(),
 
         // ── MIND ───────────────────────────────────────────────────────────
-        // Опциональные модули (#17): секция целиком скрыта, если ОБА выключены.
+        // #19: единая плитка «Практики» — ведёт на объединённый экран с
+        // вкладками Медитация/Дыхание (mind_screen.dart). Секция целиком
+        // скрыта, если ОБА флага выключены.
         if (meditationOn || breathingOn) ...[
           _HealthSectionHeader(labelKey: 'health.section_mind'),
-          if (meditationOn)
-            _HealthModuleTile(
-              titleKey: 'health.meditation',
-              subtitleKey: 'health.meditation_subtitle',
-              icon: PhosphorIcons.flowerLotus(),
-              route: '/meditation',
-            ),
-          if (meditationOn && breathingOn) const SizedBox(height: 8),
-          if (breathingOn)
-            _HealthModuleTile(
-              titleKey: 'health.breathing',
-              subtitleKey: 'health.breathing_subtitle',
-              icon: PhosphorIcons.wind(),
-              route: '/breathing',
-            ),
+          _HealthModuleTile(
+            titleKey: 'health.mind_practices',
+            subtitleKey: 'health.mind_practices_subtitle',
+            icon: PhosphorIcons.flowerLotus(),
+            route: '/mind',
+          ),
         ],
 
         // ── MOVEMENT ───────────────────────────────────────────────────────
@@ -355,23 +348,15 @@ class HealthScreen extends ConsumerWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // #19: единая плитка «Практики» вместо двух — см. mobile.
                   if (meditationOn || breathingOn) ...[
                     _HealthSectionHeader(labelKey: 'health.section_mind'),
-                    if (meditationOn)
-                      _HealthModuleTile(
-                        titleKey: 'health.meditation',
-                        subtitleKey: 'health.meditation_subtitle',
-                        icon: PhosphorIcons.flowerLotus(),
-                        route: '/meditation',
-                      ),
-                    if (meditationOn && breathingOn) const SizedBox(height: 8),
-                    if (breathingOn)
-                      _HealthModuleTile(
-                        titleKey: 'health.breathing',
-                        subtitleKey: 'health.breathing_subtitle',
-                        icon: PhosphorIcons.wind(),
-                        route: '/breathing',
-                      ),
+                    _HealthModuleTile(
+                      titleKey: 'health.mind_practices',
+                      subtitleKey: 'health.mind_practices_subtitle',
+                      icon: PhosphorIcons.flowerLotus(),
+                      route: '/mind',
+                    ),
                   ],
                 ],
               ),

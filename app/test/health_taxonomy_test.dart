@@ -13,7 +13,8 @@
 //   2. Все флаги=true (включая Water): все 4 секции видны, опциональные
 //      модули — nav-карточки (caretRight) БЕЗ инлайн-Switch (тумблер живёт
 //      только в Profile → Behavior); карточка воды — не nav-tile, у неё
-//      остаётся собственный инлайн-Switch (напоминания).
+//      остаётся собственный инлайн-Switch (напоминания). Meditation+Breathing
+//      объединены в ОДНУ плитку «Breathing & meditation» → /mind (#19, mind_screen.dart).
 //   3. Нет RenderFlex overflow ни на 320x2500px, ни при textScale 1.5 на 360x2500px
 //      (в обоих состояниях флагов).
 //
@@ -193,7 +194,8 @@ void main() {
     testWidgets(
         'все модули включены (включая Water): все 4 секции видны, опциональные '
         'модули — nav-карточки БЕЗ инлайн-Switch (тумблер только в Profile → '
-        'Behavior); у карточки воды остаётся свой Switch напоминаний',
+        'Behavior); у карточки воды остаётся свой Switch напоминаний; '
+        'Meditation+Breathing объединены в ОДНУ плитку «Breathing & meditation» (#19)',
         (tester) async {
       SharedPreferences.setMockInitialValues({
         kWaterModeKey: true,
@@ -216,8 +218,10 @@ void main() {
       expect(find.text('Movement'), findsWidgets);
 
       expect(find.text('Food'), findsOneWidget);
-      expect(find.text('Meditation'), findsOneWidget);
-      expect(find.text('Breathing'), findsOneWidget);
+      // #19: одна объединённая плитка вместо двух отдельных Meditation/Breathing.
+      expect(find.text('Breathing & meditation'), findsOneWidget);
+      expect(find.text('Meditation'), findsNothing);
+      expect(find.text('Breathing'), findsNothing);
       expect(find.text('Workouts'), findsOneWidget);
 
       // Только water reminders Switch — модульные nav-карточки не имеют
@@ -226,11 +230,12 @@ void main() {
           find.byWidgetPredicate((w) => w is Switch || w is CupertinoSwitch);
       expect(switchWidgets, findsOneWidget);
 
-      // Вместо тумблера — caretRight (nav-карточка), по одной на модуль.
+      // Вместо тумблера — caretRight (nav-карточка): Food, Breathing & meditation,
+      // Workouts (#19: Meditation+Breathing слиты в одну карточку).
       final caretIcons = find.byWidgetPredicate(
         (w) => w is Icon && w.icon == PhosphorIcons.caretRight(),
       );
-      expect(caretIcons, findsAtLeast(4));
+      expect(caretIcons, findsAtLeast(3));
 
       expect(tester.takeException(), isNull);
       await _unmount(tester);

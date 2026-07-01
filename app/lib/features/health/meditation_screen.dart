@@ -307,8 +307,27 @@ Widget _buildSessionAvatar({
 // Session list screen
 // ---------------------------------------------------------------------------
 
-class MeditationScreen extends ConsumerWidget {
+// Тонкая обёртка со своим Scaffold+AppBar — для прямого маршрута /meditation
+// (deep-link из block_tool_router.dart: задача с moduleLink='meditation').
+// Объединённый экран /mind (mind_screen.dart) использует MeditationLibraryBody
+// напрямую, без второго AppBar.
+class MeditationScreen extends StatelessWidget {
   const MeditationScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text(context.s('meditation.title'))),
+      body: const MeditationLibraryBody(),
+    );
+  }
+}
+
+/// Тело экрана медитаций (список встроенных + пользовательских сессий).
+/// Без своего Scaffold/AppBar — переиспользуется и в [MeditationScreen],
+/// и как одна из вкладок объединённого экрана «Практики» (mind_screen.dart).
+class MeditationLibraryBody extends ConsumerWidget {
+  const MeditationLibraryBody({super.key});
 
   void _openEditor(BuildContext context) {
     Navigator.of(context).push(
@@ -341,42 +360,39 @@ class MeditationScreen extends ConsumerWidget {
     final custom = ref.watch(customMeditationsProvider).valueOrNull ??
         const <CustomMeditation>[];
 
-    return Scaffold(
-      appBar: AppBar(title: Text(context.s('meditation.title'))),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
-        children: [
-          // Встроенные сессии — §4.2 object cards.
-          for (final session in _sessions) ...[
-            _SessionCard(session: session, ext: ext, textTheme: textTheme),
-            const SizedBox(height: 8),
-          ],
-          // Пользовательские сессии: SwipeToDelete (влево = удалить + Undo).
-          for (final m in custom) ...[
-            SwipeToDelete(
-              key: ValueKey('swipe_custom_med_${m.id}'),
-              onDelete: () => _deleteCustom(context, ref, m),
-              child: _CustomSessionCard(
-                session: m,
-                ext: ext,
-                textTheme: textTheme,
-                onDelete: () => _deleteCustom(context, ref, m),
-              ),
-            ),
-            const SizedBox(height: 8),
-          ],
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(24, 24, 24, 96),
+      children: [
+        // Встроенные сессии — §4.2 object cards.
+        for (final session in _sessions) ...[
+          _SessionCard(session: session, ext: ext, textTheme: textTheme),
           const SizedBox(height: 8),
-          // Создать свою сессию — ghost-кнопка, выравнена по левому краю.
-          Align(
-            alignment: Alignment.centerLeft,
-            child: TextButton.icon(
-              onPressed: () => _openEditor(context),
-              icon: Icon(PhosphorIcons.plus(), size: 20),
-              label: Text(context.s('meditation.create_button')),
+        ],
+        // Пользовательские сессии: SwipeToDelete (влево = удалить + Undo).
+        for (final m in custom) ...[
+          SwipeToDelete(
+            key: ValueKey('swipe_custom_med_${m.id}'),
+            onDelete: () => _deleteCustom(context, ref, m),
+            child: _CustomSessionCard(
+              session: m,
+              ext: ext,
+              textTheme: textTheme,
+              onDelete: () => _deleteCustom(context, ref, m),
             ),
           ),
+          const SizedBox(height: 8),
         ],
-      ),
+        const SizedBox(height: 8),
+        // Создать свою сессию — ghost-кнопка, выравнена по левому краю.
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(
+            onPressed: () => _openEditor(context),
+            icon: Icon(PhosphorIcons.plus(), size: 20),
+            label: Text(context.s('meditation.create_button')),
+          ),
+        ),
+      ],
     );
   }
 }

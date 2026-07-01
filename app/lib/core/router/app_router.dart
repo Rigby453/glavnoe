@@ -40,6 +40,7 @@ import '../../features/health/water_report_screen.dart';
 import '../../features/diary/diary_history_screen.dart';
 import '../../features/plan/goals_screen.dart';
 import '../../features/health/meditation_screen.dart';
+import '../../features/health/mind_screen.dart';
 import '../../features/health/screen_time_screen.dart';
 import '../../features/auth/forgot_password_screen.dart';
 import '../../features/profile/terms_screen.dart';
@@ -279,7 +280,9 @@ final routerProvider = Provider<GoRouter>((ref) {
             RecipeEditorScreen(recipeId: state.pathParameters['id']!),
       ),
 
-      // /breathing — дыхательные сессии (SPEC C5, Ф2), вне оболочки
+      // /breathing — дыхательные сессии (SPEC C5, Ф2), вне оболочки. Прямой
+      // deep-link из block_tool_router.dart (задача moduleLink='breathing') —
+      // открывает практику сразу, без объединённого экрана /mind.
       GoRoute(
         path: '/breathing',
         builder: (context, state) => const BreathingScreen(),
@@ -340,10 +343,20 @@ final routerProvider = Provider<GoRouter>((ref) {
       // /goals — долгосрочные цели (SPEC C4), push-route вне оболочки
       GoRoute(path: '/goals', builder: (context, state) => const GoalsScreen()),
 
-      // /meditation — текстовые медитации (Ф2), вне оболочки
+      // /meditation — текстовые медитации (Ф2), вне оболочки. Прямой
+      // deep-link из block_tool_router.dart (задача moduleLink='meditation') —
+      // открывает практику сразу, без объединённого экрана /mind.
       GoRoute(
         path: '/meditation',
         builder: (context, state) => const MeditationScreen(),
+      ),
+
+      // /mind — объединённый экран «Практики» (#19): Медитация + Дыхание в
+      // одном экране с вкладками. Единая точка входа из Health вместо двух
+      // отдельных плиток; вне оболочки.
+      GoRoute(
+        path: '/mind',
+        builder: (context, state) => const MindScreen(),
       ),
       // /screen-time — лимиты экранного времени по категориям
       GoRoute(
