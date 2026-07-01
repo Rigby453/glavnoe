@@ -92,8 +92,23 @@ const loginSchema = z
   });
 
 // Обновление флагов профиля (snake_case, все поля опциональны, лишние игнорируются)
+// ADR-062: антропометрия + цели питания/воды — раньше жили только на устройстве
+// (SharedPreferences), поэтому телефон и веб показывали разные значения.
 const updateMeSchema = z.object({
   onboarding_done: z.boolean().optional(),
+  weight_kg: z.number().min(20).max(400).optional(),
+  height_cm: z.number().int().min(50).max(260).optional(),
+  age_years: z.number().int().min(5).max(120).optional(),
+  sex: z.enum(["male", "female", "other"]).optional(),
+  activity_level: z.enum(["low", "medium", "high"]).optional(),
+  food_goal: z.enum(["lose", "maintain", "gain"]).optional(),
+  calorie_goal: z.number().int().min(800).max(6000).optional(),
+  macro_override_enabled: z.boolean().optional(),
+  macro_kcal_target: z.number().int().min(800).max(6000).optional(),
+  macro_protein_g: z.number().int().min(0).max(1000).optional(),
+  macro_fat_g: z.number().int().min(0).max(1000).optional(),
+  macro_carbs_g: z.number().int().min(0).max(1000).optional(),
+  water_goal_ml: z.number().int().min(200).max(8000).optional(),
 });
 
 // ---------------------------------------------------------------------------
@@ -274,9 +289,63 @@ const authRoutes: FastifyPluginAsync = async (fastify) => {
       }
 
       // Маппинг snake_case (API) → camelCase (Prisma); только переданные поля.
-      const data: { onboardingDone?: boolean } = {};
+      const data: {
+        onboardingDone?: boolean;
+        weightKg?: number;
+        heightCm?: number;
+        ageYears?: number;
+        sex?: string;
+        activityLevel?: string;
+        foodGoal?: string;
+        calorieGoal?: number;
+        macroOverrideEnabled?: boolean;
+        macroKcalTarget?: number;
+        macroProteinG?: number;
+        macroFatG?: number;
+        macroCarbsG?: number;
+        waterGoalMl?: number;
+      } = {};
       if (parsed.data.onboarding_done !== undefined) {
         data.onboardingDone = parsed.data.onboarding_done;
+      }
+      if (parsed.data.weight_kg !== undefined) {
+        data.weightKg = parsed.data.weight_kg;
+      }
+      if (parsed.data.height_cm !== undefined) {
+        data.heightCm = parsed.data.height_cm;
+      }
+      if (parsed.data.age_years !== undefined) {
+        data.ageYears = parsed.data.age_years;
+      }
+      if (parsed.data.sex !== undefined) {
+        data.sex = parsed.data.sex;
+      }
+      if (parsed.data.activity_level !== undefined) {
+        data.activityLevel = parsed.data.activity_level;
+      }
+      if (parsed.data.food_goal !== undefined) {
+        data.foodGoal = parsed.data.food_goal;
+      }
+      if (parsed.data.calorie_goal !== undefined) {
+        data.calorieGoal = parsed.data.calorie_goal;
+      }
+      if (parsed.data.macro_override_enabled !== undefined) {
+        data.macroOverrideEnabled = parsed.data.macro_override_enabled;
+      }
+      if (parsed.data.macro_kcal_target !== undefined) {
+        data.macroKcalTarget = parsed.data.macro_kcal_target;
+      }
+      if (parsed.data.macro_protein_g !== undefined) {
+        data.macroProteinG = parsed.data.macro_protein_g;
+      }
+      if (parsed.data.macro_fat_g !== undefined) {
+        data.macroFatG = parsed.data.macro_fat_g;
+      }
+      if (parsed.data.macro_carbs_g !== undefined) {
+        data.macroCarbsG = parsed.data.macro_carbs_g;
+      }
+      if (parsed.data.water_goal_ml !== undefined) {
+        data.waterGoalMl = parsed.data.water_goal_ml;
       }
 
       const updated = await prisma.user.update({

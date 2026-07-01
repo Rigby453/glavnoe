@@ -13,6 +13,20 @@
 | premium_source    | string   | **nullable** (ADR-041); apple\|google\|rustore\|stripe\|yookassa\|dev |
 | theme             | enum     | focus / calm / black / white / contrast |
 | tone_preference   | enum     | gentle / harsh                          |
+| onboarding_done   | boolean  | default false                           |
+| weight_kg         | float    | **nullable** (ADR-062); anthropometry, synced (was device-only) |
+| height_cm         | integer  | **nullable** (ADR-062)                  |
+| age_years         | integer  | **nullable** (ADR-062)                  |
+| sex               | string   | **nullable** (ADR-062); male \| female \| other |
+| activity_level    | string   | **nullable** (ADR-062); low \| medium \| high |
+| food_goal         | string   | **nullable** (ADR-062); lose \| maintain \| gain |
+| calorie_goal      | integer  | **nullable** (ADR-062); daily calorie target (calculated or manual) |
+| macro_override_enabled | boolean | default false (ADR-062); manual KБЖУ override instead of derived from food_goal |
+| macro_kcal_target | integer  | **nullable** (ADR-062)                  |
+| macro_protein_g   | integer  | **nullable** (ADR-062)                  |
+| macro_fat_g       | integer  | **nullable** (ADR-062)                  |
+| macro_carbs_g     | integer  | **nullable** (ADR-062)                  |
+| water_goal_ml     | integer  | **nullable** (ADR-062); daily water goal, synced (was device-only) |
 | created_at        | timestamp|                                         |
 | updated_at        | timestamp|                                         |
 
@@ -150,8 +164,11 @@
 > `backend/prisma/schema.prisma` (источник истины). Здесь обновлены `datasource`
 > (Neon pooling) и добавлены новые модели (`Subtask`, `PasswordResetCode`,
 > `StudyGroup`, `StudyGroupMember`) и поля (`Item.reminderMinutesBefore`,
-> `Streak.lastFreezeAccrualAt`, `User.premiumUntil/premiumSource`). Полный набор
-> моделей (`Friend`, `CoStudySession`, relation-поля `User`) см. в `schema.prisma`.
+> `Streak.lastFreezeAccrualAt`, `User.premiumUntil/premiumSource`,
+> `User.onboardingDone`, ADR-062 профильные поля `User.weightKg/heightCm/ageYears/sex/
+> activityLevel/foodGoal/calorieGoal/macroOverrideEnabled/macroKcalTarget/macroProteinG/
+> macroFatG/macroCarbsG/waterGoalMl`). Полный набор моделей (`Friend`, `CoStudySession`,
+> relation-поля `User`) см. в `schema.prisma`.
 
 ```prisma
 generator client {
@@ -176,6 +193,21 @@ model User {
   premiumSource    String?    // ADR-041: apple|google|rustore|stripe|yookassa|dev
   theme            String     @default("focus")
   tonePreference   String     @default("gentle")
+  onboardingDone   Boolean    @default(false)
+  // ADR-062: профиль (антропометрия + цели питания/воды) синкается на сервер
+  weightKg             Float?
+  heightCm             Int?
+  ageYears             Int?
+  sex                  String?
+  activityLevel        String?
+  foodGoal             String?
+  calorieGoal          Int?
+  macroOverrideEnabled Boolean  @default(false)
+  macroKcalTarget      Int?
+  macroProteinG        Int?
+  macroFatG            Int?
+  macroCarbsG          Int?
+  waterGoalMl          Int?
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   items            Item[]

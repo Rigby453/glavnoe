@@ -4,6 +4,36 @@
 > *Что обещали* (продукт) — в `docs/SPEC.md`. Архитектурные решения — в `docs/decisions.md`.
 > Статусы задач в журнале ниже: `[ ]` todo · `[~]` в работе · `[x]` сделано · `[!]` заблокировано.
 
+## Feature — профиль (антропометрия + цели питания/воды) синкается на сервер, backend-часть (2026-07-01)
+
+Баг с устройства: телефон показывал 3000 ккал (введено пользователем), веб/новое устройство — 2000 (дефолт из
+онбординга), потому что цель калорий/КБЖУ и антропометрия жили **только** в SharedPreferences на устройстве —
+в модели `User` таких полей не было (тот же TODO, что и в `profile_identity_provider.dart` про имя/аватар,
+см. строку 28 выше, но для более критичных данных). Это ADR-062, backend-часть готова; **клиент — отдельная задача**
+(читать/писать эти поля через `GET/PATCH /auth/me` вместо/вместе с prefs, разово залить существующие локальные
+значения на сервер при первом входе после обновления).
+
+- **[x] `backend/prisma/schema.prisma`** — модель `User`: 13 новых nullable/default полей — `weightKg Float?`,
+  `heightCm Int?`, `ageYears Int?`, `sex String?`, `activityLevel String?` (антропометрия); `foodGoal String?`,
+  `calorieGoal Int?`, `macroOverrideEnabled Boolean @default(false)`, `macroKcalTarget Int?`, `macroProteinG Int?`,
+  `macroFatG Int?`, `macroCarbsG Int?` (цели питания, с ручным override); `waterGoalMl Int?` (цель воды).
+- **[x] Миграция `20260701143417_add_profile_sync_fields`** — применена на Neon через `prisma migrate deploy`
+  (обычный `migrate dev` не сработал в неинтерактивном окружении; SQL сгенерирован через `prisma migrate diff`,
+  подробности в ADR-062). `prisma migrate status` → up to date.
+- **[x] `backend/src/routes/auth.ts`** — `updateMeSchema` (Zod) принимает все поля в snake_case с границами
+  (`weight_kg` 20-400, `height_cm` 50-260, `age_years` 5-120, `sex` enum, `activity_level` enum, `food_goal` enum,
+  `calorie_goal`/`macro_kcal_target` 800-6000, `macro_protein_g`/`macro_fat_g`/`macro_carbs_g` 0-1000,
+  `water_goal_ml` 200-8000); `PATCH /api/v1/auth/me` обновляет только переданные поля, теперь может вернуть `400`.
+- **[x] `backend/src/models/user.ts`** — `serializeUser` возвращает все 13 полей в snake_case и на `GET`, и на
+  `PATCH /auth/me`.
+- **[x] Контракт**: `docs/api-spec.yaml` (схема `User` + тело `PATCH /auth/me`) и `docs/data-model.md` (таблица
+  Users + embedded prisma-блок) обновлены точно под новые поля.
+- **[x] `tests/integration/auth.test.ts`** — 6 новых тестов (defaults=null/false на GET; PATCH антропометрии+целей
+  → GET отражает; PATCH ручного macro-override; 400 на выход за границы; 400 на невалидный enum).
+- **Результат**: `npx tsc --noEmit` — 0 ошибок. Полный backend-набор **370/370 passed** (28 suites), включая новые.
+- **Следующий шаг (клиент, не в этой задаче):** заменить/дополнить SharedPreferences-хранение цели калорий/КБЖУ и
+  антропометрии на синк через `GET/PATCH /auth/me`, аналогично `onboarding_done` (ADR-055).
+
 ## Ночная автономная сессия 2026-07-01 — 9 агентов, 12 коммитов (ветка night, всё запушено)
 
 Полный разбор фидбека двух тест-батчей + триаж 72 отложенных пунктов. Детали и хэши — в

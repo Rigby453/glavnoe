@@ -23,6 +23,22 @@ model User {
   theme            String           @default("focus")
   tonePreference   String           @default("gentle")
   onboardingDone   Boolean          @default(false)
+  // ADR-062: профиль синкается на сервер (раньше жил только в SharedPreferences на
+  // устройстве — телефон и веб показывали разные цели). Все поля nullable/с дефолтом,
+  // аддитивно, не ломают существующие строки.
+  weightKg             Float?   // антропометрия
+  heightCm             Int?
+  ageYears             Int?
+  sex                  String?  // male | female | other
+  activityLevel        String?  // low | medium | high
+  foodGoal             String?  // lose | maintain | gain
+  calorieGoal          Int?     // дневная цель ккал (расчётная или введённая)
+  macroOverrideEnabled Boolean  @default(false) // ручной override КБЖУ вместо расчёта от foodGoal
+  macroKcalTarget      Int?
+  macroProteinG        Int?
+  macroFatG            Int?
+  macroCarbsG          Int?
+  waterGoalMl          Int?     // дневная цель воды (мл)
   createdAt        DateTime         @default(now())
   updatedAt        DateTime         @updatedAt
   items            Item[]

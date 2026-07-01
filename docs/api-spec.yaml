@@ -105,14 +105,32 @@ paths:
           application/json:
             schema:
               type: object
+              description: >
+                All fields optional; only sent fields are updated (ADR-062: profile —
+                anthropometry + nutrition/water goals — synced across devices/web,
+                previously stored on-device only).
               properties:
                 onboarding_done: { type: boolean }
+                weight_kg: { type: number, minimum: 20, maximum: 400 }
+                height_cm: { type: integer, minimum: 50, maximum: 260 }
+                age_years: { type: integer, minimum: 5, maximum: 120 }
+                sex: { type: string, enum: [male, female, other] }
+                activity_level: { type: string, enum: [low, medium, high] }
+                food_goal: { type: string, enum: [lose, maintain, gain] }
+                calorie_goal: { type: integer, minimum: 800, maximum: 6000 }
+                macro_override_enabled: { type: boolean }
+                macro_kcal_target: { type: integer, minimum: 800, maximum: 6000 }
+                macro_protein_g: { type: integer, minimum: 0, maximum: 1000 }
+                macro_fat_g: { type: integer, minimum: 0, maximum: 1000 }
+                macro_carbs_g: { type: integer, minimum: 0, maximum: 1000 }
+                water_goal_ml: { type: integer, minimum: 200, maximum: 8000 }
       responses:
         '200':
           description: OK
           content:
             application/json:
               schema: { $ref: '#/components/schemas/User' }
+        '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
   /api/v1/items:
@@ -1360,6 +1378,19 @@ components:
         theme: { type: string, enum: [focus, calm, black, white, contrast] }
         tone_preference: { $ref: '#/components/schemas/Tone' }
         onboarding_done: { type: boolean, description: 'Onboarding/setup flow completed; syncs setup across devices/web' }
+        weight_kg: { type: number, nullable: true, description: 'ADR-062: anthropometry, synced (was device-only)' }
+        height_cm: { type: integer, nullable: true }
+        age_years: { type: integer, nullable: true }
+        sex: { type: string, nullable: true, enum: [male, female, other, null] }
+        activity_level: { type: string, nullable: true, enum: [low, medium, high, null] }
+        food_goal: { type: string, nullable: true, enum: [lose, maintain, gain, null], description: 'Nutrition goal driving the calculated calorie/macro targets' }
+        calorie_goal: { type: integer, nullable: true, description: 'Daily calorie target (calculated or manually set)' }
+        macro_override_enabled: { type: boolean, description: 'When true, macro_kcal_target/macro_protein_g/macro_fat_g/macro_carbs_g are used verbatim instead of being derived from food_goal' }
+        macro_kcal_target: { type: integer, nullable: true }
+        macro_protein_g: { type: integer, nullable: true }
+        macro_fat_g: { type: integer, nullable: true }
+        macro_carbs_g: { type: integer, nullable: true }
+        water_goal_ml: { type: integer, nullable: true, description: 'ADR-062: daily water goal, synced (was device-only)' }
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 

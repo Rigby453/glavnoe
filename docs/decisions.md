@@ -5,6 +5,59 @@
 
 ---
 
+## ADR-062: Profile (anthropometry + nutrition/water goals) synced to the server via User + PATCH /auth/me
+**Date:** 2026-07-01
+**Проблема (баг с устройства):** дневная цель калорий/КБЖУ и антропометрия (вес, рост,
+возраст, пол, уровень активности) хранились **только локально на устройстве**
+(SharedPreferences), а на сервере в модели `User` таких полей не было. Итог: телефон
+показывал одно значение (например, 3000 ккал, введённое пользователем), а веб/новое
+устройство — другое (2000 ккал, дефолт из онбординга), потому что profile-данные никогда
+не доезжали до сервера и не могли синкнуться между устройствами. Та же болезнь у дневной
+цели воды.
+**Решение:**
+- В модель `User` (`backend/prisma/schema.prisma`) добавлены **nullable** (или с
+  дефолтом) поля, аддитивно — старые строки не ломаются:
+  `weightKg Float?`, `heightCm Int?`, `ageYears Int?`, `sex String?`, `activityLevel String?`
+  (антропометрия); `foodGoal String?`, `calorieGoal Int?`, `macroOverrideEnabled Boolean
+  @default(false)`, `macroKcalTarget Int?`, `macroProteinG Int?`, `macroFatG Int?`,
+  `macroCarbsG Int?` (цели питания, с ручным override вместо расчёта от `foodGoal`);
+  `waterGoalMl Int?` (цель воды). Миграция `20260701143417_add_profile_sync_fields`
+  (`ALTER TABLE "User" ADD COLUMN ...`) применена к Neon через `prisma migrate deploy`
+  (см. ниже про `migrate dev`).
+- **`PATCH /api/v1/auth/me`** (`updateMeSchema` в `backend/src/routes/auth.ts`) принимает
+  все новые поля в snake_case, опционально, с Zod-границами: `weight_kg` (20-400),
+  `height_cm`/`age_years` (int, 50-260 / 5-120), `sex` (enum male/female/other),
+  `activity_level` (enum low/medium/high), `food_goal` (enum lose/maintain/gain),
+  `calorie_goal`/`macro_kcal_target` (int, 800-6000), `macro_override_enabled` (bool),
+  `macro_protein_g`/`macro_fat_g`/`macro_carbs_g` (int, 0-1000), `water_goal_ml` (int,
+  200-8000). Только переданные поля обновляются. Ответ теперь может быть `400` при
+  выходе значений за границы (спецификация обновлена).
+- `serializeUser` (`backend/src/models/user.ts`) возвращает все поля в snake_case и на
+  `GET`, и на `PATCH /auth/me` — клиент читает их при логине/старте и может залить
+  локальные значения на сервер один раз, дальше сервер — источник истины при входе с
+  нового устройства.
+- Контракт обновлён: `docs/api-spec.yaml` (схема `User` + тело `PATCH /auth/me`) и
+  `docs/data-model.md` (таблица Users + embedded prisma-блок) — точно под новые поля.
+**Миграция на Neon (нюанс):** `prisma migrate dev` отказался работать в этом
+неинтерактивном окружении («non-interactive is not supported», как и `--create-only`).
+Рабочий путь: `prisma migrate diff --from-schema-datasource ./prisma/schema.prisma
+--to-schema-datamodel ./prisma/schema.prisma --script` сгенерировал точный SQL, файл
+руками положен в `prisma/migrations/20260701143417_add_profile_sync_fields/migration.sql`,
+затем `prisma migrate deploy` применил и записал её в `_prisma_migrations` как обычно.
+`prisma migrate status` после этого — «Database schema is up to date!».
+**Клиенту (отдельная задача, не в этом ADR):** при логине/синке читать эти поля из
+`GET/PATCH /auth/me` и писать в SharedPreferences; при первом входе после обновления —
+если локальные значения есть, а серверные `null`, отправить их через `PATCH /auth/me`
+один раз, чтобы не терять существующие настройки пользователя.
+**Reason:** цели питания/воды и антропометрия — часть профиля пользователя, а не
+одноразовая настройка устройства; без серверного хранения кросс-device-опыт (главная
+фича «Главное» — везде один и тот же план) был сломан именно там, где это заметнее всего
+(разные цифры калорий на разных экранах). Аддитивная миграция и опциональные Zod-поля
+держат обратную совместимость — старые клиенты, которые не знают о новых полях, продолжают
+работать.
+
+---
+
 ## ADR-061: Open Food Facts search — language ranking (lc) + relevance filter (FOOD-26/28)
 **Date:** 2026-07-01
 **Проблема (тест-сессия 2026-06-30, пункты 26 и 28):**

@@ -399,3 +399,120 @@ describe('GET /api/v1/auth/me', () => {
     expect(res.statusCode).toBe(401);
   });
 });
+
+// ---------------------------------------------------------------------------
+// PATCH /api/v1/auth/me — профиль (ADR-062: антропометрия + цели питания/воды,
+// синк между устройствами вместо SharedPreferences-only)
+// ---------------------------------------------------------------------------
+
+describe('PATCH /api/v1/auth/me — profile sync fields (ADR-062)', () => {
+  let token: string;
+  let userId: string;
+
+  beforeAll(async () => {
+    const res = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/register',
+      payload: { email: randomEmail(), password: 'ProfilePass1!', name: 'Profile User' },
+    });
+    const body = res.json<{ access_token: string; user: { id: string } }>();
+    token = body.access_token;
+    userId = body.user.id;
+    userIdsToCleanup.push(userId);
+  });
+
+  test('new profile fields default to null/false on GET /me', async () => {
+    const res = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json<Record<string, unknown>>();
+    expect(body['weight_kg']).toBeNull();
+    expect(body['calorie_goal']).toBeNull();
+    expect(body['water_goal_ml']).toBeNull();
+    expect(body['macro_override_enabled']).toBe(false);
+  });
+
+  test('PATCH writes anthropometry + calorie/water goals → 200; GET returns them', async () => {
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        weight_kg: 68.5,
+        height_cm: 174,
+        age_years: 21,
+        sex: 'male',
+        activity_level: 'medium',
+        food_goal: 'lose',
+        calorie_goal: 2100,
+        water_goal_ml: 2500,
+      },
+    });
+    expect(patchRes.statusCode).toBe(200);
+    const patchBody = patchRes.json<Record<string, unknown>>();
+    expect(patchBody['weight_kg']).toBe(68.5);
+    expect(patchBody['height_cm']).toBe(174);
+    expect(patchBody['age_years']).toBe(21);
+    expect(patchBody['sex']).toBe('male');
+    expect(patchBody['activity_level']).toBe('medium');
+    expect(patchBody['food_goal']).toBe('lose');
+    expect(patchBody['calorie_goal']).toBe(2100);
+    expect(patchBody['water_goal_ml']).toBe(2500);
+
+    // GET reflects the same values (server is the source of truth for a new device)
+    const getRes = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/me',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    expect(getRes.statusCode).toBe(200);
+    const getBody = getRes.json<Record<string, unknown>>();
+    expect(getBody['calorie_goal']).toBe(2100);
+    expect(getBody['water_goal_ml']).toBe(2500);
+  });
+
+  test('PATCH manual macro override → 200; GET returns macro_override_enabled + targets', async () => {
+    const patchRes = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: {
+        macro_override_enabled: true,
+        macro_kcal_target: 2200,
+        macro_protein_g: 150,
+        macro_fat_g: 70,
+        macro_carbs_g: 220,
+      },
+    });
+    expect(patchRes.statusCode).toBe(200);
+    const body = patchRes.json<Record<string, unknown>>();
+    expect(body['macro_override_enabled']).toBe(true);
+    expect(body['macro_kcal_target']).toBe(2200);
+    expect(body['macro_protein_g']).toBe(150);
+    expect(body['macro_fat_g']).toBe(70);
+    expect(body['macro_carbs_g']).toBe(220);
+  });
+
+  test('PATCH out-of-range value (calorie_goal too low) → 400', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { calorie_goal: 100 },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+
+  test('PATCH invalid enum (sex) → 400', async () => {
+    const res = await app.inject({
+      method: 'PATCH',
+      url: '/api/v1/auth/me',
+      headers: { Authorization: `Bearer ${token}` },
+      payload: { sex: 'unknown' },
+    });
+    expect(res.statusCode).toBe(400);
+  });
+});
