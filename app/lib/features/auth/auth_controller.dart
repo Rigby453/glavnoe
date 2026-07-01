@@ -68,11 +68,12 @@ class AuthController extends Notifier<bool> {
     await _reconcileSetupFlag(resp);
     state = true;
 
-    // Обычный фоновый синк: для гостевой миграции он уже выполнен внутри
-    // migrateIfNeeded(); незачем запускать дважды.
-    if (!wasGuest) {
-      _syncInBackground();
-    }
+    // Фоновый синк всегда, независимо от гостевой миграции: миграция уже
+    // сделала свой syncNow(), но повторный вызов идемпотентен (это просто
+    // очередная дельта-синхронизация) и служит подстраховкой — например,
+    // если другое устройство успело записать изменения на сервер между
+    // миграцией и этим моментом.
+    _syncInBackground();
   }
 
   /// Регистрация. Передайте [email] ИЛИ [phone] — не оба.
@@ -105,9 +106,9 @@ class AuthController extends Notifier<bool> {
     await _reconcileSetupFlag(resp);
     state = true;
 
-    if (!wasGuest) {
-      _syncInBackground();
-    }
+    // Всегда синкаем в фоне (см. комментарий в login() — идемпотентно и
+    // безопасно повторить даже после миграции гостевых данных).
+    _syncInBackground();
   }
 
   /// Сверяет серверный флаг онбординга с локальным `setup_done` ДО смены

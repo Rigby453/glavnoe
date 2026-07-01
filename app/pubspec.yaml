@@ -79,6 +79,14 @@ dependencies:
   # #25: открытие mailto: при обращении в поддержку; fallback — буфер обмена.
   url_launcher: ^6.3.0
 
+  # Прямой доступ к DOM (document.visibilitychange) для надёжного веб-триггера
+  # синхронизации — см. services/sync/web_visibility_web.dart. Используется
+  # только под условным экспортом (dart.library.js_interop), на мобильных
+  # платформах файл, импортирующий этот пакет, не компилируется вовсе.
+  # Уже был транзитивной зависимостью (через share_plus/image_picker_for_web
+  # и т.п.) — версия не меняется, просто делаем зависимость явной.
+  web: ^1.1.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

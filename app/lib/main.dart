@@ -1,6 +1,8 @@
 // Точка входа приложения Kaizen
 // ProviderScope + MaterialApp.router с темой Focus (по умолчанию)
-// AppLifecycleListener запускает syncNow() при возврате приложения на передний план.
+// AppLifecycleListener + SyncTriggerService (services/sync/sync_trigger_service.dart)
+// запускают/останавливают периодический синк по смене состояния приложения;
+// на web синк также триггерится напрямую по document.visibilitychange.
 
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -18,7 +20,7 @@ import 'features/onboarding/setup_flow.dart';
 import 'core/settings/posture_reminder_provider.dart' show kPostureRemindersKey;
 import 'services/api/api_client.dart';
 import 'services/notifications/notification_service.dart';
-import 'services/sync/sync_service.dart';
+import 'services/sync/sync_trigger_service.dart';
 import 'services/widget/widget_service.dart' show refreshHomeWidget, saveLastOpenedAt;
 import 'services/widget/widget_actions.dart' show initWidgetActions;
 
@@ -82,18 +84,30 @@ class _KaizenAppState extends ConsumerState<KaizenApp> {
     // Warm start: handler слушает invokeMethod("onWidgetAction") от нативной стороны.
     initWidgetActions(ref);
 
-    // Запускаем синхронизацию при возврате приложения на передний план.
+    // Запускаем периодический синк сразу на холодном старте (пока приложение
+    // на переднем плане) — см. SyncTriggerService: без этого залогиненный
+    // пользователь, открывший приложение заново, не увидит изменения с
+    // других устройств до первого resume.
+    ref.read(syncTriggerServiceProvider).start();
+
+    // Запускаем/останавливаем синхронизацию по смене состояния приложения.
     // Ошибки поглощаются внутри syncNow — UI не затрагивается.
     _lifecycleListener = AppLifecycleListener(
       onResume: () {
         // Обновляем last_opened_at при каждом возврате приложения на передний план.
         saveLastOpenedAt();
-        ref.read(syncServiceProvider).syncNow();
+        ref.read(syncTriggerServiceProvider).start();
         refreshHomeWidget(
           itemsDao: ref.read(itemsDaoProvider),
           streakDao: ref.read(streakDaoProvider),
         );
       },
+      // onPause — мобильный уход в фон; onHide — web-таб теряет видимость
+      // (desktop/web: onPause не вызывается вовсе, см. AppLifecycleListener).
+      // Останавливаем периодический таймер в обоих случаях, чтобы не дёргать
+      // сеть, пока пользователь не смотрит на экран.
+      onPause: () => ref.read(syncTriggerServiceProvider).stop(),
+      onHide: () => ref.read(syncTriggerServiceProvider).stop(),
     );
 
     // Пере-планируем все статические уведомления при старте (D1: reboot/обновление
@@ -114,6 +128,10 @@ class _KaizenAppState extends ConsumerState<KaizenApp> {
   @override
   void dispose() {
     _lifecycleListener.dispose();
+    // Останавливаем таймер + снимаем web-слушатель visibilitychange, чтобы
+    // не течь при уничтожении корневого виджета (провайдер сам диспозится
+    // при закрытии ProviderScope, но явный dispose здесь — не помешает).
+    ref.read(syncTriggerServiceProvider).dispose();
     super.dispose();
   }
 
