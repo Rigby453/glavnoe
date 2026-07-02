@@ -18,6 +18,7 @@ class IcsEvent {
     required this.durationMinutes,
     this.isAllDay = false,
     this.recurrenceRule,
+    this.location,
   });
 
   /// Заголовок события (поле SUMMARY), уже с раскрытыми escape-последовательностями
@@ -39,6 +40,10 @@ class IcsEvent {
   /// моделью повторов приложения (например INTERVAL>1, COUNT, FREQ=YEARLY).
   /// В таком случае импортируется базовое событие, а правило отбрасывается.
   final String? recurrenceRule;
+
+  /// Место проведения (поле LOCATION), уже с раскрытыми escape-последовательностями.
+  /// null, если LOCATION отсутствует или пуст.
+  final String? location;
 }
 
 /// Парсер ICS-файлов (RFC 5545)
@@ -81,6 +86,7 @@ class IcsParser {
     int? durationMinutes;
     bool isAllDay = false;
     String? recurrenceRule;
+    String? location;
 
     for (final line in lines) {
       // Убираем параметры типа DTSTART;TZID=America/New_York: → берём только значение
@@ -96,6 +102,9 @@ class IcsParser {
         durationMinutes = _parseDuration(val);
       } else if (line.startsWith('RRULE:') || line.startsWith('RRULE;')) {
         recurrenceRule = _convertRrule(_extractValue(line));
+      } else if (line.startsWith('LOCATION:') || line.startsWith('LOCATION;')) {
+        final unescaped = _unescapeText(_extractValue(line));
+        location = unescaped.isNotEmpty ? unescaped : null;
       }
     }
 
@@ -117,6 +126,7 @@ class IcsParser {
       durationMinutes: dur,
       isAllDay: isAllDay,
       recurrenceRule: recurrenceRule,
+      location: location,
     );
   }
 

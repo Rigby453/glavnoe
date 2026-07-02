@@ -381,6 +381,7 @@ class _ImportSheetState extends ConsumerState<ImportSheet> {
           durationMinutes: Value(event.durationMinutes),
           isProtected: const Value(false),
           recurrenceRule: Value(event.recurrenceRule),
+          location: Value(event.location),
           createdAt: Value(now),
           updatedAt: Value(now),
         ),
@@ -1002,6 +1003,13 @@ class _IcsEventCard extends StatelessWidget {
                         icon: PhosphorIcons.repeat(),
                         ext: ext,
                       ),
+                    if (event.location != null && event.location!.isNotEmpty)
+                      _MetaChip(
+                        label: event.location!,
+                        icon: PhosphorIcons.mapPin(),
+                        ext: ext,
+                        maxWidth: 160,
+                      ),
                   ],
                 ),
               ],
@@ -1108,15 +1116,31 @@ class _CsvTaskCard extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _MetaChip extends StatelessWidget {
-  const _MetaChip({required this.label, required this.ext, this.icon});
+  const _MetaChip({required this.label, required this.ext, this.icon, this.maxWidth});
 
   final String label;
   final FocusThemeExtension ext;
   final PhosphorIconData? icon;
 
+  /// Ограничение ширины текста для длинных значений (например LOCATION) —
+  /// иначе строка может не влезть в один run внутри Wrap на 320px.
+  final double? maxWidth;
+
   @override
   Widget build(BuildContext context) {
     final tt = Theme.of(context).textTheme;
+    final labelStyle = tt.labelSmall?.copyWith(color: ext.textMuted);
+    final Widget labelWidget = maxWidth != null
+        ? ConstrainedBox(
+            constraints: BoxConstraints(maxWidth: maxWidth!),
+            child: Text(
+              label,
+              style: labelStyle,
+              overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+            ),
+          )
+        : Text(label, style: labelStyle);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
@@ -1130,10 +1154,7 @@ class _MetaChip extends StatelessWidget {
             Icon(icon, size: 11, color: ext.textMuted),
             const SizedBox(width: 3),
           ],
-          Text(
-            label,
-            style: tt.labelSmall?.copyWith(color: ext.textMuted),
-          ),
+          labelWidget,
         ],
       ),
     );
