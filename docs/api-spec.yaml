@@ -1055,32 +1055,76 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
 
+  /api/v1/billing/yookassa/create-payment:
+    post:
+      tags: [Billing]
+      summary: Create a YooKassa payment for one month of Premium (ADR-067)
+      description: >
+        Creates a redirect payment via the YooKassa API (POST /v3/payments)
+        for the price in backend/src/billing/yookassaClient.ts
+        (kPremiumMonthlyRub — a temporary placeholder price, unit economics
+        not finalized yet, see docs/STATUS.md). Returns the checkout URL the
+        client should open/redirect to; premium is granted asynchronously by
+        the /billing/webhook/yookassa notification once payment.succeeded
+        fires. Rate-limited per user (~20/min).
+      responses:
+        '200':
+          description: Payment created
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [payment_id, confirmation_url]
+                properties:
+                  payment_id: { type: string, description: YooKassa payment id }
+                  confirmation_url:
+                    type: string
+                    description: Redirect the user here to complete payment.
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { description: Rate limit exceeded }
+        '502': { description: YooKassa API call failed }
+        '503': { description: Billing is not configured (missing YOOKASSA_SHOP_ID/YOOKASSA_SECRET_KEY/YOOKASSA_RETURN_URL) }
+
   /api/v1/billing/webhook/yookassa:
     post:
       tags: [Billing]
-      summary: YooKassa webhook stub (ADR-041)
+      summary: YooKassa payment notification webhook (ADR-067, live integration)
       description: >
-        Stub webhook. Real implementation requires IP allowlist check +
-        SHA-1 signature verification (TODO when YooKassa account is available).
-        If BILLING_WEBHOOK_SECRET env is set, requires x-webhook-secret header.
+        Receives YooKassa's own notification envelope (NOT the generic
+        BillingWebhookRequest used by the other channel stubs above).
+        Verified via HMAC-SHA256 over the raw request body when
+        YOOKASSA_WEBHOOK_SECRET is set (header x-yookassa-signature; our own
+        stub convention — real YooKassa does not send this header, see
+        backend/src/billing/yookassaWebhook.ts for the IP-allowlist +
+        re-GET verification TODO). Without the secret set, verification is
+        skipped (dev mode). Only event=payment.succeeded with
+        object.status=succeeded and object.metadata.user_id is acted upon;
+        other events (canceled/refunded/etc.) are logged and ignored.
+        Idempotent by object.id (payment_id) — a retried notification does
+        not extend premiumUntil twice. On success, premiumUntil is extended
+        by 31 days from max(now, current premiumUntil) and premiumSource is
+        set to "yookassa". Always responds fast (200) once the notification
+        is authenticated and structurally understood, so YooKassa does not
+        retry-storm; an invalid signature is rejected with 401.
       parameters:
         - in: header
-          name: x-webhook-secret
+          name: x-yookassa-signature
           schema: { type: string }
+          description: HMAC-SHA256 hex digest of the raw body. Required only if YOOKASSA_WEBHOOK_SECRET is set.
       requestBody:
         required: true
         content:
           application/json:
-            schema: { $ref: '#/components/schemas/BillingWebhookRequest' }
+            schema: { $ref: '#/components/schemas/YookassaNotification' }
       responses:
         '200':
-          description: Entitlement updated
+          description: Notification received (processed, ignored, or already-processed/idempotent)
           content:
             application/json:
               schema: { $ref: '#/components/schemas/BillingWebhookResponse' }
-        '400': { $ref: '#/components/responses/BadRequest' }
-        '401': { $ref: '#/components/responses/Unauthorized' }
-        '404': { $ref: '#/components/responses/NotFound' }
+        '400': { description: Malformed JSON body }
+        '401': { description: Signature verification failed }
+        '429': { description: Rate limit exceeded (per source IP) }
 
   /api/v1/share:
     post:
@@ -1513,13 +1557,48 @@ components:
         created_at: { type: string, format: date-time }
         updated_at: { type: string, format: date-time }
 
+    YookassaNotification:
+      type: object
+      required: [type, event, object]
+      description: >
+        YooKassa's own notification envelope (ADR-067) — NOT the generic
+        BillingWebhookRequest below (that one is only used by the remaining
+        apple/google/rustore/stripe stubs). Mirrors YooKassa's real payload
+        shape so this contract stays accurate when the stub verification is
+        swapped for IP-allowlist + re-GET verification.
+      properties:
+        type: { type: string, enum: [notification] }
+        event:
+          type: string
+          description: Only "payment.succeeded" grants premium; others are logged and ignored.
+          example: payment.succeeded
+        object:
+          type: object
+          required: [id, status, amount]
+          properties:
+            id: { type: string, description: YooKassa payment id — idempotency key }
+            status: { type: string, example: succeeded }
+            amount:
+              type: object
+              required: [value, currency]
+              properties:
+                value: { type: string, example: '399.00' }
+                currency: { type: string, example: RUB }
+            metadata:
+              type: object
+              properties:
+                user_id: { type: string, description: The Kaizen user ID to grant premium to (uuid) }
+                plan: { type: string, example: premium_monthly }
+
     BillingWebhookRequest:
       type: object
       required: [user_id, expires_at]
       description: >
-        Stub payload accepted by all billing webhook endpoints (ADR-041).
-        In real integrations the provider sends its own envelope; this stub
-        provides a uniform dev/test surface. All fields are snake_case.
+        Stub payload accepted by the apple/google/rustore/stripe billing
+        webhook endpoints (ADR-041). In real integrations each provider
+        sends its own envelope; this stub provides a uniform dev/test
+        surface. All fields are snake_case. YooKassa no longer uses this
+        schema — see YookassaNotification (ADR-067).
       properties:
         user_id:
           type: string

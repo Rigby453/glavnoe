@@ -60,9 +60,11 @@ afterAll(async () => {
   await app.close();
 });
 
-// Хелпер: вызов вебхука биллинга
+// Хелпер: вызов вебхука биллинга (заглушечный каркас — ADR-041).
+// YooKassa не входит: с ADR-067 у неё реальная нотификация/подпись, см.
+// billing-yookassa.test.ts.
 async function callWebhook(
-  channel: 'apple' | 'google' | 'rustore' | 'stripe' | 'yookassa',
+  channel: 'apple' | 'google' | 'rustore' | 'stripe',
   userId: string,
   expiresAt: string
 ) {
@@ -85,13 +87,16 @@ async function getStatus(token: string) {
 // ────────────────────────────────────────────────────────────────
 // 1. Вебхук выставляет premiumUntil → is_premium=true + правильный source/until
 // ────────────────────────────────────────────────────────────────
+// ADR-067: YooKassa вышла из этого общего каркаса-заглушки — у неё теперь
+// реальная нотификация ЮKassa (type/event/object.metadata.user_id) и своя
+// подпись/идемпотентность, покрытые отдельно в billing-yookassa.test.ts.
 test('webhook sets premiumUntil → status returns is_premium=true with correct source/until', async () => {
   const user = await registerUser(app);
   userIds.push(user.userId);
 
   const futureDate = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
 
-  for (const channel of ['apple', 'google', 'rustore', 'stripe', 'yookassa'] as const) {
+  for (const channel of ['apple', 'google', 'rustore', 'stripe'] as const) {
     // Проверяем каждый канал
     const wh = await callWebhook(channel, user.userId, futureDate);
     expect(wh.statusCode).toBe(200);

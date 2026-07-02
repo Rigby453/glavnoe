@@ -182,7 +182,10 @@ test('main item marked done via sync → streak increments to 1', async () => {
   expect(streak.last_completed_date).toBe('2026-07-20');
 });
 
-test('non-main item done via sync → streak NOT incremented', async () => {
+// Стрик v2 (cd04139): день БЕЗ main-задач засчитывается, когда невыполненных
+// ≤ max(1, floor(total*0.1)). Единственная non-main задача выполнена → день
+// зачтён → стрик растёт. (До v2 ожидалось 0 — тест не был обновлён в волне 2.)
+test('non-main item done via sync → day counts under streak v2', async () => {
   const user = await registerUser(app);
   userIds.push(user.userId);
   const item = await createItem(app, user.token, {
@@ -206,7 +209,7 @@ test('non-main item done via sync → streak NOT incremented', async () => {
   );
 
   const streak = await getStreak(user.token);
-  expect(streak.current).toBe(0);
+  expect(streak.current).toBe(1);
 });
 
 // --- Water log sync (append-only) ---

@@ -37,6 +37,40 @@ export async function buildServer(): Promise<FastifyInstance> {
     maxParamLength: 1000,
   });
 
+  // Кастомный JSON content-type parser (ADR-067): сохраняет сырое тело запроса
+  // в request.rawBody ДО парсинга. Нужно для проверки HMAC-подписи вебхука
+  // ЮKassa (backend/src/routes/billing.ts) — подпись считается по сырым
+  // байтам, повторная JSON.stringify() распарсенного объекта не гарантирует
+  // байт-в-байт совпадение (порядок ключей/пробелы). Затрагивает ВСЕ JSON-роуты,
+  // но семантика ошибок (пустое тело / невалидный JSON → 400) намеренно
+  // повторяет дефолтный парсер Fastify, чтобы не менять поведение остальных
+  // эндпоинтов.
+  fastify.addContentTypeParser<string>(
+    "application/json",
+    { parseAs: "string" },
+    (request, body, done) => {
+      request.rawBody = body;
+      if (body.length === 0) {
+        const error = new Error(
+          "Body cannot be empty when content-type is set to 'application/json'"
+        ) as Error & { statusCode?: number };
+        error.statusCode = 400;
+        done(error, undefined);
+        return;
+      }
+      try {
+        const json = JSON.parse(body) as unknown;
+        done(null, json);
+      } catch {
+        const error = new Error(
+          "Body is not valid JSON but content-type is set to 'application/json'"
+        ) as Error & { statusCode?: number };
+        error.statusCode = 400;
+        done(error, undefined);
+      }
+    }
+  );
+
   // Разбираем ALLOWED_ORIGINS один раз при старте сервера.
   // Формат: строка через запятую, напр. "https://rigby453.github.io,https://example.com"
   const allowedOrigins: Set<string> = new Set(

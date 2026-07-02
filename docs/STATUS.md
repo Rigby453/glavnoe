@@ -10,10 +10,12 @@
 устные апдейты), не попадало в этот файл, а старые «ОСТАЛОСЬ»-блоки внизу не вычищались.
 Актуальное состояние по спорным пунктам (перекрывает всё, что ниже):
 
-- **ЮKassa — аккаунт и ключи ПОДКЛЮЧЕНЫ пользователем** (прошлая сессия). Осталось только **код**:
-  подключить `verifyYookassaWebhook` + `validateYookassaPayment` в маршрут
-  `/api/v1/billing/webhook/yookassa` (`backend/src/routes/billing.ts` — сейчас общая заглушка) и
-  создание платежа из flutter-web пейвола. Разблокировано, можно строить.
+- **ЮKassa — backend-код СДЕЛАН** (2026-07-02, ADR-067): `POST /api/v1/billing/yookassa/create-payment`
+  (реальный вызов ЮKassa API) + реальный `/api/v1/billing/webhook/yookassa` (HMAC-подпись сырого
+  тела + идемпотентность + `premiumUntil += 31д`). Ключи (`YOOKASSA_SHOP_ID`/`YOOKASSA_SECRET_KEY`/
+  `YOOKASSA_RETURN_URL`) должны быть заданы на Render — без них 503. Цена `399.00` — **заглушка**
+  (юнит-экономика не просчитана). **Осталось:** флаттер-пейвол на flutter-web, который вызывает
+  `create-payment` и открывает `confirmation_url`.
 - **RuStore — работает только с ИП**; у пользователя ИП нет → **отложен**. Прочие RF-стор-площадки
   пока тяжело. Для России платёжный путь = **ЮKassa (веб-оплата)**, не сторы.
 - **Resend — `RESEND_API_KEY` и `RESEND_FROM` ЗАДАНЫ на Render** (сделано). Письмо сброса пароля
@@ -44,8 +46,14 @@ time_grid мигание/мелкий блок; ИИ язык+именованн
 - **[x] `tests/integration/ai.test.ts`** — моки обоих модулей + 4 теста (403 free / 200 premium / 400×2).
   **16/16 passed** (~70 c). `npx tsc --noEmit` — 0 ошибок.
 - **[x] `docs/api-spec.yaml`** — оба эндпоинта, аддитивно.
-- **Дальше:** Этап 2 — app quick-add кнопка (api_client + confirm-sheet); Этап 3 — брейндамп-экран
-  онбординга + превью + согласие; Этап 4 — верификация/ревью промптов.
+- **[x] Этап 2** (`ef64501`, см. блок ниже) · **[x] Этап 3** (`e758943`) — брейндамп-экран
+  (VoiceTextField-холст + 6 гаснущих подсказок + согласие-диалог + premium-гейт) → превью плана
+  (toggles включить/исключить, tap-to-edit через prefill) → пакетная запись Drift/Goals с лимитом
+  main≤3/день. Вход: Профиль «Собрать план с ИИ» + маршрут /onboarding/brain-dump. Тесты 14/14.
+  Страница-приглашение в setup_flow ОТЛОЖЕНА (жёсткие индексы PageView — TODO в setup_flow.dart).
+  **Осталось:** Этап 4 — адверсариальное ревью промптов/схем.
+- **Fix `tests/integration/sync.test.ts`** — ожидание стрика приведено к v2: волна 2 (cd04139)
+  обновила engine+unit-тесты, но пропустила этот интеграционный тест; он ронял полный jest-прогон.
 
 ## Волна 6 / Этап 2 — ИИ quick-add, app (2026-07-02)
 
@@ -238,7 +246,7 @@ time_grid мигание/мелкий блок; ИИ язык+именованн
 - **[x] `backend/src/billing/yookassaPayment.ts`** — Zod-валидация платёжного объекта ЮKassa (type / event / status / amount / metadata.user_id) + in-memory идемпотентность по payment_id. 24 unit-тестов.
 - **[x] `backend/src/lib/rateLimiter.ts`** — `InMemoryRateLimiter` (fixed window). Синглтоны `webhookRateLimiter` (60/мин) и `publicRateLimiter` (20/мин). 14 unit-тестов.
 - **[x] `backend/src/lib/deviceLimit.ts`** — лимит активных устройств на аккаунт (default 5, env `DEVICE_LIMIT`), in-memory Map-стаб. 24 unit-тестов.
-- **[~] Интеграция `verifyYookassaWebhook` в `billing.ts`** — ⚠️ ключи ЮKassa УЖЕ подключены пользователем (см. сверку 2026-07-02 вверху). Разблокировано: подключить `verifyYookassaWebhook` + `validateYookassaPayment` в маршрут `/api/v1/billing/webhook/yookassa` (сейчас общая заглушка `handleWebhook`) + создание платежа из flutter-web пейвола.
+- **[x] Live-интеграция ЮKassa (2026-07-02, ADR-067)** — `backend/src/billing/yookassaClient.ts` (новый, `createPayment` через реальный API ЮKassa, `kPremiumMonthlyRub='399.00'` заглушка-цена). `POST /api/v1/billing/yookassa/create-payment` (auth, rate-limit) + реальный `/api/v1/billing/webhook/yookassa` (`verifyYookassaWebhook` по raw-body HMAC + `validateYookassaPayment` + идемпотентность → `premiumUntil += 31д`, `premiumSource='yookassa'`). Raw body для HMAC — кастомный `addContentTypeParser` в `app.ts` (`request.rawBody`), без новых зависимостей. Канал `yookassa` выведен из общего каркаса-заглушки ADR-041 (apple/google/rustore/stripe там и остаются). Тесты: `tests/integration/billing-yookassa.test.ts` (новый). `npx tsc --noEmit` — 0 ошибок; jest не прогонялся этим агентом (правило проекта — не 2 раннера сразу), верификация тестами на оркестраторе. **Осталось:** UI-пейвол на flutter-web, который вызывает create-payment и открывает confirmation_url.
 - **[ ] `Device` model в schema.prisma** — добавить при переходе от стаба к production device management.
 - **[ ] `@fastify/rate-limit` + Redis** — заменить `InMemoryRateLimiter` при горизонтальном масштабировании.
 
