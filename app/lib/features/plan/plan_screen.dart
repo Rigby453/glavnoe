@@ -16,6 +16,7 @@ import '../../core/l10n/app_strings.dart';
 import '../../core/theme/app_theme.dart';
 import '../../core/utils/breakpoints.dart';
 import '../today/widgets/add_task_sheet.dart';
+import '../today/widgets/ai_quick_add_sheet.dart';
 import 'widgets/day_timeline.dart';
 import 'widgets/expandable_week_calendar.dart';
 import 'widgets/month_view.dart';
@@ -71,24 +72,56 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     // (как на остальных экранах). heroTag различается для tablet/mobile-веток,
     // чтобы избежать Hero-коллизии при смене раскладки.
     final isTablet = MediaQuery.sizeOf(context).width >= Breakpoints.tablet;
+    // ИИ-квик-адд (Волна 6, этап 2) — вторичная кнопка над основным «+»:
+    // accent-контур, без заливки, чтобы не спорить с primary FAB.
+    Widget aiQuickAddFab(String heroTag) => FloatingActionButton.small(
+          heroTag: heroTag,
+          onPressed: () => showAiQuickAddSheet(context, ref, day: selectedDay),
+          tooltip: context.s('today.ai_quick_add_tooltip'),
+          backgroundColor: Theme.of(context).colorScheme.surface,
+          foregroundColor: Theme.of(context).colorScheme.primary,
+          elevation: 0,
+          shape: StadiumBorder(
+            side: BorderSide(
+              color: Theme.of(context).colorScheme.primary,
+              width: 1.2,
+            ),
+          ),
+          child: PhosphorIcon(PhosphorIcons.sparkle(PhosphorIconsStyle.fill)),
+        );
+
     return Scaffold(
       floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
       floatingActionButton: isTablet
-          ? FloatingActionButton(
-              heroTag: 'plan_add_fab_tablet',
-              onPressed: () => showAddTaskSheet(context, day: selectedDay),
-              tooltip: context.s('today.fab_add'),
-              // Тень для визуальной отдельности FAB от контента (тема: elevation=0)
-              elevation: 4,
-              focusElevation: 6,
-              hoverElevation: 6,
-              child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                aiQuickAddFab('plan_ai_quick_add_fab_tablet'),
+                const SizedBox(height: 12),
+                FloatingActionButton(
+                  heroTag: 'plan_add_fab_tablet',
+                  onPressed: () => showAddTaskSheet(context, day: selectedDay),
+                  tooltip: context.s('today.fab_add'),
+                  // Тень для визуальной отдельности FAB от контента (тема: elevation=0)
+                  elevation: 4,
+                  focusElevation: 6,
+                  hoverElevation: 6,
+                  child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
+                ),
+              ],
             )
-          : FloatingActionButton(
-              heroTag: 'plan_add_fab_mobile',
-              onPressed: () => showAddTaskSheet(context, day: selectedDay),
-              tooltip: context.s('today.fab_add'),
-              child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
+          : Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                aiQuickAddFab('plan_ai_quick_add_fab_mobile'),
+                const SizedBox(height: 12),
+                FloatingActionButton(
+                  heroTag: 'plan_add_fab_mobile',
+                  onPressed: () => showAddTaskSheet(context, day: selectedDay),
+                  tooltip: context.s('today.fab_add'),
+                  child: Icon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
+                ),
+              ],
             ),
       body: isTablet
           ? _buildTabletLayout(

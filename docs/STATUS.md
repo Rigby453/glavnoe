@@ -47,6 +47,33 @@ time_grid мигание/мелкий блок; ИИ язык+именованн
 - **Дальше:** Этап 2 — app quick-add кнопка (api_client + confirm-sheet); Этап 3 — брейндамп-экран
   онбординга + превью + согласие; Этап 4 — верификация/ревью промптов.
 
+## Волна 6 / Этап 2 — ИИ quick-add, app (2026-07-02)
+
+Дизайн: `docs/AI-ONBOARDING-DESIGN.md`. Решение B (всегда превью через `add_task_sheet`, сервер
+ничего не сохраняет), решение C (deadline без scheduled_at → type=deadline).
+
+- **[x] `app/lib/services/api/api_client.dart`** — `aiQuickAdd(...)` (используется) +
+  `aiOnboardingPlan(...)` (задел под Этап 3), рядом с `aiRedistribute`.
+- **[x] `app/lib/features/today/widgets/add_task_sheet.dart`** — новый `AddTaskPrefill` +
+  опциональный параметр `prefill` в `showAddTaskSheet`/`AddTaskSheet` (не ломает существующие
+  вызовы): предзаполняет title/type/priority/scheduledAt/durationMinutes для НОВОЙ задачи;
+  `note` → поле «Место» (в `Items` нет отдельной колонки note); лимит main (≤3/день) соблюдается
+  и для предзаполнения (тихий даунгрейд main→high при исчерпанном лимите).
+- **[x] `app/lib/features/today/widgets/ai_quick_add_sheet.dart`** — NEW. `showAiQuickAddSheet`:
+  premium-гейт (`isPremiumProvider`/`showPremiumUpsell`) ДО открытия листа → `VoiceTextField` →
+  `/ai/quick-add` → `parseQuickAddResponse` (чистая функция, маппинг deadline) → превью через
+  `showAddTaskSheet(prefill: ...)`. Ошибки 502/503 → снекбар с `Retry`; 403 → апсейл.
+  Таймзона: `timezoneOverrideProvider` → `FlutterTimezone.getLocalTimezone()` → `'UTC'` fallback.
+- **[x] Кнопка вызова** — вторичный `FloatingActionButton.small` (accent-контур, sparkle) над
+  основным «+» на Today (`today_screen.dart`) и Plan (`plan_screen.dart`, mobile+tablet).
+- **[x] l10n** — 9 новых ключей `today.ai_quick_add_*`, все 11 языков (en/ru/de/fr/it/pt/id/hi/ja/ko/es).
+- **[x] `app/test/ai_quick_add_test.dart`** — 8/8 passed: юнит-тесты `parseQuickAddResponse`
+  (deadline-маппинг, note, пустой заголовок) + виджет-тесты (320px/textScale 2.0 без overflow,
+  успешный путь открывает предзаполненный `add_task_sheet`, ошибка API → снекбар+Retry).
+- `flutter analyze` — 0 ошибок (8 предсуществующих info/warning в других файлах, не тронуты).
+- **Дальше:** Этап 3 — брейндамп-экран онбординга (использует уже готовый `aiOnboardingPlan`);
+  Этап 4 — верификация/адверсариальный ревью промптов.
+
 ## Feature — имя + аватар-пресет синкаются на сервер, backend-часть (2026-07-01)
 
 Тот же класс бага, что и у профиля/КБЖУ ниже: `profile_identity_provider.dart` хранит имя и

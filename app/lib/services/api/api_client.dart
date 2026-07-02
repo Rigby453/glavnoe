@@ -793,6 +793,67 @@ class ApiClient {
     }
   }
 
+  /// ИИ быстрое добавление задачи (Волна 6, этап 2, premium): свободная фраза
+  /// (голос/текст) → одна структурированная задача. Сервер ничего не сохраняет —
+  /// клиент показывает превью-подтверждение (add_task_sheet) перед записью.
+  /// [text] — фраза пользователя; [date] — опорная дата 'YYYY-MM-DD' для
+  /// разбора относительных дат («завтра», «через час»); [timezone] — IANA
+  /// (напр. 'Europe/Moscow'); [locale] — опциональное переопределение языка
+  /// ответа (по умолчанию бэкенд берёт Accept-Language).
+  /// Возвращает { task: { title, type, priority, scheduled_at?, deadline?,
+  /// duration_minutes?, note? } } как есть (snake_case) — парсинг на клиенте.
+  Future<Map<String, dynamic>> aiQuickAdd({
+    required String text,
+    required String date,
+    required String timezone,
+    String? locale,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/ai/quick-add',
+        data: {
+          'text': text,
+          'date': date,
+          'timezone': timezone,
+          'locale': ?locale,
+        },
+        options: Options(receiveTimeout: _aiReceiveTimeout),
+      );
+      return response.data!;
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
+  /// ИИ-онбординг «брейн-дамп» (Волна 6, этап 3, premium): свободный текст
+  /// ответов на онбординг → черновик плана (цели + задачи). Сервер ничего не
+  /// сохраняет — клиент показывает превью перед записью (решение B).
+  /// [answers] — свободный текст брейн-дампа; [date]/[timezone]/[locale] —
+  /// как в [aiQuickAdd]. Возвращает { goals: [...], tasks: [...], food_prefs?: {...} }
+  /// как есть (snake_case) — парсинг на клиенте.
+  Future<Map<String, dynamic>> aiOnboardingPlan({
+    required String answers,
+    required String date,
+    required String timezone,
+    String? locale,
+  }) async {
+    try {
+      final response = await _dio.post<Map<String, dynamic>>(
+        '/api/v1/ai/onboarding-plan',
+        data: {
+          'answers': answers,
+          'date': date,
+          'timezone': timezone,
+          'locale': ?locale,
+        },
+        options: Options(receiveTimeout: _aiReceiveTimeout),
+      );
+      return response.data!;
+    } on DioException catch (e) {
+      _throw(e);
+    }
+  }
+
   // ---------------------------------------------------------------------------
   // Co-study (Ф3, ADR-030)
   // ---------------------------------------------------------------------------

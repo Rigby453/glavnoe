@@ -46,6 +46,7 @@ import '../../services/streak/streak_service.dart';
 import '../../services/widget/widget_service.dart';
 import '../plan/widgets/recurrence_providers.dart';
 import 'widgets/add_task_sheet.dart';
+import 'widgets/ai_quick_add_sheet.dart';
 import 'widgets/backup_reminder_card.dart';
 import 'widgets/celebration_overlay.dart';
 import 'widgets/morning_review_card.dart'
@@ -125,11 +126,34 @@ class TodayScreen extends ConsumerWidget {
       children: [
         Scaffold(
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-          floatingActionButton: FloatingActionButton(
-            heroTag: 'today_add_fab',
-            onPressed: () => showAddTaskSheet(context, day: now),
-            tooltip: context.s('today.add_task_btn'),
-            child: PhosphorIcon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
+          floatingActionButton: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // ИИ-квик-адд (Волна 6, этап 2) — вторичная кнопка над основным
+              // «+»: accent-контур, без заливки, чтобы не спорить с primary FAB.
+              FloatingActionButton.small(
+                heroTag: 'today_ai_quick_add_fab',
+                onPressed: () => showAiQuickAddSheet(context, ref, day: now),
+                tooltip: context.s('today.ai_quick_add_tooltip'),
+                backgroundColor: Theme.of(context).colorScheme.surface,
+                foregroundColor: Theme.of(context).colorScheme.primary,
+                elevation: 0,
+                shape: StadiumBorder(
+                  side: BorderSide(
+                    color: Theme.of(context).colorScheme.primary,
+                    width: 1.2,
+                  ),
+                ),
+                child: PhosphorIcon(PhosphorIcons.sparkle(PhosphorIconsStyle.fill)),
+              ),
+              const SizedBox(height: 12),
+              FloatingActionButton(
+                heroTag: 'today_add_fab',
+                onPressed: () => showAddTaskSheet(context, day: now),
+                tooltip: context.s('today.add_task_btn'),
+                child: PhosphorIcon(PhosphorIcons.plus(PhosphorIconsStyle.regular)),
+              ),
+            ],
           ),
           body: itemsAsync.when(
             loading: () =>

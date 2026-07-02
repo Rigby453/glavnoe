@@ -90,6 +90,32 @@ String _durationLabel(int minutes) {
   return m == 0 ? '${h}h' : '${h}h ${m}m';
 }
 
+/// Предзаполнение НОВОЙ задачи (Волна 6, этап 2: превью-подтверждение ответа
+/// ИИ-квик-адда, `ai_quick_add_sheet.dart`). Применяется ТОЛЬКО когда
+/// [AddTaskSheet.existing] == null — в режиме редактирования игнорируется
+/// (у редактируемой задачи уже есть собственные значения).
+///
+/// [note] — свободный текст от ИИ (место/детали фразы, напр. «в Бутово» из
+/// «на работу через час в Бутово») — маппится в поле «Место» формы
+/// (в Items нет отдельной колонки note, см. /docs/data-model.md).
+class AddTaskPrefill {
+  const AddTaskPrefill({
+    required this.title,
+    this.type,
+    this.priority,
+    this.scheduledAt,
+    this.durationMinutes,
+    this.note,
+  });
+
+  final String title;
+  final String? type;
+  final String? priority;
+  final DateTime? scheduledAt;
+  final int? durationMinutes;
+  final String? note;
+}
+
 /// Открывает модальный лист добавления (existing == null) или
 /// редактирования (existing != null) задачи на день [day].
 ///
@@ -98,12 +124,16 @@ String _durationLabel(int minutes) {
 /// «нарисовал» интервал по пустой области). Применяются только при создании
 /// (existing == null) и игнорируются в режиме редактирования. Обычный вызов с
 /// одним [day] работает как прежде.
+///
+/// [prefill] — необязательное предзаполнение полей НОВОЙ задачи из ответа ИИ
+/// (см. [AddTaskPrefill]). Игнорируется при редактировании (existing != null).
 Future<void> showAddTaskSheet(
   BuildContext context, {
   required DateTime day,
   ItemsTableData? existing,
   DateTime? initialAt,
   int? initialDurationMinutes,
+  AddTaskPrefill? prefill,
 }) {
   final colorScheme = Theme.of(context).colorScheme;
   // Баг 1: серые треугольники по бокам скруглений появляются из-за того, что
@@ -137,6 +167,7 @@ Future<void> showAddTaskSheet(
           existing: existing,
           initialAt: initialAt,
           initialDurationMinutes: initialDurationMinutes,
+          prefill: prefill,
         ),
       ),
     ),
@@ -149,6 +180,7 @@ class AddTaskSheet extends ConsumerStatefulWidget {
     this.existing,
     this.initialAt,
     this.initialDurationMinutes,
+    this.prefill,
     super.key,
   });
 
@@ -165,6 +197,10 @@ class AddTaskSheet extends ConsumerStatefulWidget {
   /// Предзаполненная длительность (минут) для НОВОЙ задачи (drag-to-create).
   /// В режиме редактирования игнорируется.
   final int? initialDurationMinutes;
+
+  /// Предзаполнение из ответа ИИ-квик-адда (см. [AddTaskPrefill]).
+  /// Применяется только при создании (existing == null).
+  final AddTaskPrefill? prefill;
 
   @override
   ConsumerState<AddTaskSheet> createState() => _AddTaskSheetState();
@@ -292,9 +328,12 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   void initState() {
     super.initState();
     final existing = widget.existing;
+    // Предзаполнение из ИИ-квик-адда применяется ТОЛЬКО при создании (не в
+    // режиме редактирования) — существующая задача имеет приоритет.
+    final prefill = existing == null ? widget.prefill : null;
     // Извлекаем теги из сохранённого заголовка: в Drift хранится «заголовок #tag1 #tag2».
     // Показываем в поле только cleanTitle; теги отображаются как чипы.
-    final rawTitle = existing?.title ?? '';
+    final rawTitle = existing?.title ?? prefill?.title ?? '';
     final tagResult = parseTaskTags(rawTitle);
     _tags
       ..clear()
@@ -302,15 +341,20 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     _titleController = TextEditingController(text: tagResult.cleanTitle);
     // Нормализуем старые значения к показываемым (exam→deadline, low→medium),
     // чтобы соответствующий чип подсветился и сохранилось нормализованное.
-    _type = _normalizeType(existing?.type ?? 'task');
-    _priority = _normalizePriority(existing?.priority ?? 'medium');
+    _type = _normalizeType(existing?.type ?? prefill?.type ?? 'task');
+    _priority =
+        _normalizePriority(existing?.priority ?? prefill?.priority ?? 'medium');
     // Приоритет времени/длительности: существующая задача (редактирование) →
-    // предзаполнение из drag-to-create (initialAt/initialDurationMinutes) →
-    // умный дефолт. initial* применяются только при создании (existing == null).
-    _scheduledAt =
-        existing?.scheduledAt ?? widget.initialAt ?? _defaultScheduledAt();
+    // drag-to-create (initialAt/initialDurationMinutes) → предзаполнение ИИ
+    // (prefill) → умный дефолт. initial*/prefill применяются только при
+    // создании (existing == null).
+    _scheduledAt = existing?.scheduledAt ??
+        widget.initialAt ??
+        prefill?.scheduledAt ??
+        _defaultScheduledAt();
     _durationMinutes = existing?.durationMinutes ??
         widget.initialDurationMinutes ??
+        prefill?.durationMinutes ??
         _kDefaultDurationMinutes;
     _shape = taskShapeOf(_durationMinutes);
     if (_shape == TaskShape.block) _lastPositiveDuration = _durationMinutes;
@@ -322,8 +366,18 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
     if (existing == null && widget.initialDurationMinutes != null) {
       _userPickedDuration = true;
     }
+    // ИИ — авторитет по времени/длительности/типу/важности (AI-ONBOARDING-DESIGN.md):
+    // предзаполненные поля не перетираются NL-парсером заголовка, пока
+    // пользователь не тронет их вручную (как явный выбор через пикер/чип).
+    if (prefill != null) {
+      if (prefill.scheduledAt != null) _userPickedDateTime = true;
+      if (prefill.durationMinutes != null) _userPickedDuration = true;
+      if (prefill.priority != null) _userPickedPriority = true;
+      if (prefill.type != null) _userPickedType = true;
+    }
     _color = existing?.color;
-    _locationController = TextEditingController(text: existing?.location ?? '');
+    _locationController =
+        TextEditingController(text: existing?.location ?? prefill?.note ?? '');
     _reminderMinutesBefore = existing?.reminderMinutesBefore;
     // Инициализируем состояние повтора из существующего правила (режим
     // редактирования якоря серии). Для виртуального повтора и обычной задачи
@@ -601,7 +655,16 @@ class _AddTaskSheetState extends ConsumerState<AddTaskSheet> {
   Future<void> _loadMainCount() async {
     final dao = ref.read(itemsDaoProvider);
     final count = await dao.countMainItems(widget.day);
-    if (mounted) setState(() => _mainCount = count);
+    if (!mounted) return;
+    setState(() => _mainCount = count);
+    // Лимит main соблюдаем и для предзаполнения ИИ-квик-адда: если оно
+    // предложило priority=main при уже исчерпанном лимите (3/день),
+    // понижаем до 'high' молча — тап по чипу «main» вручную всё ещё сработает
+    // штатно через _onPriorityTap (тот покажет снекбар лимита).
+    if (!_isEditing && widget.prefill != null && _priority == 'main' &&
+        count >= _maxMainPerDay) {
+      setState(() => _priority = 'high');
+    }
   }
 
   /// Загружает последние уникальные названия задач для ряда «быстрый выбор».
