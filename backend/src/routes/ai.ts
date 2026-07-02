@@ -5,6 +5,8 @@ import { requireAuth } from "./middleware/auth.js";
 import { importScheduleFromPhoto } from "../ai/scheduleImport.js";
 import { generateMorningMessage } from "../ai/morningMessage.js";
 import { generateSmartPlans } from "../ai/smartRedistribute.js";
+import { generateOnboardingPlan } from "../ai/onboardingPlan.js";
+import { generateQuickAddTask } from "../ai/quickAdd.js";
 import { generateDiaryInsight } from "../ai/diaryInsight.js";
 import { recognizeFood } from "../ai/foodRecognize.js";
 import { generateWrappedSummary } from "../ai/wrappedSummary.js";
@@ -57,6 +59,21 @@ const morningMessageSchema = z.object({
 });
 const redistributeSchema = z.object({ target_date: dateOnly });
 const diaryInsightSchema = z.object({ tone: toneSchema });
+// Волна 6 / Этап 1: ИИ-онбординг брейн-дамп + быстрое добавление (premium).
+// locale — опциональный оверрайд языка ответа; по умолчанию берём Accept-Language
+// (как во всех остальных AI-роутах), но клиент может передать явный locale.
+const onboardingPlanSchema = z.object({
+  answers: z.string().min(1).max(8000),
+  date: dateOnly,
+  timezone: z.string().min(1).max(64),
+  locale: z.string().max(10).optional(),
+});
+const quickAddSchema = z.object({
+  text: z.string().min(1).max(2000),
+  date: dateOnly,
+  timezone: z.string().min(1).max(64),
+  locale: z.string().max(10).optional(),
+});
 const foodRecognizeSchema = z.object({
   image_base64: z.string().min(1),
   media_type: z.enum(["image/jpeg", "image/png"]),
@@ -622,6 +639,103 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
         });
       } catch (err) {
         return aiError(fastify, reply, err, "diary-insight");
+      }
+    }
+  );
+
+  // Волна 6 / Этап 1: ИИ-онбординг — брейн-дамп текста → черновой план
+  // (goals + tasks). Premium, ничего не сохраняет — превью на клиенте
+  // (решение B, docs/AI-ONBOARDING-DESIGN.md). deadline→type='deadline'
+  // маппинг делает клиент (решение C) — сервер только прокидывает deadline.
+  fastify.post(
+    "/api/v1/ai/onboarding-plan",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const parsed = onboardingPlanSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: parsed.error.issues[0]?.message ?? "Validation error",
+        });
+      }
+      if (!(await ensurePremium(request, reply))) return reply;
+
+      try {
+        const result = await generateOnboardingPlan({
+          answers: parsed.data.answers,
+          date: parsed.data.date,
+          timezone: parsed.data.timezone,
+          language: langName(request.headers["accept-language"]),
+          languageCode: parseLangCode(request.headers["accept-language"]),
+        });
+        return reply.status(200).send({
+          goals: result.goals.map((g) => ({
+            title: g.title,
+            ...(g.horizon !== undefined ? { horizon: g.horizon } : {}),
+          })),
+          tasks: result.tasks.map((t) => ({
+            title: t.title,
+            type: t.type,
+            priority: t.priority,
+            ...(t.scheduledAt !== undefined ? { scheduled_at: t.scheduledAt } : {}),
+            ...(t.deadline !== undefined ? { deadline: t.deadline } : {}),
+            ...(t.durationMinutes !== undefined
+              ? { duration_minutes: t.durationMinutes }
+              : {}),
+            ...(t.note !== undefined ? { note: t.note } : {}),
+          })),
+          ...(result.foodPrefs !== undefined
+            ? {
+                food_prefs: {
+                  tracks_food: result.foodPrefs.tracksFood,
+                  tracks_water: result.foodPrefs.tracksWater,
+                  tracks_sleep: result.foodPrefs.tracksSleep,
+                },
+              }
+            : {}),
+        });
+      } catch (err) {
+        return aiError(fastify, reply, err, "onboarding-plan");
+      }
+    }
+  );
+
+  // Волна 6 / Этап 1: ИИ быстрое добавление — свободная фраза → одна задача
+  // (premium). Ничего не сохраняет — клиент показывает confirm-sheet.
+  fastify.post(
+    "/api/v1/ai/quick-add",
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const parsed = quickAddSchema.safeParse(request.body);
+      if (!parsed.success) {
+        return reply.status(400).send({
+          error: parsed.error.issues[0]?.message ?? "Validation error",
+        });
+      }
+      if (!(await ensurePremium(request, reply))) return reply;
+
+      try {
+        const { task } = await generateQuickAddTask({
+          text: parsed.data.text,
+          date: parsed.data.date,
+          timezone: parsed.data.timezone,
+          language: langName(request.headers["accept-language"]),
+          languageCode: parseLangCode(request.headers["accept-language"]),
+        });
+        return reply.status(200).send({
+          task: {
+            title: task.title,
+            type: task.type,
+            priority: task.priority,
+            ...(task.scheduledAt !== undefined ? { scheduled_at: task.scheduledAt } : {}),
+            ...(task.deadline !== undefined ? { deadline: task.deadline } : {}),
+            ...(task.durationMinutes !== undefined
+              ? { duration_minutes: task.durationMinutes }
+              : {}),
+            ...(task.note !== undefined ? { note: task.note } : {}),
+          },
+        });
+      } catch (err) {
+        return aiError(fastify, reply, err, "quick-add");
       }
     }
   );

@@ -28,6 +28,25 @@
 Прочие фиксы 2026-07-02 (ветка night, запушены): красный-экран parse + правило + error-boundary;
 time_grid мигание/мелкий блок; ИИ язык+именованные блюда; логика стрика (пересчёт из истории).
 
+## Волна 6 / Этап 1 — ИИ-онбординг + quick-add, backend (2026-07-02)
+
+Дизайн: `docs/AI-ONBOARDING-DESIGN.md`. Решения A/B/C — дефолты из QUESTIONS-DRAFT (premium-гейт
+без триал-слоя; всегда превью, сервер не сохраняет; deadline мапит клиент).
+
+- **[x] `backend/src/ai/onboardingPlan.ts`** — NEW. `generateOnboardingPlan({answers,date,timezone,language,languageCode})`
+  по шаблону smartRedistribute: Zod, `withAiRetry`, `languageDirectiveForFields`, tier:'smart', json:true.
+  Промпт: не выдумывать даты (только явные/относительные от date+timezone), main экономно. Постобработка:
+  main ≤ 3 (лишние → high), фильтр пустых title.
+- **[x] `backend/src/ai/quickAdd.ts`** — NEW. `generateQuickAddTask({text,date,timezone,...})` — одна задача
+  из свободной фразы; тип/важность — авторитет модели; место → note.
+- **[x] `backend/src/routes/ai.ts`** — POST `/api/v1/ai/onboarding-plan` + `/api/v1/ai/quick-add`
+  (requireAuth + ensurePremium, snake_case ответ, aiError-классификация).
+- **[x] `tests/integration/ai.test.ts`** — моки обоих модулей + 4 теста (403 free / 200 premium / 400×2).
+  **16/16 passed** (~70 c). `npx tsc --noEmit` — 0 ошибок.
+- **[x] `docs/api-spec.yaml`** — оба эндпоинта, аддитивно.
+- **Дальше:** Этап 2 — app quick-add кнопка (api_client + confirm-sheet); Этап 3 — брейндамп-экран
+  онбординга + превью + согласие; Этап 4 — верификация/ревью промптов.
+
 ## Feature — имя + аватар-пресет синкаются на сервер, backend-часть (2026-07-01)
 
 Тот же класс бага, что и у профиля/КБЖУ ниже: `profile_identity_provider.dart` хранит имя и

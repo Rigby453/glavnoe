@@ -771,6 +771,116 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { $ref: '#/components/responses/Forbidden' }
 
+  /api/v1/ai/onboarding-plan:
+    post:
+      tags: [AI (Phase 1)]
+      summary: Onboarding brain-dump → draft plan (premium, Sonnet)
+      description: >
+        Wave 6 / Stage 1. Parses a free-form onboarding brain-dump into a
+        draft plan (goals + tasks). The server does NOT persist anything —
+        the client shows a preview and the user confirms before saving
+        (docs/AI-ONBOARDING-DESIGN.md, decision B). deadline → type=deadline
+        mapping is done by the client (decision C); the server only forwards
+        the deadline field as-is.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [answers, date, timezone]
+              properties:
+                answers: { type: string, description: Free-form brain-dump text }
+                date:
+                  type: string
+                  format: date
+                  description: Reference date (YYYY-MM-DD) for resolving relative dates
+                timezone: { type: string, example: Europe/Moscow }
+                locale: { type: string, description: Optional language override; Accept-Language is used otherwise }
+      responses:
+        '200':
+          description: Draft plan (preview only, not saved)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  goals:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title: { type: string }
+                        horizon: { type: string, enum: [week, month, quarter, year] }
+                  tasks:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        title: { type: string }
+                        type: { type: string, enum: [task, event, exam, deadline] }
+                        priority: { type: string, enum: [low, medium, high, main] }
+                        scheduled_at: { type: string, format: date-time }
+                        deadline: { type: string, format: date-time }
+                        duration_minutes: { type: integer }
+                        note: { type: string }
+                  food_prefs:
+                    type: object
+                    description: Optional — present only when the text signals tracking intent
+                    properties:
+                      tracks_food: { type: boolean }
+                      tracks_water: { type: boolean }
+                      tracks_sleep: { type: boolean }
+        '400': { description: Validation error }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  /api/v1/ai/quick-add:
+    post:
+      tags: [AI (Phase 1)]
+      summary: Free-form phrase → one structured task (premium, Sonnet)
+      description: >
+        Wave 6 / Stage 1. Parses a short free-form phrase (voice or text)
+        into a single task. The server does NOT persist anything — the
+        client shows a confirm-sheet before saving (reuses add_task_sheet's
+        save path).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [text, date, timezone]
+              properties:
+                text: { type: string }
+                date:
+                  type: string
+                  format: date
+                  description: Reference date (YYYY-MM-DD) for resolving relative dates
+                timezone: { type: string, example: Europe/Moscow }
+                locale: { type: string, description: Optional language override; Accept-Language is used otherwise }
+      responses:
+        '200':
+          description: Structured task (preview only, not saved)
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  task:
+                    type: object
+                    properties:
+                      title: { type: string }
+                      type: { type: string, enum: [task, event, exam, deadline] }
+                      priority: { type: string, enum: [low, medium, high, main] }
+                      scheduled_at: { type: string, format: date-time }
+                      deadline: { type: string, format: date-time }
+                      duration_minutes: { type: integer }
+                      note: { type: string }
+        '400': { description: Validation error }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+
   /api/v1/subscription/dev-upgrade:
     post:
       tags: [Subscription]

@@ -32,6 +32,38 @@ jest.mock('../../backend/src/ai/smartRedistribute', () => ({
     ],
   }),
 }));
+jest.mock('../../backend/src/ai/onboardingPlan', () => ({
+  generateOnboardingPlan: jest.fn().mockResolvedValue({
+    goals: [{ title: 'Pass the algebra exam', horizon: 'month' }],
+    tasks: [
+      {
+        title: 'Algebra exam',
+        type: 'exam',
+        priority: 'main',
+        scheduledAt: '2026-07-10T09:00:00.000Z',
+        durationMinutes: 90,
+      },
+      {
+        title: 'Review notes',
+        type: 'task',
+        priority: 'medium',
+        note: 'chapters 3-5',
+      },
+    ],
+    foodPrefs: { tracksFood: true, tracksWater: false, tracksSleep: false },
+  }),
+}));
+jest.mock('../../backend/src/ai/quickAdd', () => ({
+  generateQuickAddTask: jest.fn().mockResolvedValue({
+    task: {
+      title: 'Work',
+      type: 'event',
+      priority: 'high',
+      scheduledAt: '2026-07-02T15:00:00.000Z',
+      note: 'Butovo',
+    },
+  }),
+}));
 jest.mock('../../backend/src/ai/diaryInsight', () => ({
   generateDiaryInsight: jest.fn().mockResolvedValue({
     insight: 'You journal most on Sundays.',
@@ -337,6 +369,72 @@ test('food-recognize: AiUsage row persisted in DB with count >= 3 after 3 calls'
   // Счётчик может быть 4 — четвёртый вызов тоже инкрементирует (per ADR-034)
   expect(rows[0]!.count).toBeGreaterThanOrEqual(3);
   expect(rows[0]!.day).toBe(today);
+});
+
+test('onboarding-plan: 403 free / 200 premium with goals + tasks (snake_case)', async () => {
+  await expectGated(
+    '/api/v1/ai/onboarding-plan',
+    { answers: 'I have an algebra exam next week, need to review notes.', date: '2026-07-02', timezone: 'Europe/Moscow' },
+    (b) => {
+      const goals = b['goals'] as Array<Record<string, unknown>>;
+      expect(goals[0]!['title']).toBe('Pass the algebra exam');
+      expect(goals[0]!['horizon']).toBe('month');
+      const tasks = b['tasks'] as Array<Record<string, unknown>>;
+      expect(tasks).toHaveLength(2);
+      expect(tasks[0]!['title']).toBe('Algebra exam');
+      expect(tasks[0]!['type']).toBe('exam');
+      expect(tasks[0]!['priority']).toBe('main');
+      expect(tasks[0]!['scheduled_at']).toBe('2026-07-10T09:00:00.000Z');
+      expect(tasks[0]!['duration_minutes']).toBe(90);
+      expect(tasks[1]!['note']).toBe('chapters 3-5');
+      const foodPrefs = b['food_prefs'] as Record<string, unknown>;
+      expect(foodPrefs['tracks_food']).toBe(true);
+      expect(foodPrefs['tracks_water']).toBe(false);
+    }
+  );
+});
+
+test('onboarding-plan: invalid body (missing timezone) → 400', async () => {
+  const prem = await registerUser(app);
+  userIds.push(prem.userId);
+  await makePremium(prem.userId);
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/ai/onboarding-plan',
+    headers: { Authorization: `Bearer ${prem.token}` },
+    payload: { answers: 'text', date: '2026-07-02' },
+  });
+  expect(res.statusCode).toBe(400);
+});
+
+test('quick-add: 403 free / 200 premium with task (snake_case)', async () => {
+  await expectGated(
+    '/api/v1/ai/quick-add',
+    { text: 'work in an hour in Butovo', date: '2026-07-02', timezone: 'Europe/Moscow' },
+    (b) => {
+      const task = b['task'] as Record<string, unknown>;
+      expect(task['title']).toBe('Work');
+      expect(task['type']).toBe('event');
+      expect(task['priority']).toBe('high');
+      expect(task['scheduled_at']).toBe('2026-07-02T15:00:00.000Z');
+      expect(task['note']).toBe('Butovo');
+    }
+  );
+});
+
+test('quick-add: empty text → 400', async () => {
+  const prem = await registerUser(app);
+  userIds.push(prem.userId);
+  await makePremium(prem.userId);
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/ai/quick-add',
+    headers: { Authorization: `Bearer ${prem.token}` },
+    payload: { text: '', date: '2026-07-02', timezone: 'Europe/Moscow' },
+  });
+  expect(res.statusCode).toBe(400);
 });
 
 test('morning-message without auth → 401', async () => {
