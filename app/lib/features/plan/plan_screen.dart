@@ -65,7 +65,6 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     // подписки Riverpod для пересборки (вызываются в layout-фазе, не в build-фазе).
     final selectedDay = ref.watch(selectedDayProvider);
     final view = ref.watch(planViewProvider);
-    final searchVisible = ref.watch(planSearchVisibleProvider);
     final layout = ref.watch(planLayoutProvider);
 
     // Единое главное действие «добавить» — крупный круглый «+» без подписи
@@ -96,14 +95,12 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               context,
               selectedDay,
               view,
-              searchVisible,
               layout,
             )
           : _buildMobileLayout(
               context,
               selectedDay,
               view,
-              searchVisible,
               layout,
             ),
     );
@@ -114,7 +111,6 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     BuildContext context,
     DateTime selectedDay,
     PlanView view,
-    bool searchVisible,
     PlanLayout layout,
   ) {
     final ext = Theme.of(context).extension<FocusThemeExtension>();
@@ -122,22 +118,15 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
 
     return Column(
       children: [
-        // Переключатель вида + раскладка + поиск + импорт
-        _buildToolbar(context, selectedDay, view, searchVisible, layout),
-        // Строка поиска (разворачивается при searchVisible — во всех видах).
-        if (searchVisible)
-          Padding(
-            // 24dp горизонтальный отступ экрана (02-type-space.md §4.1)
-            padding: const EdgeInsets.fromLTRB(24, 0, 24, 8),
-            child: _SearchField(
-              onChanged: (v) =>
-                  ref.read(planSearchQueryProvider.notifier).state = v,
-            ),
-          ),
+        // Переключатель вида + раскладка + фильтр (B7: единственная точка
+        // входа — иконка _FilterButton, текстовый запрос теперь живёт внутри
+        // PlanFilterSheet, а не отдельным полем над недельной полосой (это
+        // убирает и дублирующий drag-handle, и клавиатурный баг — см. B7).
+        _buildToolbar(context, selectedDay, view, layout),
         // Тонкий разделитель (hairline 0.5dp, убираем лишнюю высоту)
         Divider(height: 0.5, thickness: 0.5, color: border),
         Expanded(
-          child: _bodyContent(view, layout, searchVisible: searchVisible),
+          child: _bodyContent(view, layout),
         ),
       ],
     );
@@ -150,7 +139,6 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     BuildContext context,
     DateTime selectedDay,
     PlanView view,
-    bool searchVisible,
     PlanLayout layout,
   ) {
     final ext = Theme.of(context).extension<FocusThemeExtension>();
@@ -256,37 +244,15 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                       // Для threeDay скрыта — заголовок сетки уже показывает 3 дня.
                       if (_showsWeekStrip(view)) const WeekStrip(),
                       const SizedBox(height: 12),
-                      // Поиск (во всех видах). Левая колонка планшета — внутри
-                      // SingleChildScrollView, поэтому открытая клавиатура её не
-                      // переполняет (keyboard rule соблюдён скроллом).
+                      // Единая точка входа в фильтр (B7): бывшая отдельная
+                      // иконка-воронка с полем поиска убрана — текстовый
+                      // запрос теперь живёт ВНУТРИ PlanFilterSheet вместе с
+                      // чипами приоритет/статус/тип (см. PlanFilterSheet
+                      // ниже). Здесь остаётся только сама кнопка-фильтр с
+                      // бейджем активных фильтров.
                       Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          // Нейтральная иконка без акцента (accent discipline).
-                          // Значок ВОРОНКИ (не лупа) — это фильтр текущего вида
-                          // по тексту/#тегу/типу, а не «поиск» (тот дублировал бы
-                          // глобальную лупу в шапке навбара). Функция не менялась.
-                          IconButton(
-                            icon: Icon(
-                              searchVisible
-                                ? PhosphorIcons.funnel(PhosphorIconsStyle.fill)
-                                : PhosphorIcons.funnel(PhosphorIconsStyle.regular),
-                              color: textMuted,
-                            ),
-                            tooltip: context.s('plan.search_tooltip'),
-                            onPressed: () {
-                              final notifier = ref.read(
-                                planSearchVisibleProvider.notifier,
-                              );
-                              notifier.state = !notifier.state;
-                              if (notifier.state == false) {
-                                ref
-                                        .read(planSearchQueryProvider.notifier)
-                                        .state =
-                                    '';
-                              }
-                            },
-                          ),
-                          const SizedBox(width: 4),
                           Flexible(
                             child: Text(
                               context.s('plan.search_label'),
@@ -298,21 +264,10 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
                               ),
                             ),
                           ),
-                          // Иконка фильтра (B6)
+                          // Иконка фильтра (B6/B7)
                           const _FilterButton(),
                         ],
                       ),
-                      if (searchVisible)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: _SearchField(
-                            onChanged: (v) =>
-                                ref
-                                        .read(planSearchQueryProvider.notifier)
-                                        .state =
-                                    v,
-                          ),
-                        ),
                       // «Цели» и «Импорт» перенесены в постоянные действия
                       // AppBar (справа сверху) — одинаково во всех раскладках.
                     ],
@@ -333,7 +288,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   /// Строит панель инструментов в ОДНУ строку (для mobile).
   /// Слева направо: `[День ▾]` → дата (тап → DatePicker, Expanded с ellipsis)
   /// → «Today» (только если выбран не сегодня, справа рядом с иконками)
-  /// → поиск (Day) → тумблер раскладки (Day/Week).
+  /// → фильтр (B7: единственная точка входа, текст+чипы внутри
+  /// PlanFilterSheet) → тумблер раскладки (Day/Week).
   /// «Today» находится СПРАВА (не между dropdown и датой) — использует пустое
   /// правое пространство и не сталкивается с текстом даты.
   /// Гарантированно влезает на 320px при textScale 1.3 за счёт Flexible/ellipsis
@@ -342,7 +298,6 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
     BuildContext context,
     DateTime selectedDay,
     PlanView view,
-    bool searchVisible,
     PlanLayout layout,
   ) {
     final ext = Theme.of(context).extension<FocusThemeExtension>();
@@ -408,30 +363,12 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               ),
               child: Text(context.s('plan.today')),
             ),
-          // --- Иконка фильтра-по-тексту (во всех видах) — нейтральный цвет.
-          // Воронка, НЕ лупа: лупа уже занята глобальным поиском в шапке
-          // навбара — эта кнопка лишь разворачивает поле фильтра текущего
-          // вида по тексту/#тегу/типу (функция не менялась, только иконка/
-          // подпись — решение владельца продукта). ---
-          IconButton(
-            visualDensity: VisualDensity.compact,
-            icon: Icon(
-              searchVisible
-                                ? PhosphorIcons.funnel(PhosphorIconsStyle.fill)
-                                : PhosphorIcons.funnel(PhosphorIconsStyle.regular),
-              color: textMuted,
-            ),
-            tooltip: context.s('plan.search_tooltip'),
-            onPressed: () {
-              final notifier = ref.read(planSearchVisibleProvider.notifier);
-              notifier.state = !notifier.state;
-              if (notifier.state == false) {
-                // Сбрасываем запрос при закрытии
-                ref.read(planSearchQueryProvider.notifier).state = '';
-              }
-            },
-          ),
-          // --- Иконка фильтра с бейджем активных фильтров (B6). ---
+          // --- Иконка фильтра с бейджем активных фильтров (B6/B7).
+          // Единственная точка входа: бывшая отдельная воронка-переключатель
+          // текстового поиска убрана — текстовый запрос теперь живёт ВНУТРИ
+          // PlanFilterSheet вместе с чипами (устраняет дублирующий
+          // drag-handle и клавиатурный баг, когда поле поиска сдвигало
+          // недельную полосу). ---
           const _FilterButton(),
           // --- Тумблер раскладки (список ↔ сетка времени) — Day/3 дня/Week.
           // Для month/year скрыт (всегда календарь). ---
@@ -447,13 +384,14 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
   /// Содержимое тела в mobile (с WeekStrip внутри для Day/Week).
   /// При [layout] == grid в режимах Day/Week показываем сетку времени
   /// (Google-Calendar-стиль) вместо списка; Month всегда календарь.
-  /// [searchVisible] — когда true и вид Day, прячем ExpandableWeekCalendar,
-  /// чтобы клавиатура поиска не вызывала RenderFlex overflow (keyboard rule).
+  /// Раскрывающийся календарь больше НЕ прячется при открытом поиске (B7):
+  /// текстовый фильтр теперь живёт в PlanFilterSheet (модальный шит), а не в
+  /// инлайн-поле над недельной полосой — клавиатура фильтра больше не может
+  /// сдвинуть/сплющить полосу дней (Plan-search bug, CLAUDE.md §B).
   Widget _bodyContent(
     PlanView view,
-    PlanLayout layout, {
-    bool searchVisible = false,
-  }) {
+    PlanLayout layout,
+  ) {
     final ext = Theme.of(context).extension<FocusThemeExtension>();
     final border = ext?.border ?? Theme.of(context).colorScheme.outline;
     final isGrid = layout == PlanLayout.grid;
@@ -489,9 +427,8 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
               children: [
                 // Раскрывающийся календарь — только для списочной раскладки.
                 // В сетке (WeekTimeGrid) свой заголовок-ряд дней, иначе дни
-                // недели дублировались бы (Task D). Прячем при открытом поиске:
-                // клавиатура занимает низ (keyboard rule, CLAUDE.md §B).
-                if (!isGrid && !searchVisible)
+                // недели дублировались бы (Task D).
+                if (!isGrid)
                   ExpandableWeekCalendar(maxCalendarHeight: maxCalH),
                 // Тонкий разделитель (02-type-space §4.3 hairline)
                 Divider(height: 0.5, thickness: 0.5, color: border),
@@ -512,10 +449,7 @@ class _PlanScreenState extends ConsumerState<PlanScreen> {
             return Column(
               children: [
                 // Раскрывающийся календарь: потяни вниз — развернётся месяц.
-                // Скрываем когда открыт поиск — клавиатура уже занимает нижнюю
-                // часть экрана, высокий календарь вызывает RenderFlex overflow.
-                if (!searchVisible)
-                  ExpandableWeekCalendar(maxCalendarHeight: maxCalH),
+                ExpandableWeekCalendar(maxCalendarHeight: maxCalH),
                 Divider(height: 0.5, thickness: 0.5, color: border),
                 // Закреплённая ember-карточка ближайшего экзамена/дедлайна
                 const PinnedExamCard(),
@@ -864,6 +798,13 @@ class PlanFilterSheet extends ConsumerWidget {
     final chipSelectedBg = ext?.accentTint ?? cs.primaryContainer;
     final chipInk = ext?.accentInk ?? cs.onPrimaryContainer;
 
+    // B7: начальный текст текстового фильтра — читаем ОДИН раз (ref.read, не
+    // watch), чтобы ввод не пересобирал весь шит на каждую букву. Нужен,
+    // когда шит открывается повторно, а planSearchQueryProvider уже хранит
+    // активный запрос (иначе поле визуально казалось бы пустым, хотя
+    // фильтрация по факту всё ещё применена).
+    final initialQuery = ref.read(planSearchQueryProvider);
+
     // Строит FilterChip для одного значения в группе [field].
     Widget chip(String field, String value, String label) {
       final selected = switch (field) {
@@ -909,8 +850,10 @@ class PlanFilterSheet extends ConsumerWidget {
         );
 
     return Padding(
-      // Клавиатуры нет (нет текстовых полей), но нижний inset важен
-      // на устройствах с выступающим навигационным баром.
+      // Теперь ЕСТЬ текстовое поле (B7 merge) — нижний inset должен расти
+      // вместе с клавиатурой, а не только с системным навбаром. Шит живёт в
+      // SingleChildScrollView, поэтому клавиатура просто скроллит контент,
+      // не вызывая overflow (keyboard rule, CLAUDE.md §B).
       padding: EdgeInsets.only(
         bottom: MediaQuery.viewInsetsOf(context).bottom,
       ),
@@ -922,18 +865,19 @@ class PlanFilterSheet extends ConsumerWidget {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Drag handle
-              Center(
-                child: Container(
-                  width: 36,
-                  height: 4,
-                  margin: const EdgeInsets.only(bottom: 12),
-                  decoration: BoxDecoration(
-                    color: ext?.border ?? cs.outline,
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
+              // Ручной drag handle убран (Bug: «две ручки») — тему уже рисует
+              // свою через bottomSheetTheme.showDragHandle (app_theme.dart),
+              // дублировать её здесь не нужно.
+              // B7: текстовый фильтр (было отдельное поле над недельной
+              // полосой, переключаемое воронкой в тулбаре) — теперь ПЕРВЫЙ
+              // элемент содержимого шита, единая точка входа вместе с чипами
+              // ниже.
+              _SearchField(
+                initialText: initialQuery,
+                onChanged: (v) =>
+                    ref.read(planSearchQueryProvider.notifier).state = v,
               ),
+              const SizedBox(height: 12),
               // Заголовок + кнопка «Сбросить»
               Row(
                 children: [
@@ -1011,18 +955,26 @@ class PlanFilterSheet extends ConsumerWidget {
   }
 }
 
-/// Поле ввода поискового запроса с иконкой очистки.
+/// Поле ввода поискового запроса с иконкой очистки. Живёт внутри
+/// PlanFilterSheet (B7 merge) — единственный текстовый вход фильтра плана.
 class _SearchField extends StatefulWidget {
-  const _SearchField({required this.onChanged});
+  const _SearchField({required this.onChanged, this.initialText = ''});
 
   final ValueChanged<String> onChanged;
+
+  /// Начальный текст поля. Нужен при повторном открытии шита, когда в
+  /// planSearchQueryProvider уже есть активный запрос — иначе поле выглядело
+  /// бы пустым, хотя фильтрация по факту всё ещё применена (виджет создаётся
+  /// заново при каждом showModalBottomSheet, локальный State не переживает
+  /// закрытие шита).
+  final String initialText;
 
   @override
   State<_SearchField> createState() => _SearchFieldState();
 }
 
 class _SearchFieldState extends State<_SearchField> {
-  final _controller = TextEditingController();
+  late final _controller = TextEditingController(text: widget.initialText);
 
   @override
   void dispose() {
@@ -1035,7 +987,10 @@ class _SearchFieldState extends State<_SearchField> {
     // Используем InputDecorationTheme из ThemeData — не переопределяем форму
     return TextField(
       controller: _controller,
-      autofocus: true,
+      // autofocus: false — шит открывается по тапу на иконку, поле не должно
+      // сразу выталкивать клавиатуру поверх чипов (B7: раньше funnel-тоггл
+      // сразу фокусировал инлайн-поле над недельной полосой, отсюда и
+      // клавиатурный баг).
       decoration: InputDecoration(
         hintText: context.s('plan.search_hint'),
         // Воронка (не лупа) — согласовано с иконкой кнопки-переключателя выше:

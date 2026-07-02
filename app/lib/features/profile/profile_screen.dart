@@ -671,6 +671,26 @@ class _ProfileProgressSection extends ConsumerWidget {
       ),
       child: Column(
         children: [
+          // Пояснение правила стрика v2 (docs/TASKS-2026-07-02.md §8) —
+          // subtle '?' affordance, tap opens a short explainer dialog.
+          Align(
+            alignment: AlignmentDirectional.centerEnd,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () => _showStreakInfoDialog(context),
+              child: Padding(
+                padding: const EdgeInsets.all(4),
+                child: Tooltip(
+                  message: context.s('streak.how_it_works'),
+                  child: Icon(
+                    PhosphorIcons.info(),
+                    size: 15,
+                    color: ext.textFaint,
+                  ),
+                ),
+              ),
+            ),
+          ),
           // Три статы: стрик / рекорд / заморозки
           IntrinsicHeight(
             child: Row(
@@ -765,6 +785,26 @@ class _ProfileProgressSection extends ConsumerWidget {
       ),
     );
   }
+}
+
+/// Диалог с объяснением правила стрика v2 (docs/TASKS-2026-07-02.md §8) —
+/// вызывается из '?'-иконки в [_ProfileProgressSection].
+void _showStreakInfoDialog(BuildContext context) {
+  final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+  showDialog<void>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      backgroundColor: ext.surfaceElevated,
+      title: Text(context.s('profile.streak')),
+      content: Text(context.s('streak.how_it_works')),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(ctx).pop(),
+          child: Text(context.s('btn.ok')),
+        ),
+      ],
+    ),
+  );
 }
 
 /// Одна стата прогресса (иконка + значение + подпись).

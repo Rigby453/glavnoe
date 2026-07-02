@@ -1,8 +1,9 @@
 // FL-DIARY-HISTORY: Год-календарь дневника (heatmap по настроению).
 // - 12 мини-месяцев года; каждый день окрашен по mood записи day_logs за
-//   этот день (если есть). Цвет получается интерполяцией между ext.danger
-//   (плохое настроение) и ext.success (хорошее) — без хардкода цветов мимо
-//   темы (используются только токены FocusThemeExtension).
+//   этот день (если есть). Цвет — тональный ramp АКЦЕНТА темы (colorScheme.
+//   primary), НЕ светофор danger→success (решение 2026-07-02): плохое
+//   настроение — просто менее насыщенный акцент, не «опасность». См.
+//   moodColor() в diary_history_providers.dart.
 // - Тап по дню → DiaryDayDetailScreen (просмотр + правка записи ЛЮБОГО дня).
 // - Год переключается стрелками ‹ YYYY ›, нижняя граница — 2020 (как в
 //   DateNavigator), верхняя — текущий год (нельзя смотреть в будущее).
@@ -75,6 +76,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
   Widget build(BuildContext context) {
     final textTheme = Theme.of(context).textTheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
+    final colorScheme = Theme.of(context).colorScheme;
     final yearData = ref.watch(dayLogsInYearProvider(_year));
 
     return Scaffold(
@@ -132,7 +134,7 @@ class _DiaryHistoryScreenState extends ConsumerState<DiaryHistoryScreen> {
                       width: 14,
                       height: 14,
                       decoration: BoxDecoration(
-                        color: moodColor(ext, mood),
+                        color: moodColor(colorScheme.surface, colorScheme.primary, mood),
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -341,10 +343,16 @@ class _MoodDayCell extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     final ext = Theme.of(context).extension<FocusThemeExtension>()!;
 
-    final Color? fill = mood != null ? moodColor(ext, mood!) : null;
+    final Color? fill =
+        mood != null ? moodColor(colorScheme.surface, colorScheme.primary, mood!) : null;
     final bool dense = mood != null && mood! != 3;
+    // Заливка теперь — ramp surface→primary (не всегда близко к primary, как
+    // раньше с onPrimary), поэтому цвет числа дня считаем по фактической
+    // яркости заливки (WCAG-контраст), а не берём фиксированный onPrimary.
     final Color textColor = fill != null
-        ? colorScheme.onPrimary
+        ? (ThemeData.estimateBrightnessForColor(fill) == Brightness.dark
+            ? const Color(0xFFFFFFFF)
+            : const Color(0xFF1A1A1A))
         : (isFuture ? ext.textFaint : colorScheme.onSurface);
 
     return GestureDetector(

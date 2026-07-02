@@ -780,6 +780,33 @@ const Map<String, Map<String, String>> todayStrings = {
     'ko': '{current}/{total}',
   },
 
+  // Пояснение правила стрика (v2, docs/TASKS-2026-07-02.md §8) — инфо-иконка
+  // в карточке прогресса профиля (_ProfileProgressSection).
+  'streak.how_it_works': {
+    'en': 'Your streak holds if you finish your main task — or almost '
+        'everything you planned that day.',
+    'ru': 'Стрик держится, если сделал главную задачу — или почти всё, что '
+        'запланировал на день.',
+    'de': 'Deine Serie hält, wenn du deine Hauptaufgabe erledigst — oder '
+        'fast alles, was du für den Tag geplant hast.',
+    'fr': 'Ta série tient si tu termines ta tâche principale — ou presque '
+        'tout ce que tu avais prévu ce jour-là.',
+    'it': 'La tua serie regge se completi il compito principale — o quasi '
+        'tutto ciò che avevi pianificato per quel giorno.',
+    'pt': 'Sua sequência se mantém se você concluir a tarefa principal — ou '
+        'quase tudo o que planejou para o dia.',
+    'es': 'Tu racha se mantiene si terminas tu tarea principal — o casi '
+        'todo lo que planeaste ese día.',
+    'id': 'Streak-mu bertahan jika kamu menyelesaikan tugas utama — atau '
+        'hampir semua yang kamu rencanakan hari itu.',
+    'hi': 'तुम्हारा स्ट्रीक तब बना रहता है जब तुम मुख्य काम पूरा करो — या '
+        'उस दिन जो भी योजना बनाई थी उसका लगभग सब कुछ।',
+    'ja': 'その日のメインタスクを終わらせるか、計画したことのほぼすべてを'
+        'こなせばストリークは続きます。',
+    'ko': '그날의 메인 할 일을 끝내거나 — 계획한 것 거의 전부를 해내면 '
+        '스트릭이 유지돼요.',
+  },
+
   // Утренний разбор
   'today.morning_review': {
     'en': 'Morning review',

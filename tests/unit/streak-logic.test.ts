@@ -40,9 +40,10 @@ async function createMainItem(
 }
 
 /**
- * Решение владельца #2 (2026-07-01): «день завершён» смотрит на ВСЕ items,
- * не только priority=main. Универсальный хелпер для тестов ниже —
- * произвольный priority/status на дату 2026-06-10 (переменная `today`).
+ * Предикат «день завершён» v2 (docs/TASKS-2026-07-02.md §8): смотрит на ВСЕ
+ * items дня (любой priority), не только priority=main. Универсальный хелпер
+ * для тестов ниже — произвольный priority/status на дату 2026-06-10
+ * (переменная `today`).
  */
 async function createItem(
   userId: string,
@@ -60,6 +61,27 @@ async function createItem(
       isProtected: priority === 'main',
     },
   });
+}
+
+/**
+ * Создаёт [count] задач на день 2026-06-10: первые [doneCount] — 'done',
+ * остальные — restStatus (default 'pending'). Для тестов forgiveness v2
+ * (недоделанных <= max(1, floor(counted.length * 0.1))) и skipped-денаминатора.
+ */
+async function createBatch(
+  userId: string,
+  count: number,
+  doneCount: number,
+  opts: {
+    priority?: 'low' | 'medium' | 'high' | 'main';
+    restStatus?: 'pending' | 'skipped';
+  } = {}
+): Promise<void> {
+  const priority = opts.priority ?? 'medium';
+  const restStatus = opts.restStatus ?? 'pending';
+  for (let i = 0; i < count; i++) {
+    await createItem(userId, priority, i < doneCount ? 'done' : restStatus);
+  }
 }
 
 describe('checkAndUpdateStreak', () => {
@@ -172,13 +194,15 @@ describe('checkAndUpdateStreak', () => {
   });
 
   // ---------------------------------------------------------------------------
-  // Решение владельца #2 (2026-07-01): предикат «день завершён» смотрит на
-  // ВСЕ задачи дня (любой priority), не только priority=main. Skipped «не
-  // мешает» (исключается из требования), но день, где ВСЕ задачи skipped —
-  // нейтральный (не засчитан), как и день без задач вовсе.
+  // Предикат «день завершён» v2 (docs/TASKS-2026-07-02.md §8): если среди
+  // не-skipped items дня есть priority=main — день засчитан, если ВСЕ main
+  // done (не-main не блокирует); если main нет — засчитан, если недоделанных
+  // не больше max(1, floor(counted.length * 0.1)). Skipped «не мешает»
+  // (исключается из счёта), но день, где ВСЕ items skipped — нейтральный (не
+  // засчитан), как и день без задач вовсе.
   // ---------------------------------------------------------------------------
-  describe('checkAndUpdateStreak — предикат "день завершён" (решение #2)', () => {
-    test('все НЕ-main задачи done → серия засчитывается', async () => {
+  describe('checkAndUpdateStreak — предикат "день завершён" v2', () => {
+    test('нет main: все задачи done → серия засчитывается', async () => {
       const userId = await createUserDirect();
       users.push(userId);
       await createItem(userId, 'low', 'done');
@@ -190,11 +214,69 @@ describe('checkAndUpdateStreak', () => {
       expect(streak?.current).toBe(1);
     });
 
-    test('хотя бы одна незавершённая задача любого priority → НЕ засчитано', async () => {
+    test('main done + не-main НЕ done → ЗАСЧИТАНО (не-main не блокирует при наличии main)', async () => {
       const userId = await createUserDirect();
       users.push(userId);
       await createItem(userId, 'main', 'done');
-      await createItem(userId, 'low', 'pending'); // блокирует, хотя не main
+      await createItem(userId, 'low', 'pending'); // не блокирует — main важнее
+
+      await checkAndUpdateStreak(userId, today);
+
+      const streak = await prisma.streak.findUnique({ where: { userId } });
+      expect(streak?.current).toBe(1);
+    });
+
+    test('хотя бы один main НЕ done → НЕ засчитано, даже если остальные (включая другой main) done', async () => {
+      const userId = await createUserDirect();
+      users.push(userId);
+      await createItem(userId, 'main', 'done');
+      await createItem(userId, 'main', 'pending');
+      await createItem(userId, 'low', 'done');
+
+      await checkAndUpdateStreak(userId, today);
+
+      const streak = await prisma.streak.findUnique({ where: { userId } });
+      expect(streak).toBeNull();
+    });
+
+    test('нет main: 10 задач, 1 недоделана → ЗАСЧИТАНО (прощение <=10%)', async () => {
+      const userId = await createUserDirect();
+      users.push(userId);
+      await createBatch(userId, 10, 9);
+
+      await checkAndUpdateStreak(userId, today);
+
+      const streak = await prisma.streak.findUnique({ where: { userId } });
+      expect(streak?.current).toBe(1);
+    });
+
+    test('нет main: 10 задач, 2 недоделаны → НЕ засчитано (превышен порог 10%)', async () => {
+      const userId = await createUserDirect();
+      users.push(userId);
+      await createBatch(userId, 10, 8);
+
+      await checkAndUpdateStreak(userId, today);
+
+      const streak = await prisma.streak.findUnique({ where: { userId } });
+      expect(streak).toBeNull();
+    });
+
+    test('нет main: короткий день (2 задачи), 1 недоделана → ЗАСЧИТАНО (max(1, floor(2*0.1))=1 всегда прощает минимум одну)', async () => {
+      const userId = await createUserDirect();
+      users.push(userId);
+      await createBatch(userId, 2, 1);
+
+      await checkAndUpdateStreak(userId, today);
+
+      const streak = await prisma.streak.findUnique({ where: { userId } });
+      expect(streak?.current).toBe(1);
+    });
+
+    test('нет main: skipped исключаются из знаменателя — 10 skipped + 10 counted (2 недоделаны) → НЕ засчитано (порог 10% от 10 counted, а не от 20)', async () => {
+      const userId = await createUserDirect();
+      users.push(userId);
+      await createBatch(userId, 10, 0, { restStatus: 'skipped' });
+      await createBatch(userId, 10, 8);
 
       await checkAndUpdateStreak(userId, today);
 

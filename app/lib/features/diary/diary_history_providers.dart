@@ -7,7 +7,6 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../core/database/database.dart';
 import '../../core/database/database_providers.dart';
-import '../../core/theme/app_theme.dart';
 
 /// Запись дневника за конкретный календарный день (может отсутствовать).
 final dayLogProvider = FutureProvider.family
@@ -40,9 +39,17 @@ final dayLogsInYearProvider =
   return map;
 });
 
-/// Цвет ячейки/легенды по настроению: интерполяция ext.danger(1) → ext.success(5).
-/// Только токены темы — никаких хардкод-хексов мимо темы.
-Color moodColor(FocusThemeExtension ext, int mood) {
-  final t = ((mood - 1) / 4).clamp(0.0, 1.0);
-  return Color.lerp(ext.danger, ext.success, t)!;
+/// Цвет ячейки/легенды по настроению — тональный ramp АКЦЕНТА темы, НЕ
+/// светофор danger→success (решение владельца продукта, 2026-07-02): плохое
+/// настроение — не «красный сигнал опасности», а просто менее насыщенный
+/// акцент. [surface]/[primary] — берутся из Theme.of(context).colorScheme
+/// (surface + primary), никаких хардкод-хексов мимо темы.
+///
+/// [mood] 1..5 → moodT растёт от ~0.25 (mood 1, едва заметный акцент) до 1.0
+/// (mood 5, полный акцент), шаг 0.75/4 на единицу mood. Итоговая заливка —
+/// Color.lerp(surface, primary, moodT): чем лучше настроение, тем насыщеннее.
+Color moodColor(Color surface, Color primary, int mood) {
+  final step = (mood - 1).clamp(0, 4) / 4; // 0.0 (mood 1) .. 1.0 (mood 5)
+  final moodT = 0.25 + step * 0.75; // 0.25 .. 1.0
+  return Color.lerp(surface, primary, moodT)!;
 }

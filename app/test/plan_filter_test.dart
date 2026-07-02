@@ -445,4 +445,89 @@ void main() {
       expect(find.textContaining('main'), findsWidgets);
     });
   });
+
+  // ==========================================================================
+  // (в) B7 merge — текстовый фильтр слит в PlanFilterSheet (единая точка
+  // входа: раньше был отдельный funnel-тоггл + инлайн-поле над недельной
+  // полосой; теперь TextField живёт ВНУТРИ шита рядом с чипами).
+  // ==========================================================================
+
+  group('PlanFilterSheet — текстовый фильтр слит в шит (B7 merge)', () {
+    testWidgets('в шите ровно одно текстовое поле (фильтр по тексту)',
+        (tester) async {
+      await tester.pumpWidget(_wrap(const PlanFilterSheet()));
+      await tester.pump();
+
+      expect(find.byType(TextField), findsOneWidget);
+    });
+
+    testWidgets('ввод текста в поле обновляет planSearchQueryProvider',
+        (tester) async {
+      await tester.pumpWidget(_wrap(const PlanFilterSheet()));
+      await tester.pump();
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(PlanFilterSheet)),
+      );
+      expect(container.read(planSearchQueryProvider), isEmpty);
+
+      await tester.enterText(find.byType(TextField), 'algebra');
+      await tester.pump();
+
+      expect(container.read(planSearchQueryProvider), 'algebra');
+    });
+
+    testWidgets(
+        'повторное открытие шита с уже активным запросом показывает его в поле',
+        (tester) async {
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            planSearchQueryProvider.overrideWith((ref) => 'physics'),
+          ],
+          child: MediaQuery(
+            data: const MediaQueryData(size: Size(360, 800)),
+            child: MaterialApp(
+              theme: _testTheme(),
+              home: const Scaffold(body: PlanFilterSheet()),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final field = tester.widget<TextField>(find.byType(TextField));
+      expect(field.controller?.text, 'physics');
+    });
+
+    testWidgets(
+        '320px + textScale 2.0 + открытая клавиатура (viewInsets): нет overflow',
+        (tester) async {
+      await tester.binding.setSurfaceSize(const Size(320, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        ProviderScope(
+          child: MediaQuery(
+            // viewInsets.bottom имитирует открытую клавиатуру над полем ввода
+            // (keyboard rule, CLAUDE.md §B) — шит скроллится, не переполняется
+            // (это и есть Plan-search-баг, который PART B фиксит на экране
+            // Plan; здесь проверяем сам шит, куда переехало поле).
+            data: const MediaQueryData(
+              size: Size(320, 600),
+              viewInsets: EdgeInsets.only(bottom: 300),
+            ).copyWith(textScaler: const TextScaler.linear(2.0)),
+            child: MaterialApp(
+              theme: _testTheme(),
+              home: const Scaffold(body: PlanFilterSheet()),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(tester.takeException(), isNull,
+          reason: 'Overflow при 320px + textScale 2.0 + клавиатура');
+    });
+  });
 }

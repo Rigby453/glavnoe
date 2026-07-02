@@ -1,13 +1,19 @@
-// Тесты «История дневника» (diary-1 + diary-edit-past):
+// Тесты «История дневника» (diary-1 + diary-edit-window Variant A):
 //   1. DayLogsDao.getBetween — выборка записей за период (для раскраски года).
 //   2. DiaryHistoryScreen рендерится без overflow на 320px/textScale 1.5
 //      (год-провайдер подменён — реальный Drift-запрос за год не нужен в
 //      виджет-тесте, источник дедлока под фейковым клоком, см. plan_adaptive_views_test).
-//   3. Открытие записи ПРОШЛОГО дня (DiaryDayDetailScreen) показывает
-//      сохранённые mood/note/issue — реальный Drift, обёрнут в tester.runAsync.
-//   4. Правка записи прошлого дня — Edit → меняем настроение/заметку → Save →
-//      запись в БД обновлена (upsert, без дублей).
-//   5. l10n — новые ключи diary.history_legend / diary.history_add_entry
+//   3. DiaryDayDetailScreen — Variant A (окно правки дневника, решение
+//      2026-07-02: 7-дневное окно, ДОБАВЛЯЕМ пропущенное, НИКОГДА не
+//      переписываем существующее; revert commit 8ac0743's «правь любой
+//      прошлый день»):
+//      * день с УЖЕ существующей записью (не сегодня) — read-only: контент
+//        виден, кнопки «Edit» нет;
+//      * пустой день ВНУТРИ 7-дневного окна — доступна «Add entry», и после
+//        сохранения запись реально попадает в БД (реальный Drift, обёрнут в
+//        tester.runAsync);
+//      * пустой день СТАРШЕ 7 дней — read-only, кнопки «Add entry» тоже нет.
+//   4. l10n — новые ключи diary.history_legend / diary.history_add_entry
 //      имеют непустые en и ru.
 
 import 'package:app/core/database/database.dart';
@@ -149,9 +155,9 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // 3 + 4. Просмотр и правка записи ПРОШЛОГО дня (реальный Drift)
+  // 3. Variant A — окно правки дневника (реальный Drift)
   // ---------------------------------------------------------------------------
-  group('DiaryDayDetailScreen — прошлые дни', () {
+  group('DiaryDayDetailScreen — прошлые дни (Variant A)', () {
     late AppDatabase db;
     late SharedPreferences prefs;
 
@@ -170,7 +176,8 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1));
     }
 
-    testWidgets('показывает сохранённые mood/note/issue прошлого дня',
+    testWidgets(
+        'запись прошлого дня (не сегодня) — read-only: контент виден, Edit скрыт',
         (tester) async {
       final pastDate = DateTime.now().subtract(const Duration(days: 10));
       final day = DateTime(pastDate.year, pastDate.month, pastDate.day);
@@ -189,17 +196,21 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
+        // Контент виден — просмотр разрешён для любого прошлого дня.
         // mood=4 → 4-й эмодзи (индекс 3) в шкале 😞😕😐🙂😄
         expect(find.text('🙂'), findsOneWidget);
         expect(find.text('Felt good today'), findsOneWidget);
         expect(find.text('Was tired'), findsOneWidget); // issue chip (en)
-        expect(find.text('Edit'), findsOneWidget);
+        // Variant A: день НЕ сегодня и запись УЖЕ ЕСТЬ → read-only, кнопки
+        // «Edit» нет (существующая запись прошлого не перезаписывается).
+        expect(find.text('Edit'), findsNothing);
         expect(tester.takeException(), isNull);
       });
       await flush(tester);
     });
 
-    testWidgets('день без записи показывает пустое состояние + Add entry',
+    testWidgets(
+        'день без записи ВНУТРИ 7-дневного окна показывает пустое состояние + Add entry',
         (tester) async {
       final pastDate = DateTime.now().subtract(const Duration(days: 5));
       final day = DateTime(pastDate.year, pastDate.month, pastDate.day);
@@ -220,7 +231,29 @@ void main() {
       await flush(tester);
     });
 
-    testWidgets('Edit → меняем настроение и заметку → Save сохраняет в БД',
+    testWidgets(
+        'день без записи СТАРШЕ 7 дней — read-only, кнопки Add entry нет',
+        (tester) async {
+      final pastDate = DateTime.now().subtract(const Duration(days: 10));
+      final day = DateTime(pastDate.year, pastDate.month, pastDate.day);
+
+      await tester.runAsync(() async {
+        await tester.pumpWidget(
+          _harness(db, prefs, DiaryDayDetailScreen(date: day)),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        expect(find.text('No entry for this day'), findsOneWidget);
+        // За пределами 7-дневного окна правки — добавить нельзя (Variant A).
+        expect(find.text('Add entry'), findsNothing);
+        expect(tester.takeException(), isNull);
+      });
+      await flush(tester);
+    });
+
+    testWidgets(
+        'существующая запись 20-дневной давности — read-only: Edit скрыт, БД не тронута',
         (tester) async {
       final pastDate = DateTime.now().subtract(const Duration(days: 20));
       final day = DateTime(pastDate.year, pastDate.month, pastDate.day);
@@ -235,35 +268,72 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        // Открываем правку
-        await tester.tap(find.text('Edit'));
+        // Запись видна (просмотр разрешён), но кнопки правки нет — день не
+        // сегодня и запись уже существует → read-only (revert commit
+        // 8ac0743's «правь любой прошлый день», Variant A per 2026-07-02).
+        expect(find.text('😕'), findsOneWidget); // mood=2 → 2-й эмодзи
+        expect(find.text('Rough day'), findsOneWidget);
+        expect(find.text('Edit'), findsNothing);
+
+        // БД остаётся нетронутой — никакого upsert через этот экран.
+        final rows = await dao.getBetween(
+          DateTime.utc(day.year, 1, 1),
+          DateTime.utc(day.year + 1, 1, 1),
+        );
+        final existing = rows.where((r) {
+          final d = r.date.toUtc();
+          return d.year == day.year && d.month == day.month && d.day == day.day;
+        }).toList();
+        expect(existing.length, 1);
+        expect(existing.single.mood, 2);
+        expect(existing.single.note, 'Rough day');
+
+        expect(tester.takeException(), isNull);
+      });
+      await flush(tester);
+    });
+
+    testWidgets(
+        'добавление записи в пустой день ВНУТРИ окна правки сохраняет в БД',
+        (tester) async {
+      final pastDate = DateTime.now().subtract(const Duration(days: 3));
+      final day = DateTime(pastDate.year, pastDate.month, pastDate.day);
+
+      await tester.runAsync(() async {
+        final dao = DayLogsDao(db);
+
+        await tester.pumpWidget(
+          _harness(db, prefs, DiaryDayDetailScreen(date: day)),
+        );
+        await tester.pump();
+        await tester.pumpAndSettle();
+
+        // Пустой день внутри 7-дневного окна — доступна кнопка «Add entry».
+        await tester.tap(find.text('Add entry'));
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        // Меняем настроение на 5 (последний эмодзи формы)
+        // Заполняем настроение (5-й эмодзи) и заметку.
         await tester.tap(find.text('😄'));
         await tester.pump();
-
-        // Перезаписываем заметку
-        await tester.enterText(find.byType(TextField), 'Much better now');
+        await tester.enterText(find.byType(TextField), 'Added later');
         await tester.pump();
 
         // Сохраняем
         await tester.tap(find.text('Save day'));
         await tester.pumpAndSettle();
 
-        // БД обновлена — upsert по дате, без дублей (всё ещё одна запись).
         final rows = await dao.getBetween(
           DateTime.utc(day.year, 1, 1),
           DateTime.utc(day.year + 1, 1, 1),
         );
-        final updated = rows.where((r) {
+        final saved = rows.where((r) {
           final d = r.date.toUtc();
           return d.year == day.year && d.month == day.month && d.day == day.day;
         }).toList();
-        expect(updated.length, 1);
-        expect(updated.single.mood, 5);
-        expect(updated.single.note, contains('Much better now'));
+        expect(saved.length, 1);
+        expect(saved.single.mood, 5);
+        expect(saved.single.note, contains('Added later'));
 
         expect(tester.takeException(), isNull);
       });

@@ -99,9 +99,6 @@ final yearTaskCountsProvider =
   });
 });
 
-/// Видимость строки поиска на экране Plan.
-final planSearchVisibleProvider = StateProvider<bool>((ref) => false);
-
 /// Текущий поисковый запрос на экране Plan.
 final planSearchQueryProvider = StateProvider<String>((ref) => '');
 

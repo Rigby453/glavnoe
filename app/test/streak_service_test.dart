@@ -1,7 +1,9 @@
 // Тесты StreakService:
-//   - предикат «день завершён» (решение владельца #2, 2026-07-01): день
-//     засчитывается, если выполнено ВСЁ запланированное на день (не только
-//     priority=main), skipped «не мешает», пустой день — нейтральный.
+//   - предикат «день завершён» v2 (docs/TASKS-2026-07-02.md §8): если среди
+//     не-skipped задач дня есть priority='main' — день засчитан, если ВСЕ
+//     main сделаны (не-main не блокирует); если main нет — засчитан, если
+//     недоделанных не больше max(1, floor(counted.length * 0.1)); skipped
+//     исключаются из знаменателя; пустой/весь-skipped день — нейтральный.
 //   - recomputeFromHistory (решение владельца #14, подход B): current/longest
 //     как функция от локальной истории задач, а не доверие транзитному числу.
 //
@@ -44,6 +46,28 @@ Future<void> _insert(
   ));
 }
 
+/// Создаёт [count] задач на один день: первые [doneCount] — 'done', остальные
+/// — 'pending'. Удобно для тестов "N задач, M недоделано" (forgiveness v2).
+Future<void> _insertBatch(
+  ItemsDao dao, {
+  required DateTime day,
+  required int count,
+  required int doneCount,
+  String priority = 'medium',
+  String status = 'pending',
+  String idPrefix = 'batch',
+}) async {
+  for (var i = 0; i < count; i++) {
+    await _insert(
+      dao,
+      id: '$idPrefix$i',
+      scheduledAt: day,
+      priority: priority,
+      status: i < doneCount ? 'done' : status,
+    );
+  }
+}
+
 void main() {
   late AppDatabase db;
   late ItemsDao itemsDao;
@@ -62,13 +86,12 @@ void main() {
   });
 
   // ---------------------------------------------------------------------------
-  // recomputeForDay — предикат «день завершён» (решение #2)
+  // recomputeForDay — предикат «день завершён» v2 (docs/TASKS-2026-07-02.md §8)
   // ---------------------------------------------------------------------------
-  group('recomputeForDay — предикат «день завершён» (решение #2)', () {
+  group('recomputeForDay — предикат «день завершён» v2', () {
     final day = DateTime(2026, 6, 10, 9, 0);
 
-    test('все НЕ-main задачи done → серия засчитывается (не только main)',
-        () async {
+    test('нет main: все задачи done → серия засчитывается', () async {
       await _insert(itemsDao,
           id: 'a', scheduledAt: day, priority: 'low', status: 'done');
       await _insert(itemsDao,
@@ -80,8 +103,9 @@ void main() {
       expect(streak?.current, 1);
     });
 
-    test('хотя бы одна незавершённая задача (любой priority) → НЕ засчитано',
-        () async {
+    test(
+        'main done + не-main НЕ done → ЗАСЧИТАНО (не-main не блокирует при '
+        'наличии main)', () async {
       await _insert(itemsDao,
           id: 'a', scheduledAt: day, priority: 'main', status: 'done');
       await _insert(itemsDao,
@@ -89,7 +113,74 @@ void main() {
 
       await service.recomputeForDay(day);
 
+      final streak = await streakDao.getStreak();
+      expect(streak?.current, 1);
+    });
+
+    test(
+        'хотя бы один main НЕ done → НЕ засчитано, даже если остальные '
+        '(включая другой main) done', () async {
+      await _insert(itemsDao,
+          id: 'a', scheduledAt: day, priority: 'main', status: 'done');
+      await _insert(itemsDao,
+          id: 'b', scheduledAt: day, priority: 'main', status: 'pending');
+      await _insert(itemsDao,
+          id: 'c', scheduledAt: day, priority: 'low', status: 'done');
+
+      await service.recomputeForDay(day);
+
       // Хелпер выходит до создания Streak — строки не будет вовсе.
+      final streak = await streakDao.getStreak();
+      expect(streak, isNull);
+    });
+
+    test('нет main: 10 задач, 1 недоделана → ЗАСЧИТАНО (прощение <=10%)',
+        () async {
+      await _insertBatch(itemsDao, day: day, count: 10, doneCount: 9);
+
+      await service.recomputeForDay(day);
+
+      final streak = await streakDao.getStreak();
+      expect(streak?.current, 1);
+    });
+
+    test(
+        'нет main: 10 задач, 2 недоделаны → НЕ засчитано (превышен порог '
+        '10%)', () async {
+      await _insertBatch(itemsDao, day: day, count: 10, doneCount: 8);
+
+      await service.recomputeForDay(day);
+
+      final streak = await streakDao.getStreak();
+      expect(streak, isNull);
+    });
+
+    test(
+        'нет main: короткий день (2 задачи), 1 недоделана → ЗАСЧИТАНО '
+        '(max(1, floor(2*0.1))=1 всегда прощает минимум одну)', () async {
+      await _insertBatch(itemsDao, day: day, count: 2, doneCount: 1);
+
+      await service.recomputeForDay(day);
+
+      final streak = await streakDao.getStreak();
+      expect(streak?.current, 1);
+    });
+
+    test(
+        'нет main: skipped исключаются из знаменателя — 20 задач, 10 skipped, '
+        'из оставшихся 10 недоделаны 2 → НЕ засчитано (порог 10% считается от '
+        '10 counted, а не от 20)', () async {
+      await _insertBatch(itemsDao,
+          day: day,
+          count: 10,
+          doneCount: 0,
+          status: 'skipped',
+          idPrefix: 'skip');
+      await _insertBatch(itemsDao,
+          day: day, count: 10, doneCount: 8, idPrefix: 'counted');
+
+      await service.recomputeForDay(day);
+
       final streak = await streakDao.getStreak();
       expect(streak, isNull);
     });
@@ -287,9 +378,13 @@ void main() {
         'серия начинается заново', () async {
       await _insert(itemsDao,
           id: 'd1', scheduledAt: DateTime(2026, 6, 8, 9), status: 'done');
+      // priority='main' pending → однозначный разрыв под предикатом v2
+      // (main-гейт), а не одинокая недоделанная задача, которую simple
+      // forgiveness (max(1, floor(1*0.1))=1) простил бы.
       await _insert(itemsDao,
           id: 'broken',
           scheduledAt: DateTime(2026, 6, 9, 9),
+          priority: 'main',
           status: 'pending'); // реальный разрыв, не нейтральный
       await _insert(itemsDao, id: 'd3', scheduledAt: today, status: 'done');
 
@@ -306,9 +401,12 @@ void main() {
       await streakDao.updateStreak(const StreakTableCompanion(freezeCount: Value(2)));
       await _insert(itemsDao,
           id: 'd1', scheduledAt: DateTime(2026, 6, 8, 9), status: 'done');
+      // priority='main' pending → однозначный разрыв под предикатом v2 (см.
+      // комментарий в тесте выше).
       await _insert(itemsDao,
           id: 'broken',
           scheduledAt: DateTime(2026, 6, 9, 9),
+          priority: 'main',
           status: 'pending');
       await _insert(itemsDao, id: 'd3', scheduledAt: today, status: 'done');
 
@@ -344,8 +442,14 @@ void main() {
           id: 'yesterday',
           scheduledAt: DateTime(2026, 6, 9, 9),
           status: 'done');
+      // priority='main' pending → однозначно "ещё не завершено" под
+      // предикатом v2 (main-гейт), а не одинокая недоделанная задача,
+      // которую forgiveness (max(1, floor(1*0.1))=1) простил бы.
       await _insert(itemsDao,
-          id: 'todayPending', scheduledAt: today, status: 'pending');
+          id: 'todayPending',
+          scheduledAt: today,
+          priority: 'main',
+          status: 'pending');
 
       await service.recomputeFromHistory(asOf: today);
 

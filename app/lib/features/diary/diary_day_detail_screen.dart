@@ -1,10 +1,19 @@
 // FL-DIARY-HISTORY: Запись дневника за ПРОИЗВОЛЬНЫЙ день — просмотр + правка.
 // - Режим чтения: настроение + заметка + «что пошло не так» + AI-инсайт
-//   (если есть) + кнопка «Изменить».
+//   (если есть) + кнопка «Изменить» (только когда разрешено — см. ниже).
 // - Режим правки: тот же набор полей, что и в diary_screen.dart (форма
-//   сегодняшнего дня), но сохраняет/перезаписывает запись ЛЮБОЙ даты через
-//   DayLogsDao.saveForDate(date: ...) — без дублей (upsert по дате).
-// - Будущие дни недоступны для логирования (кнопка скрыта).
+//   сегодняшнего дня), сохраняет через DayLogsDao.saveForDate(date: ...) —
+//   без дублей (upsert по дате). DAO НЕ ужесточаем здесь — его upsert также
+//   используется синком/импортом (см. day_logs_dao.dart), поэтому окно
+//   правки — это ТОЛЬКО UI-гейт этого экрана.
+// - Variant A (окно правки дневника, решение 2026-07-02):
+//   * СЕГОДНЯ — свободно редактируется (как форма diary_screen.dart), даже
+//     если запись уже есть.
+//   * ПРОШЛЫЙ день БЕЗ записи, в последние 7 календарных дней — можно
+//     ДОБАВИТЬ (кнопка «Add entry»).
+//   * День, где запись УЖЕ ЕСТЬ (кроме сегодняшнего) — read-only, кнопки
+//     «Edit» нет: существующую запись прошлого никогда не перезаписываем.
+//   * День старше 7 дней ИЛИ будущий — read-only (ни добавить, ни изменить).
 //
 // Иконки: Phosphor. Карточки: surface1 + hairline + R14.
 
@@ -52,12 +61,25 @@ class _DiaryDayDetailScreenState extends ConsumerState<DiaryDayDetailScreen> {
   bool _editing = false;
   bool _saving = false;
 
-  /// Нельзя редактировать/добавлять запись за день в будущем.
-  bool get _isFuture {
+  /// [widget.date] — сегодняшний календарный день (Y/M/D, без времени).
+  /// Сегодня свободно редактируется всегда (как форма diary_screen.dart),
+  /// даже если запись за сегодня уже есть.
+  bool get _isToday {
+    final today = DateTime.now();
+    final d = widget.date;
+    return d.year == today.year && d.month == today.month && d.day == today.day;
+  }
+
+  /// Variant A: окно правки дневника — СЕГОДНЯ и 7 календарных дней ДО него
+  /// (включительно). Используется только чтобы разрешить ДОБАВЛЕНИЕ записи в
+  /// пустой день; уже существующая запись прошлого дня НИКОГДА не
+  /// перезаписывается через этот экран (см. заголовок файла).
+  bool get _withinEditWindow {
     final today = DateTime.now();
     final todayMidnight = DateTime(today.year, today.month, today.day);
-    return DateTime(widget.date.year, widget.date.month, widget.date.day)
-        .isAfter(todayMidnight);
+    final day = DateTime(widget.date.year, widget.date.month, widget.date.day);
+    final windowStart = todayMidnight.subtract(const Duration(days: 7));
+    return !day.isBefore(windowStart) && !day.isAfter(todayMidnight);
   }
 
   @override
@@ -205,7 +227,9 @@ class _DiaryDayDetailScreenState extends ConsumerState<DiaryDayDetailScreen> {
                 ),
               ),
             ),
-            if (!_isFuture)
+            // Variant A: пустой день доступен для ДОБАВЛЕНИЯ только в окне
+            // правки (сегодня + последние 7 дней) — иначе read-only.
+            if (_withinEditWindow)
               SizedBox(
                 width: double.infinity,
                 child: FilledButton.icon(
@@ -305,7 +329,12 @@ class _DiaryDayDetailScreenState extends ConsumerState<DiaryDayDetailScreen> {
             ),
             const SizedBox(height: 24),
           ],
-          if (!_isFuture)
+          // Variant A: раз запись УЖЕ ЕСТЬ, править её можно только если
+          // это СЕГОДНЯ (форма сегодняшнего дня всегда свободно
+          // редактируется). Любой другой день с записью — read-only, кнопки
+          // «Edit» нет: существующая запись прошлого никогда не
+          // перезаписывается через этот экран.
+          if (_isToday)
             SizedBox(
               width: double.infinity,
               child: OutlinedButton.icon(

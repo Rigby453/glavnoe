@@ -5,31 +5,38 @@ import prisma from "../models/prisma.js";
  * Вызывается из PATCH /items/:id и из /sync, когда статус задачи меняется на 'done'.
  * Правила только rule-based, без AI.
  *
- * Решение владельца #2 (2026-07-01): день засчитывается, если выполнено ВСЁ
- * запланированное на день, а не только priority=main. Предикат «день завершён»:
+ * Решение владельца — стрик v2 (docs/TASKS-2026-07-02.md §8). ЗЕРКАЛО Dart-
+ * реализации в app/lib/services/streak/streak_service.dart (_dayStatus) —
+ * оба должны оставаться в лок-степе. Предикат «день завершён» смотрит на
+ * не-skipped items дня ("counted"):
  * 1. Берём ВСЕ items (любой priority) за этот день.
  * 2. Нет ни одного item за день → день НЕЙТРАЛЬНЫЙ: не растит и не сбрасывает
- *    серию, выходим без изменений (в отличие от «несделанного дня» — просто
- *    отсутствие плана не должно карать пользователя).
- * 3. status='skipped' «не мешает»: skipped-задачи исключаются из требования
- *    «все done». НО если после исключения skipped ничего не остаётся (то есть
- *    ВСЕ задачи дня были skipped, ни одна не done) — день тоже считается
- *    нейтральным, а не засчитанным: иначе можно было бы «накрутить» серию,
- *    просто пропуская все задачи, ничего не сделав. Это намеренная трактовка
- *    формулировки «skipped не мешает» — не путать с «skipped даёт зачёт».
- * 4. Иначе день завершён, если оставшиеся (не-skipped) задачи ВСЕ done.
- *    Если хоть одна не-skipped задача не done (включая pending) — день НЕ
- *    завершён, выходим без изменений (пересчёт сработает позже, на следующем
- *    завершённом дне — freeze/грейс ниже не меняются).
+ *    серию, выходим без изменений (просто отсутствие плана не должно карать
+ *    пользователя).
+ * 3. status='skipped' «не мешает»: skipped-items исключаются из counted. НО
+ *    если после исключения skipped ничего не остаётся (то есть ВСЕ items дня
+ *    были skipped, ни одного done) — день тоже нейтральный, а не засчитанный:
+ *    иначе можно было бы «накрутить» серию, просто пропуская всё, ничего не
+ *    сделав.
+ * 4. Есть хотя бы один item priority='main' среди counted (mains) → день
+ *    ЗАСЧИТАН, если сделаны ВСЕ mains (status='done'). Не-main items НЕ
+ *    блокируют зачёт, когда main есть — «сделал главное» важнее полного
+ *    списка.
+ * 5. Mains нет вообще → день ЗАСЧИТАН, если недоделанных (status != 'done')
+ *    среди counted не больше max(1, floor(counted.length * 0.1)) — то есть
+ *    допускается «почти всё» (~90%+), но минимум одна задача прощается
+ *    ВСЕГДА (короткие дни не наказываются строже длинных).
+ * 6. Иначе — день НЕ завершён, выходим без изменений (пересчёт сработает
+ *    позже, на следующем завершённом дне — freeze/грейс ниже не меняются).
  *
  * Далее (без изменений):
- * 5. Загружаем или создаём Streak.
- * 6. Сравниваем lastCompletedDate с today/yesterday:
+ * 7. Загружаем или создаём Streak.
+ * 8. Сравниваем lastCompletedDate с today/yesterday:
  *    - Если уже today → idempotent, выходим.
  *    - Если yesterday → current += 1.
  *    - Если старше/null + freezeCount > 0 → freezeCount -= 1, current без изменений.
  *    - Иначе → current = 1.
- * 7. longest = max(longest, current). lastCompletedDate = today. Сохраняем.
+ * 9. longest = max(longest, current). lastCompletedDate = today. Сохраняем.
  */
 export async function checkAndUpdateStreak(
   userId: string,
@@ -43,8 +50,9 @@ export async function checkAndUpdateStreak(
     Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate(), 23, 59, 59, 999)
   );
 
-  // Получаем ВСЕ задачи/события за этот день (любой priority) — решение #2:
-  // «день завершён» = выполнено всё запланированное, а не только главное.
+  // Получаем ВСЕ задачи/события за этот день (любой priority) — предикат v2
+  // смотрит на priority, поэтому priority ОБЯЗАТЕЛЬНО в select (иначе ветка
+  // "нет main" не сработает — см. doc-комментарий выше).
   const dayItems = await prisma.item.findMany({
     where: {
       userId,
@@ -53,7 +61,7 @@ export async function checkAndUpdateStreak(
         lte: endOfDay,
       },
     },
-    select: { id: true, status: true },
+    select: { id: true, status: true, priority: true },
   });
 
   // Нет запланированного на этот день — нейтральный день, серия не меняется.
@@ -65,9 +73,20 @@ export async function checkAndUpdateStreak(
   const countedItems = dayItems.filter((item) => item.status !== "skipped");
   if (countedItems.length === 0) return;
 
-  // Если хоть одна из оставшихся не выполнена — день не завершён, выходим.
-  const allDone = countedItems.every((item) => item.status === "done");
-  if (!allDone) return;
+  // Предикат v2 (см. doc-комментарий выше, п.4-5): main-задачи гейтят день,
+  // если есть хотя бы одна; иначе прощаем недоделанное в пределах ~10% (но
+  // минимум одну задачу — всегда).
+  const mains = countedItems.filter((item) => item.priority === "main");
+  let dayComplete: boolean;
+  if (mains.length > 0) {
+    dayComplete = mains.every((item) => item.status === "done");
+  } else {
+    const undone = countedItems.filter((item) => item.status !== "done").length;
+    const tenPercent = Math.floor(countedItems.length * 0.1);
+    const forgiveness = Math.max(1, tenPercent);
+    dayComplete = undone <= forgiveness;
+  }
+  if (!dayComplete) return;
 
   // Нормализуем дату (только день, без времени) для сравнения
   const todayStr = startOfDay.toISOString().slice(0, 10);

@@ -6,20 +6,29 @@
 // `checkAndUpdateStreak` (rule-based, без AI), чтобы локальное и серверное
 // значения сходились к одному числу.
 //
-// РЕШЕНИЕ ВЛАДЕЛЬЦА #2 (2026-07-01) — предикат «день завершён»:
-//   1. Берём ВСЕ задачи дня (любой priority, не только main).
-//   2. Нет ни одной задачи за день → день НЕЙТРАЛЬНЫЙ: не растит и не
-//      обнуляет серию (пустой день — не наказание).
-//   3. status='skipped' «не мешает»: такие задачи исключаются из требования
-//      «все done». НО если после исключения skipped ничего не остаётся (то
-//      есть буквально ВСЕ задачи дня были пропущены, ни одна не done) — день
-//      тоже нейтральный, а не засчитанный. Иначе можно было бы накрутить
-//      серию, ничего реально не сделав — это трактовка формулировки «skipped
-//      не мешает», а не «skipped даёт зачёт».
-//   4. Иначе день завершён, если ВСЕ оставшиеся (не-skipped) задачи done.
-//      Любая другая (включая pending) — день НЕ завершён.
-// См. _DayStatus/_dayStatus ниже — общий предикат для recomputeForDay и
-// recomputeFromHistory.
+// РЕШЕНИЕ ВЛАДЕЛЬЦА — стрик v2 (docs/TASKS-2026-07-02.md §8), предикат «день
+// завершён» СМОТРИТ на не-skipped задачи дня ("counted"):
+//   1. counted пуст (нет задач за день, либо все были skipped) → день
+//      НЕЙТРАЛЬНЫЙ: не растит и не обнуляет серию. Пустой день — не
+//      наказание; «все skipped» тоже не даёт зачёта (иначе можно было бы
+//      накрутить серию, ничего реально не сделав).
+//   2. Есть хотя бы одна задача priority='main' среди counted (mains) → день
+//      ЗАСЧИТАН, если сделаны ВСЕ mains (status=='done'). Остальные (не-main)
+//      задачи НЕ блокируют зачёт дня, когда main есть — «сделал главное»
+//      важнее полного списка.
+//   3. Mains нет вообще → день ЗАСЧИТАН, если недоделанных (status != 'done')
+//      среди counted не больше max(1, floor(counted.length * 0.1)) — то есть
+//      допускается «почти всё» (~90%+), но минимум одна задача прощается
+//      ВСЕГДА, даже в короткий день (иначе 2-задачный день наказывался бы
+//      строже 20-задачного).
+//   4. Иначе — день НЕ завершён (incomplete).
+// Заменяет более строгое правило v1 «ВСЕ counted задачи done» (решение #2,
+// 2026-07-01), которое наказывало за любую некритичную незакрытую задачу,
+// даже когда всё главное было сделано. См. _DayStatus/_dayStatus ниже —
+// общий предикат для recomputeForDay и recomputeFromHistory. Это ЕДИНАЯ
+// точка правды для предиката — бэкенд-зеркало в
+// backend/src/engine/streaks.ts (checkAndUpdateStreak) должно оставаться в
+// лок-степе с этой функцией.
 //
 // РЕШЕНИЕ ВЛАДЕЛЬЦА #14, подход B (2026-07-01) — стрик как функция от истории:
 //   Раньше SyncService при каждой синхронизации ЗАПИСЫВАЛ current/longest,
@@ -52,20 +61,34 @@ enum _DayStatus {
   /// Нет задач (или все задачи skipped) — день не участвует в расчёте серии.
   neutral,
 
-  /// Есть хотя бы одна не-skipped задача, и не все они done.
+  /// Есть хотя бы одна не-skipped задача, но день не набрал зачёт по
+  /// предикату v2 (main не все done, либо недоделанных больше forgiveness).
   incomplete,
 
-  /// Все не-skipped задачи done (и хотя бы одна такая задача есть).
+  /// День набрал зачёт по предикату v2 — см. [_dayStatus].
   complete,
 }
 
-/// Общий предикат «день завершён» — решение владельца #2 (см. заголовок файла).
+/// Общий предикат «день завершён» — стрик v2 (см. заголовок файла).
 _DayStatus _dayStatus(List<ItemsTableData> dayItems) {
   if (dayItems.isEmpty) return _DayStatus.neutral;
   final counted = dayItems.where((i) => i.status != 'skipped').toList();
   if (counted.isEmpty) return _DayStatus.neutral; // все задачи были skipped
-  final allDone = counted.every((i) => i.status == 'done');
-  return allDone ? _DayStatus.complete : _DayStatus.incomplete;
+
+  final mains = counted.where((i) => i.priority == 'main').toList();
+  if (mains.isNotEmpty) {
+    // Есть главное на день — считаем ТОЛЬКО по нему: "сделал главное" важнее
+    // полного списка. Не-main задачи не блокируют зачёт.
+    final allMainsDone = mains.every((i) => i.status == 'done');
+    return allMainsDone ? _DayStatus.complete : _DayStatus.incomplete;
+  }
+
+  // Главного нет — прощаем недоделанное в пределах ~10%, но минимум 1 задачу
+  // прощаем всегда (короткие дни не наказываются строже длинных).
+  final undone = counted.where((i) => i.status != 'done').length;
+  final tenPercent = (counted.length * 0.1).floor();
+  final forgiveness = tenPercent > 1 ? tenPercent : 1;
+  return undone <= forgiveness ? _DayStatus.complete : _DayStatus.incomplete;
 }
 
 class StreakService {
