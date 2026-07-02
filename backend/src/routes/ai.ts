@@ -268,6 +268,20 @@ function startOfDayUtc(d: string): Date {
   return new Date(`${d}T00:00:00.000Z`);
 }
 
+/**
+ * Волна 6 / Этап 4 (docs/WAVE6-REVIEW-FINDINGS.md, п.5): onboarding-plan и
+ * quick-add accept an optional `locale` in the body — when present it takes
+ * priority over Accept-Language (langName/parseLangCode both accept a plain
+ * tag string, they slice(0, 2) internally so "ru"/"ru-RU" work the same way).
+ */
+function resolveLocale(
+  bodyLocale: string | undefined,
+  header: string | string[] | undefined
+): { language: string; languageCode: string } {
+  const source = bodyLocale ?? header;
+  return { language: langName(source), languageCode: parseLangCode(source) };
+}
+
 const aiRoutes: FastifyPluginAsync = async (fastify) => {
   // AI-06: фото расписания → задачи (premium). Ничего не сохраняет.
   fastify.post(
@@ -660,12 +674,16 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
       if (!(await ensurePremium(request, reply))) return reply;
 
       try {
+        const { language, languageCode } = resolveLocale(
+          parsed.data.locale,
+          request.headers["accept-language"]
+        );
         const result = await generateOnboardingPlan({
           answers: parsed.data.answers,
           date: parsed.data.date,
           timezone: parsed.data.timezone,
-          language: langName(request.headers["accept-language"]),
-          languageCode: parseLangCode(request.headers["accept-language"]),
+          language,
+          languageCode,
         });
         return reply.status(200).send({
           goals: result.goals.map((g) => ({
@@ -714,12 +732,16 @@ const aiRoutes: FastifyPluginAsync = async (fastify) => {
       if (!(await ensurePremium(request, reply))) return reply;
 
       try {
+        const { language, languageCode } = resolveLocale(
+          parsed.data.locale,
+          request.headers["accept-language"]
+        );
         const { task } = await generateQuickAddTask({
           text: parsed.data.text,
           date: parsed.data.date,
           timezone: parsed.data.timezone,
-          language: langName(request.headers["accept-language"]),
-          languageCode: parseLangCode(request.headers["accept-language"]),
+          language,
+          languageCode,
         });
         return reply.status(200).send({
           task: {

@@ -32,6 +32,8 @@ jest.mock('../../backend/src/ai/smartRedistribute', () => ({
     ],
   }),
 }));
+// Волна 6 / Этап 4 (WAVE6-REVIEW-FINDINGS.md п.1): scheduled_at/deadline —
+// naive-local ISO БЕЗ "Z" (сервер больше не просит модель конвертировать в UTC).
 jest.mock('../../backend/src/ai/onboardingPlan', () => ({
   generateOnboardingPlan: jest.fn().mockResolvedValue({
     goals: [{ title: 'Pass the algebra exam', horizon: 'month' }],
@@ -40,7 +42,7 @@ jest.mock('../../backend/src/ai/onboardingPlan', () => ({
         title: 'Algebra exam',
         type: 'exam',
         priority: 'main',
-        scheduledAt: '2026-07-10T09:00:00.000Z',
+        scheduledAt: '2026-07-10T09:00:00',
         durationMinutes: 90,
       },
       {
@@ -59,7 +61,7 @@ jest.mock('../../backend/src/ai/quickAdd', () => ({
       title: 'Work',
       type: 'event',
       priority: 'high',
-      scheduledAt: '2026-07-02T15:00:00.000Z',
+      scheduledAt: '2026-07-02T15:00:00',
       note: 'Butovo',
     },
   }),
@@ -384,7 +386,7 @@ test('onboarding-plan: 403 free / 200 premium with goals + tasks (snake_case)', 
       expect(tasks[0]!['title']).toBe('Algebra exam');
       expect(tasks[0]!['type']).toBe('exam');
       expect(tasks[0]!['priority']).toBe('main');
-      expect(tasks[0]!['scheduled_at']).toBe('2026-07-10T09:00:00.000Z');
+      expect(tasks[0]!['scheduled_at']).toBe('2026-07-10T09:00:00');
       expect(tasks[0]!['duration_minutes']).toBe(90);
       expect(tasks[1]!['note']).toBe('chapters 3-5');
       const foodPrefs = b['food_prefs'] as Record<string, unknown>;
@@ -417,7 +419,7 @@ test('quick-add: 403 free / 200 premium with task (snake_case)', async () => {
       expect(task['title']).toBe('Work');
       expect(task['type']).toBe('event');
       expect(task['priority']).toBe('high');
-      expect(task['scheduled_at']).toBe('2026-07-02T15:00:00.000Z');
+      expect(task['scheduled_at']).toBe('2026-07-02T15:00:00');
       expect(task['note']).toBe('Butovo');
     }
   );
@@ -435,6 +437,33 @@ test('quick-add: empty text → 400', async () => {
     payload: { text: '', date: '2026-07-02', timezone: 'Europe/Moscow' },
   });
   expect(res.statusCode).toBe(400);
+});
+
+// Волна 6 / Этап 4 (WAVE6-REVIEW-FINDINGS.md п.5): body.locale must win over
+// Accept-Language for these two routes — inspect the mocked call args.
+test('quick-add: locale in body overrides Accept-Language header', async () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { generateQuickAddTask } = require('../../backend/src/ai/quickAdd') as {
+    generateQuickAddTask: jest.Mock;
+  };
+  generateQuickAddTask.mockClear();
+
+  const prem = await registerUser(app);
+  userIds.push(prem.userId);
+  await makePremium(prem.userId);
+
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/v1/ai/quick-add',
+    headers: { Authorization: `Bearer ${prem.token}`, 'Accept-Language': 'en' },
+    payload: { text: 'work in an hour', date: '2026-07-02', timezone: 'Europe/Moscow', locale: 'ru' },
+  });
+  expect(res.statusCode).toBe(200);
+  expect(generateQuickAddTask).toHaveBeenCalledTimes(1);
+  const arg = generateQuickAddTask.mock.calls[0]![0] as Record<string, unknown>;
+  // locale='ru' must win over the 'en' Accept-Language header.
+  expect(arg['language']).toBe('Russian');
+  expect(arg['languageCode']).toBe('ru');
 });
 
 test('morning-message without auth → 401', async () => {

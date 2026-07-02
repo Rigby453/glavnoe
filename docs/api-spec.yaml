@@ -790,13 +790,20 @@ paths:
               type: object
               required: [answers, date, timezone]
               properties:
-                answers: { type: string, description: Free-form brain-dump text }
+                answers:
+                  type: string
+                  maxLength: 8000
+                  description: Free-form brain-dump text
                 date:
                   type: string
                   format: date
                   description: Reference date (YYYY-MM-DD) for resolving relative dates
                 timezone: { type: string, example: Europe/Moscow }
-                locale: { type: string, description: Optional language override; Accept-Language is used otherwise }
+                locale:
+                  type: string
+                  description: >-
+                    Optional language override. When set, it takes priority over the
+                    Accept-Language header for the language of the response fields.
       responses:
         '200':
           description: Draft plan (preview only, not saved)
@@ -820,8 +827,15 @@ paths:
                         title: { type: string }
                         type: { type: string, enum: [task, event, exam, deadline] }
                         priority: { type: string, enum: [low, medium, high, main] }
-                        scheduled_at: { type: string, format: date-time }
-                        deadline: { type: string, format: date-time }
+                        scheduled_at:
+                          type: string
+                          description: >-
+                            Naive-local date-time, "YYYY-MM-DDTHH:MM:SS" — already in
+                            the user's timezone (no "Z"/offset suffix; do NOT call
+                            .toUtc() on it, treat as local wall-clock time).
+                        deadline:
+                          type: string
+                          description: Same naive-local format as scheduled_at.
                         duration_minutes: { type: integer }
                         note: { type: string }
                   food_prefs:
@@ -852,13 +866,19 @@ paths:
               type: object
               required: [text, date, timezone]
               properties:
-                text: { type: string }
+                text:
+                  type: string
+                  maxLength: 2000
                 date:
                   type: string
                   format: date
                   description: Reference date (YYYY-MM-DD) for resolving relative dates
                 timezone: { type: string, example: Europe/Moscow }
-                locale: { type: string, description: Optional language override; Accept-Language is used otherwise }
+                locale:
+                  type: string
+                  description: >-
+                    Optional language override. When set, it takes priority over the
+                    Accept-Language header for the language of the response fields.
       responses:
         '200':
           description: Structured task (preview only, not saved)
@@ -873,8 +893,15 @@ paths:
                       title: { type: string }
                       type: { type: string, enum: [task, event, exam, deadline] }
                       priority: { type: string, enum: [low, medium, high, main] }
-                      scheduled_at: { type: string, format: date-time }
-                      deadline: { type: string, format: date-time }
+                      scheduled_at:
+                        type: string
+                        description: >-
+                          Naive-local date-time, "YYYY-MM-DDTHH:MM:SS" — already in
+                          the user's timezone (no "Z"/offset suffix; do NOT call
+                          .toUtc() on it, treat as local wall-clock time).
+                      deadline:
+                        type: string
+                        description: Same naive-local format as scheduled_at.
                       duration_minutes: { type: integer }
                       note: { type: string }
         '400': { description: Validation error }
