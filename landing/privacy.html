@@ -3,8 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Privacy Policy — Kaizen</title>
-  <meta name="description" content="Kaizen privacy policy — what data we collect, why, and how we protect it." />
+  <title>Privacy Policy / Политика конфиденциальности — Kaizen</title>
+  <meta name="description" content="Kaizen (Главное) privacy policy — what data we collect, why, and how we protect it. Bilingual: Russian and English." />
 
   <!-- Google Fonts: Geist (one family) + Hanken Grotesk fallback -->
   <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -99,6 +99,64 @@
       border-color: #E6E4DE;
       margin: 0;
     }
+    .callout {
+      background: #FFFFFF;
+      border: 1px solid #E6E4DE;
+      border-left: 3px solid #4B57C9;
+      border-radius: 8px;
+      padding: 1rem 1.25rem;
+      margin-bottom: 1.25rem;
+    }
+    .callout p {
+      margin-bottom: 0;
+      font-size: 0.875rem;
+    }
+    .table-wrap {
+      overflow-x: auto;
+      margin-bottom: 1.5rem;
+      border: 1px solid #E6E4DE;
+      border-radius: 8px;
+    }
+    .prose-doc table {
+      width: 100%;
+      min-width: 560px;
+      border-collapse: collapse;
+      font-size: 0.8125rem;
+      margin-bottom: 0;
+    }
+    .prose-doc th {
+      text-align: left;
+      padding: 0.65rem 0.85rem;
+      background: #FCFBF9;
+      color: #1B1A18;
+      font-weight: 600;
+      border-bottom: 1px solid #E6E4DE;
+    }
+    .prose-doc td {
+      padding: 0.65rem 0.85rem;
+      border-bottom: 1px solid #E6E4DE;
+      color: #6E6B66;
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    .prose-doc tr:last-child td { border-bottom: none; }
+    .lang-switch a {
+      display: inline-flex;
+      align-items: center;
+      padding: 0.4rem 1.1rem;
+      border-radius: 999px;
+      border: 1px solid #E6E4DE;
+      font-size: 0.875rem;
+      font-weight: 600;
+      color: #1B1A18;
+      text-decoration: none;
+      transition: border-color 0.15s ease, background 0.15s ease;
+    }
+    .lang-switch a:hover {
+      border-color: #4B57C9;
+      background: #ECEDFA;
+    }
+    .lang-block { scroll-margin-top: 6rem; }
   </style>
 </head>
 
@@ -133,215 +191,348 @@
   <!-- Page heading -->
   <div class="mb-10 pb-8 border-b border-border">
     <p class="text-muted text-sm font-medium uppercase tracking-widest mb-3">Legal</p>
-    <h1 class="font-display text-3xl sm:text-4xl font-semibold text-text mb-4">Privacy Policy</h1>
-    <p class="text-muted text-sm">Last updated: June 2026</p>
+    <h1 class="font-display text-3xl sm:text-4xl font-semibold text-text mb-4">Политика конфиденциальности / Privacy Policy</h1>
+    <p class="text-muted text-sm mb-6">Обновлено: 2 июля 2026 &middot; Last updated: July 2, 2026</p>
+    <nav class="lang-switch flex flex-wrap gap-3" aria-label="Language / Язык">
+      <a href="#ru">Русский</a>
+      <a href="#en">English</a>
+    </nav>
   </div>
 
   <!-- Document body -->
   <div class="prose-doc">
 
-    <p>
-      This Privacy Policy explains what information Kaizen collects from you, why we collect it,
-      how we use and store it, and what choices you have. We aim to be plain and honest — no
-      legal fog.
-    </p>
-    <p>
-      By using Kaizen (the app and its web version), you agree to the practices described here.
-      If you have questions, reach us at
-      <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>.
-    </p>
+    <!-- ============================================================
+         RUSSIAN VERSION
+         ============================================================ -->
+    <section id="ru" lang="ru" class="lang-block">
 
+      <h2 class="!mt-0">Политика конфиденциальности</h2>
+      <p class="text-muted text-sm">Обновлено: 2 июля 2026</p>
 
-    <h2>1. Who we are</h2>
-    <p>
-      Kaizen ("we", "us") is a student productivity planner. The app lets you organise your day,
-      track habits and mood, and — on the paid plan — receive AI-powered schedule suggestions.
-      We operate this service independently; there is no parent corporation or advertising network
-      behind us.
-    </p>
+      <p>
+        Настоящая Политика конфиденциальности объясняет, какие данные собирает сервис «Главное»
+        (кодовое имя <strong>Kaizen</strong>; далее — «Сервис»), с какой целью, как использует,
+        хранит и защищает их, а также какие права есть у пользователя. Используя Сервис,
+        пользователь соглашается с практиками, описанными в настоящей Политике.
+      </p>
+      <p>
+        Вопросы: <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>.
+      </p>
 
+      <h2>1. Какие данные мы собираем и зачем</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Категория данных</th>
+              <th>Цель обработки</th>
+              <th>Срок хранения</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Учётные данные: email или номер телефона, хэш пароля, имя (опционально)</td>
+              <td>Создание и защита учётной записи, вход, восстановление доступа</td>
+              <td>До удаления учётной записи пользователем</td>
+            </tr>
+            <tr>
+              <td>Контент, создаваемый пользователем: задачи и план дня, записи дневника, записи модулей здоровья (еда, вода, сон, тренировки, медитации), цели, стрики</td>
+              <td>Основная функциональность планировщика, синхронизация между устройствами</td>
+              <td>До удаления учётной записи или конкретной записи пользователем</td>
+            </tr>
+            <tr>
+              <td>Текст ИИ-запросов (только при использовании ИИ-функций): описания задач, брейндамп онбординга, фото еды или расписания</td>
+              <td>Формирование ИИ-подсказок и рекомендаций — только на Premium, только по согласию пользователя</td>
+              <td>Не хранится Сервисом дольше, чем требуется для формирования ответа; у ИИ-провайдера — согласно его политике обработки данных</td>
+            </tr>
+            <tr>
+              <td>Данные платежа: факт оплаты, сумма, статус, идентификатор платежа ЮKassa</td>
+              <td>Активация и учёт доступа Premium, бухгалтерский и налоговый учёт</td>
+              <td>В соответствии со сроками, установленными законодательством РФ о бухгалтерском и налоговом учёте</td>
+            </tr>
+            <tr>
+              <td>Техническая информация: версия приложения, тип ОС, обезличенные отчёты о сбоях</td>
+              <td>Диагностика и улучшение работы Сервиса</td>
+              <td>В обезличенном, агрегированном виде</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
-    <h2>2. What data we collect and why</h2>
+      <h2>2. Правовое основание обработки</h2>
+      <p>
+        Обработка персональных данных осуществляется в соответствии с Федеральным законом от
+        27.07.2006 № 152-ФЗ «О персональных данных» на основании:
+      </p>
+      <ul>
+        <li>необходимости исполнения договора (пользовательского соглашения) с пользователем — обработка учётных и платёжных данных;</li>
+        <li>согласия пользователя — при первом использовании ИИ-функций (передача текста стороннему ИИ-провайдеру). Согласие можно отозвать в любой момент, просто перестав пользоваться ИИ-функциями.</li>
+      </ul>
 
-    <h3>Account data</h3>
-    <p>
-      To create an account you provide either an <strong>email address</strong> or a
-      <strong>Russian phone number (+7)</strong> plus a password. We store this to identify you,
-      let you log in, and recover your account. We do not require a real name.
-    </p>
+      <h2>3. Хранение и защита данных</h2>
+      <p>
+        Учётные данные и пользовательский контент хранятся на облачных серверах (хостинг Render,
+        база данных Neon/PostgreSQL) для обеспечения синхронизации между устройствами.
+      </p>
+      <p>
+        Пароли хранятся исключительно в виде необратимого хэша (bcrypt) — в открытом виде пароли
+        Сервису не известны и не хранятся. Передача данных между приложением и серверами Сервиса
+        выполняется по защищённому протоколу HTTPS (TLS).
+      </p>
+      <p>
+        <strong>Гостевой (локальный) режим:</strong> если пользователь не создаёт учётную запись,
+        весь пользовательский контент хранится только на устройстве пользователя и не передаётся
+        на серверы Сервиса.
+      </p>
+      <p>
+        Ни одна система не является абсолютно защищённой. При обнаружении инцидента, затрагивающего
+        персональные данные пользователей, Сервис уведомит затронутых пользователей и предпримет
+        меры по устранению последствий в соответствии с законодательством РФ.
+      </p>
 
-    <h3>App content you create</h3>
-    <p>
-      All the content you enter in the app is yours. This includes:
-    </p>
-    <ul>
-      <li>Tasks, priorities, and deadlines (Today view and Week plan)</li>
-      <li>Daily diary entries and mood logs</li>
-      <li>Nutrition logs — meals, calories, macros (Phase 1 feature)</li>
-      <li>Sleep and water tracking records</li>
-      <li>Workout and focus-session logs</li>
-      <li>Goals (month / year / multi-year)</li>
-    </ul>
-    <p>
-      We store this data on our servers so you can sync across devices and access it offline.
-      We do not read your diary entries or tasks for advertising or profiling.
-    </p>
+      <h2>4. Передача данных третьим лицам</h2>
+      <div class="callout">
+        <p>
+          Сервис не продаёт данные пользователей. Рекламы в Сервисе и на этом сайте нет; трекеры и
+          рекламные пиксели на лендинге не используются.
+        </p>
+      </div>
+      <p>Сервис передаёт данные третьим лицам исключительно в следующих случаях:</p>
+      <ul>
+        <li><strong>ЮKassa</strong> (оператор — ООО НКО «ЮМани») — данные, необходимые для обработки платежа Premium (раздел 1). Сервис не получает и не хранит данные банковской карты.</li>
+        <li><strong>ИИ-провайдеры</strong> (Groq, Google Gemini, Anthropic — используется один или несколько, в зависимости от конфигурации) — текст ИИ-запроса, только при использовании функций на основе ИИ (доступны исключительно на Premium) и только после явного согласия пользователя.</li>
+        <li><strong>Инфраструктурные подрядчики</strong> — хостинг-провайдер (Render) и провайдер базы данных (Neon), обрабатывающие данные исключительно в целях предоставления инфраструктуры Сервиса.</li>
+        <li><strong>Государственные органы</strong> — только если это прямо предусмотрено законодательством РФ и в пределах, требуемых законом.</li>
+      </ul>
 
-    <h3>Device and usage data</h3>
-    <p>
-      When you use the app we automatically collect minimal technical data: app version,
-      operating system type, anonymised crash reports, and aggregate feature-use counts
-      (e.g., "morning review opened today"). We do <strong>not</strong> collect precise
-      location, contacts, or device identifiers linked to you personally.
-    </p>
+      <h2>5. Данные о питании из открытых источников</h2>
+      <p>
+        Часть данных о продуктах питания (названия, состав, КБЖУ) берётся из открытой базы данных
+        <strong> Open Food Facts</strong>. Эти данные не являются персональными данными
+        пользователя.
+      </p>
 
-    <h3>Payment data</h3>
-    <p>
-      If you subscribe to Kaizen Premium ($10/month), payment is processed by Apple App Store,
-      Google Play, or another payment provider depending on your platform. We never see or store
-      your full card number. We receive only a subscription status token and receipt confirming
-      you have an active paid plan.
-    </p>
+      <h2>6. Права пользователя</h2>
+      <p>Пользователь вправе в любой момент:</p>
+      <ul>
+        <li>запросить доступ к данным, которые Сервис хранит о нём;</li>
+        <li>запросить исправление неточных данных (часть данных можно исправить самостоятельно в настройках приложения);</li>
+        <li>запросить удаление учётной записи и всех связанных данных (раздел 7);</li>
+        <li>отозвать согласие на обработку текста ИИ-запросов сторонними ИИ-провайдерами — просто прекратив использование ИИ-функций;</li>
+        <li>запросить выгрузку своих данных в машиночитаемом формате.</li>
+      </ul>
+      <p>
+        Для реализации любого из перечисленных прав напишите на
+        <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>. Ответ
+        предоставляется в разумный срок, не превышающий 30 дней.
+      </p>
 
+      <h2>7. Удаление данных</h2>
+      <p>
+        Удаление учётной записи можно запросить через настройки приложения (если доступно) либо
+        письмом на <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>.
+        Удаление необратимо и удаляет учётную запись и весь связанный с ней контент.
+      </p>
+      <p>
+        Выход из учётной записи на устройстве (logout) стирает локально хранимые на этом
+        устройстве данные, не затрагивая данные на сервере, если используется облачная
+        синхронизация.
+      </p>
+      <p>
+        В гостевом (локальном) режиме удаление приложения или очистка его данных полностью
+        удаляет пользовательский контент, так как он нигде более не хранится.
+      </p>
 
-    <h2>3. How we use your data</h2>
-    <ul>
-      <li>To provide and sync the app across your devices</li>
-      <li>To power AI features on the Premium plan (see section 4)</li>
-      <li>To send transactional messages — password reset, payment receipts (no marketing unless you opt in)</li>
-      <li>To fix bugs and improve the product using anonymised, aggregated analytics</li>
-      <li>To comply with applicable law</li>
-    </ul>
-    <p>
-      We do <strong>not</strong> sell your data, and <strong>Kaizen shows no ads on any tier</strong>
-      — free or Premium. We never share your identity with ad networks.
-    </p>
+      <h2>8. Дети</h2>
+      <p>
+        Сервис не предназначен для лиц младше 16 лет без согласия родителя или иного законного
+        представителя. Если Сервису станет известно, что данные ребёнка младше 16 лет были
+        собраны без такого согласия, эти данные будут удалены.
+      </p>
 
+      <h2>9. Изменения Политики</h2>
+      <p>
+        При существенных изменениях Политики (например, появление новых категорий собираемых
+        данных или новых получателей данных) пользователи уведомляются через уведомление в
+        приложении или по email не менее чем за 14 дней до вступления изменений в силу.
+        Незначительные редакционные правки вступают в силу немедленно, с обновлением даты
+        «Обновлено».
+      </p>
 
-    <h2>4. AI features and third-party AI providers</h2>
-    <p>
-      AI-powered features (smart plan redistribution, diary insights, pattern analysis) are
-      available on the Premium plan only. To generate these suggestions, we send a structured
-      summary of your relevant data — tasks, timing patterns, diary flags — to an AI provider.
-      Currently we use <strong>Google Gemini</strong> or <strong>Anthropic Claude</strong>
-      (whichever is configured at the time; this can change with a server-side update).
-    </p>
-    <p>
-      This means your task summaries and diary patterns may be processed by Google or Anthropic
-      under their respective data-processing agreements. We send the minimum needed to answer
-      your request; we do not send raw diary text unless you explicitly use a feature that
-      requires it (e.g., "analyse my week"). Both providers are contractually prohibited from
-      training their models on data sent via the API.
-    </p>
-    <p>
-      AI is never used on the free tier; it is funded only by the Premium subscription, never by ads.
-    </p>
+      <h2>10. Контакты</h2>
+      <p>
+        По всем вопросам, связанным с настоящей Политикой конфиденциальности и обработкой
+        персональных данных:
+        <br />
+        <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>
+      </p>
 
+    </section>
 
-    <h2>5. Data storage and security</h2>
-    <p>
-      Your data is stored on servers hosted in the European Union (Neon PostgreSQL, EU region).
-      Data in transit is encrypted with TLS 1.2+. Passwords are hashed with bcrypt; we never
-      store them in plain text. We apply the principle of least privilege: only the parts of
-      the system that need your data can access it.
-    </p>
-    <p>
-      No system is perfectly secure. If we ever discover a breach that affects your personal
-      data, we will notify you promptly and take corrective action.
-    </p>
+    <hr class="border-border my-16" />
 
+    <!-- ============================================================
+         ENGLISH VERSION
+         ============================================================ -->
+    <section id="en" lang="en" class="lang-block">
 
-    <h2>6. Data sharing and third parties</h2>
-    <p>
-      We share your data only with:
-    </p>
-    <ul>
-      <li>
-        <strong>AI providers (Gemini / Claude)</strong> — task and diary summaries, Premium only,
-        as described in section 4.
-      </li>
-      <li>
-        <strong>Payment processors (Apple, Google, or others)</strong> — only the data required
-        to complete your transaction.
-      </li>
-      <li>
-        <strong>Infrastructure providers</strong> — hosting, database, and error-monitoring
-        services that process data on our behalf under data-processing agreements.
-      </li>
-      <li>
-        <strong>Law enforcement or courts</strong> — only if required by applicable law and only
-        to the extent legally required.
-      </li>
-    </ul>
-    <p>
-      We do not share data with advertisers, data brokers, or analytics resellers.
-    </p>
+      <h2 class="!mt-0">Privacy Policy</h2>
+      <p class="text-muted text-sm">Last updated: July 2, 2026</p>
 
+      <p>
+        This Privacy Policy explains what data the «Glavnoe» service (codename
+        <strong>Kaizen</strong>; the "Service") collects, why, how it is used, stored, and
+        protected, and what rights you have. By using the Service, you agree to the practices
+        described in this Policy.
+      </p>
+      <p>
+        Questions: <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>.
+      </p>
 
-    <h2>7. Your rights</h2>
-    <p>
-      You can, at any time:
-    </p>
-    <ul>
-      <li><strong>Access</strong> — request a copy of all personal data we hold about you.</li>
-      <li><strong>Correct</strong> — update incorrect account information in app Settings.</li>
-      <li>
-        <strong>Delete</strong> — request full deletion of your account and all associated data.
-        See section 8 below.
-      </li>
-      <li>
-        <strong>Export</strong> — request your task, diary, and nutrition data in a
-        machine-readable format (JSON/CSV). Email us and we will prepare it within 14 days.
-      </li>
-      <li>
-        <strong>Object to processing</strong> — if we are processing your data on the basis of
-        legitimate interest, you can object and we will stop unless we have a compelling
-        overriding reason.
-      </li>
-    </ul>
-    <p>
-      To exercise any of these rights, email
-      <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>. We will respond
-      within 30 days.
-    </p>
+      <h2>1. What data we collect and why</h2>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Data category</th>
+              <th>Purpose</th>
+              <th>Retention</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Account data: email or phone number, password hash, name (optional)</td>
+              <td>Creating and securing your account, sign-in, account recovery</td>
+              <td>Until you delete your account</td>
+            </tr>
+            <tr>
+              <td>Content you create: tasks and day plan, diary entries, health-module records (food, water, sleep, workouts, meditation), goals, streaks</td>
+              <td>Core planner functionality, sync across devices</td>
+              <td>Until you delete your account or the specific entry</td>
+            </tr>
+            <tr>
+              <td>AI request text (only when you use AI features): task descriptions, onboarding brain-dump, photos of food or a schedule</td>
+              <td>Generating AI suggestions and insights — Premium only, only with your consent</td>
+              <td>Not retained by the Service beyond what's needed to generate the response; retained by the AI provider per its own data-processing policy</td>
+            </tr>
+            <tr>
+              <td>Payment data: the fact of payment, amount, status, YooKassa payment ID</td>
+              <td>Activating and tracking Premium access, accounting and tax record-keeping</td>
+              <td>As required by Russian accounting and tax record-keeping law</td>
+            </tr>
+            <tr>
+              <td>Technical data: app version, OS type, anonymised crash reports</td>
+              <td>Diagnosing issues and improving the Service</td>
+              <td>Anonymised, aggregated form only</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
 
+      <h2>2. Legal basis for processing</h2>
+      <p>
+        Personal data is processed in accordance with Federal Law No. 152-FZ of 27.07.2006 "On
+        Personal Data," on the basis of:
+      </p>
+      <ul>
+        <li>the need to perform the contract (the user agreement) with you — processing account and payment data;</li>
+        <li>your consent — for the first use of any AI feature (sending text to a third-party AI provider). You can withdraw consent at any time simply by no longer using AI features.</li>
+      </ul>
 
-    <h2>8. Account and data deletion</h2>
-    <p>
-      You can delete your account from within the app: go to <strong>Settings → Account →
-      Delete account</strong>. This permanently removes your account credentials and all
-      content you have created (tasks, diary entries, logs). Deletion is irreversible.
-    </p>
-    <p>
-      After deletion, anonymised aggregate statistics (e.g., "user was active for N months")
-      may be retained in aggregate form only, with no link back to your identity.
-      Backup copies are purged within 30 days.
-    </p>
+      <h2>3. Storage and security</h2>
+      <p>
+        Account data and user content are stored on cloud servers (hosting via Render, database via
+        Neon/PostgreSQL) to enable sync across your devices.
+      </p>
+      <p>
+        Passwords are stored only as an irreversible hash (bcrypt) — the Service never knows or
+        stores your password in plain text. Data in transit between the app and the Service's
+        servers is protected with HTTPS (TLS).
+      </p>
+      <p>
+        <strong>Guest (local) mode:</strong> if you do not create an account, all your content is
+        stored on your device only and is never sent to the Service's servers.
+      </p>
+      <p>
+        No system is perfectly secure. If we discover an incident affecting your personal data, we
+        will notify affected users and take corrective action in accordance with Russian law.
+      </p>
 
+      <h2>4. Sharing data with third parties</h2>
+      <div class="callout">
+        <p>
+          The Service does not sell user data. There are no ads in the Service or on this website;
+          no trackers or ad pixels are used on the landing page.
+        </p>
+      </div>
+      <p>The Service shares data with third parties only in these cases:</p>
+      <ul>
+        <li><strong>YooKassa</strong> (operator: NKO YuMoney LLC) — data needed to process a Premium payment (Section 1). The Service never receives or stores your card data.</li>
+        <li><strong>AI providers</strong> (Groq, Google Gemini, Anthropic — one or more, depending on configuration) — AI request text, only when you use an AI-powered feature (Premium only) and only after your explicit consent.</li>
+        <li><strong>Infrastructure providers</strong> — the hosting provider (Render) and database provider (Neon), which process data solely to provide the Service's infrastructure.</li>
+        <li><strong>Government authorities</strong> — only where expressly required by Russian law and only to the extent legally required.</li>
+      </ul>
 
-    <h2>9. Children</h2>
-    <p>
-      Kaizen is designed for students aged 13 and older. We do not knowingly collect personal
-      data from children under 13. If you believe a child under 13 has created an account,
-      please contact us and we will delete it promptly.
-    </p>
+      <h2>5. Nutrition data from open sources</h2>
+      <p>
+        Some food data (names, ingredients, macros) comes from the open
+        <strong> Open Food Facts</strong> database. This data is not your personal data.
+      </p>
 
+      <h2>6. Your rights</h2>
+      <p>You can, at any time:</p>
+      <ul>
+        <li>request access to the data the Service holds about you;</li>
+        <li>request correction of inaccurate data (some data can be corrected directly in app Settings);</li>
+        <li>request deletion of your account and all associated data (Section 7);</li>
+        <li>withdraw your consent to sending AI request text to third-party AI providers — simply by no longer using AI features;</li>
+        <li>request an export of your data in a machine-readable format.</li>
+      </ul>
+      <p>
+        To exercise any of these rights, email
+        <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>. We will respond
+        within a reasonable time, not exceeding 30 days.
+      </p>
 
-    <h2>10. Changes to this policy</h2>
-    <p>
-      If we make material changes to this policy (e.g., start collecting new types of data or
-      change how we use existing data), we will notify you via in-app notification or email
-      at least 14 days before the change takes effect. Minor editorial updates take effect
-      immediately and are noted with a new "Last updated" date above.
-    </p>
+      <h2>7. Data deletion</h2>
+      <p>
+        You can request account deletion from within the app (where available) or by emailing
+        <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>. Deletion is
+        irreversible and removes your account and all associated content.
+      </p>
+      <p>
+        Signing out on a device (logout) erases the data stored locally on that device, without
+        affecting server-side data if cloud sync is in use.
+      </p>
+      <p>
+        In guest (local) mode, uninstalling the app or clearing its data fully removes your
+        content, since it is not stored anywhere else.
+      </p>
 
+      <h2>8. Children</h2>
+      <p>
+        The Service is not intended for individuals under 16 without the consent of a parent or
+        other legal guardian. If we become aware that a child under 16's data was collected
+        without such consent, we will delete it.
+      </p>
 
-    <h2>11. Contact</h2>
-    <p>
-      Questions, requests, or concerns about privacy:
-      <br />
-      <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>
-    </p>
+      <h2>9. Changes to this Policy</h2>
+      <p>
+        For material changes to this Policy (e.g., new categories of data collected or new data
+        recipients), users are notified via an in-app notice or email at least 14 days before the
+        change takes effect. Minor editorial updates take effect immediately, with an updated "Last
+        updated" date.
+      </p>
+
+      <h2>10. Contact</h2>
+      <p>
+        For any questions about this Privacy Policy or the processing of personal data:
+        <br />
+        <a href="mailto:support.kaname@gmail.com">support.kaname@gmail.com</a>
+      </p>
+
+    </section>
 
   </div>
 
