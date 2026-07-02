@@ -144,20 +144,30 @@
 <body
   class="font-body antialiased"
   x-data="{
-    downloadLabel: 'Download',
     downloadHref: 'app/',
+    platform: 'web',
     init() {
       const ua = navigator.userAgent;
       if (/iPad|iPhone|iPod/.test(ua)) {
-        this.downloadLabel = 'Download on the App Store';
+        this.platform = 'ios';
         this.downloadHref  = '#appstore';   /* TODO: replace with real App Store URL */
       } else if (/Android/.test(ua)) {
-        this.downloadLabel = 'Get it on Google Play';
+        this.platform = 'android';
         this.downloadHref  = '#googleplay'; /* TODO: replace with real Google Play URL */
       } else {
-        this.downloadLabel = 'Open the Web App';
+        this.platform = 'web';
         this.downloadHref  = 'app/';        /* relative → resolves to /glavnoe/app/ on GitHub Pages */
       }
+    },
+    /* Label depends on both platform (detected above) and language (global Alpine.store('i18n'),
+       registered by the i18n script at the end of body). */
+    downloadLabel() {
+      const lang = (this.$store.i18n && this.$store.i18n.lang) || 'en';
+      const labels = {
+        en: { ios: 'Download on the App Store', android: 'Get it on Google Play', web: 'Open the Web App' },
+        ru: { ios: 'Скачать в App Store',       android: 'Загрузить в Google Play', web: 'Открыть веб-версию' },
+      };
+      return (labels[lang] || labels.en)[this.platform];
     }
   }"
 >
@@ -170,24 +180,43 @@
     <div class="flex items-center justify-between h-16">
 
       <!-- Wordmark -->
-      <a href="#" class="font-display text-xl font-semibold tracking-tight text-text">
+      <a href="#" class="font-display text-xl font-semibold tracking-tight text-text flex-shrink-0" data-i18n="brand.name">
         Kaizen
       </a>
 
       <!-- Nav (hidden on mobile, visible md+) -->
-      <nav class="hidden md:flex items-center gap-7 text-sm font-medium text-muted" aria-label="Main navigation">
-        <a href="#how-it-works" class="nav-link transition-colors duration-150">How it works</a>
-        <a href="#features"     class="nav-link transition-colors duration-150">Features</a>
-        <a href="#pricing"      class="nav-link transition-colors duration-150">Pricing</a>
+      <nav class="hidden md:flex items-center gap-7 text-sm font-medium text-muted" aria-label="Main navigation" data-i18n-aria="aria.mainNav">
+        <a href="#how-it-works" class="nav-link transition-colors duration-150" data-i18n="nav.how">How it works</a>
+        <a href="#features"     class="nav-link transition-colors duration-150" data-i18n="nav.features">Features</a>
+        <a href="#pricing"      class="nav-link transition-colors duration-150" data-i18n="nav.pricing">Pricing</a>
       </nav>
 
-      <!-- Download button (smart, Alpine) -->
-      <a
-        :href="downloadHref"
-        x-text="downloadLabel"
-        class="btn-download inline-flex items-center px-5 py-2 rounded-pill bg-accent text-bg text-sm font-semibold transition-all duration-200 whitespace-nowrap"
-        aria-label="Download or open Kaizen"
-      ></a>
+      <div class="flex items-center gap-2 sm:gap-3 flex-shrink-0">
+
+        <!-- Language switcher (RU | EN) -->
+        <div class="flex items-center gap-0.5 rounded-pill border border-border p-0.5 flex-shrink-0" role="group" aria-label="Language / Язык">
+          <button type="button" data-lang-btn="ru" onclick="setLang('ru')" class="lang-btn px-2 py-1 rounded-pill text-[11px] font-semibold text-muted transition-colors duration-150" aria-pressed="false">RU</button>
+          <button type="button" data-lang-btn="en" onclick="setLang('en')" class="lang-btn px-2 py-1 rounded-pill text-[11px] font-semibold text-muted transition-colors duration-150" aria-pressed="false">EN</button>
+        </div>
+
+        <!-- Download button (smart, Alpine). Compact label under sm: (fits 360px headers),
+             full platform-specific label from sm: up where there's room. -->
+        <a
+          :href="downloadHref"
+          x-text="$store.i18n.lang === 'ru' ? 'Скачать' : 'Get App'"
+          class="btn-download sm:hidden inline-flex items-center px-4 py-2 rounded-pill bg-accent text-bg text-sm font-semibold transition-all duration-200 whitespace-nowrap"
+          aria-label="Download or open Kaizen"
+          data-i18n-aria="aria.downloadOrOpen"
+        ></a>
+        <a
+          :href="downloadHref"
+          x-text="downloadLabel()"
+          class="btn-download hidden sm:inline-flex items-center px-5 py-2 rounded-pill bg-accent text-bg text-sm font-semibold transition-all duration-200 whitespace-nowrap"
+          aria-label="Download or open Kaizen"
+          data-i18n-aria="aria.downloadOrOpen"
+        ></a>
+
+      </div>
 
     </div>
   </div>
@@ -203,16 +232,17 @@
 
       <!-- Copy -->
       <div class="text-center lg:text-left">
-        <p class="text-muted text-sm font-medium tracking-wide mb-4">Student planner</p>
+        <p class="text-muted text-sm font-medium tracking-wide mb-4" data-i18n="hero.eyebrow">Student planner</p>
         <h1
           id="hero-heading"
           class="font-display text-4xl sm:text-5xl lg:text-6xl font-semibold leading-tight text-text mb-6"
+          data-i18n="hero.title"
         >
           The important<br />
           stuff won't<br />
           <em class="not-italic text-accent">slip.</em>
         </h1>
-        <p class="text-muted text-lg sm:text-xl leading-relaxed mb-10 max-w-md mx-auto lg:mx-0">
+        <p class="text-muted text-lg sm:text-xl leading-relaxed mb-10 max-w-md mx-auto lg:mx-0" data-i18n="hero.subhead">
           Auto-reschedules your day around what matters — and shows you exactly why plans fail. Built for students who want a planner that actually keeps up.
         </p>
 
@@ -220,21 +250,23 @@
           <!-- Primary: smart download button -->
           <a
             :href="downloadHref"
-            x-text="downloadLabel"
+            x-text="downloadLabel()"
             class="btn-download inline-flex items-center justify-center px-7 py-3.5 rounded-pill bg-accent text-bg text-base font-semibold transition-all duration-200"
             aria-label="Download or open Kaizen"
+            data-i18n-aria="aria.downloadOrOpen"
           ></a>
 
           <!-- Secondary: scroll to how it works -->
           <a
             href="#how-it-works"
             class="inline-flex items-center justify-center px-7 py-3.5 rounded-pill border border-border text-text text-base font-medium hover:border-muted transition-colors duration-200"
+            data-i18n="hero.cta.secondary"
           >
             See how it works
           </a>
         </div>
 
-        <p class="text-muted text-sm mt-5">Free to start &mdash; no credit card.</p>
+        <p class="text-muted text-sm mt-5" data-i18n="hero.note">Free to start &mdash; no credit card.</p>
       </div>
 
       <!-- Phone mockup (pure HTML/CSS, no images) -->
@@ -249,8 +281,8 @@
 
             <!-- Date + greeting -->
             <div class="mb-5">
-              <p class="text-muted text-xs mb-0.5">Saturday, Jun 7</p>
-              <p class="text-text font-semibold text-sm">Morning review</p>
+              <p class="text-muted text-xs mb-0.5" data-i18n="mockup.date">Saturday, Jun 7</p>
+              <p class="text-text font-semibold text-sm" data-i18n="shared.morningReview">Morning review</p>
             </div>
 
             <!-- Progress ring + label -->
@@ -260,8 +292,8 @@
                 <circle class="ring-fill"  cx="28" cy="28" r="22" />
               </svg>
               <div>
-                <p class="text-text text-sm font-semibold">2 / 3 done</p>
-                <p class="text-muted text-xs">1 carried over</p>
+                <p class="text-text text-sm font-semibold" data-i18n="mockup.progressDone">2 / 3 done</p>
+                <p class="text-muted text-xs" data-i18n="mockup.carriedOverCount">1 carried over</p>
               </div>
             </div>
 
@@ -275,15 +307,15 @@
                     <path d="M1 4l3 3 5-6" stroke="#FFFFFF" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                   </svg>
                 </span>
-                <span class="task-done text-xs flex-1">Read chapter 4</span>
+                <span class="task-done text-xs flex-1" data-i18n="mockup.task1">Read chapter 4</span>
               </div>
 
               <!-- Active task (Main) -->
               <div class="flex items-center gap-3 bg-bg rounded-2xl px-3 py-2.5 ring-1 ring-accent/30">
                 <span class="w-5 h-5 rounded-full border-2 border-accent flex-shrink-0"></span>
                 <div class="flex-1 min-w-0">
-                  <p class="text-text text-xs font-medium truncate">Submit essay draft</p>
-                  <p class="text-accent text-[10px] font-semibold">Main</p>
+                  <p class="text-text text-xs font-medium truncate" data-i18n="mockup.task2">Submit essay draft</p>
+                  <p class="text-accent text-[10px] font-semibold" data-i18n="mockup.mainLabel">Main</p>
                 </div>
               </div>
 
@@ -291,8 +323,8 @@
               <div class="flex items-center gap-3 bg-bg rounded-2xl px-3 py-2.5 border border-ember/30">
                 <span class="w-5 h-5 rounded-full border-2 border-ember flex-shrink-0"></span>
                 <div class="flex-1 min-w-0">
-                  <p class="text-text text-xs truncate">Reply to lab partner</p>
-                  <p class="text-ember text-[10px]">Carried over</p>
+                  <p class="text-text text-xs truncate" data-i18n="mockup.task3">Reply to lab partner</p>
+                  <p class="text-ember text-[10px]" data-i18n="mockup.carriedOverLabel">Carried over</p>
                 </div>
               </div>
 
@@ -300,8 +332,8 @@
 
             <!-- Morning review nudge -->
             <div class="mt-5 rounded-2xl bg-accent/10 border border-accent/20 px-3 py-2.5">
-              <p class="text-accent text-xs font-semibold mb-0.5">Morning review</p>
-              <p class="text-muted text-[11px] leading-snug">1 task moved from yesterday — confirm or skip?</p>
+              <p class="text-accent text-xs font-semibold mb-0.5" data-i18n="shared.morningReview">Morning review</p>
+              <p class="text-muted text-[11px] leading-snug" data-i18n="mockup.nudgeBody">1 task moved from yesterday — confirm or skip?</p>
             </div>
 
           </div>
@@ -320,8 +352,8 @@
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
     <div class="text-center mb-14">
-      <p class="text-muted text-sm font-medium tracking-wide mb-3">Sound familiar?</p>
-      <h2 id="problem-heading" class="font-display text-3xl sm:text-4xl font-semibold text-text">
+      <p class="text-muted text-sm font-medium tracking-wide mb-3" data-i18n="problem.eyebrow">Sound familiar?</p>
+      <h2 id="problem-heading" class="font-display text-3xl sm:text-4xl font-semibold text-text" data-i18n="problem.heading">
         Plans break. Kaizen picks up the pieces.
       </h2>
     </div>
@@ -332,39 +364,39 @@
       <!-- Card 1 -->
       <div class="rounded-3xl bg-surface border border-border p-7">
         <div class="mb-5">
-          <span class="inline-block px-3 py-1 rounded-pill bg-ember/15 text-ember text-xs font-semibold mb-4">The problem</span>
-          <p class="text-text font-semibold leading-snug mb-2">You plan the day. One thing breaks it. Nothing gets done.</p>
-          <p class="text-muted text-sm leading-relaxed">One unexpected event cascades into a wrecked schedule — and you have no way to recover mid-day.</p>
+          <span class="inline-block px-3 py-1 rounded-pill bg-ember/15 text-ember text-xs font-semibold mb-4" data-i18n="problem.badge">The problem</span>
+          <p class="text-text font-semibold leading-snug mb-2" data-i18n="problem1.text">You plan the day. One thing breaks it. Nothing gets done.</p>
+          <p class="text-muted text-sm leading-relaxed" data-i18n="problem1.detail">One unexpected event cascades into a wrecked schedule — and you have no way to recover mid-day.</p>
         </div>
         <div class="border-t border-border pt-5">
-          <span class="inline-block px-3 py-1 rounded-pill bg-accent/15 text-accent text-xs font-semibold mb-3">Kaizen fixes it</span>
-          <p class="text-text text-sm leading-relaxed">Morning review auto-reschedules around your priorities, so the most important tasks stay protected no matter what.</p>
+          <span class="inline-block px-3 py-1 rounded-pill bg-accent/15 text-accent text-xs font-semibold mb-3" data-i18n="problem.fixBadge">Kaizen fixes it</span>
+          <p class="text-text text-sm leading-relaxed" data-i18n="problem1.fix">Morning review auto-reschedules around your priorities, so the most important tasks stay protected no matter what.</p>
         </div>
       </div>
 
       <!-- Card 2 -->
       <div class="rounded-3xl bg-surface border border-border p-7">
         <div class="mb-5">
-          <span class="inline-block px-3 py-1 rounded-pill bg-ember/15 text-ember text-xs font-semibold mb-4">The problem</span>
-          <p class="text-text font-semibold leading-snug mb-2">You forget what actually matters vs. what just feels urgent.</p>
-          <p class="text-muted text-sm leading-relaxed">Busy work fills the day. The essay due next week stays untouched until 11pm the night before.</p>
+          <span class="inline-block px-3 py-1 rounded-pill bg-ember/15 text-ember text-xs font-semibold mb-4" data-i18n="problem.badge">The problem</span>
+          <p class="text-text font-semibold leading-snug mb-2" data-i18n="problem2.text">You forget what actually matters vs. what just feels urgent.</p>
+          <p class="text-muted text-sm leading-relaxed" data-i18n="problem2.detail">Busy work fills the day. The essay due next week stays untouched until 11pm the night before.</p>
         </div>
         <div class="border-t border-border pt-5">
-          <span class="inline-block px-3 py-1 rounded-pill bg-accent/15 text-accent text-xs font-semibold mb-3">Kaizen fixes it</span>
-          <p class="text-text text-sm leading-relaxed">Up to 3 "Main" tasks — marked, protected, always scheduled first. The rest fills in around them.</p>
+          <span class="inline-block px-3 py-1 rounded-pill bg-accent/15 text-accent text-xs font-semibold mb-3" data-i18n="problem.fixBadge">Kaizen fixes it</span>
+          <p class="text-text text-sm leading-relaxed" data-i18n="problem2.fix">Up to 3 "Main" tasks — marked, protected, always scheduled first. The rest fills in around them.</p>
         </div>
       </div>
 
       <!-- Card 3 -->
       <div class="rounded-3xl bg-surface border border-border p-7">
         <div class="mb-5">
-          <span class="inline-block px-3 py-1 rounded-pill bg-ember/15 text-ember text-xs font-semibold mb-4">The problem</span>
-          <p class="text-text font-semibold leading-snug mb-2">You don't know <em>why</em> your plans keep failing.</p>
-          <p class="text-muted text-sm leading-relaxed">You try again tomorrow with the same system — and wonder why nothing changes.</p>
+          <span class="inline-block px-3 py-1 rounded-pill bg-ember/15 text-ember text-xs font-semibold mb-4" data-i18n="problem.badge">The problem</span>
+          <p class="text-text font-semibold leading-snug mb-2" data-i18n="problem3.text">You don't know <em>why</em> your plans keep failing.</p>
+          <p class="text-muted text-sm leading-relaxed" data-i18n="problem3.detail">You try again tomorrow with the same system — and wonder why nothing changes.</p>
         </div>
         <div class="border-t border-border pt-5">
-          <span class="inline-block px-3 py-1 rounded-pill bg-accent/15 text-accent text-xs font-semibold mb-3">Kaizen fixes it</span>
-          <p class="text-text text-sm leading-relaxed">Evening diary + pattern tracking shows exactly what derails you: overload, bad estimates, external chaos.</p>
+          <span class="inline-block px-3 py-1 rounded-pill bg-accent/15 text-accent text-xs font-semibold mb-3" data-i18n="problem.fixBadge">Kaizen fixes it</span>
+          <p class="text-text text-sm leading-relaxed" data-i18n="problem3.fix">Evening diary + pattern tracking shows exactly what derails you: overload, bad estimates, external chaos.</p>
         </div>
       </div>
 
@@ -380,8 +412,8 @@
   <div class="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
 
     <div class="text-center mb-14">
-      <p class="text-muted text-sm font-medium tracking-wide mb-3">Built different</p>
-      <h2 id="features-heading" class="font-display text-3xl sm:text-4xl font-semibold text-text">
+      <p class="text-muted text-sm font-medium tracking-wide mb-3" data-i18n="features.eyebrow">Built different</p>
+      <h2 id="features-heading" class="font-display text-3xl sm:text-4xl font-semibold text-text" data-i18n="features.heading">
         Everything you need.<br />
         <span class="text-muted">Nothing you don't.</span>
       </h2>
@@ -398,8 +430,8 @@
             <path d="M11 2v2M11 18v2M2 11h2M18 11h2M4.22 4.22l1.41 1.41M16.37 16.37l1.41 1.41M4.22 17.78l1.41-1.41M16.37 5.63l1.41-1.41" stroke="#4B57C9" stroke-width="1.8" stroke-linecap="round"/>
           </svg>
         </div>
-        <h3 class="text-text font-semibold text-lg mb-2">Morning review</h3>
-        <p class="text-muted text-sm leading-relaxed">Yesterday's loose ends, sorted before 9am. Unfinished tasks surface automatically — you confirm what carries forward.</p>
+        <h3 class="text-text font-semibold text-lg mb-2" data-i18n="shared.morningReview">Morning review</h3>
+        <p class="text-muted text-sm leading-relaxed" data-i18n="feature1.text">Yesterday's loose ends, sorted before 9am. Unfinished tasks surface automatically — you confirm what carries forward.</p>
       </div>
 
       <!-- Feature 2: Priority tasks + streaks -->
@@ -410,8 +442,8 @@
             <path d="M11 2l2.47 5.01 5.53.8-4 3.9.94 5.49L11 14.77l-4.94 2.43.94-5.49-4-3.9 5.53-.8L11 2z" stroke="#4B57C9" stroke-width="1.8" stroke-linejoin="round"/>
           </svg>
         </div>
-        <h3 class="text-text font-semibold text-lg mb-2">Priority tasks + streaks</h3>
-        <p class="text-muted text-sm leading-relaxed">Mark up to 3 tasks as "Main" — they're always first. Build streaks, and use a freeze to protect your chain on tough days.</p>
+        <h3 class="text-text font-semibold text-lg mb-2" data-i18n="feature2.title">Priority tasks + streaks</h3>
+        <p class="text-muted text-sm leading-relaxed" data-i18n="feature2.text">Mark up to 3 tasks as "Main" — they're always first. Build streaks, and use a freeze to protect your chain on tough days.</p>
       </div>
 
       <!-- Feature 3: Week plan timeline -->
@@ -426,8 +458,8 @@
             <circle cx="15" cy="14" r="1" fill="#4B57C9"/>
           </svg>
         </div>
-        <h3 class="text-text font-semibold text-lg mb-2">Week plan timeline</h3>
-        <p class="text-muted text-sm leading-relaxed">See the full week at a glance. Schedule tasks across days and watch Kaizen redistribute when the week shifts.</p>
+        <h3 class="text-text font-semibold text-lg mb-2" data-i18n="feature3.title">Week plan timeline</h3>
+        <p class="text-muted text-sm leading-relaxed" data-i18n="feature3.text">See the full week at a glance. Schedule tasks across days and watch Kaizen redistribute when the week shifts.</p>
       </div>
 
       <!-- Feature 4: Diary -->
@@ -440,8 +472,8 @@
             <rect x="2" y="5" width="2" height="12" rx="1" fill="#C2510C"/>
           </svg>
         </div>
-        <h3 class="text-text font-semibold text-lg mb-2">Diary + mood tracking</h3>
-        <p class="text-muted text-sm leading-relaxed">End-of-day check-in: how was it, what went wrong. Patterns emerge over weeks — and you finally see the real blockers.</p>
+        <h3 class="text-text font-semibold text-lg mb-2" data-i18n="feature4.title">Diary + mood tracking</h3>
+        <p class="text-muted text-sm leading-relaxed" data-i18n="feature4.text">End-of-day check-in: how was it, what went wrong. Patterns emerge over weeks — and you finally see the real blockers.</p>
       </div>
 
       <!-- Feature 5: Offline-first -->
@@ -452,14 +484,14 @@
             <path d="M13 2L4 13h7l-2 7 9-11h-7l2-7z" stroke="#4B57C9" stroke-width="1.8" stroke-linejoin="round"/>
           </svg>
         </div>
-        <h3 class="text-text font-semibold text-lg mb-2">Offline-first</h3>
-        <p class="text-muted text-sm leading-relaxed">Works without signal — lecture hall, commute, library basement. Syncs when you're back online. Your data, always available.</p>
+        <h3 class="text-text font-semibold text-lg mb-2" data-i18n="feature5.title">Offline-first</h3>
+        <p class="text-muted text-sm leading-relaxed" data-i18n="feature5.text">Works without signal — lecture hall, commute, library basement. Syncs when you're back online. Your data, always available.</p>
       </div>
 
       <!-- Feature 6: AI redistribution (Premium) -->
       <div class="feature-card rounded-3xl bg-surface border border-border p-7 transition-all duration-200 relative overflow-hidden">
         <!-- Premium badge -->
-        <span class="absolute top-4 right-4 px-2.5 py-0.5 rounded-pill bg-accent text-bg text-[11px] font-bold tracking-wide">Premium</span>
+        <span class="absolute top-4 right-4 px-2.5 py-0.5 rounded-pill bg-accent text-bg text-[11px] font-bold tracking-wide" data-i18n="badge.premium">Premium</span>
         <div class="w-11 h-11 rounded-2xl bg-accent/15 flex items-center justify-center mb-5" aria-hidden="true">
           <!-- Sparkle/AI icon -->
           <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
@@ -467,8 +499,8 @@
             <circle cx="11" cy="11" r="2.5" stroke="#4B57C9" stroke-width="1.8"/>
           </svg>
         </div>
-        <h3 class="text-text font-semibold text-lg mb-2">AI smart redistribution</h3>
-        <p class="text-muted text-sm leading-relaxed">Claude-powered suggestions adapt to your actual patterns — not just rigid rules. Multiple plan variants, deep insights, no ads ever.</p>
+        <h3 class="text-text font-semibold text-lg mb-2" data-i18n="feature6.title">AI smart redistribution</h3>
+        <p class="text-muted text-sm leading-relaxed" data-i18n="feature6.text">Claude-powered suggestions adapt to your actual patterns — not just rigid rules. Multiple plan variants, deep insights, no ads ever.</p>
       </div>
 
     </div>
@@ -483,11 +515,11 @@
   <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
 
     <div class="text-center mb-14">
-      <p class="text-muted text-sm font-medium tracking-wide mb-3">Simple pricing</p>
-      <h2 id="pricing-heading" class="font-display text-3xl sm:text-4xl font-semibold text-text">
+      <p class="text-muted text-sm font-medium tracking-wide mb-3" data-i18n="pricing.eyebrow">Simple pricing</p>
+      <h2 id="pricing-heading" class="font-display text-3xl sm:text-4xl font-semibold text-text" data-i18n="pricing.heading">
         Start free. Upgrade when you're ready.
       </h2>
-      <p class="text-muted mt-4 max-w-md mx-auto text-sm leading-relaxed">
+      <p class="text-muted mt-4 max-w-md mx-auto text-sm leading-relaxed" data-i18n="pricing.subhead">
         AI is a paid-only feature — it is never funded by ads. You decide when it's worth it.
       </p>
     </div>
@@ -497,108 +529,110 @@
       <!-- Free card -->
       <div class="rounded-3xl bg-surface border border-border p-8 flex flex-col">
         <div class="mb-6">
-          <p class="text-muted text-sm font-medium tracking-wide mb-2">Free</p>
+          <p class="text-muted text-sm font-medium tracking-wide mb-2" data-i18n="pricing.free.label">Free</p>
           <div class="flex items-baseline gap-1 mb-3">
-            <span class="font-display text-5xl font-semibold text-text">$0</span>
-            <span class="text-muted text-sm">/ forever</span>
+            <span class="font-display text-5xl font-semibold text-text" data-i18n="pricing.free.price">$0</span>
+            <span class="text-muted text-sm" data-i18n="pricing.free.period">/ forever</span>
           </div>
-          <p class="text-muted text-sm">Rule-based planning that actually works. No tricks.</p>
+          <p class="text-muted text-sm" data-i18n="pricing.free.desc">Rule-based planning that actually works. No tricks.</p>
         </div>
 
         <ul class="flex flex-col gap-3 mb-8 flex-1" role="list">
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Morning review + carry-over</span>
+            <span class="text-text" data-i18n="pricing.free.li1">Morning review + carry-over</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Priority "Main" tasks (up to 3)</span>
+            <span class="text-text" data-i18n="pricing.free.li2">Priority "Main" tasks (up to 3)</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Streaks with freeze</span>
+            <span class="text-text" data-i18n="pricing.free.li3">Streaks with freeze</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Week plan timeline</span>
+            <span class="text-text" data-i18n="pricing.free.li4">Week plan timeline</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Diary + mood log</span>
+            <span class="text-text" data-i18n="pricing.free.li5">Diary + mood log</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Offline-first sync</span>
+            <span class="text-text" data-i18n="pricing.free.li6">Offline-first sync</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">No ads — ever, on any tier</span>
+            <span class="text-text" data-i18n="pricing.free.li7">No ads — ever, on any tier</span>
           </li>
         </ul>
 
         <a
           :href="downloadHref"
-          x-text="'Start Free'"
+          x-text="$store.i18n.lang === 'ru' ? 'Начать бесплатно' : 'Start Free'"
           class="inline-flex items-center justify-center w-full py-3.5 rounded-pill border border-border text-text font-semibold text-sm hover:border-muted transition-colors duration-200"
           aria-label="Start Kaizen for free"
+          data-i18n-aria="aria.startFree"
         ></a>
       </div>
 
       <!-- Premium card (accented) -->
       <div class="rounded-3xl bg-surface border border-accent accent-glow p-8 flex flex-col relative">
         <!-- "Most popular" badge -->
-        <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-pill bg-accent text-bg text-xs font-bold tracking-wide whitespace-nowrap">
+        <span class="absolute -top-3.5 left-1/2 -translate-x-1/2 px-4 py-1 rounded-pill bg-accent text-bg text-xs font-bold tracking-wide whitespace-nowrap" data-i18n="premium.recommended">
           Recommended
         </span>
 
         <div class="mb-6">
-          <p class="text-accent text-sm font-medium tracking-wide mb-2">Premium</p>
+          <p class="text-accent text-sm font-medium tracking-wide mb-2" data-i18n="premium.label">Premium</p>
           <div class="flex items-baseline gap-1 mb-3">
-            <span class="font-display text-5xl font-semibold text-text">399 &#8381;</span>
-            <span class="text-muted text-sm">/ 31 days</span>
+            <span class="font-display text-5xl font-semibold text-text" data-i18n="premium.price">399 &#8381;</span>
+            <span class="text-muted text-sm" data-i18n="premium.period">/ 31 days</span>
           </div>
-          <p class="text-muted text-sm">AI-powered planning. No ads. One-time payment, no auto-renewal.</p>
+          <p class="text-muted text-sm" data-i18n="premium.desc">AI-powered planning. No ads. One-time payment, no auto-renewal.</p>
         </div>
 
         <ul class="flex flex-col gap-3 mb-8 flex-1" role="list">
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Everything in Free</span>
+            <span class="text-text" data-i18n="premium.li1">Everything in Free</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text font-medium">No ads, ever</span>
+            <span class="text-text font-medium" data-i18n="premium.li2">No ads, ever</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">AI smart redistribution</span>
+            <span class="text-text" data-i18n="premium.li3">AI smart redistribution</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Multiple plan variants</span>
+            <span class="text-text" data-i18n="premium.li4">Multiple plan variants</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Deep diary insights</span>
+            <span class="text-text" data-i18n="premium.li5">Deep diary insights</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Pattern analysis ("why it failed")</span>
+            <span class="text-text" data-i18n="premium.li6">Pattern analysis ("why it failed")</span>
           </li>
           <li class="flex items-start gap-3 text-sm">
             <span class="text-accent mt-0.5 flex-shrink-0" aria-hidden="true">&#10003;</span>
-            <span class="text-text">Priority support</span>
+            <span class="text-text" data-i18n="premium.li7">Priority support</span>
           </li>
         </ul>
 
         <a
           :href="downloadHref"
-          x-text="'Go Premium'"
+          x-text="$store.i18n.lang === 'ru' ? 'Оформить Premium' : 'Go Premium'"
           class="btn-download inline-flex items-center justify-center w-full py-3.5 rounded-pill bg-accent text-bg font-semibold text-sm transition-all duration-200"
           aria-label="Get Kaizen Premium"
+          data-i18n-aria="aria.goPremium"
         ></a>
 
-        <p class="text-muted text-xs text-center mt-3">
+        <p class="text-muted text-xs text-center mt-3" data-i18n="premium.footnote">
           AI is never funded by ads &mdash; only by this one-time payment. No auto-renewal: pay again only when you want another 31 days.
         </p>
       </div>
@@ -618,32 +652,229 @@
 
       <!-- Brand -->
       <div class="text-center md:text-left">
-        <p class="font-display text-2xl font-semibold text-text mb-1">Kaizen</p>
-        <p class="text-muted text-sm italic font-display">"The important stuff won't slip."</p>
+        <p class="font-display text-2xl font-semibold text-text mb-1" data-i18n="brand.name">Kaizen</p>
+        <p class="text-muted text-sm italic font-display" data-i18n="footer.tagline">"The important stuff won't slip."</p>
       </div>
 
       <!-- Links -->
-      <nav class="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-3 text-sm text-muted" aria-label="Footer navigation">
-        <a href="#appstore"   class="hover:text-text transition-colors duration-150">App Store</a>      <!-- TODO: real URL -->
-        <a href="#googleplay" class="hover:text-text transition-colors duration-150">Google Play</a>   <!-- TODO: real URL -->
-        <a href="app/"        class="hover:text-text transition-colors duration-150">Web App</a>        <!-- relative → /glavnoe/app/ -->
+      <nav class="flex flex-wrap justify-center md:justify-end gap-x-6 gap-y-3 text-sm text-muted" aria-label="Footer navigation" data-i18n-aria="aria.footerNav">
+        <a href="#appstore"   class="hover:text-text transition-colors duration-150" data-i18n="footer.link.appStore">App Store</a>      <!-- TODO: real URL -->
+        <a href="#googleplay" class="hover:text-text transition-colors duration-150" data-i18n="footer.link.googlePlay">Google Play</a>   <!-- TODO: real URL -->
+        <a href="app/"        class="hover:text-text transition-colors duration-150" data-i18n="footer.link.webApp">Web App</a>        <!-- relative → /glavnoe/app/ -->
         <span class="hidden md:inline text-border" aria-hidden="true">|</span>
-        <a href="privacy.html" class="hover:text-text transition-colors duration-150">Privacy</a>
-        <a href="terms.html"  class="hover:text-text transition-colors duration-150">Terms</a>
-        <a href="requisites.html" class="hover:text-text transition-colors duration-150">Реквизиты</a>
-        <a href="mailto:support.kaname@gmail.com" class="hover:text-text transition-colors duration-150">Contact</a>
+        <a href="privacy.html" id="link-privacy" class="hover:text-text transition-colors duration-150" data-i18n="footer.link.privacy">Privacy</a>
+        <a href="terms.html" id="link-terms" class="hover:text-text transition-colors duration-150" data-i18n="footer.link.terms">Terms</a>
+        <a href="requisites.html" class="hover:text-text transition-colors duration-150" data-i18n="footer.link.requisites">Requisites</a>
+        <a href="mailto:support.kaname@gmail.com" class="hover:text-text transition-colors duration-150" data-i18n="footer.link.contact">Contact</a>
       </nav>
 
     </div>
 
     <div class="mt-8 pt-6 border-t border-border flex flex-col sm:flex-row items-center justify-between gap-3 text-xs text-muted">
-      <p>&copy; 2026 Kaizen. All rights reserved.</p>
-      <p>Made for students who want a planner that actually keeps up.</p>
+      <p data-i18n="footer.copyright">&copy; 2026 Kaizen. All rights reserved.</p>
+      <p data-i18n="footer.madeFor">Made for students who want a planner that actually keeps up.</p>
     </div>
-    <p class="mt-3 text-xs text-muted text-center sm:text-left">Самозанятый Лунёв А. А. · ИНН 772792313532</p>
+    <p class="mt-3 text-xs text-muted text-center sm:text-left" data-i18n="footer.legal">Самозанятый Лунёв А. А. · ИНН 772792313532</p>
 
   </div>
 </footer>
+
+<!-- ============================================================
+     LANGUAGE SWITCHER (RU / EN)
+     - The EN dictionary is captured live from the markup above (innerHTML, so nested
+       tags like <br>/<em> survive the round-trip) — the HTML you see is the source of truth.
+     - The RU dictionary is hand-translated below.
+     - setLang(lang) swaps every [data-i18n]/[data-i18n-aria] node, updates <html lang>,
+       persists the choice to localStorage, highlights the active RU/EN pill, repoints the
+       footer Privacy/Terms links to privacy.html#<lang> / terms.html#<lang>, and (once Alpine
+       has booted) syncs the Alpine "i18n" store so reactive x-text bindings (smart download
+       button, Free/Premium CTAs) pick it up too.
+     - Auto-detect on first load: localStorage → navigator.language → default "en".
+     ============================================================ -->
+<script>
+(function () {
+  'use strict';
+
+  // 1) EN dictionary, captured from the DOM as authored above.
+  var I18N_EN = {};
+  document.querySelectorAll('[data-i18n]').forEach(function (el) {
+    I18N_EN[el.getAttribute('data-i18n')] = el.innerHTML.trim();
+  });
+  var I18N_EN_ARIA = {};
+  document.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
+    I18N_EN_ARIA[el.getAttribute('data-i18n-aria')] = el.getAttribute('aria-label') || '';
+  });
+
+  // 2) RU dictionary — hand-translated. Product name in RU copy is «Главное»
+  //    (Kaizen stays the codename in code/repo docs, per /CLAUDE.md).
+  var I18N_RU = {
+    'brand.name': `Главное`,
+
+    'nav.how': `Как это работает`,
+    'nav.features': `Возможности`,
+    'nav.pricing': `Цена`,
+
+    'hero.eyebrow': `Планировщик для студентов`,
+    'hero.title': `Главное<br />не потеряется<br /><em class="not-italic text-accent">никогда.</em>`,
+    'hero.subhead': `Автоматически перестраивает день вокруг главного — и показывает, почему планы срываются. Для студентов, которым нужен планировщик, который не отстаёт от жизни.`,
+    'hero.cta.secondary': `Посмотреть, как это работает`,
+    'hero.note': `Бесплатно на старте — карта не нужна.`,
+
+    'mockup.date': `Суббота, 7 июня`,
+    'shared.morningReview': `Утренний обзор`,
+    'mockup.progressDone': `2 из 3 выполнено`,
+    'mockup.carriedOverCount': `1 перенесена`,
+    'mockup.task1': `Прочитать 4 главу`,
+    'mockup.task2': `Сдать черновик эссе`,
+    'mockup.mainLabel': `Главная`,
+    'mockup.task3': `Ответить напарнику по лабе`,
+    'mockup.carriedOverLabel': `Перенесена`,
+    'mockup.nudgeBody': `1 задача перенесена со вчера — подтвердить или пропустить?`,
+
+    'problem.eyebrow': `Знакомо?`,
+    'problem.heading': `Планы срываются. «Главное» собирает всё обратно.`,
+    'problem.badge': `Проблема`,
+    'problem1.text': `Вы планируете день. Одна мелочь — и всё летит. Ничего не сделано.`,
+    'problem1.detail': `Одно неожиданное событие рушит весь график — а восстановить план посреди дня нечем.`,
+    'problem.fixBadge': `«Главное» это чинит`,
+    'problem1.fix': `Утренний обзор автоматически перестраивает день вокруг приоритетов — важные задачи остаются защищены, что бы ни случилось.`,
+    'problem2.text': `Вы путаете действительно важное с тем, что просто кажется срочным.`,
+    'problem2.detail': `День забит мелкими делами. Эссе, которое нужно сдать через неделю, откладывается до 11 вечера накануне срока.`,
+    'problem2.fix': `До 3 задач в статусе «Главная» — отмечены, защищены и всегда идут первыми. Остальное подстраивается вокруг них.`,
+    'problem3.text': `Вы не понимаете, <em>почему</em> планы срываются раз за разом.`,
+    'problem3.detail': `Завтра вы пробуете снова по той же схеме — и удивляетесь, почему ничего не меняется.`,
+    'problem3.fix': `Вечерний дневник и анализ паттернов точно показывают, что сбивает вас с курса: перегрузка, неверные оценки времени, внешний хаос.`,
+
+    'features.eyebrow': `Сделано иначе`,
+    'features.heading': `Всё, что нужно.<br /><span class="text-muted">Ничего лишнего.</span>`,
+    'feature1.text': `Хвосты со вчера — разобраны до 9 утра. Незавершённые задачи всплывают сами, вы только подтверждаете перенос.`,
+    'feature2.title': `Главные задачи + стрики`,
+    'feature2.text': `Отметьте до 3 задач как «Главные» — они всегда идут первыми. Копите стрик и используйте заморозку, чтобы не потерять цепочку в трудный день.`,
+    'feature3.title': `Таймлайн недели`,
+    'feature3.text': `Вся неделя как на ладони. Распределяйте задачи по дням — «Главное» само перестроит план, если что-то сдвинется.`,
+    'feature4.title': `Дневник + учёт настроения`,
+    'feature4.text': `Итог дня: как прошло, что пошло не так. Со временем проявляются паттерны — и вы наконец видите реальные причины срывов.`,
+    'feature5.title': `Работает офлайн`,
+    'feature5.text': `Работает без связи — в аудитории, транспорте, подвале библиотеки. Синхронизируется, как только вы снова онлайн. Данные всегда под рукой.`,
+    'badge.premium': `Премиум`,
+    'feature6.title': `Умное ИИ-перераспределение`,
+    'feature6.text': `Подсказки на базе ИИ подстраиваются под ваши реальные паттерны, а не жёсткие правила. Несколько вариантов плана, глубокая аналитика, никакой рекламы.`,
+
+    'pricing.eyebrow': `Простая цена`,
+    'pricing.heading': `Начните бесплатно. Переходите на Premium, когда будете готовы.`,
+    'pricing.subhead': `ИИ — платная функция и никогда не финансируется рекламой. Вы сами решаете, когда это того стоит.`,
+
+    'pricing.free.label': `Бесплатно`,
+    'pricing.free.price': `0 ₽`,
+    'pricing.free.period': `/ навсегда`,
+    'pricing.free.desc': `Планирование по понятным правилам, которое реально работает. Без подвохов.`,
+    'pricing.free.li1': `Утренний обзор + перенос задач`,
+    'pricing.free.li2': `Главные задачи (до 3)`,
+    'pricing.free.li3': `Стрики с заморозкой`,
+    'pricing.free.li4': `Таймлайн недели`,
+    'pricing.free.li5': `Дневник + учёт настроения`,
+    'pricing.free.li6': `Синхронизация офлайн`,
+    'pricing.free.li7': `Никакой рекламы — ни на одном тарифе`,
+
+    'premium.recommended': `Рекомендуем`,
+    'premium.label': `Premium`,
+    'premium.price': `399 ₽`,
+    'premium.period': `/ 31 день`,
+    'premium.desc': `Планирование с ИИ. Без рекламы. Разовый платёж, без автопродления.`,
+    'premium.li1': `Всё из тарифа «Бесплатно»`,
+    'premium.li2': `Никакой рекламы`,
+    'premium.li3': `Умное ИИ-перераспределение`,
+    'premium.li4': `Несколько вариантов плана`,
+    'premium.li5': `Глубокая аналитика дневника`,
+    'premium.li6': `Анализ паттернов («почему сорвалось»)`,
+    'premium.li7': `Приоритетная поддержка`,
+    'premium.footnote': `ИИ никогда не финансируется рекламой — только этим разовым платежом. Без автопродления: платите снова, только когда захотите ещё 31 день.`,
+
+    'footer.tagline': `«Главное не потеряется.»`,
+    'footer.link.appStore': `App Store`,
+    'footer.link.googlePlay': `Google Play`,
+    'footer.link.webApp': `Веб-версия`,
+    'footer.link.privacy': `Конфиденциальность`,
+    'footer.link.terms': `Условия`,
+    'footer.link.requisites': `Реквизиты`,
+    'footer.link.contact': `Контакты`,
+    'footer.copyright': `© 2026 «Главное». Все права защищены.`,
+    'footer.madeFor': `Сделано для студентов, которым нужен планировщик, который не отстаёт от жизни.`,
+    'footer.legal': `Самозанятый Лунёв А. А. · ИНН 772792313532`,
+  };
+
+  var I18N_RU_ARIA = {
+    'aria.mainNav': `Основная навигация`,
+    'aria.downloadOrOpen': `Скачать или открыть «Главное»`,
+    'aria.startFree': `Начать «Главное» бесплатно`,
+    'aria.goPremium': `Оформить Premium «Главное»`,
+    'aria.footerNav': `Навигация в подвале сайта`,
+  };
+
+  var DICTS = { en: I18N_EN, ru: I18N_RU };
+  var ARIA_DICTS = { en: I18N_EN_ARIA, ru: I18N_RU_ARIA };
+
+  // 3) Auto-detect: saved choice → browser language → English.
+  function detectLang() {
+    try {
+      var saved = localStorage.getItem('landing_lang');
+      if (saved === 'ru' || saved === 'en') return saved;
+    } catch (e) { /* localStorage unavailable (private mode etc.) — ignore */ }
+    var nav = (navigator.language || navigator.userLanguage || '').toLowerCase();
+    return nav.indexOf('ru') === 0 ? 'ru' : 'en';
+  }
+
+  // 4) Apply a language across the page.
+  function setLang(lang) {
+    if (lang !== 'ru' && lang !== 'en') lang = 'en';
+    var dict = DICTS[lang];
+    var ariaDict = ARIA_DICTS[lang];
+
+    document.querySelectorAll('[data-i18n]').forEach(function (el) {
+      var key = el.getAttribute('data-i18n');
+      if (Object.prototype.hasOwnProperty.call(dict, key)) el.innerHTML = dict[key];
+    });
+    document.querySelectorAll('[data-i18n-aria]').forEach(function (el) {
+      var key = el.getAttribute('data-i18n-aria');
+      if (Object.prototype.hasOwnProperty.call(ariaDict, key)) el.setAttribute('aria-label', ariaDict[key]);
+    });
+
+    document.documentElement.lang = lang;
+    try { localStorage.setItem('landing_lang', lang); } catch (e) { /* ignore */ }
+
+    // Highlight the active RU/EN pill (accent fill) vs. the inactive one (muted text).
+    document.querySelectorAll('[data-lang-btn]').forEach(function (btn) {
+      var active = btn.getAttribute('data-lang-btn') === lang;
+      btn.classList.toggle('bg-accent', active);
+      btn.classList.toggle('text-bg', active);
+      btn.classList.toggle('text-muted', !active);
+      btn.setAttribute('aria-pressed', active ? 'true' : 'false');
+    });
+
+    // Footer legal pages carry a #ru / #en hash so privacy.html / terms.html can jump
+    // straight to the matching language section.
+    var privacyLink = document.getElementById('link-privacy');
+    var termsLink = document.getElementById('link-terms');
+    if (privacyLink) privacyLink.href = 'privacy.html#' + lang;
+    if (termsLink) termsLink.href = 'terms.html#' + lang;
+
+    // Sync the Alpine store (drives x-text bindings: smart download buttons, Free/Premium CTAs).
+    if (window.Alpine && typeof Alpine.store === 'function' && Alpine.store('i18n')) {
+      Alpine.store('i18n').lang = lang;
+    }
+  }
+  window.setLang = setLang;
+
+  // 5) Register the Alpine store the moment Alpine boots — this listener works no matter
+  //    whether Alpine's deferred script runs before or after this inline script.
+  document.addEventListener('alpine:init', function () {
+    Alpine.store('i18n', { lang: detectLang() });
+  });
+
+  // 6) Apply immediately so plain (non-Alpine) copy is correct even before Alpine loads.
+  setLang(detectLang());
+})();
+</script>
 
 </body>
 </html>

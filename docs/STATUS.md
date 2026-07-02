@@ -1213,6 +1213,23 @@ main-задачи — считать день успешным или нет (п
 
 - [x] index.html — hero, problem/solution, features, pricing, footer
 - [x] Smart [Download] button (platform detection)
+- [x] RU/EN language switcher (2026-07-02): full bilingual coverage — 84 unique `data-i18n`
+  keys (91 tagged nodes incl. 4 reused keys) + 5 `data-i18n-aria` keys (7 nodes) span every
+  visible string (header, hero incl. phone mockup, problem/solution, features, both pricing
+  cards, footer). EN dictionary is captured live from the DOM at load (innerHTML, preserves
+  nested `<em>`/`<br>`/`<span>`); RU dictionary is hand-translated (product referred to as
+  «Главное» in RU copy per /CLAUDE.md naming note; price stays "399 ₽ / 31 день, разовый
+  платёж, без автопродления"). `setLang(lang)` swaps content, `<html lang>`, persists to
+  `localStorage('landing_lang')`, highlights the active RU/EN pill, repoints footer
+  Privacy/Terms links to `privacy.html#<lang>`/`terms.html#<lang>`, and syncs the Alpine
+  `i18n` store (registered via `alpine:init`) so reactive `x-text` bindings (smart download
+  button, Free/Premium CTAs) follow along. Auto-detect: `localStorage` → `navigator.language`
+  → `en`. Also fixed a pre-existing bug where the Premium CTA's `x-text="'Go Premium'"` never
+  reacted to language. Verified via a headless jsdom run (zero runtime errors, full EN↔RU
+  round-trip) since no browser is available in this environment. Header also got a
+  `sm:hidden`/`hidden sm:inline-flex` pair of download buttons (short "Get App"/"Скачать"
+  label under 640px, full platform-specific label above) so the RU/EN pills + download CTA
+  keep fitting a 360px header without overflow.
 
 ## AI — Phase 1 (paid; see docs/agents/ai-tasks.md)
 
